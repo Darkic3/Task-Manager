@@ -483,6 +483,16 @@
                                            min="0" max="99" step="0.25">
                                 </div>
                                 @error('weight')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                @php
+                                    $wEffNow = $task->effectiveWeight();
+                                    $wFmtNow = rtrim(rtrim(number_format($wEffNow, 2), '0'), '.');
+                                @endphp
+                                <div style="font-size:11px; color:#8a8f98; margin-top:4px;">
+                                    Effective now: <strong style="color:#7c3aed;">×{{ $wFmtNow }}</strong>
+                                    @if($task->auto_weight && $task->ownTimeSeconds() > 0)
+                                        (auto-boosted by tracked time)
+                                    @endif
+                                </div>
                             </div>
                         </div>
 

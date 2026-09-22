@@ -445,6 +445,35 @@
                 </div>
                 @endif
 
+                @php
+                    $wManual = max(0, (float) ($task->weight ?? 1));
+                    $wEff = $task->effectiveWeight();
+                    $wSpentH = round($task->ownTimeSeconds() / 3600, 1);
+                    $wFmt = fn ($v) => rtrim(rtrim(number_format($v, 2), '0'), '.');
+                    $wExtra = ($task->auto_weight && $wSpentH > 0 && $wEff != $wManual) ? ", {$wSpentH}h tracked" : '';
+                @endphp
+                <div class="ts-meta-row">
+                    <div class="ts-meta-icon"><i class="bi bi-award"></i></div>
+                    <div>
+                        <div class="ts-meta-label">Weight</div>
+                        <div class="ts-meta-val">×{{ $wFmt($wEff) }}
+                            <span style="font-size:11px; color:#9ca3af;">
+                                ({{ $wFmt($wManual) }} {{ $task->auto_weight ? 'auto' : 'manual' }}{{ $wExtra }})
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                @if($wSpentH > 0)
+                <div class="ts-meta-row">
+                    <div class="ts-meta-icon"><i class="bi bi-stopwatch"></i></div>
+                    <div>
+                        <div class="ts-meta-label">Time Spent</div>
+                        <div class="ts-meta-val">{{ \App\Models\TimeEntry::formatDuration($task->totalTimeSeconds()) }}</div>
+                    </div>
+                </div>
+                @endif
+
                 <div class="ts-meta-row">
                     <div class="ts-meta-icon"><i class="bi bi-calendar-plus"></i></div>
                     <div>
