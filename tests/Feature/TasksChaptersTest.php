@@ -6,17 +6,12 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class TasksChaptersTest extends TestCase
 {
     use RefreshDatabase;
-
-    protected function getEnvironmentSetUp($app): void
-    {
-        $app['config']->set('database.default', 'sqlite');
-        $app['config']->set('database.connections.sqlite.database', ':memory:');
-    }
 
     private function makeChapter(User $user, Project $project): Task
     {
@@ -57,6 +52,12 @@ class TasksChaptersTest extends TestCase
         ]);
 
         return $chapter->fresh();
+    }
+
+    public function test_tests_run_against_the_dedicated_test_database(): void
+    {
+        // Guard: never run the suite against the development database.
+        $this->assertSame('task_test', DB::getDatabaseName());
     }
 
     public function test_project_tasks_page_renders_chapter_sections_with_progress_counts(): void
