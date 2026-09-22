@@ -53,7 +53,7 @@ class TaskController extends Controller
 
     public function store(Request $request, ?Project $project = null)
     {
-        $request->validate([
+        $data = $request->validate([
             'project_id' => 'required|exists:projects,id',
             'user_id' => 'required|exists:users,id',
             'title' => 'required|string|max:255',
@@ -61,7 +61,9 @@ class TaskController extends Controller
             'due_date' => 'nullable|date',
             'priority' => 'required|in:low,medium,high',
             'status' => 'required|in:to_do,in_progress,on_hold,in_review,completed',
-            'estimated_hours' => 'nullable|numeric|min:0.5',
+            'estimated_hours' => 'nullable|numeric|min:0',
+            'est_hours' => 'nullable|integer|min:0|max:999',
+            'est_minutes' => 'nullable|integer|min:0|max:59',
             'parent_id' => 'nullable|integer|exists:tasks,id',
             'weight' => 'nullable|numeric|min:0|max:99',
             'auto_weight' => 'nullable|boolean',
@@ -70,7 +72,10 @@ class TaskController extends Controller
 
         $this->resolveParent($request->input('parent_id'), $request->input('project_id'), Auth::id());
 
-        Task::create($request->all());
+        $data['estimated_hours'] = Task::combineEstimate($data['est_hours'] ?? null, $data['est_minutes'] ?? null, $data['estimated_hours'] ?? null);
+        unset($data['est_hours'], $data['est_minutes']);
+
+        Task::create($data);
 
         // Redirect based on context
         if ($project) {
@@ -102,13 +107,15 @@ class TaskController extends Controller
 
     public function update(Request $request, Task $task)
     {
-        $request->validate([
+        $data = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'due_date' => 'nullable|date',
             'priority' => 'required|in:low,medium,high',
             'status' => 'required|in:to_do,in_progress,on_hold,in_review,completed',
-            'estimated_hours' => 'nullable|numeric|min:0.5',
+            'estimated_hours' => 'nullable|numeric|min:0',
+            'est_hours' => 'nullable|integer|min:0|max:999',
+            'est_minutes' => 'nullable|integer|min:0|max:59',
             'parent_id' => 'nullable|integer|exists:tasks,id',
             'weight' => 'nullable|numeric|min:0|max:99',
             'auto_weight' => 'nullable|boolean',
@@ -117,7 +124,8 @@ class TaskController extends Controller
 
         $this->resolveParent($request->input('parent_id'), $task->project_id, Auth::id(), $task->id);
 
-        $data = $request->all();
+        $data['estimated_hours'] = Task::combineEstimate($data['est_hours'] ?? null, $data['est_minutes'] ?? null, $data['estimated_hours'] ?? null);
+        unset($data['est_hours'], $data['est_minutes']);
         $data['completed_at'] = ($data['status'] ?? null) === 'completed'
             ? ($task->completed_at ?? now())
             : null;

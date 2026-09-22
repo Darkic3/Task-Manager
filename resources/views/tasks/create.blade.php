@@ -73,19 +73,36 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="estimated_hours" class="form-label">Estimated Hours</label>
-                            <div class="input-icon">
-                                <i class="bi bi-clock"></i>
-                                <input type="number"
-                                       name="estimated_hours"
-                                       id="estimated_hours"
-                                       class="form-control {{ $errors->has('estimated_hours') ? 'is-invalid' : '' }}"
-                                       value="{{ old('estimated_hours') }}"
-                                       min="0.5"
-                                       step="0.5"
-                                       placeholder="2.5">
+                            <label class="form-label">Estimated Time</label>
+                            <div style="display:flex; gap:8px;">
+                                <div class="input-icon" style="flex:1;">
+                                    <i class="bi bi-clock"></i>
+                                    <input type="number"
+                                           name="est_hours"
+                                           id="est_hours"
+                                           class="form-control {{ $errors->has('est_hours') ? 'is-invalid' : '' }}"
+                                           value="{{ old('est_hours') }}"
+                                           min="0"
+                                           max="999"
+                                           step="1"
+                                           placeholder="Hrs">
+                                </div>
+                                <div style="flex:1;">
+                                    <input type="number"
+                                           name="est_minutes"
+                                           id="est_minutes"
+                                           class="form-control {{ $errors->has('est_minutes') ? 'is-invalid' : '' }}"
+                                           value="{{ old('est_minutes') }}"
+                                           min="0"
+                                           max="59"
+                                           step="1"
+                                           placeholder="Min">
+                                </div>
                             </div>
-                            @error('estimated_hours')
+                            @error('est_hours')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            @error('est_minutes')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>

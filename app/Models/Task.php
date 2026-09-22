@@ -73,6 +73,58 @@ class Task extends Model
     }
 
     /**
+     * Split decimal hours into [hours, minutes] for form inputs.
+     */
+    public static function splitHours($decimal): array
+    {
+        if ($decimal === null || $decimal === '') {
+            return ['', ''];
+        }
+        $total = (int) round((float) $decimal * 60);
+        $h = intdiv($total, 60);
+        $m = $total % 60;
+
+        return [$h > 0 ? $h : '', $m > 0 ? $m : ''];
+    }
+
+    /**
+     * Combine hours + minutes inputs into decimal hours (null when empty).
+     */
+    public static function combineEstimate($hours, $minutes, $fallback = null): ?float
+    {
+        if (($hours === null || $hours === '') && ($minutes === null || $minutes === '')) {
+            return ($fallback !== null && $fallback !== '') ? round((float) $fallback, 2) : null;
+        }
+        $total = ((int) ($hours ?? 0)) * 60 + ((int) ($minutes ?? 0));
+
+        return $total > 0 ? round($total / 60, 2) : null;
+    }
+
+    /**
+     * Human label like "1h 30m", "45m" or "2h" (null when unset).
+     */
+    public function estimatedLabel(): ?string
+    {
+        if ($this->estimated_hours === null) {
+            return null;
+        }
+        [$h, $m] = static::splitHours($this->estimated_hours);
+        $h = (int) $h;
+        $m = (int) $m;
+        if ($h > 0 && $m > 0) {
+            return "{$h}h {$m}m";
+        }
+        if ($h > 0) {
+            return "{$h}h";
+        }
+        if ($m > 0) {
+            return "{$m}m";
+        }
+
+        return null;
+    }
+
+    /**
      * Manual weight adjusted by time spent when auto_weight is on:
      * manual × (1 + actual/estimated), or manual × (1 + actual/10h).
      */

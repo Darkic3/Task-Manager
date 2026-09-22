@@ -440,7 +440,7 @@
                     <div class="ts-meta-icon"><i class="bi bi-clock"></i></div>
                     <div>
                         <div class="ts-meta-label">Estimated</div>
-                        <div class="ts-meta-val">{{ $task->estimated_hours }} hrs</div>
+                        <div class="ts-meta-val">{{ $task->estimatedLabel() }}</div>
                     </div>
                 </div>
                 @endif

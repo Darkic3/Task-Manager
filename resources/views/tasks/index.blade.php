@@ -536,8 +536,11 @@
                         </div>
                         <div class="col-md-3">
                             <div class="cu-field">
-                                <label class="cu-label">Est. Hours</label>
-                                <input type="number" name="estimated_hours" class="cu-input" min="0.5" step="0.5" placeholder="e.g. 2.5">
+                                <label class="cu-label">Est. Time</label>
+                                <div style="display:flex; gap:6px;">
+                                    <input type="number" name="est_hours" class="cu-input" min="0" max="999" step="1" placeholder="Hrs" title="Hours">
+                                    <input type="number" name="est_minutes" class="cu-input" min="0" max="59" step="1" placeholder="Min" title="Minutes">
+                                </div>
                             </div>
                         </div>
                     </div>

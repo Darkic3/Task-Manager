@@ -335,7 +335,7 @@
                 @if($task->estimated_hours)
                 <div class="cu-meta-row">
                     <i class="bi bi-clock"></i>
-                    <span>Est.&nbsp;<strong>{{ $task->estimated_hours }} hrs</strong></span>
+                    <span>Est.&nbsp;<strong>{{ $task->estimatedLabel() ?? '—' }}</strong></span>
                 </div>
                 @endif
 
@@ -408,15 +408,30 @@
                                 @error('due_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="estimated_hours" class="cu-label">Estimated Hours</label>
-                                <div class="cu-input-wrap">
-                                    <i class="bi bi-clock"></i>
-                                    <input type="number" name="estimated_hours" id="estimated_hours"
-                                           class="cu-input {{ $errors->has('estimated_hours') ? 'is-invalid' : '' }}"
-                                           value="{{ old('estimated_hours', $task->estimated_hours) }}"
-                                           min="0.5" step="0.5" placeholder="e.g. 2.5">
+                                <label class="cu-label">Estimated Time</label>
+                                @php
+                                    [$estH, $estM] = \App\Models\Task::splitHours(old('estimated_hours', $task->estimated_hours));
+                                    $estH = old('est_hours', $estH);
+                                    $estM = old('est_minutes', $estM);
+                                @endphp
+                                <div style="display:flex; gap:8px;">
+                                    <div class="cu-input-wrap" style="flex:1;">
+                                        <i class="bi bi-clock"></i>
+                                        <input type="number" name="est_hours" id="est_hours"
+                                               class="cu-input {{ $errors->has('est_hours') ? 'is-invalid' : '' }}"
+                                               value="{{ $estH }}"
+                                               min="0" max="999" step="1" placeholder="Hrs" title="Hours">
+                                    </div>
+                                    <div class="cu-input-wrap" style="flex:1;">
+                                        <i class="bi bi-stopwatch"></i>
+                                        <input type="number" name="est_minutes" id="est_minutes"
+                                               class="cu-input {{ $errors->has('est_minutes') ? 'is-invalid' : '' }}"
+                                               value="{{ $estM }}"
+                                               min="0" max="59" step="1" placeholder="Min" title="Minutes">
+                                    </div>
                                 </div>
-                                @error('estimated_hours')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                @error('est_hours')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                @error('est_minutes')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                         </div>
 
