@@ -519,6 +519,45 @@
         font-size: 14px;
     }
 
+    /* ─── Tree View ────────────────────────────────────────────── */
+    .cu-tree {
+        display: none;
+        background: white;
+        border: 1px solid #e3e4e8;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .cu-tree-node { border-bottom: 1px solid #f0f1f3; }
+    .cu-tree-node:last-child { border-bottom: none; }
+    .cu-tree-row {
+        display: flex; align-items: center; gap: 8px;
+        padding: 9px 12px 9px calc(12px + var(--depth, 0) * 22px);
+    }
+    .cu-tree-row:hover { background: #fafbfc; }
+    .cu-tree-toggle {
+        width: 22px; height: 22px; border: 1px solid #e3e4e8; background: white;
+        border-radius: 6px; color: #8a8f98; font-size: 10px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .cu-tree-toggle i { transition: transform .15s; }
+    .cu-tree-toggle.collapsed i { transform: rotate(-90deg); }
+    .cu-tree-spacer { width: 22px; flex-shrink: 0; }
+    .cu-tree-name {
+        font-size: 13px; font-weight: 600; color: #1a1d23; text-decoration: none;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+    }
+    .cu-tree-name:hover { color: #7c3aed; }
+    .cu-tree-type {
+        font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+        background: #f1f2f4; color: #6b7385; border-radius: 20px; padding: 1px 8px; flex-shrink: 0;
+    }
+    .cu-tree-meta { font-size: 11px; color: #8a8f98; margin-left: auto; white-space: nowrap; }
+    .cu-tree-progress { display: flex; align-items: center; gap: 6px; min-width: 110px; font-size: 11px; color: #6b7385; }
+    .cu-tree-pb { flex: 1; height: 4px; background: #f0f1f3; border-radius: 4px; overflow: hidden; }
+    .cu-tree-pb-fill { height: 100%; background: #7c3aed; border-radius: 4px; }
+    .cu-tree-actions { display: flex; gap: 4px; }
+    .cu-tree-children { background: #fcfcfd; }
+
     /* ─── Responsive ───────────────────────────────────────────── */
     @media (max-width: 768px) {
         /* Content header */
@@ -602,6 +641,7 @@
         <div class="cu-view-toggle">
             <button class="cu-view-btn active" data-view="grid" title="Grid"><i class="bi bi-grid-3x3-gap"></i></button>
             <button class="cu-view-btn" data-view="list" title="List"><i class="bi bi-list-ul"></i></button>
+            <button class="cu-view-btn" data-view="tree" title="Tree"><i class="bi bi-diagram-3"></i></button>
         </div>
     </div>
 
@@ -645,7 +685,7 @@
                             </div>
                             <div class="flex-grow-1 min-w-0">
                                 <div class="cu-card-name" title="{{ $project->name }}">{{ $project->name }}</div>
-                                <div class="cu-card-desc">{{ strip_tags($project->description) ?: 'No description' }}</div>
+                                <div class="cu-card-desc">{{ strip_tags($project->description ?? '') ?: 'No description' }}</div>
                             </div>
                         </div>
 
@@ -761,6 +801,19 @@
             @endforeach
         </div>
 
+        {{-- Tree --}}
+        <div class="cu-tree" id="cuTree">
+            @forelse($roots as $root)
+                @include('projects._tree-node', ['project' => $root, 'depth' => 0])
+            @empty
+                <div class="cu-empty" style="border:none;">
+                    <div class="cu-empty-icon"><i class="bi bi-diagram-3"></i></div>
+                    <h5>No projects yet</h5>
+                    <p>Create your first project to start organising your work.</p>
+                </div>
+            @endforelse
+        </div>
+
     @else
         <div class="cu-empty">
             <div class="cu-empty-icon"><i class="bi bi-folder-plus"></i></div>
@@ -814,19 +867,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function setView(view) {
         viewBtns.forEach(b => b.classList.toggle('active', b.dataset.view === view));
-        if (view === 'list') {
-            cuGrid.style.display = 'none';
-            cuList.style.display = 'flex';
-        } else {
-            cuGrid.style.display = 'grid';
-            cuList.style.display = 'none';
-        }
+        const cuTree = document.getElementById('cuTree');
+        cuGrid.style.display = view === 'grid' ? 'grid' : 'none';
+        cuList.style.display = view === 'list' ? 'flex' : 'none';
+        if (cuTree) cuTree.style.display = view === 'tree' ? 'block' : 'none';
     }
 
     searchInput.addEventListener('input', filterAndSort);
     statusFilter.addEventListener('change', filterAndSort);
     sortFilter.addEventListener('change', filterAndSort);
     viewBtns.forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+
+    document.querySelectorAll('.cu-tree-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = document.getElementById(btn.dataset.target);
+            if (!target) return;
+            const hidden = target.style.display === 'none';
+            target.style.display = hidden ? '' : 'none';
+            btn.classList.toggle('collapsed', !hidden);
+        });
+    });
 });
 </script>
 @endpush

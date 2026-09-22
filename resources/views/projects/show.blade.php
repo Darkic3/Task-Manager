@@ -435,7 +435,7 @@
         $completedTasks = $project->tasks->where('status', 'completed')->count();
         $inProgressTasks= $project->tasks->where('status', 'in_progress')->count();
         $todoTasks      = $project->tasks->whereNotIn('status', ['completed','in_progress'])->count();
-        $progress       = $totalTasks > 0 ? ($completedTasks / $totalTasks) * 100 : 0;
+        $progress       = $project->progressPercent();
         $ringOffset     = 238.76 - (238.76 * $progress / 100);
 
         $rawStatus = $project->status;
@@ -453,6 +453,19 @@
     @endphp
 
     <div class="cu-layout">
+
+        {{-- ── Breadcrumb ───────────────────────────────────────── --}}
+        @php $crumbs = $project->breadcrumb(); @endphp
+        @if(count($crumbs) > 0)
+            <div style="grid-column:1/-1; font-size:12px; color:#8a8f98; margin-bottom:-4px;">
+                <i class="bi bi-diagram-3 me-1"></i>
+                @foreach($crumbs as $crumb)
+                    <a href="{{ route('projects.show', $crumb) }}" style="color:#7c3aed; text-decoration:none;">{{ $crumb->name }}</a>
+                    <span class="mx-1">›</span>
+                @endforeach
+                <strong style="color:#1a1d23;">{{ $project->name }}</strong>
+            </div>
+        @endif
 
         {{-- ── LEFT: Info Panel ─────────────────────────────────── --}}
         <div class="cu-left-panel">
@@ -506,6 +519,9 @@
             <div class="cu-panel-actions">
                 <a href="{{ route('projects.tasks.index', $project) }}" class="cu-panel-action-btn primary">
                     <i class="bi bi-list-task"></i> View Tasks
+                </a>
+                <a href="{{ route('projects.create', ['parent' => $project->id]) }}" class="cu-panel-action-btn">
+                    <i class="bi bi-diagram-3"></i> Add Sub-project
                 </a>
                 <a href="{{ route('projects.edit', $project) }}" class="cu-panel-action-btn">
                     <i class="bi bi-pencil"></i> Edit Project
@@ -573,6 +589,40 @@
                     @endif
                 </div>
             </div>
+
+            {{-- ── Sub-projects Section ─────────────────────────── --}}
+            @if($project->children->count() > 0)
+            <div class="cu-section">
+                <div class="cu-section-header" style="justify-content:space-between;">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="cu-section-icon"><i class="bi bi-diagram-3"></i></span>
+                        <span class="cu-section-title">Sub-projects ({{ $project->children->count() }})</span>
+                    </div>
+                    <a href="{{ route('projects.create', ['parent' => $project->id]) }}" class="cu-panel-action-btn" style="padding:4px 10px;font-size:11px;">
+                        <i class="bi bi-plus-lg"></i> Add
+                    </a>
+                </div>
+                <div class="cu-section-body" style="padding-top:8px;padding-bottom:8px;">
+                    @foreach($project->children as $child)
+                        @php $childProgress = $child->progressPercent(); @endphp
+                        <a href="{{ route('projects.show', $child) }}" class="text-decoration-none">
+                            <div class="cu-member">
+                                <div class="cu-member-av" style="background:#7c3aed;border-radius:8px;">
+                                    {{ strtoupper(substr($child->name,0,1)) }}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="cu-member-name">{{ $child->name }}</div>
+                                    <div class="cu-member-email">{{ $child->tasks->count() }} tasks · {{ round($childProgress) }}%</div>
+                                </div>
+                                <div style="width:90px;height:5px;background:#f0f1f3;border-radius:4px;overflow:hidden;">
+                                    <div style="height:100%;background:#7c3aed;border-radius:4px;width:{{ $childProgress }}%;"></div>
+                                </div>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+            @endif
 
             {{-- ── Description Section ────────────────────────────── --}}
             <div class="cu-section">

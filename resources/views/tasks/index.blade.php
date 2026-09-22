@@ -94,6 +94,11 @@
     .cu-priority.low   {background:#f0fdf4;color:#16a34a;}
     .cu-due{display:inline-flex;align-items:center;gap:3px;font-size:11px;color:#8a8f98;}
     .cu-due.overdue{color:#dc2626;}
+    .cu-subtasks,.cu-weight{
+        display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;
+        font-size:10px;font-weight:700;background:#f1f2f4;color:#6b7385;
+    }
+    .cu-weight{background:#ede9fe;color:#7c3aed;}
     .cu-assignee{
         width:20px;height:20px;border-radius:50%;background:#7c3aed;color:white;
         font-size:10px;font-weight:700;display:inline-flex;align-items:center;
@@ -140,6 +145,32 @@
     .cu-status-chip.on_hold    {background:#fef3c7;color:#b45309;}
     .cu-status-chip.in_review  {background:#dbeafe;color:#1d4ed8;}
     .cu-status-chip.completed  {background:#dcfce7;color:#16a34a;}
+
+    .cu-tree-view{display:none;background:white;border:1px solid #e3e4e8;border-radius:9px;overflow:hidden;}
+    .cu-ttree-node{border-bottom:1px solid #f0f1f3;}
+    .cu-ttree-node:last-child{border-bottom:none;}
+    .cu-ttree-row{
+        display:flex;align-items:center;gap:8px;
+        padding:9px 12px 9px calc(12px + var(--depth, 0) * 22px);
+    }
+    .cu-ttree-row:hover{background:#fafbfc;}
+    .cu-tree-toggle{
+        width:22px;height:22px;border:1px solid #e3e4e8;background:white;border-radius:6px;
+        color:#8a8f98;font-size:10px;cursor:pointer;display:flex;align-items:center;
+        justify-content:center;flex-shrink:0;
+    }
+    .cu-tree-toggle i{transition:transform .15s;}
+    .cu-tree-toggle.collapsed i{transform:rotate(-90deg);}
+    .cu-tree-spacer{width:22px;flex-shrink:0;}
+    .cu-ttree-title{font-size:13px;font-weight:600;color:#1a1d23;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+    .cu-ttree-title:hover{color:#7c3aed;}
+    .cu-ttree-weight{font-size:10px;font-weight:700;background:#ede9fe;color:#7c3aed;border-radius:20px;padding:1px 8px;flex-shrink:0;}
+    .cu-ttree-meta{font-size:11px;color:#8a8f98;margin-left:auto;white-space:nowrap;}
+    .cu-ttree-progress{display:flex;align-items:center;gap:6px;min-width:110px;font-size:11px;color:#6b7385;}
+    .cu-ttree-pb{flex:1;height:4px;background:#f0f1f3;border-radius:4px;overflow:hidden;}
+    .cu-ttree-pb-fill{height:100%;background:#7c3aed;border-radius:4px;}
+    .cu-ttree-actions{display:flex;gap:4px;}
+    .cu-ttree-children{background:#fcfcfd;}
 
     .cu-empty{
         text-align:center;padding:60px 20px;background:white;
@@ -230,6 +261,7 @@
             <div class="cu-view-toggle">
                 <button class="cu-view-btn active" data-view="kanban"><i class="bi bi-kanban"></i> Board</button>
                 <button class="cu-view-btn" data-view="list"><i class="bi bi-list-ul"></i> List</button>
+                <button class="cu-view-btn" data-view="tree"><i class="bi bi-diagram-3"></i> Tree</button>
             </div>
             <input type="text" class="cu-search-input" id="cuSearch" placeholder="Search tasks…">
             <select class="cu-filter-select" id="cuPriority">
@@ -421,6 +453,19 @@
         @endforeach
     </div>
 
+    {{-- TREE VIEW --}}
+    <div class="cu-tree-view" id="cuTree">
+        @forelse($taskRoots as $task)
+            @include('tasks._tree-node', ['task' => $task, 'depth' => 0])
+        @empty
+            <div class="cu-empty">
+                <div class="cu-empty-icon"><i class="bi bi-diagram-3"></i></div>
+                <h5>No tasks yet</h5>
+                <p>Create your first task to get started.</p>
+            </div>
+        @endforelse
+    </div>
+
     @endif
 </div>
 
@@ -496,6 +541,35 @@
                             </div>
                         </div>
                     </div>
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <div class="cu-field">
+                                <label class="cu-label">Parent Task</label>
+                                <select name="parent_id" class="cu-input cu-select">
+                                    <option value="">None (top-level)</option>
+                                    @foreach(collect($tasks)->flatten()->sortBy('title') as $pt)
+                                        <option value="{{ $pt->id }}">{{ $pt->title }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="cu-field">
+                                <label class="cu-label">Weight</label>
+                                <input type="number" name="weight" class="cu-input" min="0" step="0.25" value="1">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="cu-field">
+                                <label class="cu-label">Auto</label>
+                                <input type="hidden" name="auto_weight" value="0">
+                                <div class="form-check mt-2">
+                                    <input type="checkbox" name="auto_weight" value="1" class="form-check-input" checked id="autoWeight">
+                                    <label class="form-check-label" for="autoWeight" style="font-size:12px;">Auto</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <input type="hidden" name="status" id="task_status" value="to_do">
                 </div>
                 <div class="modal-footer">
@@ -516,6 +590,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     const kanban = document.getElementById('cuKanban');
     const list   = document.getElementById('cuList');
+    const tree   = document.getElementById('cuTree');
 
     document.querySelectorAll('.cu-view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -524,6 +599,17 @@ document.addEventListener('DOMContentLoaded', function () {
             const v = btn.dataset.view;
             if (kanban) kanban.style.display = v === 'kanban' ? 'grid' : 'none';
             if (list)   list.style.display   = v === 'list'   ? 'block' : 'none';
+            if (tree)   tree.style.display   = v === 'tree'   ? 'block' : 'none';
+        });
+    });
+
+    document.querySelectorAll('.cu-tree-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = document.getElementById(btn.dataset.target);
+            if (!target) return;
+            const hidden = target.style.display === 'none';
+            target.style.display = hidden ? '' : 'none';
+            btn.classList.toggle('collapsed', !hidden);
         });
     });
 

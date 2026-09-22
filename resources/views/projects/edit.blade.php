@@ -584,6 +584,41 @@
                             </div>
                             @error('description')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
+
+                        <div class="cu-field-row" style="margin-top:12px;">
+                            <div class="cu-field" style="margin-bottom:0;">
+                                <label for="parent_id" class="cu-label">Parent Project</label>
+                                <div class="cu-input-wrap">
+                                    <i class="bi bi-diagram-3"></i>
+                                    <select name="parent_id" id="parent_id"
+                                            class="cu-input no-icon {{ $errors->has('parent_id') ? 'is-invalid' : '' }}"
+                                            style="padding-left:34px;">
+                                        <option value="">None (top-level)</option>
+                                        @foreach($parentOptions as $opt)
+                                            <option value="{{ $opt->id }}"
+                                                {{ (string) old('parent_id', $project->parent_id ?? '') === (string) $opt->id ? 'selected' : '' }}>
+                                                {{ $opt->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                @error('parent_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="cu-field" style="margin-bottom:0;">
+                                <label for="type" class="cu-label">Type</label>
+                                <div class="cu-input-wrap">
+                                    <i class="bi bi-tag"></i>
+                                    <select name="type" id="type"
+                                            class="cu-input no-icon {{ $errors->has('type') ? 'is-invalid' : '' }}"
+                                            style="padding-left:34px;">
+                                        @foreach(['project' => 'Project', 'subproject' => 'Sub-project', 'lesson' => 'Lesson', 'chapter' => 'Chapter', 'section' => 'Section'] as $val => $label)
+                                            <option value="{{ $val }}" {{ old('type', $project->type ?? 'project') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                @error('type')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                        </div>
                     </div>
                 </div>
 

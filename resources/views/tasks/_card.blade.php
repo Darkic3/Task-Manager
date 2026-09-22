@@ -30,6 +30,15 @@
                 @endif
             </span>
         @endif
+        @if($task->children->count() > 0)
+            <span class="cu-subtasks" title="Subtasks">
+                <i class="bi bi-diagram-3" style="font-size:10px;"></i>
+                {{ $task->children->count() }}
+            </span>
+        @endif
+        @if(((float) ($task->weight ?? 1)) !== 1.0)
+            <span class="cu-weight" title="Weight">×{{ rtrim(rtrim(number_format((float) $task->weight, 2), '0'), '.') }}</span>
+        @endif
         @if($task->user)
             <div class="cu-assignee" title="{{ $task->user->name }}" style="margin-left:auto;">
                 {{ strtoupper(substr($task->user->name, 0, 1)) }}

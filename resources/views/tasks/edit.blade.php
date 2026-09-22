@@ -454,6 +454,48 @@
                                 @error('user_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                         </div>
+
+                        <div class="cu-field-row" style="margin-top:12px;">
+                            <div class="cu-field" style="margin-bottom:0;">
+                                <label for="parent_id" class="cu-label">Parent Task</label>
+                                <div class="cu-input-wrap">
+                                    <i class="bi bi-diagram-3"></i>
+                                    <select name="parent_id" id="parent_id"
+                                            class="cu-input {{ $errors->has('parent_id') ? 'is-invalid' : '' }}">
+                                        <option value="">None (top-level)</option>
+                                        @foreach($parentOptions as $opt)
+                                            <option value="{{ $opt->id }}"
+                                                {{ (string) old('parent_id', $task->parent_id ?? '') === (string) $opt->id ? 'selected' : '' }}>
+                                                {{ $opt->title }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                @error('parent_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="cu-field" style="margin-bottom:0;">
+                                <label for="weight" class="cu-label">Weight</label>
+                                <div class="cu-input-wrap">
+                                    <i class="bi bi-award"></i>
+                                    <input type="number" name="weight" id="weight"
+                                           class="cu-input {{ $errors->has('weight') ? 'is-invalid' : '' }}"
+                                           value="{{ old('weight', $task->weight ?? 1) }}"
+                                           min="0" max="99" step="0.25">
+                                </div>
+                                @error('weight')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                        </div>
+
+                        <div class="cu-field" style="margin-top:12px; margin-bottom:0;">
+                            <input type="hidden" name="auto_weight" value="0">
+                            <div class="form-check">
+                                <input type="checkbox" name="auto_weight" value="1" class="form-check-input" id="autoWeight"
+                                    {{ old('auto_weight', $task->auto_weight ?? true) ? 'checked' : '' }}>
+                                <label class="form-check-label" for="autoWeight" style="font-size:12px; color:#3d4149;">
+                                    Auto weight <span style="color:#8a8f98;">(increases with time spent)</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
