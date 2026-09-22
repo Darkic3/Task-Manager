@@ -224,6 +224,49 @@ class TaskController extends Controller
         return $ids;
     }
 
+    /**
+     * Bulk status change for the current user's own tasks.
+     */
+    public function bulkUpdate(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => 'required|array|min:1|max:200',
+            'ids.*' => 'integer',
+            'status' => 'required|in:to_do,in_progress,on_hold,in_review,completed',
+        ]);
+
+        $tasks = Task::where('user_id', Auth::id())
+            ->whereIn('id', $data['ids'])
+            ->get();
+
+        foreach ($tasks as $task) {
+            $task->status = $data['status'];
+            $task->completed_at = $data['status'] === 'completed'
+                ? ($task->completed_at ?? now())
+                : null;
+            $task->save();
+        }
+
+        return response()->json(['ok' => true, 'updated' => $tasks->count()]);
+    }
+
+    /**
+     * Bulk delete for the current user's own tasks.
+     */
+    public function bulkDestroy(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => 'required|array|min:1|max:200',
+            'ids.*' => 'integer',
+        ]);
+
+        $count = Task::where('user_id', Auth::id())
+            ->whereIn('id', $data['ids'])
+            ->delete();
+
+        return response()->json(['ok' => true, 'deleted' => $count]);
+    }
+
     public function updateStatus(Request $request, Task $task)
     {
         $status = $request->input('status');

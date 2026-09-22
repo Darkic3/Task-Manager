@@ -78,7 +78,7 @@
         justify-content:center;color:#8b8d98;font-size:13px;transition:all .15s;padding:0;
     }
     .cu-col-add:hover{background:#e4e6ea;color:#1f2328;}
-    .cu-col-body{padding:4px 8px 8px;min-height:100px;display:flex;flex-direction:column;gap:8px;}
+    .cu-col-body{padding:4px 8px 8px;min-height:100px;max-height:calc(100vh - 330px);overflow-y:auto;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;}
     .cu-col.collapsed .cu-col-body{display:none;}
     .cu-col-body.drop-target{background:#ece9fd;border-radius:6px;}
 
@@ -90,6 +90,14 @@
     .cu-task-card:hover{border-color:#d3d7de;box-shadow:0 1px 3px rgba(0,0,0,.06);}
     .cu-task-card:hover .cu-task-menu-btn{opacity:1;}
     .cu-task-card.dragging{opacity:.4;}
+    .cu-task-card.drop-before{box-shadow:0 -2px 0 0 #7c3aed;}
+    .cu-task-card.drop-after{box-shadow:0 2px 0 0 #7c3aed;}
+    .cu-grip{
+        cursor:grab;color:#c9ccd3;font-size:13px;flex-shrink:0;
+        display:flex;align-items:center;margin-top:1px;padding:2px 0;
+    }
+    .cu-grip:hover{color:#6b6f78;}
+    .cu-grip:active{cursor:grabbing;}
     .cu-task-card.is-done .cu-task-title{color:#9ca0aa;text-decoration:line-through;text-decoration-color:#c7cad1;}
     .cu-task-main{display:flex;align-items:flex-start;gap:7px;}
     .cu-task-title{
@@ -218,8 +226,36 @@
     .cu-ttree-actions{display:flex;gap:4px;}
     .cu-ttree-children{background:#fcfcfd;}
 
-    /* ─── Chapters view ─── */
-    .cu-chapters-view{display:none;flex-direction:column;gap:10px;}
+    /* ─── Bulk select ─── */
+    .cu-select-box{
+        display:none;accent-color:#7c3aed;width:15px;height:15px;cursor:pointer;
+        flex-shrink:0;margin:3px 0 0;padding:0;
+    }
+    body.cu-selecting .cu-select-box{display:block;}
+    body.cu-selecting .cu-task-card, body.cu-selecting .cu-ch-row{cursor:default;}
+    #cuSelectMode.on{border-color:#7c3aed;color:#7c3aed;background:#f7f5ff;}
+    #cuBulkBar{
+        position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:1070;
+        background:#1f2328;color:white;border-radius:10px;padding:8px 10px 8px 16px;
+        display:flex;align-items:center;gap:8px;font-size:12.5px;
+        box-shadow:0 8px 24px rgba(0,0,0,.25);white-space:nowrap;
+    }
+    #cuBulkCount{font-weight:600;margin-right:2px;}
+    #cuBulkBar select{
+        background:#2e333b;color:white;border:1px solid #4b5059;border-radius:6px;
+        font-size:12px;padding:4px 6px;outline:none;cursor:pointer;
+    }
+    #cuBulkBar button{
+        border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;
+        cursor:pointer;background:#7c3aed;color:white;
+    }
+    #cuBulkBar button:hover{background:#6d28d9;}
+    #cuBulkBar button.danger{background:#e5484d;}
+    #cuBulkBar button.danger:hover{background:#c93338;}
+    #cuBulkBar #cuBulkCancel{background:transparent;color:#c1c4cc;padding:5px 8px;}
+    #cuBulkBar #cuBulkCancel:hover{color:white;background:transparent;}
+
+    /* ─── Chapters view ─── */    .cu-chapters-view{display:none;flex-direction:column;gap:10px;}
     .cu-chapter{background:white;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}
     .cu-chapter-head{
         display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none;
@@ -356,6 +392,9 @@
         <div class="cu-toolbar-left">
             <div class="cu-view-toggle">
                 <button class="cu-view-btn active" data-view="kanban"><i class="bi bi-kanban"></i> Board</button>
+                @if(!isset($project))
+                    <button class="cu-view-btn" data-view="projects"><i class="bi bi-folder"></i> Projects</button>
+                @endif
                 <button class="cu-view-btn" data-view="chapters"><i class="bi bi-collection"></i> Chapters</button>
                 <button class="cu-view-btn" data-view="list"><i class="bi bi-list-ul"></i> List</button>
                 <button class="cu-view-btn" data-view="tree"><i class="bi bi-diagram-3"></i> Tree</button>
@@ -397,6 +436,9 @@
         </div>
         <div class="cu-toolbar-right">
             <span style="font-size:12px;color:#8b8d98;">{{ $totalCnt }} task{{ $totalCnt != 1 ? 's' : '' }}</span>
+            <button class="cu-mini-btn" id="cuSelectMode" title="Select multiple tasks (Shift+click for range)">
+                <i class="bi bi-check2-square"></i> Select
+            </button>
             <button class="cu-btn-new" data-bs-toggle="modal" data-bs-target="#createTaskModal">
                 <i class="bi bi-plus-lg"></i> New Task
             </button>
@@ -556,6 +598,32 @@
         @endif
     </div>
 
+    {{-- PROJECTS VIEW (global page only) — one collapsible section per project --}}
+    @if(!isset($project))
+        @php
+            $projectsWithTasks = $projects->filter(
+                fn ($p) => $flatAll->contains(fn ($t) => (int) $t->project_id === (int) $p->id)
+            )->values();
+        @endphp
+        <div class="cu-chapters-view" id="cuProjects" style="display:none;">
+            @foreach($projectsWithTasks as $proj)
+                @php
+                    $pTasks   = $flatAll->filter(fn ($t) => (int) $t->project_id === (int) $proj->id)->values();
+                    $pGrouped = $pTasks->groupBy('parent_id');
+                    $pRoots   = $pTasks->filter(fn ($t) => $t->parent_id === null)->values();
+                @endphp
+                @include('tasks._chapter-section', [
+                    'sectionId'    => 'p-' . $proj->id,
+                    'sectionTitle' => $proj->name,
+                    'sectionUrl'   => route('projects.tasks.index', $proj),
+                    'tasks'        => $pRoots,
+                    'grouped'      => $pGrouped,
+                    'collapsed'    => true,
+                ])
+            @endforeach
+        </div>
+    @endif
+
     @endif
 </div>
 
@@ -675,6 +743,22 @@
 </div>
 
 <div id="cuToast"></div>
+
+{{-- Bulk action bar --}}
+<div id="cuBulkBar" style="display:none;">
+    <span id="cuBulkCount">0 selected</span>
+    <select id="cuBulkStatus" title="Move to status">
+        <option value="to_do">To Do</option>
+        <option value="in_progress">In Progress</option>
+        <option value="on_hold">On Hold</option>
+        <option value="in_review">In Review</option>
+        <option value="completed">Completed</option>
+    </select>
+    <button id="cuBulkApply">Move</button>
+    <button id="cuBulkDone" title="Mark selected as completed">Done ✓</button>
+    <button id="cuBulkDelete" class="danger">Delete</button>
+    <button id="cuBulkCancel" title="Cancel selection">✕</button>
+</div>
 @endsection
 
 @push('scripts')
@@ -698,6 +782,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* View switcher */
     const chapters = document.getElementById('cuChapters');
+    const projectsView = document.getElementById('cuProjects');
     const unfinishedWrap = document.getElementById('cuUnfinishedWrap');
     const chapterExpandWrap = document.getElementById('cuChapterExpandWrap');
     const unfinishedBox = document.getElementById('cuUnfinished');
@@ -707,9 +792,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (list)     list.style.display     = v === 'list'     ? 'block' : 'none';
         if (tree)     tree.style.display     = v === 'tree'     ? 'block' : 'none';
         if (chapters) chapters.style.display = v === 'chapters' ? 'flex'  : 'none';
-        const isCh = v === 'chapters';
-        if (unfinishedWrap)    unfinishedWrap.style.display    = isCh ? '' : 'none';
-        if (chapterExpandWrap) chapterExpandWrap.style.display = isCh ? 'inline-flex' : 'none';
+        if (projectsView) projectsView.style.display = v === 'projects' ? 'flex' : 'none';
+        const isGrouped = v === 'chapters' || v === 'projects';
+        if (unfinishedWrap)    unfinishedWrap.style.display    = isGrouped ? '' : 'none';
+        if (chapterExpandWrap) chapterExpandWrap.style.display = isGrouped ? 'inline-flex' : 'none';
     }
     document.querySelectorAll('.cu-view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -961,42 +1047,101 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    /* Drag & drop — event delegation so new cards work too */
+    /* ─── Drag & drop: grip-only drag, drop indicator, auto-scroll, order persist ─── */
+    let dropTarget = null; /* {card, pos: 'before'|'after'} */
+    function clearIndicators() {
+        document.querySelectorAll('.cu-task-card.drop-before,.cu-task-card.drop-after')
+            .forEach(c => c.classList.remove('drop-before', 'drop-after'));
+        dropTarget = null;
+    }
     if (kanban) {
+        /* Only the grip starts a drag — no more accidental drags */
+        kanban.addEventListener('mousedown', e => {
+            const grip = e.target.closest('.cu-grip');
+            const card = e.target.closest('.cu-task-card');
+            if (card) card.draggable = !!(grip && !document.body.classList.contains('cu-selecting'));
+        });
+        document.addEventListener('mouseup', () => {
+            document.querySelectorAll('.cu-task-card[draggable="true"]')
+                .forEach(c => c.removeAttribute('draggable'));
+        });
         kanban.addEventListener('dragstart', e => {
             const card = e.target.closest('.cu-task-card');
-            if (!card) return;
+            if (!card || card.getAttribute('draggable') !== 'true') { e.preventDefault(); return; }
             card.classList.add('dragging');
             e.dataTransfer.setData('text/plain', card.dataset.id);
             e.dataTransfer.effectAllowed = 'move';
         });
         kanban.addEventListener('dragend', () => {
-            document.querySelectorAll('.cu-task-card.dragging').forEach(c => c.classList.remove('dragging'));
+            document.querySelectorAll('.cu-task-card.dragging').forEach(c => {
+                c.classList.remove('dragging');
+                c.removeAttribute('draggable');
+            });
             document.querySelectorAll('.cu-col-body').forEach(c => c.classList.remove('drop-target'));
+            clearIndicators();
         });
         document.querySelectorAll('.cu-col-body').forEach(col => {
-            col.addEventListener('dragover',  e => {
-                if (e.target.closest('.cu-quickadd') || e.target.closest('.cu-empty')) return;
-                e.preventDefault(); col.classList.add('drop-target');
+            col.addEventListener('dragover', e => {
+                e.preventDefault();
+                col.classList.add('drop-target');
+                /* Auto-scroll the column near its edges */
+                const r = col.getBoundingClientRect();
+                if (e.clientY < r.top + 48) col.scrollTop -= 10;
+                else if (e.clientY > r.bottom - 48) col.scrollTop += 10;
+                /* Insertion indicator between cards */
+                clearIndicators();
+                const over = e.target.closest('.cu-task-card:not(.dragging)');
+                if (over && col.contains(over)) {
+                    const mid = over.getBoundingClientRect().top + over.offsetHeight / 2;
+                    const pos = e.clientY < mid ? 'before' : 'after';
+                    over.classList.add(pos === 'before' ? 'drop-before' : 'drop-after');
+                    dropTarget = { card: over, pos };
+                }
             });
-            col.addEventListener('dragleave', () => col.classList.remove('drop-target'));
+            col.addEventListener('dragleave', e => {
+                if (!col.contains(e.relatedTarget)) col.classList.remove('drop-target');
+            });
             col.addEventListener('drop', e => {
                 e.preventDefault();
                 col.classList.remove('drop-target');
                 const taskId = e.dataTransfer.getData('text/plain');
                 const card   = document.querySelector(`.cu-task-card[data-id="${taskId}"]`);
+                const target = dropTarget;
+                clearIndicators();
                 if (!card) return;
-                const prev = card.closest('.cu-col-body');
-                const from = card.dataset.status;
                 const status = col.dataset.status;
+                const from = card.dataset.status;
+                const quick = col.querySelector('.cu-quickadd');
+                if (target && target.card.isConnected && col.contains(target.card) && target.card !== card) {
+                    col.insertBefore(card, target.pos === 'before' ? target.card : target.card.nextSibling);
+                    if (quick) col.appendChild(quick);
+                } else {
+                    col.insertBefore(card, quick);
+                }
                 updateStatus(taskId, status, () => {
-                    syncTaskDoneUI(taskId, status);
+                    syncTaskDoneUI(taskId, status, false);
                     if (from !== status) toast('Task moved ✓');
                     updateCounts();
                     applyFilters();
+                    persistColumnOrder(col);
                 });
             });
         });
+    }
+
+    /* Persist card order inside a column (parent links preserved) */
+    function persistColumnOrder(col) {
+        const items = [...col.querySelectorAll('.cu-task-card')].map((c, i) => ({
+            id: parseInt(c.dataset.id, 10),
+            parent_id: c.dataset.parent ? parseInt(c.dataset.parent, 10) : null,
+            sort_order: i
+        }));
+        if (!items.length) return;
+        fetch(`{{ route('tasks.reorder') }}`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
+            body: JSON.stringify({ items })
+        }).catch(() => toast('Order not saved'));
     }
 
     /* Quick check toggle — delegation (works for board cards AND chapter rows) */
@@ -1028,11 +1173,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
             }).then(r => {
                 if (!r.ok) throw new Error();
-                document.querySelector(`.cu-task-card[data-id="${id}"]`)?.remove();
-                const row = document.querySelector(`.cu-ch-row[data-id="${id}"]`);
-                const ch = row?.closest('.cu-chapter');
-                row?.remove();
-                if (ch) refreshChapter(ch);
+                removeTaskNodes(id);
                 updateCounts();
                 applyFilters();
                 toast('Task deleted');
@@ -1046,6 +1187,92 @@ document.addEventListener('DOMContentLoaded', function () {
                 f.submit();
             });
         }
+    });
+
+    /* ─── Bulk select mode ─── */
+    const bulkBar = document.getElementById('cuBulkBar');
+    const bulkCount = document.getElementById('cuBulkCount');
+    const bulkStatus = document.getElementById('cuBulkStatus');
+    const selectModeBtn = document.getElementById('cuSelectMode');
+    let lastChecked = null;
+
+    function selectedIds() {
+        return [...document.querySelectorAll('.cu-select-box:checked')].map(b => b.dataset.id);
+    }
+    function refreshBulkBar() {
+        const n = selectedIds().length;
+        bulkCount.textContent = `${n} selected`;
+        bulkBar.style.display = (document.body.classList.contains('cu-selecting') || n > 0) ? 'flex' : 'none';
+    }
+    function exitSelectMode() {
+        document.body.classList.remove('cu-selecting');
+        selectModeBtn?.classList.remove('on');
+        document.querySelectorAll('.cu-select-box:checked').forEach(b => { b.checked = false; });
+        lastChecked = null;
+        refreshBulkBar();
+    }
+    selectModeBtn?.addEventListener('click', () => {
+        const on = document.body.classList.toggle('cu-selecting');
+        selectModeBtn.classList.toggle('on', on);
+        if (!on) exitSelectMode(); else refreshBulkBar();
+    });
+    document.addEventListener('change', e => {
+        const box = e.target.closest?.('.cu-select-box');
+        if (!box) return;
+        /* Shift+click range select across visible boxes */
+        if (e.shiftKey && lastChecked && lastChecked !== box) {
+            const boxes = [...document.querySelectorAll('.cu-select-box')]
+                .filter(b => b.offsetParent !== null);
+            const [a, b] = [boxes.indexOf(lastChecked), boxes.indexOf(box)].sort((x, y) => x - y);
+            boxes.slice(a, b + 1).forEach(x => { x.checked = box.checked; });
+        }
+        lastChecked = box;
+        if (!document.body.classList.contains('cu-selecting')) {
+            document.body.classList.add('cu-selecting');
+            selectModeBtn?.classList.add('on');
+        }
+        refreshBulkBar();
+    });
+    document.getElementById('cuBulkCancel')?.addEventListener('click', exitSelectMode);
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && document.body.classList.contains('cu-selecting')
+            && !e.target.matches?.('input[type="text"], textarea')) exitSelectMode();
+    });
+
+    function bulkMove(status) {
+        const ids = selectedIds();
+        if (!ids.length) return;
+        fetch(`{{ route('tasks.bulk-update') }}`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
+            body: JSON.stringify({ ids, status })
+        }).then(r => r.json()).then(j => {
+            if (!j.ok) throw new Error();
+            ids.forEach(id => syncTaskDoneUI(id, status));
+            updateCounts();
+            applyFilters();
+            exitSelectMode();
+            toast(`${j.updated} task${j.updated != 1 ? 's' : ''} updated ✓`);
+        }).catch(() => toast('Bulk update failed'));
+    }
+    document.getElementById('cuBulkApply')?.addEventListener('click', () => bulkMove(bulkStatus.value));
+    document.getElementById('cuBulkDone')?.addEventListener('click', () => bulkMove('completed'));
+    document.getElementById('cuBulkDelete')?.addEventListener('click', () => {
+        const ids = selectedIds();
+        if (!ids.length) return;
+        if (!confirm(`Delete ${ids.length} task${ids.length != 1 ? 's' : ''}? This cannot be undone.`)) return;
+        fetch(`{{ route('tasks.bulk-destroy') }}`, {
+            method: 'DELETE',
+            headers: {'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
+            body: JSON.stringify({ ids })
+        }).then(r => r.json()).then(j => {
+            if (!j.ok) throw new Error();
+            ids.forEach(id => removeTaskNodes(id));
+            updateCounts();
+            applyFilters();
+            exitSelectMode();
+            toast(`${j.deleted} task${j.deleted != 1 ? 's' : ''} deleted`);
+        }).catch(() => toast('Bulk delete failed'));
     });
 
     /* Unified done-state sync across board card, chapter row and section progress */
@@ -1077,11 +1304,13 @@ document.addEventListener('DOMContentLoaded', function () {
         ch.dataset.done = done;
     }
 
-    function syncTaskDoneUI(id, status) {
-        const card = document.querySelector(`.cu-task-card[data-id="${id}"]`);
-        if (card) {
+    /* A task can appear in several views at once (board + chapters + projects):
+       always sync/remove EVERY copy. */
+    function syncTaskDoneUI(id, status, moveCard = true) {
+        const touched = new Set();
+        document.querySelectorAll(`.cu-task-card[data-id="${id}"]`).forEach(card => {
             const col = document.getElementById(`col-${status}`);
-            if (col) {
+            if (moveCard && col && card.closest('#cuKanban')) {
                 col.insertBefore(card, col.querySelector('.cu-quickadd'));
                 const colEl = col.closest('.cu-col');
                 if (status === 'completed' && colEl.classList.contains('collapsed')) {
@@ -1090,13 +1319,24 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
             applyDoneState(card, status);
-        }
-        const row = document.querySelector(`.cu-ch-row[data-id="${id}"]`);
-        if (row) {
+        });
+        document.querySelectorAll(`.cu-ch-row[data-id="${id}"]`).forEach(row => {
             applyDoneState(row, status);
             const ch = row.closest('.cu-chapter');
-            if (ch) refreshChapter(ch);
-        }
+            if (ch) touched.add(ch);
+        });
+        touched.forEach(ch => refreshChapter(ch));
+    }
+
+    function removeTaskNodes(id) {
+        const touched = new Set();
+        document.querySelectorAll(`.cu-task-card[data-id="${id}"]`).forEach(c => c.remove());
+        document.querySelectorAll(`.cu-ch-row[data-id="${id}"]`).forEach(r => {
+            const ch = r.closest('.cu-chapter');
+            if (ch) touched.add(ch);
+            r.remove();
+        });
+        touched.forEach(ch => refreshChapter(ch));
     }
 
     function updateCounts() {

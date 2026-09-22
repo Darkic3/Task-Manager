@@ -25,6 +25,7 @@
      data-status="{{ $task->status }}"
      data-due="{{ $task->due_date ?? '' }}"
      style="padding-left:calc(10px + {{ $depth }} * 20px);">
+    <input type="checkbox" class="cu-select-box" data-id="{{ $task->id }}" title="Select task">
     <button class="cu-check {{ $isDone ? 'done' : '' }}"
             title="{{ $isDone ? 'Mark as To Do' : 'Mark as Completed' }}">
         <i class="bi {{ $isDone ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>

@@ -193,4 +193,86 @@ class TasksChaptersTest extends TestCase
         $response->assertSee('cu-chapters-view', false);
         $response->assertSee('Chapter One');
     }
+
+    public function test_global_tasks_page_renders_project_sections(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->create([
+            'user_id' => $user->id, 'name' => 'Study Project', 'status' => 'in_progress',
+        ]);
+        $this->makeChapter($user, $project);
+
+        $response = $this->actingAs($user)->get(route('tasks.index'));
+
+        $response->assertOk();
+        $response->assertSee('data-view="projects"', false);
+        $response->assertSee('data-chapter="p-' . $project->id . '"', false);
+        $response->assertSee('Study Project');
+        $response->assertSee(route('projects.tasks.index', $project), false);
+    }
+
+    public function test_bulk_update_changes_status_of_owned_tasks(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->create(['user_id' => $user->id, 'status' => 'in_progress']);
+        $a = Task::factory()->create(['user_id' => $user->id, 'project_id' => $project->id, 'status' => 'to_do']);
+        $b = Task::factory()->create(['user_id' => $user->id, 'project_id' => $project->id, 'status' => 'in_progress']);
+        $other = User::factory()->create();
+        $foreign = Task::factory()->create(['user_id' => $other->id, 'status' => 'to_do']);
+
+        $this->actingAs($user)
+            ->postJson(route('tasks.bulk-update'), ['ids' => [$a->id, $b->id, $foreign->id], 'status' => 'completed'])
+            ->assertOk()
+            ->assertJson(['ok' => true, 'updated' => 2]);
+
+        $this->assertDatabaseHas('tasks', ['id' => $a->id, 'status' => 'completed']);
+        $this->assertDatabaseHas('tasks', ['id' => $b->id, 'status' => 'completed']);
+        // Another user's task is untouched.
+        $this->assertDatabaseHas('tasks', ['id' => $foreign->id, 'status' => 'to_do']);
+    }
+
+    public function test_bulk_destroy_deletes_only_owned_tasks(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->create(['user_id' => $user->id]);
+        $a = Task::factory()->create(['user_id' => $user->id, 'project_id' => $project->id]);
+        $other = User::factory()->create();
+        $foreign = Task::factory()->create(['user_id' => $other->id]);
+
+        $this->actingAs($user)
+            ->deleteJson(route('tasks.bulk-destroy'), ['ids' => [$a->id, $foreign->id]])
+            ->assertOk()
+            ->assertJson(['ok' => true, 'deleted' => 1]);
+
+        $this->assertDatabaseMissing('tasks', ['id' => $a->id]);
+        $this->assertDatabaseHas('tasks', ['id' => $foreign->id]);
+    }
+
+    public function test_bulk_endpoints_require_authentication(): void
+    {
+        $this->postJson(route('tasks.bulk-update'), ['ids' => [1], 'status' => 'completed'])
+            ->assertUnauthorized();
+        $this->deleteJson(route('tasks.bulk-destroy'), ['ids' => [1]])
+            ->assertUnauthorized();
+    }
+
+    public function test_reorder_persists_order_without_detaching_children(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->create(['user_id' => $user->id]);
+        $parent = Task::factory()->create(['user_id' => $user->id, 'project_id' => $project->id]);
+        $child = Task::factory()->create([
+            'user_id' => $user->id, 'project_id' => $project->id, 'parent_id' => $parent->id,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('tasks.reorder'), ['items' => [
+                ['id' => $child->id, 'parent_id' => $parent->id, 'sort_order' => 0],
+                ['id' => $parent->id, 'parent_id' => null, 'sort_order' => 1],
+            ]])
+            ->assertOk()
+            ->assertJson(['ok' => true]);
+
+        $this->assertDatabaseHas('tasks', ['id' => $child->id, 'parent_id' => $parent->id, 'sort_order' => 0]);
+    }
 }

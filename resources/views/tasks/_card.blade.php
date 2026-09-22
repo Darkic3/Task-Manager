@@ -23,11 +23,13 @@
      data-priority="{{ $task->priority }}"
      data-project="{{ $task->project_id }}"
      data-status="{{ $task->status }}"
-     data-due="{{ $task->due_date ?? '' }}"
-     draggable="true"
+     data-parent="{{ $task->parent_id ?? '' }}"
+     data-assignee="{{ $task->user?->name ?? 'Unassigned' }}"
      style="border-left:2px solid {{ $leftColor }};">
 
     <div class="cu-task-main">
+        <span class="cu-grip" title="Drag to move"><i class="bi bi-grip-vertical"></i></span>
+        <input type="checkbox" class="cu-select-box" data-id="{{ $task->id }}" title="Select task">
         <button class="cu-check {{ $task->status === 'completed' ? 'done' : '' }}"
                 title="{{ $task->status === 'completed' ? 'Mark as To Do' : 'Mark as Completed' }}">
             <i class="bi {{ $task->status === 'completed' ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
