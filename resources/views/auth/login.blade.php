@@ -268,7 +268,7 @@
 
         <div class="lc-footer">
             Developed with <i class="bi bi-heart-fill" style="color:#e53e3e;font-size:10px;"></i> by
-            <a href="https://github.com/arafat-web" target="_blank">Arafat Hossain</a>
+            <a href="https://github.com/Darkic3" target="_blank">Ahora</a>
         </div>
     </div>
 </div>

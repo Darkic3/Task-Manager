@@ -3,8 +3,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/version-2.0-6366f1?style=for-the-badge" alt="Version 2.0">
   <img src="https://img.shields.io/badge/Laravel-12-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 12">
-  <img src="https://img.shields.io/github/stars/arafat-web/Task-Manager?style=for-the-badge" alt="Stars">
-  <img src="https://img.shields.io/github/issues/arafat-web/Task-Manager?style=for-the-badge" alt="Issues">
+  <img src="https://img.shields.io/github/stars/Darkic3/Task-Manager?style=for-the-badge" alt="Stars">
+  <img src="https://img.shields.io/github/issues/Darkic3/Task-Manager?style=for-the-badge" alt="Issues">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="MIT License"></a>
 </p>
 
@@ -105,7 +105,7 @@ Run `php artisan config:clear` after editing `.env`. Full catalog lives in `conf
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/arafat-web/Task-Manager.git
+git clone https://github.com/Darkic3/Task-Manager.git
 cd Task-Manager
 ```
 
@@ -227,14 +227,10 @@ This project is open-source and available under the [MIT License](LICENSE).
 
 ## Contributing
 
-For any issues or inquiries, please open an issue on the [Issues](https://github.com/arafat-web/Task-Manager/issues) page.<br/>
-Contributions are always welcome — please open a [Pull Request](https://github.com/arafat-web/Task-Manager/pulls).<br/>
+For any issues or inquiries, please open an issue on the [Issues](https://github.com/Darkic3/Task-Manager/issues) page.<br/>
+Contributions are always welcome — please open a [Pull Request](https://github.com/Darkic3/Task-Manager/pulls).<br/>
 🎉 **Thanks for reading!** 🌟
 
 ## Contact
 
-[![Email](https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:arafat.122260@gmail.com)
-[![Facebook](https://img.shields.io/badge/Facebook-1877F2?style=for-the-badge&logo=facebook&logoColor=white)](https://www.facebook.com/arafathossain000)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/arafat-hossain-ar-a174b51a6/)
-[![Sololearn](https://img.shields.io/badge/-Sololearn-3a464b?style=for-the-badge&logo=Sololearn&logoColor=white)](https://www.sololearn.com/profile/4703319)
-[![Website](https://img.shields.io/badge/website-000000?style=for-the-badge&logo=About.me&logoColor=white)](https://arafatdev.com)
+[![GitHub](https://img.shields.io/badge/GitHub-Darkic3-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Darkic3)
