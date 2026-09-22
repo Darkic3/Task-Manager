@@ -249,6 +249,11 @@
         flex-shrink: 0;
     }
 
+    .cu-card-text {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
     .cu-card-name {
         font-size: 13px;
         font-weight: 700;
@@ -257,6 +262,7 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        min-width: 0;
     }
 
     .cu-card-desc {
@@ -683,7 +689,7 @@
                             <div class="cu-avatar" style="background:{{ $projectColor }};">
                                 {{ strtoupper(substr($project->name, 0, 1)) }}
                             </div>
-                            <div class="flex-grow-1 min-w-0">
+                            <div class="cu-card-text">
                                 <div class="cu-card-name" title="{{ $project->name }}">{{ $project->name }}</div>
                                 <div class="cu-card-desc">{{ strip_tags($project->description ?? '') ?: 'No description' }}</div>
                             </div>
