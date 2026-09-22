@@ -1,0 +1,286 @@
+@extends('layouts.app')
+
+@section('title', 'My Day')
+
+@push('styles')
+<style>
+    .main-content { padding:14px 16px; background:#f7f8fa; min-height:100vh; }
+
+    /* Header */
+    .pl-header {
+        background:linear-gradient(135deg,#7c3aed 0%,#5b21b6 100%);
+        border-radius:10px; padding:12px 18px; color:white; margin-bottom:14px;
+        position:relative; overflow:hidden; border:1px solid #6d28d9;
+        box-shadow:0 2px 8px rgba(124,58,237,.3);
+    }
+    .pl-header::before {
+        content:''; position:absolute; top:0; right:0; width:90px; height:90px;
+        background:rgba(255,255,255,.08); border-radius:50%; transform:translate(24px,-24px);
+    }
+    .pl-header-title{font-weight:700;font-size:18px;margin:0;position:relative;z-index:1;}
+    .pl-header-sub  {font-size:12.5px;opacity:.85;margin:2px 0 0;position:relative;z-index:1;}
+
+    /* Toolbar */
+    .pl-toolbar {
+        display:flex; align-items:center; justify-content:space-between; gap:10px;
+        background:white; border:1px solid #e3e4e8; border-radius:9px;
+        padding:8px 12px; margin-bottom:14px; flex-wrap:wrap;
+    }
+    .pl-toggle{display:flex;background:#f0f1f3;border-radius:7px;padding:3px;gap:2px;}
+    .pl-toggle-btn{
+        padding:5px 14px;border-radius:5px;font-size:12px;font-weight:600;
+        color:#8a8f98;text-decoration:none;display:flex;align-items:center;gap:5px;transition:all .15s;
+    }
+    .pl-toggle-btn.active{background:white;color:#1a1d23;box-shadow:0 1px 3px rgba(0,0,0,.1);}
+    .pl-nav{display:flex;align-items:center;gap:6px;}
+    .pl-nav-btn{
+        width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+        border:1px solid #e3e4e8;border-radius:7px;background:white;color:#6b7385;
+        text-decoration:none;transition:all .15s;
+    }
+    .pl-nav-btn:hover{border-color:#c4b5fd;color:#7c3aed;background:#faf5ff;}
+    .pl-today-btn{
+        padding:5px 14px;border:1px solid #e3e4e8;border-radius:7px;background:white;
+        color:#3d4149;font-size:12px;font-weight:600;text-decoration:none;transition:all .15s;
+    }
+    .pl-today-btn:hover{border-color:#c4b5fd;color:#7c3aed;background:#faf5ff;}
+
+    /* Stat chips */
+    .pl-stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+    .pl-stat{
+        display:flex;align-items:center;gap:8px;background:white;border:1px solid #e3e4e8;
+        border-radius:9px;padding:8px 14px;font-size:12.5px;color:#6b7385;font-weight:600;
+    }
+    .pl-stat strong{font-size:15px;color:#1a1d23;}
+    .pl-stat.overdue strong{color:#dc2626;}
+
+    /* Section */
+    .pl-section{background:white;border:1px solid #e3e4e8;border-radius:10px;overflow:hidden;margin-bottom:14px;}
+    .pl-section-head{
+        display:flex;align-items:center;gap:8px;padding:10px 16px;
+        background:#fafbfc;border-bottom:1px solid #e3e4e8;
+    }
+    .pl-section-head i{font-size:14px;}
+    .pl-section-title{font-size:13px;font-weight:700;color:#1a1d23;}
+    .pl-section-count{
+        margin-left:auto;background:#f0f1f3;border-radius:20px;padding:1px 9px;
+        font-size:11px;font-weight:700;color:#8a8f98;
+    }
+    .pl-section-body{padding:8px;display:flex;flex-direction:column;gap:6px;}
+    .pl-empty{padding:22px;text-align:center;color:#adb0b8;font-size:12.5px;}
+    .pl-empty i{display:block;font-size:24px;margin-bottom:6px;color:#c4c9d4;}
+
+    /* Task row */
+    .pl-task{
+        display:flex;align-items:flex-start;gap:10px;background:white;border:1px solid #eceef1;
+        border-radius:8px;padding:9px 11px;transition:all .15s;
+    }
+    .pl-task:hover{box-shadow:0 3px 10px rgba(0,0,0,.07);border-color:#d8dae0;}
+    .pl-check{position:relative;flex-shrink:0;margin-top:1px;cursor:pointer;}
+    .pl-check input{position:absolute;opacity:0;width:0;height:0;}
+    .pl-check-box{
+        width:19px;height:19px;border:2px solid #c4c9d4;border-radius:6px;
+        display:flex;align-items:center;justify-content:center;color:transparent;
+        font-size:11px;transition:all .15s;
+    }
+    .pl-check:hover .pl-check-box{border-color:#7c3aed;}
+    .pl-check input:checked + .pl-check-box{background:#16a34a;border-color:#16a34a;color:white;}
+    .pl-task-body{flex:1;min-width:0;}
+    .pl-task-title{font-size:13px;font-weight:600;color:#1a1d23;line-height:1.35;word-break:break-word;}
+    .pl-task.is-done .pl-task-title{text-decoration:line-through;color:#adb0b8;}
+    .pl-task-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;}
+    .pl-priority{font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;}
+    .pl-proj,.pl-due{font-size:11px;color:#8a8f98;display:inline-flex;align-items:center;gap:4px;}
+    .pl-due.overdue{color:#dc2626;font-weight:600;}
+    .pl-task-open{
+        flex-shrink:0;width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+        color:#c4c9d4;text-decoration:none;border-radius:6px;transition:all .15s;
+    }
+    .pl-task-open:hover{color:#7c3aed;background:#faf5ff;}
+
+    /* Week grid */
+    .pl-week{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px;}
+    @media(max-width:1100px){ .pl-week{grid-template-columns:repeat(7,minmax(160px,1fr));} }
+    .pl-day{background:white;border:1px solid #e3e4e8;border-radius:10px;overflow:hidden;min-height:140px;}
+    .pl-day.is-today{border-color:#c4b5fd;box-shadow:0 0 0 2px rgba(124,58,237,.12);}
+    .pl-day-head{
+        display:flex;align-items:center;justify-content:space-between;
+        padding:9px 12px;background:#fafbfc;border-bottom:1px solid #e3e4e8;
+    }
+    .pl-day.is-today .pl-day-head{background:#faf5ff;}
+    .pl-day-name{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8a8f98;}
+    .pl-day-date{font-size:14px;font-weight:700;color:#1a1d23;}
+    .pl-day.is-today .pl-day-date{color:#7c3aed;}
+    .pl-day-count{font-size:11px;font-weight:700;color:#adb0b8;background:#f0f1f3;border-radius:20px;padding:1px 8px;}
+    .pl-day-body{padding:7px;display:flex;flex-direction:column;gap:6px;}
+    .pl-day .pl-task{padding:7px 9px;}
+    .pl-day .pl-task-title{font-size:12px;}
+    .pl-day-empty{padding:14px 8px;text-align:center;color:#c4c9d4;font-size:11px;}
+</style>
+@endpush
+
+@section('content')
+<div class="main-content">
+
+    @php
+        $rangeLabel = $view === 'week'
+            ? $start->format('M j') . ' – ' . $end->format('M j, Y')
+            : $date->format('l, F j, Y');
+        $prevDate = $view === 'week' ? $date->copy()->subWeek() : $date->copy()->subDay();
+        $nextDate = $view === 'week' ? $date->copy()->addWeek() : $date->copy()->addDay();
+    @endphp
+
+    {{-- Header --}}
+    <div class="pl-header">
+        <h1 class="pl-header-title">{{ $view === 'week' ? 'My Week' : 'My Day' }}</h1>
+        <p class="pl-header-sub">{{ $rangeLabel }}{{ $isToday ? ' · Today' : '' }}</p>
+    </div>
+
+    {{-- Toolbar --}}
+    <div class="pl-toolbar">
+        <div class="pl-toggle">
+            <a href="{{ route('planner.index', ['view' => 'day', 'date' => $date->toDateString()]) }}"
+               class="pl-toggle-btn {{ $view === 'day' ? 'active' : '' }}">
+                <i class="bi bi-sun"></i> Day
+            </a>
+            <a href="{{ route('planner.index', ['view' => 'week', 'date' => $date->toDateString()]) }}"
+               class="pl-toggle-btn {{ $view === 'week' ? 'active' : '' }}">
+                <i class="bi bi-calendar-week"></i> Week
+            </a>
+        </div>
+        <div class="pl-nav">
+            <a href="{{ route('planner.index', ['view' => $view, 'date' => $prevDate->toDateString()]) }}"
+               class="pl-nav-btn" title="Previous"><i class="bi bi-chevron-left"></i></a>
+            <a href="{{ route('planner.index', ['view' => $view]) }}" class="pl-today-btn">Today</a>
+            <a href="{{ route('planner.index', ['view' => $view, 'date' => $nextDate->toDateString()]) }}"
+               class="pl-nav-btn" title="Next"><i class="bi bi-chevron-right"></i></a>
+        </div>
+    </div>
+
+    @if($view === 'day')
+        {{-- Stats --}}
+        <div class="pl-stats">
+            <div class="pl-stat"><i class="bi bi-list-check"></i> Pending <strong id="plPendingCount">{{ $pending->count() }}</strong></div>
+            <div class="pl-stat"><i class="bi bi-check-circle"></i> Done <strong id="plDoneCount">{{ $done->count() }}</strong></div>
+            @if($overdue->count())
+                <div class="pl-stat overdue"><i class="bi bi-exclamation-triangle"></i> Overdue <strong>{{ $overdue->count() }}</strong></div>
+            @endif
+        </div>
+
+        {{-- Overdue --}}
+        @if($overdue->count())
+            <div class="pl-section">
+                <div class="pl-section-head">
+                    <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;"></i>
+                    <span class="pl-section-title">Overdue</span>
+                    <span class="pl-section-count">{{ $overdue->count() }}</span>
+                </div>
+                <div class="pl-section-body">
+                    @foreach($overdue as $task)
+                        @include('planner._task-row', ['task' => $task, 'count' => false])
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        {{-- Today's tasks --}}
+        <div class="pl-section">
+            <div class="pl-section-head">
+                <i class="bi bi-check2-square" style="color:#7c3aed;"></i>
+                <span class="pl-section-title">{{ $isToday ? "Today's Tasks" : 'Tasks' }}</span>
+                <span class="pl-section-count" id="plTodaySectionCount">{{ $pending->count() }}</span>
+            </div>
+            <div class="pl-section-body" id="plPendingBody">
+                @forelse($pending as $task)
+                    @include('planner._task-row', ['task' => $task, 'count' => true])
+                @empty
+                    <div class="pl-empty"><i class="bi bi-cup-hot"></i>Nothing scheduled for this day. Enjoy!</div>
+                @endforelse
+            </div>
+        </div>
+
+        {{-- Done --}}
+        @if($done->count())
+            <div class="pl-section">
+                <div class="pl-section-head">
+                    <i class="bi bi-check-circle-fill" style="color:#16a34a;"></i>
+                    <span class="pl-section-title">Completed</span>
+                    <span class="pl-section-count">{{ $done->count() }}</span>
+                </div>
+                <div class="pl-section-body">
+                    @foreach($done as $task)
+                        @include('planner._task-row', ['task' => $task, 'count' => true])
+                    @endforeach
+                </div>
+            </div>
+        @endif
+    @else
+        {{-- Week view --}}
+        <div class="pl-week">
+            @foreach($days as $day)
+                @php $dayDate = $day['date']; $isDayToday = $dayDate->isToday(); @endphp
+                <div class="pl-day {{ $isDayToday ? 'is-today' : '' }}">
+                    <div class="pl-day-head">
+                        <div>
+                            <div class="pl-day-name">{{ $dayDate->format('D') }}</div>
+                            <div class="pl-day-date">{{ $dayDate->format('M j') }}</div>
+                        </div>
+                        <span class="pl-day-count">{{ $day['tasks']->count() }}</span>
+                    </div>
+                    <div class="pl-day-body">
+                        @forelse($day['tasks'] as $task)
+                            @include('planner._task-row', ['task' => $task, 'hideDue' => true, 'count' => false])
+                        @empty
+                            <div class="pl-day-empty">—</div>
+                        @endforelse
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @endif
+
+</div>
+@endsection
+
+@push('scripts')
+<script>
+    const PL_CSRF = '{{ csrf_token() }}';
+
+    async function toggleTask(cb) {
+        const url = cb.dataset.url;
+        const id  = cb.dataset.id;
+        cb.disabled = true;
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            document.querySelectorAll('[data-task-item][data-id="' + id + '"]').forEach(row => {
+                row.classList.toggle('is-done', !!json.completed);
+                row.dataset.completed = json.completed ? '1' : '0';
+            });
+            refreshCounters();
+        } catch (e) {
+            cb.checked = !cb.checked;
+            console.error('[Planner] toggle failed', e);
+        } finally {
+            cb.disabled = false;
+        }
+    }
+
+    function refreshCounters() {
+        let pending = 0, done = 0;
+        document.querySelectorAll('[data-task-item][data-count="1"]').forEach(el => {
+            if (el.dataset.completed === '1') done++; else pending++;
+        });
+        const p = document.getElementById('plPendingCount');
+        const d = document.getElementById('plDoneCount');
+        const t = document.getElementById('plTodaySectionCount');
+        if (p) p.textContent = pending;
+        if (d) d.textContent = done;
+        if (t) t.textContent = pending;
+    }
+</script>
+@endpush

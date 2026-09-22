@@ -8,6 +8,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\MailController;
 use App\Http\Controllers\NoteController;
+use App\Http\Controllers\PlannerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectFileController;
@@ -63,6 +64,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('reminders-calendar', [ReminderController::class, 'calendar'])->name('reminders.calendar');
     Route::resource('checklist-items', ChecklistItemController::class);
     Route::get('checklist-items/{checklistItem}/update-status', [ChecklistItemController::class, 'updateStatus'])->name('checklist-items.update-status');
+
+    // My Day / Planner
+    Route::get('/planner', [PlannerController::class, 'index'])->name('planner.index');
+    Route::post('/planner/tasks/{task}/toggle', [PlannerController::class, 'toggleTask'])->name('planner.tasks.toggle');
 
     // AI Chat
     Route::get('/ai', [AiChatController::class, 'index'])->name('ai.index');

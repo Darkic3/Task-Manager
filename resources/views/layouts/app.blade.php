@@ -583,6 +583,13 @@
                             @endif
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->is('planner*') ? 'active' : '' }}"
+                            href="{{ route('planner.index') }}">
+                            <i class="bi bi-sun-fill"></i>
+                            <span>My Day</span>
+                        </a>
+                    </li>
                 </ul>
             </div>
 
