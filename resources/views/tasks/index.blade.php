@@ -218,6 +218,43 @@
     .cu-ttree-actions{display:flex;gap:4px;}
     .cu-ttree-children{background:#fcfcfd;}
 
+    /* ─── Chapters view ─── */
+    .cu-chapters-view{display:none;flex-direction:column;gap:10px;}
+    .cu-chapter{background:white;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}
+    .cu-chapter-head{
+        display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none;
+    }
+    .cu-chapter-head:hover{background:#fafbfc;}
+    .cu-chapter.collapsed .cu-col-chevron{transform:rotate(-90deg);}
+    .cu-chapter.collapsed .cu-chapter-body{display:none;}
+    .cu-chapter-title{font-size:13.5px;font-weight:600;color:#1f2328;text-decoration:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    a.cu-chapter-title:hover{color:#7c3aed;}
+    span.cu-chapter-title{cursor:default;}
+    .cu-chapter-progress{display:flex;align-items:center;gap:8px;min-width:150px;}
+    .cu-chapter-pb{flex:1;height:5px;background:#eef0f2;border-radius:4px;overflow:hidden;}
+    .cu-chapter-pb-fill{display:block;height:100%;background:#30a46c;border-radius:4px;transition:width .2s;}
+    .cu-chapter-count{font-size:11px;font-weight:600;color:#6b6f78;white-space:nowrap;}
+    .cu-chapter-open{flex-shrink:0;}
+    .cu-chapter-body{border-top:1px solid #f2f3f5;padding:4px;}
+    .cu-ch-row{
+        display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:6px;
+    }
+    .cu-ch-row:hover{background:#fafbfc;}
+    .cu-ch-row:hover .cu-task-menu-btn{opacity:1;}
+    .cu-ch-row.is-done .cu-task-title{color:#9ca0aa;text-decoration:line-through;text-decoration-color:#c7cad1;}
+    .cu-ch-row .cu-due{margin-left:2px;}
+    .cu-ch-row .cu-assignee{display:none;}
+    .cu-checkline{
+        display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#3d4149;
+        cursor:pointer;user-select:none;white-space:nowrap;
+    }
+    .cu-checkline input{accent-color:#7c3aed;cursor:pointer;}
+    .cu-mini-btn{
+        border:1px solid #e5e7eb;background:white;border-radius:6px;padding:4px 10px;
+        font-size:11px;font-weight:600;color:#6b6f78;cursor:pointer;white-space:nowrap;
+    }
+    .cu-mini-btn:hover{border-color:#7c3aed;color:#7c3aed;}
+
     .cu-empty{
         text-align:center;padding:60px 20px;background:white;
         border:1px solid #e5e7eb;border-radius:8px;
@@ -319,6 +356,7 @@
         <div class="cu-toolbar-left">
             <div class="cu-view-toggle">
                 <button class="cu-view-btn active" data-view="kanban"><i class="bi bi-kanban"></i> Board</button>
+                <button class="cu-view-btn" data-view="chapters"><i class="bi bi-collection"></i> Chapters</button>
                 <button class="cu-view-btn" data-view="list"><i class="bi bi-list-ul"></i> List</button>
                 <button class="cu-view-btn" data-view="tree"><i class="bi bi-diagram-3"></i> Tree</button>
             </div>
@@ -349,6 +387,13 @@
                 <option value="priority">Priority</option>
                 <option value="title">Title</option>
             </select>
+            <label class="cu-checkline" id="cuUnfinishedWrap" title="Show only unfinished tasks" style="display:none;">
+                <input type="checkbox" id="cuUnfinished"> Unfinished only
+            </label>
+            <span id="cuChapterExpandWrap" style="display:none;gap:4px;">
+                <button class="cu-mini-btn" id="cuExpandAll" title="Expand all chapters">Expand all</button>
+                <button class="cu-mini-btn" id="cuCollapseAll" title="Collapse all chapters">Collapse all</button>
+            </span>
         </div>
         <div class="cu-toolbar-right">
             <span style="font-size:12px;color:#8b8d98;">{{ $totalCnt }} task{{ $totalCnt != 1 ? 's' : '' }}</span>
@@ -479,6 +524,36 @@
                 <p>Create your first task to get started.</p>
             </div>
         @endforelse
+    </div>
+
+    {{-- CHAPTERS VIEW — collapsible parent-task sections with progress --}}
+    @php
+        $flatAll   = collect($tasks)->flatten();
+        $groupedBy = $flatAll->groupBy('parent_id');
+        $chapterRoots = $taskRoots->filter(fn ($t) => $groupedBy->has($t->id))->values();
+        $singleRoots  = $taskRoots->reject(fn ($t) => $groupedBy->has($t->id))->values();
+    @endphp
+    <div class="cu-chapters-view" id="cuChapters" style="display:none;">
+        @foreach($chapterRoots as $root)
+            @include('tasks._chapter-section', [
+                'sectionId'    => 'ch-' . $root->id,
+                'sectionTitle' => $root->title,
+                'sectionUrl'   => route('tasks.show', $root->id),
+                'tasks'        => collect([$root]),
+                'grouped'      => $groupedBy,
+                'collapsed'    => $root->status === 'completed',
+            ])
+        @endforeach
+        @if($singleRoots->count() > 0)
+            @include('tasks._chapter-section', [
+                'sectionId'    => 'ch-other',
+                'sectionTitle' => 'Other tasks',
+                'sectionUrl'   => null,
+                'tasks'        => $singleRoots,
+                'grouped'      => $groupedBy,
+                'collapsed'    => false,
+            ])
+        @endif
     </div>
 
     @endif
@@ -622,14 +697,26 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /* View switcher */
+    const chapters = document.getElementById('cuChapters');
+    const unfinishedWrap = document.getElementById('cuUnfinishedWrap');
+    const chapterExpandWrap = document.getElementById('cuChapterExpandWrap');
+    const unfinishedBox = document.getElementById('cuUnfinished');
+
+    function showView(v) {
+        if (kanban)   kanban.style.display   = v === 'kanban'   ? 'grid'  : 'none';
+        if (list)     list.style.display     = v === 'list'     ? 'block' : 'none';
+        if (tree)     tree.style.display     = v === 'tree'     ? 'block' : 'none';
+        if (chapters) chapters.style.display = v === 'chapters' ? 'flex'  : 'none';
+        const isCh = v === 'chapters';
+        if (unfinishedWrap)    unfinishedWrap.style.display    = isCh ? '' : 'none';
+        if (chapterExpandWrap) chapterExpandWrap.style.display = isCh ? 'inline-flex' : 'none';
+    }
     document.querySelectorAll('.cu-view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.cu-view-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            const v = btn.dataset.view;
-            if (kanban) kanban.style.display = v === 'kanban' ? 'grid' : 'none';
-            if (list)   list.style.display   = v === 'list'   ? 'block' : 'none';
-            if (tree)   tree.style.display   = v === 'tree'   ? 'block' : 'none';
+            showView(btn.dataset.view);
+            savePrefs();
         });
     });
 
@@ -644,6 +731,26 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    /* Chapter collapse / expand */
+    function setChapter(ch, collapsed) {
+        ch.classList.toggle('collapsed', collapsed);
+        savePrefs();
+    }
+    document.querySelectorAll('[data-chapter-toggle]').forEach(head => {
+        head.addEventListener('click', e => {
+            if (e.target.closest('a,button.dropdown-toggle,.dropdown-menu')) return;
+            const ch = head.closest('.cu-chapter');
+            setChapter(ch, !ch.classList.contains('collapsed'));
+        });
+    });
+    document.getElementById('cuExpandAll')?.addEventListener('click', () => {
+        document.querySelectorAll('.cu-chapter').forEach(ch => ch.classList.remove('collapsed'));
+        savePrefs();
+    });
+    document.getElementById('cuCollapseAll')?.addEventListener('click', () => {
+        document.querySelectorAll('.cu-chapter').forEach(ch => ch.classList.add('collapsed'));
+        savePrefs();
+    });
     /* Column collapse / expand */
     document.querySelectorAll('[data-col-toggle]').forEach(head => {
         head.addEventListener('click', e => {
@@ -663,24 +770,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
+    function rowMatches(el, term, priority, project, status) {
+        return el.dataset.title.includes(term)
+            && (!priority || el.dataset.priority === priority)
+            && (!project  || el.dataset.project  === project)
+            && (!status   || el.dataset.status   === status);
+    }
+
     function applyFilters() {
         const term     = (searchInput?.value || '').toLowerCase();
         const priority = prioritySelect?.value || '';
         const project  = projectSelect?.value  || '';
         const status   = statusSelect?.value   || '';
+        const onlyOpen = unfinishedBox?.checked || false;
         document.querySelectorAll('.cu-task-card').forEach(card => {
-            const show = card.dataset.title.includes(term)
-                      && (!priority || card.dataset.priority === priority)
-                      && (!project  || card.dataset.project  === project)
-                      && (!status   || card.dataset.status   === status);
-            card.style.display = show ? '' : 'none';
+            card.style.display = rowMatches(card, term, priority, project, status) ? '' : 'none';
         });
         document.querySelectorAll('.cu-list-row').forEach(row => {
-            const show = row.dataset.title.includes(term)
-                      && (!priority || row.dataset.priority === priority)
-                      && (!project  || row.dataset.project  === project)
-                      && (!status   || row.dataset.status   === status);
+            row.style.display = rowMatches(row, term, priority, project, status) ? '' : 'none';
+        });
+        /* Chapter rows: same filters + unfinished-only; hide empty sections */
+        document.querySelectorAll('.cu-ch-row').forEach(row => {
+            const show = rowMatches(row, term, priority, project, status)
+                && (!onlyOpen || row.dataset.status !== 'completed');
             row.style.display = show ? '' : 'none';
+        });
+        document.querySelectorAll('.cu-chapter').forEach(ch => {
+            const visible = [...ch.querySelectorAll('.cu-ch-row')]
+                .some(r => r.style.display !== 'none');
+            ch.style.display = visible ? '' : 'none';
         });
         updateCounts();
     }
@@ -740,6 +858,7 @@ document.addEventListener('DOMContentLoaded', function () {
     prioritySelect?.addEventListener('change', applyFilters);
     projectSelect?.addEventListener('change', applyFilters);
     statusSelect?.addEventListener('change', applyFilters);
+    unfinishedBox?.addEventListener('change', () => { applyFilters(); savePrefs(); });
     sortSelect?.addEventListener('change', () => { applySort(); applyFilters(); });
 
     /* ─── Persistence (localStorage) ─── */
@@ -755,6 +874,13 @@ document.addEventListener('DOMContentLoaded', function () {
             if (projectSelect && p.project)  projectSelect.value = p.project;
             if (statusSelect  && p.status)   statusSelect.value  = p.status;
             if (sortSelect    && p.sort)     sortSelect.value    = p.sort;
+            if (unfinishedBox) unfinishedBox.checked = !!p.unfinished;
+            if (p.chapters) {
+                Object.entries(p.chapters).forEach(([sectionId, isCollapsed]) => {
+                    const ch = document.querySelector(`[data-chapter="${sectionId}"]`);
+                    if (ch) ch.classList.toggle('collapsed', !!isCollapsed);
+                });
+            }
             if (p.collapsed) {
                 Object.entries(p.collapsed).forEach(([status, isCollapsed]) => {
                     const head = document.querySelector(`[data-col-toggle="${status}"]`);
@@ -773,6 +899,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 const col = h.closest('.cu-col');
                 collapsed[col.querySelector('.cu-col-body').dataset.status] = col.classList.contains('collapsed');
             });
+            const chaptersCollapsed = {};
+            document.querySelectorAll('.cu-chapter').forEach(ch => {
+                chaptersCollapsed[ch.dataset.chapter] = ch.classList.contains('collapsed');
+            });
             localStorage.setItem(LS, JSON.stringify({
                 view: document.querySelector('.cu-view-btn.active')?.dataset.view,
                 search: searchInput?.value ?? '',
@@ -780,12 +910,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 project: projectSelect?.value ?? '',
                 status: statusSelect?.value ?? '',
                 sort: sortSelect?.value ?? '',
-                collapsed
+                unfinished: unfinishedBox?.checked || false,
+                collapsed,
+                chapters: chaptersCollapsed
             }));
         } catch (e) { /* storage unavailable */ }
     }
     ['input','change'].forEach(ev => {
-        [searchInput, prioritySelect, projectSelect, statusSelect, sortSelect]
+        [searchInput, prioritySelect, projectSelect, statusSelect, sortSelect, unfinishedBox]
             .forEach(el => el?.addEventListener(ev, savePrefs));
     });
     document.querySelectorAll('[data-col-toggle]').forEach(h =>
@@ -858,35 +990,29 @@ document.addEventListener('DOMContentLoaded', function () {
                 const from = card.dataset.status;
                 const status = col.dataset.status;
                 updateStatus(taskId, status, () => {
-                    card.dataset.status = status;
-                    col.insertBefore(card, col.querySelector('.cu-quickadd'));
-                    if (from !== status) applyCardDoneState(card, status);
+                    syncTaskDoneUI(taskId, status);
+                    if (from !== status) toast('Task moved ✓');
                     updateCounts();
+                    applyFilters();
                 });
             });
         });
     }
 
-    /* Quick check toggle — delegation */
+    /* Quick check toggle — delegation (works for board cards AND chapter rows) */
     document.addEventListener('click', e => {
         const check = e.target.closest('.cu-check');
         if (check) {
             e.preventDefault();
-            const card = check.closest('.cu-task-card');
-            const id = card.dataset.id;
-            const isDone = card.classList.contains('is-done');
+            const holder = check.closest('.cu-task-card, .cu-ch-row');
+            if (!holder) return;
+            const id = holder.dataset.id;
+            const isDone = holder.classList.contains('is-done');
             const newStatus = isDone ? 'to_do' : 'completed';
             updateStatus(id, newStatus, () => {
-                const col = document.getElementById(`col-${newStatus}`);
-                card.dataset.status = newStatus;
-                col.insertBefore(card, col.querySelector('.cu-quickadd'));
-                applyCardDoneState(card, newStatus);
-                const colEl = col.closest('.cu-col');
-                if (newStatus === 'completed' && colEl.classList.contains('collapsed')) {
-                    colEl.classList.remove('collapsed');
-                    colEl.dataset.collapsed = '0';
-                }
+                syncTaskDoneUI(id, newStatus);
                 updateCounts();
+                applyFilters();
                 toast(newStatus === 'completed' ? 'Task completed ✓' : 'Task moved to To Do');
             });
             return;
@@ -896,15 +1022,19 @@ document.addEventListener('DOMContentLoaded', function () {
         if (del) {
             e.preventDefault();
             const id = del.dataset.id;
-            const card = document.querySelector(`.cu-task-card[data-id="${id}"]`);
             if (!confirm('Delete this task? This cannot be undone.')) return;
             fetch(`/tasks/${id}`, {
                 method: 'DELETE',
                 headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
             }).then(r => {
                 if (!r.ok) throw new Error();
-                card?.remove();
+                document.querySelector(`.cu-task-card[data-id="${id}"]`)?.remove();
+                const row = document.querySelector(`.cu-ch-row[data-id="${id}"]`);
+                const ch = row?.closest('.cu-chapter');
+                row?.remove();
+                if (ch) refreshChapter(ch);
                 updateCounts();
+                applyFilters();
                 toast('Task deleted');
             }).catch(() => {
                 /* Fallback: regular form submit (handles subtasks / full page delete) */
@@ -918,15 +1048,54 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    function applyCardDoneState(card, status) {
-        card.classList.toggle('is-done', status === 'completed');
-        const check = card.querySelector('.cu-check');
+    /* Unified done-state sync across board card, chapter row and section progress */
+    function applyDoneState(el, status) {
+        const done = status === 'completed';
+        el.classList.toggle('is-done', done);
+        el.dataset.status = status;
+        const check = el.querySelector('.cu-check');
         if (check) {
-            const done = status === 'completed';
             check.classList.toggle('done', done);
             check.title = done ? 'Mark as To Do' : 'Mark as Completed';
             const ico = check.querySelector('i');
-            ico.className = 'bi ' + (done ? 'bi-check-circle-fill' : 'bi-circle');
+            if (ico) ico.className = 'bi ' + (done ? 'bi-check-circle-fill' : 'bi-circle');
+        }
+    }
+
+    function refreshChapter(ch) {
+        const rows = [...ch.querySelectorAll('.cu-ch-row')];
+        const total = rows.length;
+        const done = rows.filter(r => r.dataset.status === 'completed').length;
+        const pct = total > 0 ? Math.round(done / total * 100) : 0;
+        const fill = ch.querySelector('.cu-chapter-pb-fill');
+        const count = ch.querySelector('.cu-chapter-count');
+        const open = ch.querySelector('.cu-chapter-open');
+        if (fill)  fill.style.width = pct + '%';
+        if (count) { count.textContent = `${done}/${total}`; count.title = `${done} of ${total} done`; }
+        if (open)  open.textContent = `${total - done} open`;
+        ch.dataset.total = total;
+        ch.dataset.done = done;
+    }
+
+    function syncTaskDoneUI(id, status) {
+        const card = document.querySelector(`.cu-task-card[data-id="${id}"]`);
+        if (card) {
+            const col = document.getElementById(`col-${status}`);
+            if (col) {
+                col.insertBefore(card, col.querySelector('.cu-quickadd'));
+                const colEl = col.closest('.cu-col');
+                if (status === 'completed' && colEl.classList.contains('collapsed')) {
+                    colEl.classList.remove('collapsed');
+                    colEl.dataset.collapsed = '0';
+                }
+            }
+            applyDoneState(card, status);
+        }
+        const row = document.querySelector(`.cu-ch-row[data-id="${id}"]`);
+        if (row) {
+            applyDoneState(row, status);
+            const ch = row.closest('.cu-chapter');
+            if (ch) refreshChapter(ch);
         }
     }
 
