@@ -4,642 +4,323 @@
 
 @push('styles')
 <style>
-/* ── Task Show – ClickUp style ─────────────────────────────── */
-.ts-wrap { padding: 14px 16px 40px; }
+/* ── Task Show – minimal ─────────────────────────────────── */
+.ts-wrap { padding:20px 24px 48px; max-width:860px; margin:0 auto; }
 
-/* Header */
-.ts-header {
-    background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
-    border-radius: 14px;
-    padding: 18px 24px;
-    color: #fff;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(124,58,237,.35);
+.ts-topbar { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+.ts-back {
+    display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:500;
+    color:#8b8d98; text-decoration:none;
 }
-.ts-header::before {
-    content:'';
-    position:absolute;
-    top:-30px; right:-30px;
-    width:120px; height:120px;
-    background:rgba(255,255,255,.08);
-    border-radius:50%;
+.ts-back:hover { color:#7c3aed; }
+.ts-id { font-size:11px; font-weight:600; letter-spacing:.06em; color:#c1c4cc; text-transform:uppercase; }
+.ts-top-actions { margin-left:auto; display:flex; gap:6px; }
+.ts-icon-btn {
+    display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:6px;
+    border:1px solid #e5e7eb; background:white; color:#6b6f78; font-size:12px; font-weight:600;
+    text-decoration:none; cursor:pointer; transition:all .12s;
 }
-.ts-header::after {
-    content:'';
-    position:absolute;
-    bottom:-40px; right:80px;
-    width:80px; height:80px;
-    background:rgba(255,255,255,.06);
-    border-radius:50%;
-}
-.ts-back-btn {
-    display:inline-flex; align-items:center; gap:6px;
-    color:rgba(255,255,255,.85); font-size:13px; font-weight:500;
-    text-decoration:none; padding:6px 12px;
-    background:rgba(255,255,255,.15); border-radius:8px;
-    transition:background .2s; white-space:nowrap; z-index:1;
-}
-.ts-back-btn:hover { background:rgba(255,255,255,.25); color:#fff; }
-.ts-header-meta { flex:1; z-index:1; }
-.ts-task-id {
-    font-size:11px; font-weight:700; letter-spacing:.08em;
-    opacity:.75; text-transform:uppercase; margin-bottom:4px;
-}
-.ts-header-title {
-    font-size:20px; font-weight:700; line-height:1.3; margin:0;
-}
-.ts-header-actions { display:flex; gap:8px; z-index:1; }
-.ts-header-btn {
-    display:inline-flex; align-items:center; gap:6px;
-    padding:8px 14px; border-radius:8px; font-size:13px;
-    font-weight:600; text-decoration:none; border:none; cursor:pointer;
-    transition:all .2s;
-}
-.ts-header-btn.edit {
-    background:rgba(255,255,255,.2); color:#fff;
-}
-.ts-header-btn.edit:hover { background:rgba(255,255,255,.3); color:#fff; }
-.ts-header-btn.del {
-    background:rgba(239,68,68,.3); color:#fff;
-}
-.ts-header-btn.del:hover { background:rgba(239,68,68,.5); }
+.ts-icon-btn:hover { border-color:#7c3aed; color:#7c3aed; background:#f7f5ff; }
+.ts-icon-btn.danger:hover { border-color:#e5484d; color:#e5484d; background:#fef2f2; }
 
-/* Two-column layout */
-.ts-body { display:grid; grid-template-columns:260px 1fr; gap:20px; align-items:start; }
+.ts-title {
+    font-size:22px; font-weight:700; color:#1f2328; line-height:1.35;
+    margin:0 0 10px; word-break:break-word;
+}
+.ts-title.is-done { color:#9ca0aa; text-decoration:line-through; text-decoration-color:#c7cad1; }
 
-/* Left panel */
-.ts-panel {
-    background:#fff; border-radius:14px;
-    border:1px solid #e5e7eb; overflow:hidden;
-    box-shadow:0 1px 4px rgba(0,0,0,.06);
+.ts-attr-line { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+.ts-chip {
+    display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:20px;
+    font-size:11px; font-weight:600; cursor:pointer; border:none;
 }
-@media(min-width:769px) {
-    .ts-panel { position:sticky; top:80px; }
-}
-.ts-panel-icon {
-    display:flex; align-items:center; justify-content:center;
-    height:12px;
-}
-.ts-priority-bar {
-    height:5px; width:100%;
-}
-.ts-priority-bar.high  { background:#dc2626; }
-.ts-priority-bar.medium { background:#f59e0b; }
-.ts-priority-bar.low   { background:#16a34a; }
+.ts-chip.to_do       { background:#eef0f2; color:#6b6f78; }
+.ts-chip.in_progress { background:#ece9fd; color:#7c3aed; }
+.ts-chip.on_hold     { background:#fdf4de; color:#ad6800; }
+.ts-chip.in_review   { background:#e2f0fd; color:#0b6bcb; }
+.ts-chip.completed   { background:#e3f5ec; color:#29774b; }
+.ts-chip:hover { filter:brightness(.96); }
+.ts-dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+.ts-prio { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+.ts-prio.high { color:#e5484d; } .ts-prio.medium { color:#ad6800; } .ts-prio.low { color:#29774b; }
+.ts-attr-sep { color:#dfe1e6; }
+.ts-attr { font-size:12.5px; color:#6b6f78; display:inline-flex; align-items:center; gap:5px; }
+.ts-attr a { color:#7c3aed; text-decoration:none; }
+.ts-attr a:hover { text-decoration:underline; }
+.ts-attr.overdue { color:#e5484d; font-weight:600; }
 
-.ts-panel-body { padding:20px; }
-.ts-panel-title { font-size:15px; font-weight:700; color:#111827; margin-bottom:14px; line-height:1.3; word-break:break-word; }
+.ts-progress { display:flex; align-items:center; gap:10px; margin:14px 0 4px; }
+.ts-progress-bar { flex:1; height:5px; background:#eef0f2; border-radius:4px; overflow:hidden; }
+.ts-progress-fill { height:100%; background:#30a46c; border-radius:4px; }
+.ts-progress-lbl { font-size:11.5px; font-weight:600; color:#6b6f78; white-space:nowrap; }
 
-/* Status chip */
-.ts-status {
-    display:inline-flex; align-items:center; gap:7px;
-    padding:6px 12px; border-radius:20px; font-size:12px; font-weight:600;
-    cursor:pointer; transition:opacity .2s; margin-bottom:10px;
-}
-.ts-status:hover { opacity:.8; }
-.ts-status.to_do    { background:#f3f4f6; color:#374151; }
-.ts-status.in_progress { background:#ede9fe; color:#5b21b6; }
-.ts-status.on_hold  { background:#fef3c7; color:#b45309; }
-.ts-status.in_review { background:#dbeafe; color:#1d4ed8; }
-.ts-status.completed { background:#dcfce7; color:#15803d; }
-.ts-status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-.ts-status.to_do    .ts-status-dot { background:#9ca3af; }
-.ts-status.in_progress .ts-status-dot { background:#7c3aed; }
-.ts-status.on_hold  .ts-status-dot { background:#b45309; }
-.ts-status.in_review .ts-status-dot { background:#1d4ed8; }
-.ts-status.completed .ts-status-dot { background:#16a34a; }
+.ts-divider { border:none; border-top:1px solid #eef0f2; margin:20px 0; }
 
-/* Priority chip */
-.ts-priority {
-    display:inline-flex; align-items:center; gap:6px;
-    padding:5px 10px; border-radius:20px; font-size:11px; font-weight:600;
-    margin-bottom:18px;
+.ts-h {
+    font-size:12px; font-weight:700; color:#8b8d98; text-transform:uppercase;
+    letter-spacing:.5px; margin:0 0 10px;
 }
-.ts-priority.high   { background:#fef2f2; color:#dc2626; }
-.ts-priority.medium { background:#fffbeb; color:#d97706; }
-.ts-priority.low    { background:#f0fdf4; color:#16a34a; }
+.ts-description { font-size:14px; line-height:1.8; color:#3d4149; }
+.ts-description p { margin:0 0 10px; }
+.ts-empty { color:#c1c4cc; font-size:13px; font-style:italic; }
+.ts-details { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:8px 20px; }
+.ts-detail-lbl { font-size:10.5px; font-weight:600; color:#aeb2ba; text-transform:uppercase; letter-spacing:.4px; }
+.ts-detail-val { font-size:13px; color:#1f2328; margin-top:1px; }
 
-/* Meta rows */
-.ts-divider { height:1px; background:#f3f4f6; margin:0 -20px 16px; }
-.ts-meta-row {
-    display:flex; align-items:flex-start; gap:10px;
-    margin-bottom:13px; font-size:13px;
+.ts-sub-row {
+    display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:6px;
+    text-decoration:none;
 }
-.ts-meta-row:last-child { margin-bottom:0; }
-.ts-meta-icon {
-    width:28px; height:28px; border-radius:7px;
-    background:#f3f4f6; display:flex; align-items:center;
-    justify-content:center; color:#6b7280; flex-shrink:0; font-size:13px;
+.ts-sub-row:hover { background:#f7f8fa; }
+.ts-sub-check {
+    width:16px; height:16px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:13px;
+    color:#c1c4cc;
 }
-.ts-meta-label { font-size:10px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em; line-height:1; margin-bottom:2px; }
-.ts-meta-val { font-size:13px; font-weight:500; color:#111827; line-height:1.3; }
-.ts-meta-val a { color:#7c3aed; text-decoration:none; }
-.ts-meta-val a:hover { text-decoration:underline; }
-.ts-overdue { color:#dc2626; font-size:11px; font-weight:600; margin-top:2px; }
+.ts-sub-check.done { color:#30a46c; }
+.ts-sub-title { flex:1; font-size:13.5px; color:#1f2328; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ts-sub-row.is-done .ts-sub-title { color:#9ca0aa; text-decoration:line-through; }
 
-/* Panel action buttons */
-.ts-panel-actions { padding:0 16px 16px; display:flex; flex-direction:column; gap:8px; }
-.ts-panel-btn {
-    display:flex; align-items:center; gap:8px; padding:10px 14px;
-    border-radius:9px; font-size:13px; font-weight:600;
-    text-decoration:none; border:none; cursor:pointer;
-    transition:all .2s; width:100%; box-sizing:border-box;
-}
-.ts-panel-btn.edit   { background:#7c3aed; color:#fff; }
-.ts-panel-btn.edit:hover { background:#6d28d9; color:#fff; }
-.ts-panel-btn.danger { background:#fef2f2; color:#dc2626; }
-.ts-panel-btn.danger:hover { background:#fee2e2; }
-
-/* Right content */
-.ts-content { display:flex; flex-direction:column; gap:16px; }
-.ts-card {
-    background:#fff; border-radius:14px;
-    border:1px solid #e5e7eb;
-    box-shadow:0 1px 4px rgba(0,0,0,.06);
-    overflow:hidden;
-}
-.ts-card-header {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:14px 20px; border-bottom:1px solid #f3f4f6;
-}
-.ts-card-title {
-    display:flex; align-items:center; gap:8px;
-    font-size:14px; font-weight:700; color:#111827;
-}
-.ts-card-title i { color:#7c3aed; }
-.ts-card-body { padding:20px; }
-
-/* Progress */
-.ts-progress-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-.ts-stat-tile {
-    background:#f8f9fa; border-radius:10px; padding:14px;
-    text-align:center; border:1px solid #f3f4f6;
-}
-.ts-stat-val { font-size:22px; font-weight:800; color:#111827; }
-.ts-stat-lbl { font-size:11px; color:#9ca3af; font-weight:600; margin-top:4px; text-transform:uppercase; letter-spacing:.05em; }
-.ts-prog-bar-wrap { background:#f3f4f6; border-radius:999px; height:8px; margin-top:16px; overflow:hidden; }
-.ts-prog-bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#7c3aed,#a78bfa); transition:width .4s ease; }
-
-/* Description */
-.ts-description { font-size:14px; line-height:1.8; color:#374151; }
-.ts-empty { text-align:center; padding:32px 20px; color:#9ca3af; }
-.ts-empty i { font-size:36px; opacity:.35; display:block; margin-bottom:8px; }
-.ts-empty p { font-size:13px; margin:0; }
-
-/* Checklist */
-.ts-checklist-progress-bar { font-size:12px; color:#6b7280; }
-.ts-cl-prog-wrap { background:#f3f4f6; border-radius:999px; height:6px; margin-top:6px; overflow:hidden; }
-.ts-cl-prog-fill { height:100%; border-radius:999px; background:#7c3aed; transition:width .3s; }
 .ts-cl-item {
-    display:flex; align-items:center; gap:10px;
-    padding:9px 12px; border-radius:9px; transition:background .15s;
-    margin-bottom:4px;
+    display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px;
 }
-.ts-cl-item:hover { background:#f8f9fa; }
-.ts-cl-item.completed .ts-cl-text { text-decoration:line-through; color:#9ca3af; }
+.ts-cl-item:hover { background:#f7f8fa; }
+.ts-cl-item.completed .ts-cl-text { text-decoration:line-through; color:#9ca0aa; }
 .ts-cl-check {
-    width:18px; height:18px; border-radius:5px;
-    border:2px solid #d1d5db; cursor:pointer;
-    display:flex; align-items:center; justify-content:center;
-    flex-shrink:0; transition:all .2s; color:#fff; font-size:11px;
+    width:17px; height:17px; border-radius:5px; border:1.5px solid #d3d7de; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    transition:all .12s; color:#fff; font-size:11px; background:white; padding:0;
 }
 .ts-cl-check.checked { background:#7c3aed; border-color:#7c3aed; }
-.ts-cl-text { flex:1; font-size:13px; color:#374151; font-weight:500; }
+.ts-cl-text { flex:1; font-size:13.5px; color:#3d4149; }
 .ts-cl-del {
-    opacity:0; background:none; border:none; cursor:pointer;
-    color:#9ca3af; padding:4px; border-radius:4px; transition:all .2s;
-    font-size:13px;
+    opacity:0; background:none; border:none; cursor:pointer; color:#c1c4cc;
+    padding:4px; border-radius:4px; font-size:12px;
 }
 .ts-cl-item:hover .ts-cl-del { opacity:1; }
-.ts-cl-del:hover { color:#ef4444; background:#fef2f2; }
-.ts-cl-add {
-    display:flex; align-items:center; gap:8px;
-    margin-top:12px; padding-top:12px; border-top:1px dashed #e5e7eb;
-}
+.ts-cl-del:hover { color:#e5484d; }
+.ts-cl-add { display:flex; gap:8px; margin-top:10px; }
 .ts-cl-input {
-    flex:1; border:1.5px solid #e5e7eb; border-radius:8px;
-    padding:8px 12px; font-size:13px; outline:none;
-    transition:border-color .2s;
+    flex:1; border:1px solid #e5e7eb; border-radius:6px; padding:7px 10px;
+    font-size:13px; outline:none; color:#1f2328;
 }
 .ts-cl-input:focus { border-color:#7c3aed; }
+.ts-cl-input::placeholder { color:#aeb2ba; }
 .ts-cl-btn {
-    display:flex; align-items:center; gap:5px;
-    padding:8px 14px; border-radius:8px; background:#7c3aed;
-    color:#fff; font-size:13px; font-weight:600; border:none;
-    cursor:pointer; transition:background .2s; white-space:nowrap;
+    display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border-radius:6px;
+    background:#7c3aed; color:#fff; font-size:12.5px; font-weight:600; border:none;
+    cursor:pointer; white-space:nowrap;
 }
 .ts-cl-btn:hover { background:#6d28d9; }
 
-/* Status change modal */
+/* Status modal — minimal */
 .ts-modal-overlay {
-    position:fixed; inset:0; background:rgba(0,0,0,.45);
-    z-index:9000; display:flex; align-items:center; justify-content:center;
+    position:fixed; inset:0; background:rgba(20,22,28,.45); z-index:9000;
+    display:flex; align-items:center; justify-content:center;
 }
-.ts-modal-box {
-    background:#fff; border-radius:16px; width:420px; max-width:95vw;
-    box-shadow:0 20px 60px rgba(0,0,0,.3); overflow:hidden;
-}
+.ts-modal-box { background:#fff; border-radius:10px; width:400px; max-width:94vw; overflow:hidden; }
 .ts-modal-head {
-    background:linear-gradient(135deg,#7c3aed,#5b21b6);
-    color:#fff; padding:18px 20px; display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px; border-bottom:1px solid #eef0f2;
+    display:flex; align-items:center; justify-content:space-between;
 }
-.ts-modal-head h5 { margin:0; font-size:15px; font-weight:700; }
-.ts-modal-body { padding:20px; }
+.ts-modal-head h5 { margin:0; font-size:14px; font-weight:700; color:#1f2328; }
+.ts-modal-x {
+    background:none; border:none; color:#8b8d98; cursor:pointer; font-size:15px;
+    width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+}
+.ts-modal-x:hover { background:#f0f1f3; color:#1f2328; }
+.ts-modal-body { padding:14px 18px; }
 .ts-status-opt {
-    display:flex; align-items:center; gap:12px;
-    padding:12px; border:2px solid #e5e7eb; border-radius:10px;
-    cursor:pointer; margin-bottom:8px; transition:all .2s;
+    display:flex; align-items:center; gap:10px; padding:9px 12px;
+    border:1px solid #e5e7eb; border-radius:8px; cursor:pointer; margin-bottom:6px;
 }
 .ts-status-opt:last-child { margin-bottom:0; }
-.ts-status-opt:hover { border-color:#c4b5fd; background:#faf5ff; }
-.ts-status-opt.selected { border-color:#7c3aed; background:#f5f3ff; }
+.ts-status-opt:hover { border-color:#c4b5fd; }
+.ts-status-opt.selected { border-color:#7c3aed; background:#f7f5ff; }
 .ts-status-opt input { display:none; }
-.ts-status-chip {
-    display:inline-flex; align-items:center; gap:6px;
-    padding:5px 10px; border-radius:20px; font-size:12px; font-weight:600;
-}
-.ts-status-chip.to_do    { background:#f3f4f6; color:#374151; }
-.ts-status-chip.in_progress { background:#ede9fe; color:#5b21b6; }
-.ts-status-chip.on_hold  { background:#fef3c7; color:#b45309; }
-.ts-status-chip.in_review { background:#dbeafe; color:#1d4ed8; }
-.ts-status-chip.completed { background:#dcfce7; color:#15803d; }
-.ts-modal-foot {
-    padding:12px 20px; border-top:1px solid #f3f4f6;
-    display:flex; justify-content:flex-end; gap:8px;
-}
+.ts-modal-foot { padding:12px 18px; border-top:1px solid #eef0f2; display:flex; justify-content:flex-end; gap:8px; }
 .ts-modal-cancel {
-    padding:9px 18px; border-radius:8px; border:1.5px solid #e5e7eb;
-    background:#fff; font-size:13px; font-weight:600; color:#374151;
-    cursor:pointer;
+    padding:7px 16px; border-radius:6px; border:1px solid #e5e7eb; background:#fff;
+    font-size:12.5px; font-weight:600; color:#3d4149; cursor:pointer;
 }
 .ts-modal-save {
-    padding:9px 18px; border-radius:8px; border:none;
-    background:#7c3aed; color:#fff; font-size:13px; font-weight:600;
-    cursor:pointer; transition:background .2s;
+    padding:7px 16px; border-radius:6px; border:none; background:#7c3aed; color:#fff;
+    font-size:12.5px; font-weight:600; cursor:pointer;
 }
 .ts-modal-save:hover { background:#6d28d9; }
 
-@media(max-width:768px) {
-    /* Two-column → single column */
-    .ts-body  { grid-template-columns:1fr; }
-    .ts-progress-grid { grid-template-columns:repeat(3,1fr); }
-
-    /* Panel action buttons — side by side */
-    .ts-panel-actions { flex-direction:row; flex-wrap:wrap; }
-    .ts-panel-btn { flex:1; justify-content:center; }
-
-    /* Header layout */
-    .ts-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-        padding: 14px 16px;
-    }
-    .ts-header-title   { font-size: 15px; }
-    .ts-task-id        { font-size: 10px; }
-    .ts-back-btn       { padding: 5px 10px; font-size: 12px; }
-
-    /* Action buttons — full width row */
-    .ts-header-actions {
-        display: flex;
-        width: 100%;
-        gap: 8px;
-    }
-    .ts-header-btn {
-        flex: 1;
-        justify-content: center;
-        padding: 8px 10px;
-        font-size: 12px;
-    }
+@media(max-width:640px) {
+    .ts-wrap { padding:14px 14px 40px; }
+    .ts-title { font-size:18px; }
 }
 </style>
 @endpush
 
-
 @section('content')
 @php
-    $statusClass = str_replace('_', '_', $task->status);
     $statusLabel = ucwords(str_replace('_', ' ', $task->status));
-    $priorityColor = ['high' => '#dc2626', 'medium' => '#f59e0b', 'low' => '#16a34a'][$task->priority] ?? '#7c3aed';
 
     $checklistTotal = $task->checklistItems->count();
     $checklistDone  = $task->checklistItems->where('completed', true)->count();
-    $checklistPct   = $checklistTotal > 0 ? round(($checklistDone / $checklistTotal) * 100) : 0;
 
     $overdue = $task->due_date
-        && \Carbon\Carbon::parse($task->due_date)->isPast()
+        && \Carbon\Carbon::parse($task->due_date)->startOfDay()->lt(now()->startOfDay())
         && $task->status !== 'completed';
 
     $progressPct = $task->status === 'completed' ? 100
-        : ($task->status === 'in_review'  ? 80
-        : ($task->status === 'in_progress' ? 50
-        : ($task->status === 'on_hold'    ? 30 : 0)));
+        : (int) round($task->progressPercent());
+
+    $wEff = $task->effectiveWeight();
+    $wManual = max(0, (float) ($task->weight ?? 1));
+    $wFmt = fn ($v) => rtrim(rtrim(number_format($v, 2), '0'), '.');
 @endphp
 
 <div class="ts-wrap">
 
-    {{-- ── Header ───────────────────────────────────────────────── --}}
-    <div class="ts-header">
+    <div class="ts-topbar">
         @if($task->project)
-            <a href="{{ route('projects.tasks.index', $task->project) }}" class="ts-back-btn">
-                <i class="bi bi-arrow-left"></i> Tasks
+            <a href="{{ route('projects.tasks.index', $task->project) }}" class="ts-back">
+                <i class="bi bi-arrow-left"></i> {{ $task->project->name }}
             </a>
         @else
-            <a href="{{ route('tasks.index') }}" class="ts-back-btn">
+            <a href="{{ route('tasks.index') }}" class="ts-back">
                 <i class="bi bi-arrow-left"></i> Tasks
             </a>
         @endif
-
-        <div class="ts-header-meta">
-            <div class="ts-task-id">TASK-{{ str_pad($task->id, 4, '0', STR_PAD_LEFT) }}</div>
-            <h1 class="ts-header-title">{{ $task->title }}</h1>
-        </div>
-
-        <div class="ts-header-actions">
-            <a href="{{ route('tasks.edit', $task->id) }}" class="ts-header-btn edit">
+        <span class="ts-id">TASK-{{ str_pad($task->id, 4, '0', STR_PAD_LEFT) }}</span>
+        <div class="ts-top-actions">
+            <a href="{{ route('tasks.edit', $task->id) }}" class="ts-icon-btn">
                 <i class="bi bi-pencil"></i> Edit
             </a>
-            <button class="ts-header-btn del" onclick="confirmDelete()">
-                <i class="bi bi-trash"></i> Delete
+            <button class="ts-icon-btn danger" onclick="confirmDelete()">
+                <i class="bi bi-trash"></i>
             </button>
         </div>
     </div>
 
-    {{-- ── Body ─────────────────────────────────────────────────── --}}
-    <div class="ts-body">
+    <h1 class="ts-title {{ $task->status === 'completed' ? 'is-done' : '' }}">{{ $task->title }}</h1>
 
-        {{-- ── Left panel ──────────────────────────────────────── --}}
-        <div class="ts-panel">
-            <div class="ts-priority-bar {{ $task->priority }}"></div>
-            <div class="ts-panel-body">
-
-                <div class="ts-panel-title">{{ $task->title }}</div>
-
-                {{-- Status chip --}}
-                <div>
-                    <div class="ts-status {{ $task->status }}" onclick="openStatusModal()" title="Click to change status">
-                        <span class="ts-status-dot"></span>
-                        {{ $statusLabel }}
-                        <i class="bi bi-chevron-down" style="font-size:10px; margin-left:2px;"></i>
-                    </div>
-                </div>
-
-                {{-- Priority chip --}}
-                <div class="ts-priority {{ $task->priority }}">
-                    <i class="bi bi-flag-fill" style="font-size:10px;"></i>
-                    {{ ucfirst($task->priority) }} Priority
-                </div>
-
-                <div class="ts-divider"></div>
-
-                {{-- Meta rows --}}
-                <div class="ts-meta-row">
-                    <div class="ts-meta-icon"><i class="bi bi-person"></i></div>
-                    <div>
-                        <div class="ts-meta-label">Assigned To</div>
-                        <div class="ts-meta-val">{{ $task->user->name }}</div>
-                    </div>
-                </div>
-
-                @if($task->project)
-                <div class="ts-meta-row">
-                    <div class="ts-meta-icon"><i class="bi bi-folder"></i></div>
-                    <div>
-                        <div class="ts-meta-label">Project</div>
-                        <div class="ts-meta-val">
-                            <a href="{{ route('projects.show', $task->project) }}">{{ $task->project->name }}</a>
-                        </div>
-                    </div>
-                </div>
+    <div class="ts-attr-line">
+        <button class="ts-chip {{ $task->status }}" onclick="openStatusModal()" title="Change status">
+            <span class="ts-dot"></span>{{ $statusLabel }}
+        </button>
+        <span class="ts-prio {{ $task->priority }}">{{ $task->priority }}</span>
+        @if($task->due_date)
+            <span class="ts-attr-sep">·</span>
+            <span class="ts-attr {{ $overdue ? 'overdue' : '' }}" title="{{ \Carbon\Carbon::parse($task->due_date)->format('M d, Y') }}">
+                <i class="bi bi-calendar-event"></i>
+                {{ \Carbon\Carbon::parse($task->due_date)->format('M d') }}
+                @if($overdue)
+                    · Overdue
                 @endif
+            </span>
+        @endif
+        @if($task->user)
+            <span class="ts-attr-sep">·</span>
+            <span class="ts-attr"><i class="bi bi-person"></i>{{ $task->user->name }}</span>
+        @endif
+        @if($task->parent)
+            <span class="ts-attr-sep">·</span>
+            <span class="ts-attr">Subtask of <a href="{{ route('tasks.show', $task->parent) }}">{{ $task->parent->title }}</a></span>
+        @endif
+    </div>
 
-                @if($task->due_date)
-                <div class="ts-meta-row">
-                    <div class="ts-meta-icon">
-                        <i class="bi bi-calendar-event" style="{{ $overdue ? 'color:#dc2626;' : '' }}"></i>
-                    </div>
-                    <div>
-                        <div class="ts-meta-label">Due Date</div>
-                        <div class="ts-meta-val">{{ \Carbon\Carbon::parse($task->due_date)->format('M j, Y') }}</div>
-                        @if($overdue)
-                            <div class="ts-overdue"><i class="bi bi-exclamation-triangle-fill"></i> {{ \Carbon\Carbon::parse($task->due_date)->diffForHumans() }}</div>
-                        @else
-                            <div style="font-size:11px; color:#9ca3af; margin-top:1px;">{{ \Carbon\Carbon::parse($task->due_date)->diffForHumans() }}</div>
-                        @endif
-                    </div>
-                </div>
-                @endif
+    <div class="ts-progress">
+        <div class="ts-progress-bar"><div class="ts-progress-fill" style="width:{{ $progressPct }}%;"></div></div>
+        <span class="ts-progress-lbl">{{ $progressPct }}%</span>
+    </div>
 
-                @if($task->estimated_hours)
-                <div class="ts-meta-row">
-                    <div class="ts-meta-icon"><i class="bi bi-clock"></i></div>
-                    <div>
-                        <div class="ts-meta-label">Estimated</div>
-                        <div class="ts-meta-val">{{ $task->estimatedLabel() }}</div>
-                    </div>
-                </div>
-                @endif
+    @if($task->description)
+        <hr class="ts-divider">
+        <div class="ts-description">{!! $task->description !!}</div>
+    @endif
 
-                @php
-                    $wManual = max(0, (float) ($task->weight ?? 1));
-                    $wEff = $task->effectiveWeight();
-                    $wSpentH = round($task->ownTimeSeconds() / 3600, 1);
-                    $wFmt = fn ($v) => rtrim(rtrim(number_format($v, 2), '0'), '.');
-                    $wExtra = ($task->auto_weight && $wSpentH > 0 && $wEff != $wManual) ? ", {$wSpentH}h tracked" : '';
-                @endphp
-                <div class="ts-meta-row">
-                    <div class="ts-meta-icon"><i class="bi bi-award"></i></div>
-                    <div>
-                        <div class="ts-meta-label">Weight</div>
-                        <div class="ts-meta-val">×{{ $wFmt($wEff) }}
-                            <span style="font-size:11px; color:#9ca3af;">
-                                ({{ $wFmt($wManual) }} {{ $task->auto_weight ? 'auto' : 'manual' }}{{ $wExtra }})
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                @if($wSpentH > 0)
-                <div class="ts-meta-row">
-                    <div class="ts-meta-icon"><i class="bi bi-stopwatch"></i></div>
-                    <div>
-                        <div class="ts-meta-label">Time Spent</div>
-                        <div class="ts-meta-val">{{ \App\Models\TimeEntry::formatDuration($task->totalTimeSeconds()) }}</div>
-                    </div>
-                </div>
-                @endif
-
-                <div class="ts-meta-row">
-                    <div class="ts-meta-icon"><i class="bi bi-calendar-plus"></i></div>
-                    <div>
-                        <div class="ts-meta-label">Created</div>
-                        <div class="ts-meta-val">{{ $task->created_at->format('M j, Y') }}</div>
-                    </div>
-                </div>
-
-                @if($task->updated_at->ne($task->created_at))
-                <div class="ts-meta-row">
-                    <div class="ts-meta-icon"><i class="bi bi-pencil"></i></div>
-                    <div>
-                        <div class="ts-meta-label">Updated</div>
-                        <div class="ts-meta-val">{{ $task->updated_at->format('M j, Y') }}</div>
-                    </div>
-                </div>
-                @endif
-
-                @if($checklistTotal > 0)
-                <div class="ts-divider" style="margin-top:16px;"></div>
-                <div style="margin-bottom:4px;">
-                    <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em; margin-bottom:5px;">
-                        <span>Checklist</span>
-                        <span>{{ $checklistDone }}/{{ $checklistTotal }}</span>
-                    </div>
-                    <div class="ts-cl-prog-wrap">
-                        <div class="ts-cl-prog-fill" style="width:{{ $checklistPct }}%"></div>
-                    </div>
-                </div>
-                @endif
-
-            </div>
-
-            <div class="ts-panel-actions">
-                <a href="{{ route('tasks.edit', $task->id) }}" class="ts-panel-btn edit">
-                    <i class="bi bi-pencil"></i> Edit Task
+    @if($task->children->count() > 0)
+        <hr class="ts-divider">
+        <h2 class="ts-h">Subtasks ({{ $task->children->where('status', 'completed')->count() }}/{{ $task->children->count() }})</h2>
+        <div>
+            @foreach($task->children as $child)
+                <a href="{{ route('tasks.show', $child) }}" class="ts-sub-row {{ $child->status === 'completed' ? 'is-done' : '' }}">
+                    <span class="ts-sub-check {{ $child->status === 'completed' ? 'done' : '' }}">
+                        <i class="bi {{ $child->status === 'completed' ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
+                    </span>
+                    <span class="ts-sub-title">{{ $child->title }}</span>
                 </a>
-                <button class="ts-panel-btn danger" onclick="confirmDelete()">
-                    <i class="bi bi-trash"></i> Delete Task
+            @endforeach
+        </div>
+    @endif
+
+    <hr class="ts-divider">
+    <h2 class="ts-h">
+        Checklist
+        @if($checklistTotal > 0)
+            <span style="font-weight:400; text-transform:none; letter-spacing:0;">· {{ $checklistDone }}/{{ $checklistTotal }}</span>
+        @endif
+    </h2>
+    <div id="cl-items">
+        @forelse($task->checklistItems as $item)
+            <div class="ts-cl-item {{ $item->completed ? 'completed' : '' }}" data-id="{{ $item->id }}">
+                <button class="ts-cl-check {{ $item->completed ? 'checked' : '' }}"
+                     onclick="toggleChecklistItem({{ $item->id }})">
+                    @if($item->completed)
+                        <i class="bi bi-check" style="font-size:11px;"></i>
+                    @endif
+                </button>
+                <div class="ts-cl-text">{{ $item->name }}</div>
+                <button class="ts-cl-del" onclick="deleteChecklistItem({{ $item->id }})" title="Delete">
+                    <i class="bi bi-trash"></i>
                 </button>
             </div>
+        @empty
+            <div id="cl-empty" class="ts-empty">No checklist items yet.</div>
+        @endforelse
+    </div>
+    <form class="ts-cl-add" onsubmit="addChecklistItem(event)">
+        <input type="text" class="ts-cl-input" id="cl-input" placeholder="Add checklist item…" required>
+        <button type="submit" class="ts-cl-btn"><i class="bi bi-plus"></i> Add</button>
+    </form>
+
+    <hr class="ts-divider">
+    <h2 class="ts-h">Details</h2>
+    <div class="ts-details">
+        @if($task->project)
+            <div>
+                <div class="ts-detail-lbl">Project</div>
+                <div class="ts-detail-val"><a href="{{ route('projects.show', $task->project) }}" style="color:#7c3aed;text-decoration:none;">{{ $task->project->name }}</a></div>
+            </div>
+        @endif
+        @if($task->estimated_hours)
+            <div>
+                <div class="ts-detail-lbl">Estimated</div>
+                <div class="ts-detail-val">{{ $task->estimatedLabel() }}</div>
+            </div>
+        @endif
+        @if(((float) ($task->weight ?? 1)) !== 1.0 || $task->auto_weight)
+            <div>
+                <div class="ts-detail-lbl">Weight</div>
+                <div class="ts-detail-val">×{{ $wFmt($wEff) }} <span style="color:#8b8d98;font-size:11.5px;">({{ $task->auto_weight ? 'auto' : 'manual' }})</span></div>
+            </div>
+        @endif
+        @php $spent = $task->totalTimeSeconds(); @endphp
+        @if($spent > 0)
+            <div>
+                <div class="ts-detail-lbl">Time spent</div>
+                <div class="ts-detail-val">{{ \App\Models\TimeEntry::formatDuration($spent) }}</div>
+            </div>
+        @endif
+        <div>
+            <div class="ts-detail-lbl">Created</div>
+            <div class="ts-detail-val">{{ $task->created_at->format('M d, Y') }}</div>
         </div>
-
-        {{-- ── Right content ────────────────────────────────────── --}}
-        <div class="ts-content">
-
-            {{-- Progress card --}}
-            <div class="ts-card">
-                <div class="ts-card-header">
-                    <div class="ts-card-title"><i class="bi bi-bar-chart-line"></i> Progress</div>
-                </div>
-                <div class="ts-card-body">
-                    <div class="ts-progress-grid">
-                        <div class="ts-stat-tile">
-                            <div class="ts-stat-val">{{ $progressPct }}%</div>
-                            <div class="ts-stat-lbl">Task Status</div>
-                        </div>
-                        <div class="ts-stat-tile">
-                            <div class="ts-stat-val">{{ $checklistDone }}/{{ $checklistTotal }}</div>
-                            <div class="ts-stat-lbl">Checklist</div>
-                        </div>
-                        <div class="ts-stat-tile">
-                            @if($task->due_date)
-                                @php
-                                    $dueCarbon   = \Carbon\Carbon::parse($task->due_date)->startOfDay();
-                                    $isPastDue   = $dueCarbon->isPast();
-                                    $daysCount   = (int) \Carbon\Carbon::now()->startOfDay()->diffInDays($dueCarbon);
-                                @endphp
-                                @if($overdue)
-                                    <div class="ts-stat-val" style="color:#dc2626;">{{ $daysCount }}d</div>
-                                    <div class="ts-stat-lbl" style="color:#dc2626;">Overdue</div>
-                                @elseif($task->status === 'completed')
-                                    <div class="ts-stat-val" style="color:#16a34a; font-size:28px;">✓</div>
-                                    <div class="ts-stat-lbl">Completed</div>
-                                @elseif($daysCount === 0)
-                                    <div class="ts-stat-val" style="color:#d97706;">Today</div>
-                                    <div class="ts-stat-lbl">Due</div>
-                                @else
-                                    <div class="ts-stat-val">{{ $daysCount }}d</div>
-                                    <div class="ts-stat-lbl">Days Left</div>
-                                @endif
-                            @else
-                                <div class="ts-stat-val">—</div>
-                                <div class="ts-stat-lbl">Due Date</div>
-                            @endif
-                        </div>
-                    </div>
-                    <div class="ts-prog-bar-wrap">
-                        <div class="ts-prog-bar-fill" style="width:{{ $progressPct }}%"></div>
-                    </div>
-                </div>
+        @if($task->updated_at->ne($task->created_at))
+            <div>
+                <div class="ts-detail-lbl">Updated</div>
+                <div class="ts-detail-val">{{ $task->updated_at->format('M d, Y') }}</div>
             </div>
+        @endif
+    </div>
 
-            {{-- Description card --}}
-            <div class="ts-card">
-                <div class="ts-card-header">
-                    <div class="ts-card-title"><i class="bi bi-file-text"></i> Description</div>
-                </div>
-                <div class="ts-card-body">
-                    @if($task->description)
-                        <div class="ts-description">{!! $task->description !!}</div>
-                    @else
-                        <div class="ts-empty">
-                            <i class="bi bi-file-earmark-text"></i>
-                            <p>No description provided for this task.</p>
-                        </div>
-                    @endif
-                </div>
-            </div>
-
-            {{-- Checklist card --}}
-            <div class="ts-card">
-                <div class="ts-card-header">
-                    <div class="ts-card-title">
-                        <i class="bi bi-list-check"></i> Checklist
-                        @if($checklistTotal > 0)
-                            <span style="font-size:12px; color:#9ca3af; font-weight:400; margin-left:4px;">({{ $checklistDone }} of {{ $checklistTotal }} done)</span>
-                        @endif
-                    </div>
-                    @if($checklistTotal > 0)
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <div class="ts-cl-prog-wrap" style="width:100px; margin-top:0; display:inline-block; vertical-align:middle;">
-                            <div class="ts-cl-prog-fill" id="cl-bar" style="width:{{ $checklistPct }}%"></div>
-                        </div>
-                        <span id="cl-pct" style="font-size:12px; font-weight:700; color:#7c3aed; min-width:32px;">{{ $checklistPct }}%</span>
-                    </div>
-                    @endif
-                </div>
-                <div class="ts-card-body">
-
-                    <div id="cl-items">
-                        @forelse($task->checklistItems as $item)
-                            <div class="ts-cl-item {{ $item->completed ? 'completed' : '' }}" data-id="{{ $item->id }}">
-                                <div class="ts-cl-check {{ $item->completed ? 'checked' : '' }}"
-                                     onclick="toggleChecklistItem({{ $item->id }})">
-                                    @if($item->completed)
-                                        <i class="bi bi-check" style="font-size:12px;"></i>
-                                    @endif
-                                </div>
-                                <div class="ts-cl-text">{{ $item->name }}</div>
-                                <button class="ts-cl-del" onclick="deleteChecklistItem({{ $item->id }})" title="Delete">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        @empty
-                            <div id="cl-empty" class="ts-empty" style="padding:20px 0;">
-                                <i class="bi bi-list-check"></i>
-                                <p>No checklist items yet. Add some below!</p>
-                            </div>
-                        @endforelse
-                    </div>
-
-                    {{-- Add form --}}
-                    <form class="ts-cl-add" onsubmit="addChecklistItem(event)">
-                        <input type="text" class="ts-cl-input" id="cl-input"
-                               placeholder="Add checklist item…" required>
-                        <button type="submit" class="ts-cl-btn">
-                            <i class="bi bi-plus"></i> Add
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-        </div>{{-- end .ts-content --}}
-    </div>{{-- end .ts-body --}}
-</div>{{-- end .ts-wrap --}}
+</div>
 
 {{-- Delete form --}}
 <form id="deleteForm" action="{{ route('tasks.destroy', $task->id) }}" method="POST" style="display:none;">
@@ -650,30 +331,25 @@
 <div id="statusModal" class="ts-modal-overlay" style="display:none;" onclick="if(event.target===this)closeStatusModal()">
     <div class="ts-modal-box">
         <div class="ts-modal-head">
-            <h5><i class="bi bi-arrow-repeat" style="margin-right:8px;"></i>Change Status</h5>
-            <button onclick="closeStatusModal()" style="background:rgba(255,255,255,.2); border:none; color:#fff; border-radius:6px; width:28px; height:28px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-x"></i></button>
+            <h5>Change status</h5>
+            <button class="ts-modal-x" onclick="closeStatusModal()"><i class="bi bi-x"></i></button>
         </div>
         <div class="ts-modal-body">
             @foreach([
-                'to_do'       => ['label'=>'To Do',       'dot'=>'#9ca3af', 'desc'=>'Task is ready to start'],
-                'in_progress' => ['label'=>'In Progress', 'dot'=>'#7c3aed', 'desc'=>'Currently being worked on'],
-                'on_hold'     => ['label'=>'On Hold',     'dot'=>'#b45309', 'desc'=>'Paused, waiting on a blocker'],
-                'in_review'   => ['label'=>'In Review',   'dot'=>'#1d4ed8', 'desc'=>'Awaiting review or approval'],
-                'completed'   => ['label'=>'Completed',   'dot'=>'#16a34a', 'desc'=>'Task is finished'],
-            ] as $val => $opt)
-            <div class="ts-status-opt {{ $task->status === $val ? 'selected' : '' }}" onclick="selectStatus('{{ $val }}', this)" data-status="{{ $val }}">
-                <input type="radio" name="status" value="{{ $val }}" {{ $task->status === $val ? 'checked' : '' }}>
-                <span class="ts-status-chip {{ $val }}">
-                    <span style="width:7px;height:7px;border-radius:50%;background:{{ $opt['dot'] }};display:inline-block;"></span>
-                    {{ $opt['label'] }}
-                </span>
-                <span style="font-size:12px; color:#6b7280;">{{ $opt['desc'] }}</span>
+                'to_do'       => 'To Do',
+                'in_progress' => 'In Progress',
+                'on_hold'     => 'On Hold',
+                'in_review'   => 'In Review',
+                'completed'   => 'Completed',
+            ] as $val => $label)
+            <div class="ts-status-opt {{ $task->status === $val ? 'selected' : '' }}" onclick="selectStatus('{{ $val }}', this)">
+                <span class="ts-chip {{ $val }}"><span class="ts-dot"></span>{{ $label }}</span>
             </div>
             @endforeach
         </div>
         <div class="ts-modal-foot">
             <button class="ts-modal-cancel" onclick="closeStatusModal()">Cancel</button>
-            <button class="ts-modal-save" onclick="saveStatus()">Update Status</button>
+            <button class="ts-modal-save" onclick="saveStatus()">Update</button>
         </div>
     </div>
 </div>
@@ -685,7 +361,7 @@ const TASK_ID = '{{ $task->id }}';
 const CSRF    = '{{ csrf_token() }}';
 let selectedStatus = '{{ $task->status }}';
 
-/* ── Status modal ─────────────────────────────────────────── */
+/* ── Status modal ── */
 function openStatusModal() {
     document.getElementById('statusModal').style.display = 'flex';
 }
@@ -700,7 +376,6 @@ function selectStatus(val, el) {
 function saveStatus() {
     const current = '{{ $task->status }}';
     if (selectedStatus === current) { closeStatusModal(); return; }
-
     fetch(`/tasks/${TASK_ID}/update-status`, {
         method: 'POST',
         headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN': CSRF },
@@ -711,43 +386,35 @@ function saveStatus() {
     .catch(() => showToast('Failed to update status', false));
 }
 
-/* ── Delete ───────────────────────────────────────────────── */
+/* ── Delete ── */
 function confirmDelete() {
     if (confirm('Delete this task? This action cannot be undone.')) {
         document.getElementById('deleteForm').submit();
     }
 }
 
-/* ── Toast ────────────────────────────────────────────────── */
+/* ── Toast ── */
 function showToast(msg, ok = true) {
     const d = document.createElement('div');
-    d.style.cssText = `position:fixed;top:20px;right:20px;z-index:9999;padding:12px 18px;
-        border-radius:10px;font-size:13px;font-weight:600;color:#fff;
-        background:${ok?'#16a34a':'#dc2626'};box-shadow:0 4px 14px rgba(0,0,0,.25);`;
+    d.style.cssText = `position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:9999;
+        padding:9px 18px;border-radius:8px;font-size:13px;color:#fff;
+        background:${ok?'#1f2328':'#e5484d'};box-shadow:0 4px 16px rgba(0,0,0,.2);`;
     d.textContent = msg;
     document.body.appendChild(d);
-    setTimeout(() => d.remove(), 3500);
+    setTimeout(() => d.remove(), 3000);
 }
 
-/* ── Checklist helpers ────────────────────────────────────── */
+/* ── Checklist ── */
 function updateChecklistUI() {
-    const items  = document.querySelectorAll('#cl-items .ts-cl-item');
-    const done   = document.querySelectorAll('#cl-items .ts-cl-item.completed');
-    const total  = items.length;
-    const pct    = total > 0 ? Math.round(done.length / total * 100) : 0;
-
-    const bar = document.getElementById('cl-bar');
-    const txt = document.getElementById('cl-pct');
-    if (bar) bar.style.width = pct + '%';
-    if (txt) txt.textContent = pct + '%';
-
+    const items = document.querySelectorAll('#cl-items .ts-cl-item');
+    const done  = document.querySelectorAll('#cl-items .ts-cl-item.completed');
     const empty = document.getElementById('cl-empty');
-    if (empty) empty.style.display = total === 0 ? 'block' : 'none';
+    if (empty) empty.style.display = items.length === 0 ? 'block' : 'none';
 }
 
 function toggleChecklistItem(id) {
-    const row  = document.querySelector(`[data-id="${id}"]`);
-    const box  = row.querySelector('.ts-cl-check');
+    const row = document.querySelector(`#cl-items [data-id="${id}"]`);
+    const box = row.querySelector('.ts-cl-check');
     fetch(`/checklist-items/${id}/update-status`, {
         headers: { 'X-Requested-With':'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF }
     })
@@ -757,8 +424,7 @@ function toggleChecklistItem(id) {
             row.classList.toggle('completed');
             box.classList.toggle('checked');
             box.innerHTML = row.classList.contains('completed')
-                ? '<i class="bi bi-check" style="font-size:12px;"></i>' : '';
-            updateChecklistUI();
+                ? '<i class="bi bi-check" style="font-size:11px;"></i>' : '';
         }
     })
     .catch(() => showToast('Failed to update item', false));
@@ -778,16 +444,19 @@ function addChecklistItem(e) {
     .then(r => r.json())
     .then(d => {
         if (d.success) {
+            const empty = document.getElementById('cl-empty');
+            if (empty) empty.remove();
             const container = document.getElementById('cl-items');
             const div = document.createElement('div');
             div.className = 'ts-cl-item';
             div.setAttribute('data-id', d.data.id);
             div.innerHTML = `
-                <div class="ts-cl-check" onclick="toggleChecklistItem(${d.data.id})"></div>
-                <div class="ts-cl-text">${d.data.name}</div>
+                <button class="ts-cl-check" onclick="toggleChecklistItem(${d.data.id})"></button>
+                <div class="ts-cl-text"></div>
                 <button class="ts-cl-del" onclick="deleteChecklistItem(${d.data.id})" title="Delete">
                     <i class="bi bi-trash"></i>
                 </button>`;
+            div.querySelector('.ts-cl-text').textContent = d.data.name;
             container.appendChild(div);
             input.value = '';
             updateChecklistUI();
@@ -806,7 +475,7 @@ function deleteChecklistItem(id) {
     .then(r => r.json())
     .then(d => {
         if (d.success) {
-            document.querySelector(`[data-id="${id}"]`).remove();
+            document.querySelector(`#cl-items [data-id="${id}"]`).remove();
             updateChecklistUI();
             showToast('Item removed');
         }
