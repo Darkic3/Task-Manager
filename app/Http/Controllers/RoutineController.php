@@ -135,12 +135,15 @@ class RoutineController extends Controller
 
     private function validated(Request $request): array
     {
+        $periodKeys = array_keys(config('routines.periods', []));
+
         $rules = [
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'frequency' => 'required|in:daily,weekly,monthly',
-            'start_time' => 'required',
-            'end_time' => 'required',
+            'time_period' => 'nullable|in:'.implode(',', $periodKeys),
+            'start_time' => 'nullable|required_with:end_time',
+            'end_time' => 'nullable|required_with:start_time|after_or_equal:start_time',
         ];
 
         if ($request->input('frequency') === 'weekly') {
@@ -170,6 +173,18 @@ class RoutineController extends Controller
 
         $data['weeks'] = null;
         $data['months'] = null;
+
+        // A routine is scheduled either by a time-of-day period or by an exact
+        // time window — never both.
+        $data['time_period'] = $data['time_period'] ?? null;
+
+        if ($data['time_period']) {
+            $data['start_time'] = null;
+            $data['end_time'] = null;
+        } else {
+            $data['start_time'] = $data['start_time'] ?? null;
+            $data['end_time'] = $data['end_time'] ?? null;
+        }
 
         return $data;
     }

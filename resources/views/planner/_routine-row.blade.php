@@ -1,7 +1,9 @@
 @php
     $routineDate = $routineDate ?? now();
     $toggleable  = $toggleable ?? true;
-    $isDone      = $toggleable && $routine->completedOn($routineDate);
+    $record      = $toggleable ? $routine->completionRecord($routineDate) : null;
+    $isDone      = $record !== null;
+    $doneAt      = $record?->completed_at;
     $freqColors  = ['daily' => '#7c3aed', 'weekly' => '#2563eb', 'monthly' => '#d97706'];
     $fc          = $freqColors[$routine->frequency] ?? '#7c3aed';
     $freqIcons   = ['daily' => 'bi-sun', 'weekly' => 'bi-calendar-week', 'monthly' => 'bi-calendar-month'];
@@ -39,8 +41,11 @@
             <span class="pl-priority" style="color:{{ $fc }};background:{{ $fc }}1a;text-transform:none;">
                 <i class="bi {{ $fi }}"></i> {{ $toggleable ? ucfirst($routine->frequency) : $routine->recurrenceLabel() }}
             </span>
-            @if($routine->start_time && $routine->end_time)
+            @if($routine->timeLabel())
                 <span class="pl-due"><i class="bi bi-clock"></i> {{ $routine->timeLabel() }}</span>
+            @endif
+            @if($isDone && $doneAt)
+                <span class="pl-due" style="color:#16a34a;"><i class="bi bi-check2"></i> {{ $doneAt->format('g:i A') }}</span>
             @endif
         </div>
     </div>

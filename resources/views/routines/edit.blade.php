@@ -120,6 +120,7 @@
 
     .cu-picker { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e3e4e8; }
     .cu-picker.visible { display: block; }
+    .cu-when-panel { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e3e4e8; }
     .cu-picker-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: #8a8f98; margin-bottom: 10px; }
     .cu-check-grid { display: flex; flex-wrap: wrap; gap: 6px; }
     .cu-check-item { position: relative; }
@@ -189,6 +190,10 @@
     $currentDays      = $routine->decodedDays();
     $currentMonthDays = $routine->decodedMonthDays();
     $freq             = old('frequency', $routine->frequency);
+    $periods          = config('routines.periods');
+    $whenMode         = old('time_period', $routine->time_period)
+        ? 'period'
+        : ((old('start_time', $routine->start_time) || old('end_time', $routine->end_time)) ? 'time' : 'none');
 @endphp
 
 @section('content')
@@ -356,36 +361,72 @@
                     </div>
                 </div>
 
-                {{-- Time Window --}}
+                {{-- When --}}
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon green"><i class="bi bi-clock"></i></span>
-                        <span class="cu-section-title">Time Window</span>
-                        <span class="cu-section-sub">Start &amp; end time</span>
+                        <span class="cu-section-title">When</span>
+                        <span class="cu-section-sub">Optional</span>
                     </div>
                     <div class="cu-section-body">
-                        <div class="cu-field-row">
-                            <div class="cu-field" style="margin-bottom:0;">
-                                <label for="start_time" class="cu-label">Start Time <span style="color:#dc2626;">*</span></label>
-                                <div class="cu-input-wrap">
-                                    <i class="bi bi-clock"></i>
-                                    <input type="time" name="start_time" id="start_time"
-                                           class="cu-input {{ $errors->has('start_time') ? 'is-invalid' : '' }}"
-                                           value="{{ old('start_time', $routine->start_time ? \Carbon\Carbon::parse($routine->start_time)->format('H:i') : '') }}"
-                                           required>
+                        <div class="cu-field">
+                            <div class="cu-freq-chips">
+                                <div class="cu-chip-opt chip-daily">
+                                    <input type="radio" name="when_mode" id="when_none" value="none"
+                                        {{ $whenMode === 'none' ? 'checked' : '' }}>
+                                    <label for="when_none" class="cu-chip-label"><i class="bi bi-dash-circle"></i> Any time</label>
                                 </div>
-                                @error('start_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                <div class="cu-chip-opt chip-weekly">
+                                    <input type="radio" name="when_mode" id="when_period" value="period"
+                                        {{ $whenMode === 'period' ? 'checked' : '' }}>
+                                    <label for="when_period" class="cu-chip-label"><i class="bi bi-sunrise"></i> Time of day</label>
+                                </div>
+                                <div class="cu-chip-opt chip-monthly">
+                                    <input type="radio" name="when_mode" id="when_time" value="time"
+                                        {{ $whenMode === 'time' ? 'checked' : '' }}>
+                                    <label for="when_time" class="cu-chip-label"><i class="bi bi-clock-history"></i> Exact time</label>
+                                </div>
                             </div>
-                            <div class="cu-field" style="margin-bottom:0;">
-                                <label for="end_time" class="cu-label">End Time <span style="color:#dc2626;">*</span></label>
-                                <div class="cu-input-wrap">
-                                    <i class="bi bi-clock-fill"></i>
-                                    <input type="time" name="end_time" id="end_time"
-                                           class="cu-input {{ $errors->has('end_time') ? 'is-invalid' : '' }}"
-                                           value="{{ old('end_time', $routine->end_time ? \Carbon\Carbon::parse($routine->end_time)->format('H:i') : '') }}"
-                                           required>
+                        </div>
+
+                        {{-- Time of day --}}
+                        <div class="cu-when-panel" id="when-panel-period">
+                            <div class="cu-picker-title">Choose a time of day</div>
+                            <div class="cu-check-grid">
+                                @foreach($periods as $key => $period)
+                                <div class="cu-check-item">
+                                    <input type="radio" name="time_period" value="{{ $key }}" id="period_{{ $key }}"
+                                        {{ old('time_period', $routine->time_period) === $key ? 'checked' : '' }}>
+                                    <label for="period_{{ $key }}"><i class="bi {{ $period['icon'] }} me-1"></i>{{ $period['label'] }}</label>
                                 </div>
-                                @error('end_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                @endforeach
+                            </div>
+                            @error('time_period')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- Exact time --}}
+                        <div class="cu-when-panel" id="when-panel-time">
+                            <div class="cu-field-row">
+                                <div class="cu-field" style="margin-bottom:0;">
+                                    <label for="start_time" class="cu-label">Start Time</label>
+                                    <div class="cu-input-wrap">
+                                        <i class="bi bi-clock"></i>
+                                        <input type="time" name="start_time" id="start_time"
+                                               class="cu-input {{ $errors->has('start_time') ? 'is-invalid' : '' }}"
+                                               value="{{ old('start_time', $routine->start_time ? \Carbon\Carbon::parse($routine->start_time)->format('H:i') : '') }}">
+                                    </div>
+                                    @error('start_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="cu-field" style="margin-bottom:0;">
+                                    <label for="end_time" class="cu-label">End Time</label>
+                                    <div class="cu-input-wrap">
+                                        <i class="bi bi-clock-fill"></i>
+                                        <input type="time" name="end_time" id="end_time"
+                                               class="cu-input {{ $errors->has('end_time') ? 'is-invalid' : '' }}"
+                                               value="{{ old('end_time', $routine->end_time ? \Carbon\Carbon::parse($routine->end_time)->format('H:i') : '') }}">
+                                    </div>
+                                    @error('end_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -442,6 +483,25 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     radios.forEach(r => r.addEventListener('change', () => updatePickers(r.value)));
+
+    // "When" mode: Any time / Time of day / Exact time
+    const whenPanels = {
+        period: document.getElementById('when-panel-period'),
+        time:   document.getElementById('when-panel-time'),
+    };
+    const periodInputs = whenPanels.period ? whenPanels.period.querySelectorAll('input') : [];
+    const timeInputs   = whenPanels.time ? whenPanels.time.querySelectorAll('input') : [];
+
+    function updateWhen(mode) {
+        if (whenPanels.period) whenPanels.period.style.display = mode === 'period' ? 'block' : 'none';
+        if (whenPanels.time)   whenPanels.time.style.display   = mode === 'time' ? 'block' : 'none';
+        periodInputs.forEach(i => i.disabled = mode !== 'period');
+        timeInputs.forEach(i => i.disabled = mode !== 'time');
+    }
+
+    document.querySelectorAll('input[name="when_mode"]').forEach(r => r.addEventListener('change', () => updateWhen(r.value)));
+    const whenChecked = document.querySelector('input[name="when_mode"]:checked') || document.getElementById('when_none');
+    if (whenChecked) { whenChecked.checked = true; updateWhen(whenChecked.value); }
 });
 
 function confirmDelete() {

@@ -15,10 +15,12 @@ class RoutineCompletion extends Model
         'user_id',
         'routine_id',
         'completed_date',
+        'completed_at',
     ];
 
     protected $casts = [
         'completed_date' => 'date',
+        'completed_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

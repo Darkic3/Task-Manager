@@ -21,6 +21,7 @@ class Routine extends Model
         'title',
         'description',
         'frequency',
+        'time_period',
         'days',
         'weeks',
         'months',
@@ -101,12 +102,63 @@ class Routine extends Model
 
     public function timeLabel(): string
     {
+        if ($this->time_period) {
+            return (string) $this->periodLabel();
+        }
+
         if (! $this->start_time || ! $this->end_time) {
             return '';
         }
 
         return Carbon::parse($this->start_time)->format('g:i A')
             .' – '.Carbon::parse($this->end_time)->format('g:i A');
+    }
+
+    /**
+     * Human label for the assigned time-of-day period, if any.
+     */
+    public function periodLabel(): ?string
+    {
+        if (! $this->time_period) {
+            return null;
+        }
+
+        return config("routines.periods.{$this->time_period}.label") ?? ucfirst($this->time_period);
+    }
+
+    public function periodIcon(): ?string
+    {
+        if (! $this->time_period) {
+            return null;
+        }
+
+        return config("routines.periods.{$this->time_period}.icon");
+    }
+
+    /**
+     * Whether the routine has any schedule hint (period or exact time).
+     */
+    public function hasSchedule(): bool
+    {
+        return $this->time_period !== null || ($this->start_time && $this->end_time);
+    }
+
+    /**
+     * Ordering key: exact times first, then periods, then unscheduled.
+     */
+    public function sortKey(): string
+    {
+        if ($this->start_time) {
+            return '1'.$this->start_time;
+        }
+
+        if ($this->time_period) {
+            $order = (int) config("routines.periods.{$this->time_period}.order", 99);
+
+            return '2'.str_pad((string) $order, 2, '0', STR_PAD_LEFT);
+        }
+
+        return '9';
     }
 
     /**
@@ -132,9 +184,14 @@ class Routine extends Model
 
     public function completedOn($date): bool
     {
+        return $this->completionRecord($date) !== null;
+    }
+
+    public function completionRecord($date): ?RoutineCompletion
+    {
         return $this->completions()
             ->where('completed_date', RoutineCompletion::dateKey($date))
-            ->exists();
+            ->first();
     }
 
     /**
@@ -159,6 +216,7 @@ class Routine extends Model
             'user_id' => $this->user_id,
             'routine_id' => $this->id,
             'completed_date' => $key,
+            'completed_at' => now(),
         ]);
 
         return true;

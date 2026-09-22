@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Project;
@@ -9,26 +10,26 @@ use Illuminate\Support\Facades\Auth;
 
 class TaskController extends Controller
 {
-    public function index(Project $project = null)
+    public function index(?Project $project = null)
     {
         $user = Auth::user();
 
         if ($project) {
             // Show tasks for a specific project (closed projects still accessible directly)
             $tasks = Task::where('user_id', $user->id)
-                        ->where('project_id', $project->id)
-                        ->with('project')
-                        ->get()
-                        ->groupBy('status');
+                ->where('project_id', $project->id)
+                ->with('project')
+                ->get()
+                ->groupBy('status');
         } else {
             // Show all tasks — exclude tasks from completed or closed projects
             $tasks = Task::where('user_id', $user->id)
-                        ->whereHas('project', function ($query) {
-                            $query->whereNotIn('status', ['completed', 'closed']);
-                        })
-                        ->with('project')
-                        ->get()
-                        ->groupBy('status');
+                ->whereHas('project', function ($query) {
+                    $query->whereNotIn('status', ['completed', 'closed']);
+                })
+                ->with('project')
+                ->get()
+                ->groupBy('status');
         }
 
         // Only show projects whose tasks are actually loaded (exclude completed & closed)
@@ -46,7 +47,7 @@ class TaskController extends Controller
         return view('tasks.create', compact('projects', 'users'));
     }
 
-    public function store(Request $request, Project $project = null)
+    public function store(Request $request, ?Project $project = null)
     {
         $request->validate([
             'project_id' => 'required|exists:projects,id',
@@ -72,6 +73,7 @@ class TaskController extends Controller
     public function show(Task $task)
     {
         $task->load('user', 'project', 'checklistItems');
+
         return view('tasks.show', compact('task'));
     }
 
@@ -94,7 +96,12 @@ class TaskController extends Controller
             'estimated_hours' => 'nullable|numeric|min:0.5',
         ]);
 
-        $task->update($request->all());
+        $data = $request->all();
+        $data['completed_at'] = ($data['status'] ?? null) === 'completed'
+            ? ($task->completed_at ?? now())
+            : null;
+
+        $task->update($data);
 
         return redirect()->route('tasks.show', $task->id)->with('success', 'Task updated successfully.');
     }
@@ -108,7 +115,9 @@ class TaskController extends Controller
 
     public function updateStatus(Request $request, Task $task)
     {
-        $task->status = $request->input('status');
+        $status = $request->input('status');
+        $task->status = $status;
+        $task->completed_at = $status === 'completed' ? ($task->completed_at ?? now()) : null;
         $task->save();
 
         return response()->json(['message' => 'Task status updated successfully.']);

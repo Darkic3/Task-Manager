@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,7 +17,13 @@ class Task extends Model
         'due_date',
         'priority',
         'status',
+        'completed_at',
         'estimated_hours',
+    ];
+
+    protected $casts = [
+        'due_date' => 'date',
+        'completed_at' => 'datetime',
     ];
 
     public function user()

@@ -100,13 +100,16 @@ class PlannerController extends Controller
     {
         abort_if($task->user_id !== Auth::id(), 403);
 
-        $task->status = $task->status === 'completed' ? 'to_do' : 'completed';
+        $completed = $task->status !== 'completed';
+        $task->status = $completed ? 'completed' : 'to_do';
+        $task->completed_at = $completed ? now() : null;
         $task->save();
 
         return response()->json([
             'ok' => true,
             'status' => $task->status,
-            'completed' => $task->status === 'completed',
+            'completed' => $completed,
+            'completed_at' => $task->completed_at?->toIso8601String(),
         ]);
     }
 
@@ -134,7 +137,7 @@ class PlannerController extends Controller
 
         $today = $routines
             ->filter(fn ($r) => $r->occursOn($date))
-            ->sortBy(fn ($r) => $r->start_time ?: '00:00:00')
+            ->sortBy(fn ($r) => $r->sortKey())
             ->values();
 
         // Buckets: routines NOT occurring today but still relevant this week / this month
