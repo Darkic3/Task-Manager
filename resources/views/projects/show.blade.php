@@ -507,6 +507,10 @@
                     <span class="cu-panel-row-value">{{ $totalTasks }}</span>
                 </div>
                 <div class="cu-panel-row">
+                    <span class="cu-panel-row-label"><i class="bi bi-stopwatch"></i> Time spent</span>
+                    <span class="cu-panel-row-value">{{ \App\Models\TimeEntry::formatDuration($project->totalTimeSeconds()) }}</span>
+                </div>
+                <div class="cu-panel-row">
                     <span class="cu-panel-row-label"><i class="bi bi-people"></i> Team</span>
                     <span class="cu-panel-row-value">{{ $teamMembers->count() }} members</span>
                 </div>
@@ -623,6 +627,39 @@
                 </div>
             </div>
             @endif
+
+            {{-- ── Time Log Section ─────────────────────────────── --}}
+            @php $recentTime = $project->timeEntries()->with(['task:id,title'])->latest('started_at')->take(8)->get(); @endphp
+            <div class="cu-section">
+                <div class="cu-section-header" style="justify-content:space-between;">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="cu-section-icon green"><i class="bi bi-stopwatch"></i></span>
+                        <span class="cu-section-title">Time Log</span>
+                    </div>
+                    <a href="{{ route('time.reports', ['project_id' => $project->id]) }}" class="cu-panel-action-btn" style="padding:4px 10px;font-size:11px;">
+                        <i class="bi bi-bar-chart-line"></i> Reports
+                    </a>
+                </div>
+                <div class="cu-section-body" style="padding-top:8px;padding-bottom:8px;">
+                    @forelse($recentTime as $entry)
+                        <div class="cu-member">
+                            <div class="cu-member-av" style="background:#7c3aed;border-radius:8px;font-size:12px;">
+                                <i class="bi bi-clock"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="cu-member-name">{{ $entry->task?->title ?? $entry->description ?? 'Work session' }}</div>
+                                <div class="cu-member-email">
+                                    {{ $entry->started_at->format('M j, g:i A') }}
+                                    @if($entry->status !== 'stopped') · {{ ucfirst($entry->status) }}@endif
+                                </div>
+                            </div>
+                            <strong style="font-size:12px;">{{ \App\Models\TimeEntry::formatDuration($entry->status === 'stopped' ? (int) $entry->duration_seconds : $entry->elapsedSeconds()) }}</strong>
+                        </div>
+                    @empty
+                        <p class="mb-0" style="color:#8a8f98;font-size:13px;">No time logged yet. Use the timer to track work on this project.</p>
+                    @endforelse
+                </div>
+            </div>
 
             {{-- ── Description Section ────────────────────────────── --}}
             <div class="cu-section">

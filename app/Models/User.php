@@ -104,4 +104,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(RoutineCompletion::class);
     }
+
+    public function timeEntries()
+    {
+        return $this->hasMany(TimeEntry::class);
+    }
 }

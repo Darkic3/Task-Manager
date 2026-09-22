@@ -604,6 +604,13 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{ request()->is('time*') ? 'active' : '' }}"
+                            href="{{ route('time.reports') }}">
+                            <i class="bi bi-stopwatch"></i>
+                            <span>Time</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{ request()->is('notes*') ? 'active' : '' }}"
                             href="{{ route('notes.index') }}">
                             <i class="bi bi-journal-text"></i>
@@ -780,6 +787,7 @@
             });
         });
     </script>
+    @include('time._widget')
     @stack('scripts')
 </body>
 

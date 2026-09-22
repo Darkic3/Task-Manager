@@ -41,6 +41,11 @@ class Task extends Model
         return $this->belongsTo(Project::class);
     }
 
+    public function timeEntries()
+    {
+        return $this->hasMany(TimeEntry::class);
+    }
+
     public function parent()
     {
         return $this->belongsTo(Task::class, 'parent_id');
@@ -68,11 +73,67 @@ class Task extends Model
     }
 
     /**
-     * Manual weight; time-based factor arrives with time tracking (phase 2).
+     * Manual weight adjusted by time spent when auto_weight is on:
+     * manual × (1 + actual/estimated), or manual × (1 + actual/10h).
      */
     public function effectiveWeight(): float
     {
-        return max(0.0, (float) ($this->weight ?? 1));
+        $manual = max(0.0, (float) ($this->weight ?? 1));
+        if (! $this->auto_weight) {
+            return $manual;
+        }
+
+        $hours = $this->ownTimeSeconds() / 3600;
+        if ($hours <= 0) {
+            return $manual;
+        }
+
+        $estimated = (float) ($this->estimated_hours ?? 0);
+        $factor = $estimated > 0 ? $hours / $estimated : $hours / 10;
+
+        return round($manual * (1 + $factor), 2);
+    }
+
+    public function ownTimeSeconds(): int
+    {
+        $done = (int) $this->timeEntries()
+            ->where('status', TimeEntry::STATUS_STOPPED)
+            ->sum('duration_seconds');
+        $active = $this->timeEntries()
+            ->whereIn('status', [TimeEntry::STATUS_RUNNING, TimeEntry::STATUS_PAUSED])
+            ->get()->sum(fn ($e) => $e->elapsedSeconds());
+
+        return $done + $active;
+    }
+
+    public function totalTimeSeconds(): int
+    {
+        $ids = array_merge([$this->id], $this->descendantTaskIds());
+
+        $done = (int) TimeEntry::whereIn('task_id', $ids)
+            ->where('status', TimeEntry::STATUS_STOPPED)
+            ->sum('duration_seconds');
+        $active = TimeEntry::whereIn('task_id', $ids)
+            ->whereIn('status', [TimeEntry::STATUS_RUNNING, TimeEntry::STATUS_PAUSED])
+            ->get()->sum(fn ($e) => $e->elapsedSeconds());
+
+        return $done + $active;
+    }
+
+    private function descendantTaskIds(): array
+    {
+        $ids = [];
+        $stack = $this->children()->pluck('id')->all();
+        $guard = 0;
+        while (! empty($stack) && $guard++ < 1000) {
+            $id = array_pop($stack);
+            $ids[] = $id;
+            foreach (Task::where('parent_id', $id)->pluck('id')->all() as $childId) {
+                $stack[] = $childId;
+            }
+        }
+
+        return $ids;
     }
 
     public function aggregateWeight(): float

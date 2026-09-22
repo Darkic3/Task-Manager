@@ -83,6 +83,11 @@ class Project extends Model
         return $this->hasMany(Task::class);
     }
 
+    public function timeEntries()
+    {
+        return $this->hasMany(TimeEntry::class);
+    }
+
     public function parent()
     {
         return $this->belongsTo(Project::class, 'parent_id');
@@ -117,6 +122,32 @@ class Project extends Model
     public function level(): int
     {
         return count($this->breadcrumb());
+    }
+
+    /**
+     * All seconds logged on this project and its descendants (single query).
+     */
+    public function totalTimeSeconds(): int
+    {
+        $ids = [$this->id];
+        $stack = $this->children()->pluck('id')->all();
+        $guard = 0;
+        while (! empty($stack) && $guard++ < 1000) {
+            $id = array_pop($stack);
+            $ids[] = $id;
+            foreach (Project::where('parent_id', $id)->pluck('id')->all() as $childId) {
+                $stack[] = $childId;
+            }
+        }
+
+        $done = (int) TimeEntry::whereIn('project_id', $ids)
+            ->where('status', TimeEntry::STATUS_STOPPED)
+            ->sum('duration_seconds');
+        $active = TimeEntry::whereIn('project_id', $ids)
+            ->whereIn('status', [TimeEntry::STATUS_RUNNING, TimeEntry::STATUS_PAUSED])
+            ->get()->sum(fn ($e) => $e->elapsedSeconds());
+
+        return $done + $active;
     }
 
     /**

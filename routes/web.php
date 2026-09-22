@@ -15,6 +15,7 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\TimeTrackingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -71,6 +72,17 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/planner', [PlannerController::class, 'index'])->name('planner.index');
     Route::post('/planner/tasks/{task}/toggle', [PlannerController::class, 'toggleTask'])->name('planner.tasks.toggle');
     Route::post('/planner/routines/{routine}/toggle', [PlannerController::class, 'toggleRoutine'])->name('planner.routines.toggle');
+
+    // Time tracking
+    Route::get('/time/active', [TimeTrackingController::class, 'active'])->name('time.active');
+    Route::post('/time/start', [TimeTrackingController::class, 'start'])->name('time.start');
+    Route::get('/time/tasks', [TimeTrackingController::class, 'tasksForProject'])->name('time.tasks');
+    Route::post('/time/entries/{entry}/pause', [TimeTrackingController::class, 'pause'])->name('time.pause');
+    Route::post('/time/entries/{entry}/resume', [TimeTrackingController::class, 'resume'])->name('time.resume');
+    Route::post('/time/entries/{entry}/stop', [TimeTrackingController::class, 'stop'])->name('time.stop');
+    Route::get('/time/reports', [TimeTrackingController::class, 'reports'])->name('time.reports');
+    Route::post('/time/entries', [TimeTrackingController::class, 'store'])->name('time.entries.store');
+    Route::delete('/time/entries/{entry}', [TimeTrackingController::class, 'destroy'])->name('time.entries.destroy');
 
     // AI Chat
     Route::get('/ai', [AiChatController::class, 'index'])->name('ai.index');
