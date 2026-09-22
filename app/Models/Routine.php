@@ -135,6 +135,73 @@ class Routine extends Model
         return config("routines.periods.{$this->time_period}.icon");
     }
 
+    public function periodColor(): ?string
+    {
+        if (! $this->time_period) {
+            return null;
+        }
+
+        return config("routines.periods.{$this->time_period}.color");
+    }
+
+    /**
+     * Scheduling reference (minutes from midnight) used by the tracker:
+     * the exact start time, or the approximate hour of the assigned period.
+     */
+    public function scheduledReferenceMinutes(): ?int
+    {
+        if ($this->start_time) {
+            $start = Carbon::parse($this->start_time);
+
+            return $start->hour * 60 + $start->minute;
+        }
+
+        if ($this->time_period) {
+            $at = config("routines.periods.{$this->time_period}.at");
+
+            return $at !== null ? ((int) $at) * 60 : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Completion-time analytics based on stored `completed_at` timestamps.
+     */
+    public function completionTracker(?Carbon $since = null): array
+    {
+        $since = ($since ?? now()->subMonths(3))->startOfDay();
+
+        $rows = $this->completions()
+            ->whereNotNull('completed_at')
+            ->where('completed_date', '>=', $since->toDateString())
+            ->get(['completed_at']);
+
+        $hours = array_fill(0, 24, 0);
+        $minutesOfDay = [];
+
+        foreach ($rows as $row) {
+            $at = Carbon::parse($row->completed_at);
+            $hours[$at->hour]++;
+            $minutesOfDay[] = $at->hour * 60 + $at->minute;
+        }
+
+        $count = count($minutesOfDay);
+        $reference = $this->scheduledReferenceMinutes();
+        $avgMinutes = $count ? (int) round(array_sum($minutesOfDay) / $count) : null;
+        $avgOffset = ($count && $reference !== null)
+            ? (int) round((array_sum($minutesOfDay) / $count) - $reference)
+            : null;
+
+        return [
+            'count' => $count,
+            'hours' => $hours,
+            'avgMinutes' => $avgMinutes,
+            'avgOffset' => $avgOffset,
+            'reference' => $reference,
+        ];
+    }
+
     /**
      * Whether the routine has any schedule hint (period or exact time).
      */

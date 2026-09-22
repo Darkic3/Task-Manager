@@ -8,6 +8,7 @@
     $fc          = $freqColors[$routine->frequency] ?? '#7c3aed';
     $freqIcons   = ['daily' => 'bi-sun', 'weekly' => 'bi-calendar-week', 'monthly' => 'bi-calendar-month'];
     $fi          = $freqIcons[$routine->frequency] ?? 'bi-arrow-repeat';
+    $accent      = $routine->periodColor() ?: $fc;
 @endphp
 <div class="pl-task pl-routine {{ $isDone ? 'is-done' : '' }}"
      @if($toggleable)
@@ -17,7 +18,7 @@
      data-completed="{{ $isDone ? 1 : 0 }}"
      data-count="{{ !empty($count) ? 1 : 0 }}"
      @endif
-     style="border-left:3px solid {{ $fc }};">
+     style="border-left:3px solid {{ $accent }};">
 
     @if($toggleable)
         <label class="pl-check" title="{{ $isDone ? 'Mark as not done' : 'Mark as done' }}">
@@ -38,11 +39,17 @@
     <div class="pl-task-body">
         <div class="pl-task-title">{{ $routine->title }}</div>
         <div class="pl-task-meta">
-            <span class="pl-priority" style="color:{{ $fc }};background:{{ $fc }}1a;text-transform:none;">
-                <i class="bi {{ $fi }}"></i> {{ $toggleable ? ucfirst($routine->frequency) : $routine->recurrenceLabel() }}
-            </span>
-            @if($routine->timeLabel())
-                <span class="pl-due"><i class="bi bi-clock"></i> {{ $routine->timeLabel() }}</span>
+            @if($routine->time_period)
+                <span class="pl-priority" style="color:{{ $accent }};background:{{ $accent }}1a;text-transform:none;">
+                    <i class="bi {{ $routine->periodIcon() }}"></i> {{ $routine->periodLabel() }}
+                </span>
+            @else
+                <span class="pl-priority" style="color:{{ $fc }};background:{{ $fc }}1a;text-transform:none;">
+                    <i class="bi {{ $fi }}"></i> {{ $toggleable ? ucfirst($routine->frequency) : $routine->recurrenceLabel() }}
+                </span>
+                @if($routine->timeLabel())
+                    <span class="pl-due"><i class="bi bi-clock"></i> {{ $routine->timeLabel() }}</span>
+                @endif
             @endif
             @if($isDone && $doneAt)
                 <span class="pl-due" style="color:#16a34a;"><i class="bi bi-check2"></i> {{ $doneAt->format('g:i A') }}</span>

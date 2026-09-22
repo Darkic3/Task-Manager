@@ -95,8 +95,9 @@ class RoutineController extends Controller
 
         $streak = $routine->streakStats($today);
         $adherence = $routine->adherence(30, $today);
+        $tracker = $routine->completionTracker();
 
-        return view('routines.stats', compact('routine', 'weeks', 'monthSpans', 'streak', 'adherence'));
+        return view('routines.stats', compact('routine', 'weeks', 'monthSpans', 'streak', 'adherence', 'tracker'));
     }
 
     public function showAll()

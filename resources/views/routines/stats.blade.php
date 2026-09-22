@@ -68,6 +68,21 @@
     .hm-done   { background: #7c3aed; }
     .hm-future { background: #fafbfc; box-shadow: inset 0 0 0 1px #eef0f3; }
     .hm-today  { box-shadow: 0 0 0 2px #c4b5fd; }
+
+    /* ── Tracker ────────────────────────────────────────── */
+    .tr-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 18px; }
+    @media(max-width:600px) { .tr-stats { grid-template-columns: 1fr; } }
+    .tr-stat { background: #fafbfc; border: 1px solid #eceef1; border-radius: 8px; padding: 12px 14px; }
+    .tr-val { font-size: 17px; font-weight: 800; color: #1a1d23; line-height: 1.2; }
+    .tr-lbl { font-size: 11px; color: #8a8f98; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
+    .tr-chart { display: flex; align-items: flex-end; gap: 3px; height: 90px; }
+    .tr-bar-wrap { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+    .tr-bar { width: 100%; min-height: 2px; border-radius: 3px 3px 0 0; background: #ddd6fe; transition: background .15s; }
+    .tr-bar-wrap:hover .tr-bar { background: #7c3aed; }
+    .tr-bar.is-peak { background: #7c3aed; }
+    .tr-axis { display: flex; margin-top: 6px; }
+    .tr-axis span { flex: 1; text-align: center; font-size: 9px; color: #adb0b8; font-weight: 600; white-space: nowrap; }
+    .tr-empty { padding: 18px; text-align: center; color: #adb0b8; font-size: 12.5px; }
 </style>
 @endpush
 
@@ -159,6 +174,64 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    {{-- Completion tracker --}}
+    <div class="rs-card" style="margin-top:14px;">
+        <div class="rs-card-head">
+            <i class="bi bi-stopwatch" style="color:#7c3aed;"></i>
+            <span class="rs-card-title">Completion Tracker</span>
+            <span class="rs-legend">{{ $tracker['count'] }} tracked · last 3 months</span>
+        </div>
+        <div class="rs-card-body">
+            @if($tracker['count'])
+                @php
+                    $avg = $tracker['avgMinutes'];
+                    $avgLabel = sprintf('%d:%02d %s', intdiv($avg, 60) % 12 ?: 12, $avg % 60, $avg < 720 ? 'AM' : 'PM');
+                    $peakHour = array_search(max($tracker['hours']), $tracker['hours']);
+                    $peakLabel = sprintf('%d %s', $peakHour % 12 ?: 12, $peakHour < 12 ? 'AM' : 'PM');
+                    $maxHour = max($tracker['hours']) ?: 1;
+                    $off = $tracker['avgOffset'];
+                @endphp
+                <div class="tr-stats">
+                    <div class="tr-stat">
+                        <div class="tr-val">{{ $avgLabel }}</div>
+                        <div class="tr-lbl">Average time</div>
+                    </div>
+                    <div class="tr-stat">
+                        <div class="tr-val">
+                            @if($off === null)
+                                —
+                            @else
+                                {{ abs($off) }} min {{ $off >= 0 ? 'later' : 'earlier' }}
+                            @endif
+                        </div>
+                        <div class="tr-lbl">Vs scheduled</div>
+                    </div>
+                    <div class="tr-stat">
+                        <div class="tr-val">{{ $peakLabel }}</div>
+                        <div class="tr-lbl">Peak hour</div>
+                    </div>
+                </div>
+                <div class="tr-chart">
+                    @for($h = 0; $h < 24; $h++)
+                        <div class="tr-bar-wrap" title="{{ sprintf('%02d:00', $h) }} — {{ $tracker['hours'][$h] }} completed">
+                            <div class="tr-bar {{ $maxHour > 0 && $tracker['hours'][$h] === $maxHour ? 'is-peak' : '' }}"
+                                 style="height: {{ round($tracker['hours'][$h] / $maxHour * 100) }}%;"></div>
+                        </div>
+                    @endfor
+                </div>
+                <div class="tr-axis">
+                    @for($h = 0; $h < 24; $h++)
+                        <span>{{ in_array($h, [0, 6, 12, 18]) ? (($h % 12) ?: 12).($h < 12 ? 'am' : 'pm') : '' }}</span>
+                    @endfor
+                </div>
+            @else
+                <div class="tr-empty">
+                    <i class="bi bi-stopwatch me-1"></i>No completion times recorded yet. Check off this routine to start tracking.
+                </div>
+            @endif
         </div>
     </div>
 
