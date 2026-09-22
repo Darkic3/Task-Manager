@@ -97,6 +97,8 @@
     .cu-card-btn.edit:hover   { background: #fef3c7; }
     .cu-card-btn.delete { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
     .cu-card-btn.delete:hover { background: #fee2e2; }
+    .cu-card-btn.stats  { background: #eef2ff; color: #4f46e5; border-color: #c7d2fe; }
+    .cu-card-btn.stats:hover { background: #e0e7ff; }
 
     /* ── Empty state ──────────────────────────────────────── */
     .cu-empty { text-align: center; padding: 20px 12px; color: #adb0b8; }
@@ -222,6 +224,9 @@
                         @endif
                     </div>
                     <div class="cu-routine-footer">
+                        <a href="{{ route('routines.stats', $routine->id) }}" class="cu-card-btn stats">
+                            <i class="bi bi-bar-chart-line"></i> Stats
+                        </a>
                         <a href="{{ route('routines.edit', $routine->id) }}" class="cu-card-btn edit">
                             <i class="bi bi-pencil"></i> Edit
                         </a>
@@ -280,6 +285,9 @@
                         @endif
                     </div>
                     <div class="cu-routine-footer">
+                        <a href="{{ route('routines.stats', $routine->id) }}" class="cu-card-btn stats">
+                            <i class="bi bi-bar-chart-line"></i> Stats
+                        </a>
                         <a href="{{ route('routines.edit', $routine->id) }}" class="cu-card-btn edit">
                             <i class="bi bi-pencil"></i> Edit
                         </a>
@@ -338,6 +346,9 @@
                         @endif
                     </div>
                     <div class="cu-routine-footer">
+                        <a href="{{ route('routines.stats', $routine->id) }}" class="cu-card-btn stats">
+                            <i class="bi bi-bar-chart-line"></i> Stats
+                        </a>
                         <a href="{{ route('routines.edit', $routine->id) }}" class="cu-card-btn edit">
                             <i class="bi bi-pencil"></i> Edit
                         </a>

@@ -67,6 +67,12 @@
         background: #fffbeb; color: #d97706; border: 1px solid #fde68a; transition: all .15s;
     }
     .cu-btn-edit:hover { background: #fef3c7; }
+    .cu-btn-stats {
+        display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+        border-radius: 5px; font-size: 11px; font-weight: 600; text-decoration: none;
+        background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; transition: all .15s;
+    }
+    .cu-btn-stats:hover { background: #e0e7ff; }
     .cu-btn-del {
         display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
         border-radius: 5px; font-size: 11px; font-weight: 600;
@@ -135,6 +141,9 @@
                 </div>
             </div>
             <div class="cu-card-footer">
+                <a href="{{ route('routines.stats', $routine->id) }}" class="cu-btn-stats">
+                    <i class="bi bi-bar-chart-line"></i> Stats
+                </a>
                 <a href="{{ route('routines.edit', $routine->id) }}" class="cu-btn-edit">
                     <i class="bi bi-pencil"></i> Edit
                 </a>

@@ -48,6 +48,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks/{task}/update-status', [TaskController::class, 'updateStatus']);
 
     Route::resource('routines', RoutineController::class)->except(['show']);
+    Route::get('routines/{routine}/stats', [RoutineController::class, 'stats'])->name('routines.stats');
     Route::get('routines/showAll', [RoutineController::class, 'showAll'])->name('routines.showAll');
     Route::get('routines/daily', [RoutineController::class, 'showDaily'])->name('routines.showDaily');
     Route::get('routines/weekly', [RoutineController::class, 'showWeekly'])->name('routines.showWeekly');

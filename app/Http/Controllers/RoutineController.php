@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Routine;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -60,6 +61,42 @@ class RoutineController extends Controller
         $routine->delete();
 
         return redirect()->route('routines.index')->with('success', 'Routine deleted successfully.');
+    }
+
+    public function stats(Routine $routine)
+    {
+        $this->authorizeRoutine($routine);
+
+        $today = now()->startOfDay();
+        $start = $today->copy()->startOfWeek(Carbon::SATURDAY)->subWeeks(15)->startOfDay();
+        $end = $start->copy()->addDays(16 * 7 - 1)->startOfDay();
+
+        $cells = $routine->heatmapCells($start, $end);
+
+        $weeks = [];
+        $monthSpans = [];
+        $cursor = $start->copy();
+
+        for ($w = 0; $w < 16; $w++) {
+            $week = [];
+            for ($d = 0; $d < 7; $d++) {
+                $week[] = $cells[$cursor->toDateString()];
+                $cursor->addDay();
+            }
+            $weeks[] = $week;
+
+            $label = $week[0]['date']->format('M');
+            if (empty($monthSpans) || end($monthSpans)['label'] !== $label) {
+                $monthSpans[] = ['label' => $label, 'span' => 1];
+            } else {
+                $monthSpans[count($monthSpans) - 1]['span']++;
+            }
+        }
+
+        $streak = $routine->streakStats($today);
+        $adherence = $routine->adherence(30, $today);
+
+        return view('routines.stats', compact('routine', 'weeks', 'monthSpans', 'streak', 'adherence'));
     }
 
     public function showAll()
