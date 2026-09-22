@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AiProvider;
 use App\Models\AiSetting;
 use App\Services\AiProviderService;
 use Illuminate\Http\Request;
@@ -21,6 +22,9 @@ class AiSettingsController extends Controller
         $user = Auth::user();
         $setting = AiSetting::firstOrCreate(['user_id' => $user->id]);
         $providers = $this->ai->allProviders();
+        $allProviders = $this->ai->providersForUser($user);
+        $customProviders = AiProvider::where('user_id', $user->id)
+            ->orderBy('sort_order')->orderBy('id')->get();
         $enabledMap = $this->ai->enabledMap($user);
 
         // For display, mask keys: show last 4 chars only
@@ -30,18 +34,23 @@ class AiSettingsController extends Controller
             $raw = $setting->{$col};
             $masked[$id] = $raw ? '••••••••' . substr($raw, -4) : '';
         }
+        foreach ($customProviders as $cp) {
+            $masked[$cp->providerKey()] = $cp->api_key ? '••••••••' . substr($cp->api_key, -4) : '';
+        }
 
         // Pass actual provider list plus whether key exists
-        return view('ai.settings', compact('setting', 'providers', 'enabledMap', 'masked'));
+        return view('ai.settings', compact('setting', 'providers', 'allProviders', 'customProviders', 'enabledMap', 'masked'));
     }
 
     public function update(Request $request)
     {
+        $user = Auth::user();
         $providers = $this->ai->allProviders();
-        $ids = array_keys($providers);
+        $builtInIds = array_keys($providers);
+        $allIds = array_keys($this->ai->providersForUser($user));
 
         $request->validate([
-            'default_provider' => 'nullable|in:' . implode(',', $ids),
+            'default_provider' => 'nullable|in:' . implode(',', $allIds),
             'default_model'    => 'nullable|string|max:120',
             'openai_key'       => 'nullable|string|max:500',
             'gemini_key'       => 'nullable|string|max:500',
@@ -61,22 +70,21 @@ class AiSettingsController extends Controller
             'clear_meta_key'      => 'nullable|boolean',
         ]);
 
-        $user = Auth::user();
         $setting = AiSetting::firstOrCreate(['user_id' => $user->id]);
 
-        // Handle per-provider model choices
-        foreach ($ids as $id) {
+        // Handle per-provider model choices (built-in only)
+        foreach ($builtInIds as $id) {
             $modelField = $id . '_model';
             if ($request->filled($modelField)) {
                 $model = $request->input($modelField);
-                if ($this->ai->validateModel($id, $model)) {
+                if ($this->ai->validateModel($id, $model, $user)) {
                     $setting->{$modelField} = $model;
                 }
             }
         }
 
         // Handle keys: if input is masked placeholder, skip; if empty and clear checked, clear; if new value, save
-        foreach ($ids as $id) {
+        foreach ($builtInIds as $id) {
             $keyField = $id . '_key';
             $clearField = 'clear_' . $keyField;
             if ($request->boolean($clearField)) {
@@ -99,9 +107,9 @@ class AiSettingsController extends Controller
             // If they also sent default_model via dropdown, set the per-provider field accordingly
             if ($request->filled('default_model')) {
                 $dm = $request->input('default_model');
-                if ($this->ai->validateModel($provider, $dm)) {
+                if ($this->ai->validateModel($provider, $dm, $user)) {
                     $setting->default_model = $dm;
-                    // Also sync to per-provider column
+                    // Also sync to per-provider column (built-in only)
                     $col = $providers[$provider]['model_column'] ?? null;
                     if ($col) $setting->{$col} = $dm;
                 }
@@ -116,18 +124,18 @@ class AiSettingsController extends Controller
     /** AJAX: save just default provider/model (quick switch) */
     public function quickSwitch(Request $request)
     {
-        $ids = array_keys($this->ai->allProviders());
+        $user = Auth::user();
+        $ids = array_keys($this->ai->providersForUser($user));
         $request->validate([
             'provider' => 'required|in:' . implode(',', $ids),
             'model'    => 'nullable|string|max:120',
         ]);
 
-        $user = Auth::user();
         $setting = AiSetting::firstOrCreate(['user_id' => $user->id]);
         $setting->default_provider = $request->provider;
-        if ($request->filled('model') && $this->ai->validateModel($request->provider, $request->model)) {
+        if ($request->filled('model') && $this->ai->validateModel($request->provider, $request->model, $user)) {
             $setting->default_model = $request->model;
-            $col = $this->ai->providerConfig($request->provider)['model_column'] ?? null;
+            $col = $this->ai->providerConfig($request->provider, $user)['model_column'] ?? null;
             if ($col) $setting->{$col} = $request->model;
         }
         $setting->save();

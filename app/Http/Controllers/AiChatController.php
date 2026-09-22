@@ -14,7 +14,6 @@ use App\Services\AiProviderService;
 use App\Services\LinaFallbackBrain;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 
 class AiChatController extends Controller
 {
@@ -30,7 +29,7 @@ class AiChatController extends Controller
         $user = Auth::user();
         $resolved = $this->ai->resolve($user);
         $enabledMap = $this->ai->enabledMap($user);
-        $providers = $this->ai->allProviders();
+        $providers = $this->ai->providersForUser($user);
         return view('ai.index', compact('resolved', 'enabledMap', 'providers'));
     }
 
@@ -41,7 +40,7 @@ class AiChatController extends Controller
         return response()->json([
             'resolved' => $this->ai->resolve($user),
             'enabled'  => $this->ai->enabledMap($user),
-            'providers'=> collect($this->ai->allProviders())->map(fn($c) => [
+            'providers'=> collect($this->ai->providersForUser($user))->map(fn($c) => [
                 'label' => $c['label'],
                 'models'=> $c['models'],
                 'default_model' => $c['default_model'],
@@ -256,15 +255,13 @@ class AiChatController extends Controller
 
     private function callOpenAiSync(string $key, string $baseUrl, array $messages, string $model): string
     {
-        $payload = $this->ai->openAiPayload($messages, $model, false);
-        $response = Http::withHeaders([
+        $payload = $this->ai->openAiPayload($messages, $model, false, $baseUrl);
+        $response = $this->ai->postJson($baseUrl, $payload, [
             'Authorization' => 'Bearer ' . $key,
-            'Content-Type'  => 'application/json',
-        ])->withOptions(['verify' => false])->timeout(60)->post($baseUrl, $payload);
+        ], 60);
 
         if ($response->failed()) {
-            $msg = $response->json('error.message') ?? $response->body() ?: "HTTP {$response->status()}";
-            throw new \Exception($msg);
+            throw new \Exception($this->ai->formatErrorResponse($response));
         }
         $text = trim($response->json('choices.0.message.content') ?? '');
         if ($text === '') throw new \Exception('Empty response from provider');
@@ -288,12 +285,10 @@ class AiChatController extends Controller
 
         $url = rtrim($baseUrl, '/') . '/' . $model . ':generateContent?key=' . $key;
 
-        $response = Http::withHeaders(['Content-Type' => 'application/json'])
-            ->withOptions(['verify' => false])->timeout(60)->post($url, $body);
+        $response = $this->ai->postJson($url, $body, [], 60);
 
         if ($response->failed()) {
-            $msg = $response->json('error.message') ?? $response->body() ?: "HTTP {$response->status()}";
-            throw new \Exception($msg);
+            throw new \Exception($this->ai->formatErrorResponse($response));
         }
         $text = $response->json('candidates.0.content.parts.0.text');
         if (!$text) throw new \Exception('Empty response from Gemini');
@@ -312,16 +307,13 @@ class AiChatController extends Controller
         ];
         if ($system) $payload['system'] = $system;
 
-        $response = Http::withHeaders([
+        $response = $this->ai->postJson($baseUrl, $payload, [
             'x-api-key' => $key,
             'anthropic-version' => '2023-06-01',
-            'Content-Type' => 'application/json',
-        ])->withOptions(['verify' => false])->timeout(60)->post($baseUrl, $payload);
+        ], 60);
 
         if ($response->failed()) {
-            $msg = $response->json('error.message') ?? $response->json('error') ?? $response->body() ?: "HTTP {$response->status()}";
-            if (is_array($msg)) $msg = json_encode($msg);
-            throw new \Exception($msg);
+            throw new \Exception($this->ai->formatErrorResponse($response));
         }
         $blocks = $response->json('content');
         $text = '';
@@ -351,13 +343,20 @@ class AiChatController extends Controller
                 'headers' => [
                     'Authorization' => 'Bearer ' . $key,
                     'Content-Type'  => 'application/json',
+                    'HTTP-Referer'  => (string) config('app.url'),
+                    'X-Title'       => (string) config('app.name', 'Task Manager'),
                 ],
-                'json' => $this->ai->openAiPayload($messages, $model, true),
+                'json' => $this->ai->openAiPayload($messages, $model, true, $cfg['base_url']),
                 'stream' => true,
             ]);
             $status = $response->getStatusCode();
             if ($status !== 200) {
-                throw new \Exception("Provider returned HTTP {$status}: " . (string) $response->getBody());
+                $body = (string) $response->getBody();
+                $json = json_decode($body, true);
+                $detail = (is_array($json) && isset($json['error']))
+                    ? $this->ai->formatErrorArray($json['error'])
+                    : trim($body);
+                throw new \Exception("HTTP {$status}: {$detail}");
             }
         } catch (\Exception $e) {
             // Fall back to sync + chunk
@@ -417,6 +416,17 @@ class AiChatController extends Controller
                             return;
                         }
                         $decoded = json_decode($data, true);
+                        if (is_array($decoded) && isset($decoded['error'])) {
+                            if ($accumulatedText) {
+                                AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => $accumulatedText, 'model' => $model]);
+                                AiConversation::where('id', $conversationId)->touch();
+                            }
+                            echo "data: " . json_encode(['error' => $this->ai->formatErrorArray($decoded['error'])]) . "\n\n";
+                            $sseFlush();
+                            echo "data: [DONE]\n\n";
+                            $sseFlush();
+                            return;
+                        }
                         $token = $decoded['choices'][0]['delta']['content'] ?? '';
                         if ($token) $accumulatedText .= $token;
                         echo "data: {$data}\n\n";

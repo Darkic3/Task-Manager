@@ -95,4 +95,9 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Project::class, 'project_teams', 'user_id', 'project_id');
     }
+
+    public function aiProviders()
+    {
+        return $this->hasMany(AiProvider::class);
+    }
 }

@@ -1,5 +1,6 @@
 <?php
 use App\Http\Controllers\AiChatController;
+use App\Http\Controllers\AiProviderController;
 use App\Http\Controllers\AiSettingsController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ChecklistItemController;
@@ -69,6 +70,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/ai/settings', [AiSettingsController::class, 'index'])->name('ai.settings');
     Route::put('/ai/settings', [AiSettingsController::class, 'update'])->name('ai.settings.update');
     Route::post('/ai/settings/switch', [AiSettingsController::class, 'quickSwitch'])->name('ai.settings.switch');
+    // Custom (user-defined) AI providers
+    Route::post('/ai/providers', [AiProviderController::class, 'store'])->name('ai.providers.store');
+    Route::put('/ai/providers/{provider}', [AiProviderController::class, 'update'])->name('ai.providers.update');
+    Route::delete('/ai/providers/{provider}', [AiProviderController::class, 'destroy'])->name('ai.providers.destroy');
+    Route::post('/ai/providers/{provider}/test', [AiProviderController::class, 'test'])->name('ai.providers.test');
     Route::post('/ai/chat', [AiChatController::class, 'chat'])->name('ai.chat');
     Route::post('/ai/stream', [AiChatController::class, 'stream'])->name('ai.stream');
     // AI Conversations (DB-backed)

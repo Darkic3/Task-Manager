@@ -50,7 +50,7 @@
                     <label class="form-label">Default provider</label>
                     <select name="default_provider" id="defaultProviderSelect" class="form-control">
                         <option value="">-- Auto (first enabled) --</option>
-                        @foreach($providers as $id => $cfg)
+                        @foreach($allProviders as $id => $cfg)
                             <option value="{{ $id }}" {{ ($setting->default_provider ?? config('ai.default_provider')) === $id ? 'selected' : '' }}>
                                 {{ $cfg['label'] }} {{ !empty($enabledMap[$id]) ? '✓' : '' }}
                             </option>
@@ -131,6 +131,123 @@
         </div>
     </form>
 
+    {{-- Custom (user-defined) providers --}}
+    <div class="ai-card mt-4">
+        <div class="ai-card-head">
+            <div class="ai-card-head-icon" style="background:linear-gradient(135deg,#0ea5e9,#22c55e);"><i class="bi bi-plug-fill"></i></div>
+            <div>
+                <div style="font-weight:800; font-size:15px; color:var(--gray-900);">Custom Providers</div>
+                <div style="font-size:12.5px; color:var(--gray-500);">Add any OpenAI-compatible endpoint (OpenRouter, 9route, OmniRoute, Ollama, LM Studio…) or Gemini/Claude-compatible API.</div>
+                <div style="font-size:12px; color:var(--gray-400); margin-top:4px;">OpenRouter tip: free models are often rate-limited (429) or retired (404). For the model field you can list several separated by commas — OpenRouter will try them in order, e.g. <code>google/gemma-4-31b-it:free, openai/gpt-4o-mini</code>.</div>
+            </div>
+        </div>
+
+        @forelse($customProviders as $cp)
+            @php
+                $key = $cp->providerKey();
+                $isDefault = ($setting->default_provider ?? null) === $key;
+                $isEnabled = !empty($enabledMap[$key]);
+            @endphp
+            <div class="ai-provider-row">
+                <div class="ai-provider-info">
+                    <div class="ai-provider-name">
+                        {{ $cp->label }}
+                        <span class="ai-badge-off" style="text-transform:uppercase;">{{ $cp->type }}</span>
+                        @if($isEnabled)
+                            <span class="ai-badge-on">Enabled</span>
+                        @else
+                            <span class="ai-badge-off">Disabled</span>
+                        @endif
+                        @if($isDefault)
+                            <span class="ai-badge-on" style="background:#ede9fe; color:#5b21b6;">Default</span>
+                        @endif
+                    </div>
+                    <div class="ai-provider-desc">{{ $cp->base_url }} · model: {{ $cp->model ?: '—' }}</div>
+                    @if(!empty($masked[$key]))
+                        <div class="ai-provider-desc">Key: {{ $masked[$key] }}</div>
+                    @endif
+
+                    <div class="ai-input-group" style="flex-wrap:wrap;">
+                        <button type="button" class="btn btn-outline btn-sm" data-test-url="{{ route('ai.providers.test', $cp) }}"><i class="bi bi-wifi"></i> Test</button>
+                        <button type="button" class="btn btn-outline btn-sm" data-default-key="{{ $key }}" data-default-model="{{ $cp->model }}"><i class="bi bi-star"></i> Use as default</button>
+                        <span class="ai-test-result" style="font-size:12px; margin-left:4px;"></span>
+                    </div>
+
+                    <details style="margin-top:10px;">
+                        <summary style="font-size:12.5px; color:var(--gray-500); cursor:pointer;">Edit</summary>
+                        <form method="POST" action="{{ route('ai.providers.update', $cp) }}" style="margin-top:10px;">
+                            @csrf
+                            @method('PUT')
+                            <div class="ai-input-group">
+                                <input type="text" name="label" value="{{ $cp->label }}" class="form-control" placeholder="Label" required>
+                                <select name="type" class="form-control" style="max-width:150px;">
+                                    <option value="openai" {{ $cp->type === 'openai' ? 'selected' : '' }}>openai</option>
+                                    <option value="gemini" {{ $cp->type === 'gemini' ? 'selected' : '' }}>gemini</option>
+                                    <option value="anthropic" {{ $cp->type === 'anthropic' ? 'selected' : '' }}>anthropic</option>
+                                </select>
+                            </div>
+                            <div class="ai-input-group">
+                                <input type="url" name="base_url" value="{{ $cp->base_url }}" class="form-control" placeholder="Base URL" required>
+                            </div>
+                            <div class="ai-input-group">
+                                <input type="text" name="model" value="{{ $cp->model }}" class="form-control" placeholder="Model id" required>
+                            </div>
+                            <div class="ai-input-group">
+                                <input type="password" name="api_key" value="" placeholder="Leave blank to keep current key" class="form-control" autocomplete="off">
+                            </div>
+                            <div class="ai-input-group">
+                                <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;">
+                                    <input type="hidden" name="enabled" value="0">
+                                    <input type="checkbox" name="enabled" value="1" {{ $cp->enabled ? 'checked' : '' }}> Enabled
+                                </label>
+                                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                            </div>
+                        </form>
+                    </details>
+                </div>
+
+                <form method="POST" action="{{ route('ai.providers.destroy', $cp) }}" onsubmit="return confirm('Delete this provider?');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-outline btn-sm" title="Delete"><i class="bi bi-trash"></i></button>
+                </form>
+            </div>
+        @empty
+            <div style="padding:16px 22px; font-size:13px; color:var(--gray-500);">No custom providers yet. Add one below.</div>
+        @endforelse
+
+        <div style="padding:18px 22px; border-top:1px solid var(--gray-100);">
+            <div style="font-weight:700; font-size:13.5px; margin-bottom:10px;">Add a provider</div>
+            <form method="POST" action="{{ route('ai.providers.store') }}">
+                @csrf
+                <div class="ai-input-group">
+                    <input type="text" name="label" value="{{ old('label') }}" class="form-control" placeholder="Label (e.g. OpenRouter)" required>
+                    <select name="type" class="form-control" style="max-width:150px;">
+                        <option value="openai">openai</option>
+                        <option value="gemini">gemini</option>
+                        <option value="anthropic">anthropic</option>
+                    </select>
+                </div>
+                <div class="ai-input-group">
+                    <input type="url" name="base_url" value="{{ old('base_url') }}" class="form-control" placeholder="Base URL (e.g. https://openrouter.ai/api/v1/chat/completions)" required>
+                </div>
+                <div class="ai-input-group">
+                    <input type="text" name="model" value="{{ old('model') }}" class="form-control" placeholder="Model id (e.g. openai/gpt-4o-mini, or a,b for fallback)" required>
+                </div>
+                <div class="ai-input-group">
+                    <input type="password" name="api_key" value="" class="form-control" placeholder="API key" autocomplete="off">
+                </div>
+                <div class="ai-input-group">
+                    <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="hidden" name="enabled" value="0">
+                        <input type="checkbox" name="enabled" value="1" checked> Enabled
+                    </label>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Add provider</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="mt-4" style="font-size:12px; color:var(--gray-500); line-height:1.6;">
         <strong>Where to get keys:</strong>
         OpenAI <code>platform.openai.com</code> · Gemini <code>aistudio.google.com</code> · Claude <code>console.anthropic.com</code> · DeepSeek <code>platform.deepseek.com</code> · Meta <code>llama.developer.meta.com</code>
@@ -141,7 +258,7 @@
 @push('scripts')
 <script>
 (function(){
-    const providers = @json($providers);
+    const providers = @json($allProviders);
     const setting = @json($setting);
     const defProviderSel = document.getElementById('defaultProviderSelect');
     const defModelSel = document.getElementById('defaultModelSelect');
@@ -181,6 +298,41 @@
             } else if(this.type==='text'){
                 // keep as text if they typed something
             }
+        });
+    });
+
+    // Test a custom provider connection
+    document.querySelectorAll('[data-test-url]').forEach(btn=>{
+        btn.addEventListener('click', async function(){
+            const out = this.parentElement.querySelector('.ai-test-result');
+            out.textContent = 'Testing…'; out.style.color = 'var(--gray-500)';
+            this.disabled = true;
+            try {
+                const res = await fetch(this.dataset.testUrl, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+                });
+                const json = await res.json();
+                out.textContent = (json.ok ? '✓ ' : '✗ ') + (json.message || '');
+                out.style.color = json.ok ? '#16a34a' : '#dc2626';
+            } catch(e) {
+                out.textContent = '✗ Network error'; out.style.color = '#dc2626';
+            } finally { this.disabled = false; }
+        });
+    });
+
+    // Set a custom provider as the default
+    document.querySelectorAll('[data-default-key]').forEach(btn=>{
+        btn.addEventListener('click', async function(){
+            this.disabled = true;
+            try {
+                const res = await fetch('{{ route('ai.settings.switch') }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+                    body: JSON.stringify({ provider: this.dataset.defaultKey, model: this.dataset.defaultModel || '' }),
+                });
+                if (res.ok) { location.reload(); } else { this.disabled = false; }
+            } catch(e) { this.disabled = false; }
         });
     });
 })();

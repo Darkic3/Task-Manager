@@ -80,14 +80,17 @@ AI_DEFAULT_MODEL=             # optional override
 
 Run `php artisan config:clear` after editing `.env`. Full catalog lives in `config/ai.php`.
 
+**Option C — Custom providers (per-user, no code change):** `AI Settings → Custom Providers` lets you add any endpoint at runtime — label, type (`openai` / `gemini` / `anthropic`), base URL, model id and API key (encrypted in `ai_providers`). Use it for OpenRouter, 9route, OmniRoute, a local Ollama / LM Studio server, or any other OpenAI-compatible API. Each row has **Test** (connectivity check), **Use as default**, **Edit** and **Delete**. Custom providers appear in the default-provider dropdown and are auto-detected once enabled.
+
 #### Routes & Files
 
 * UI: `resources/views/ai/index.blade.php`, `resources/views/ai/settings.blade.php`
 * Config: `config/ai.php`, `config/services.php`
 * Service: `app/Services/AiProviderService.php`
-* Models: `app/Models/AiSetting.php`, `AiConversation`, `AiMessage`
-* Controllers: `AiChatController`, `AiSettingsController`
+* Models: `app/Models/AiSetting.php`, `AiProvider`, `AiConversation`, `AiMessage`
+* Controllers: `AiChatController`, `AiSettingsController`, `AiProviderController`
 * Routes: `GET /ai`, `GET /ai/settings`, `PUT /ai/settings`, `POST /ai/settings/switch`, `POST /ai/stream`, `GET /ai/status`, `POST /ai/chat`
+* Custom providers: `POST /ai/providers`, `PUT /ai/providers/{id}`, `DELETE /ai/providers/{id}`, `POST /ai/providers/{id}/test`
 
 ### Prerequisites
 
