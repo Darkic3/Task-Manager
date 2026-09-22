@@ -78,6 +78,14 @@
         justify-content:center;color:#8b8d98;font-size:13px;transition:all .15s;padding:0;
     }
     .cu-col-add:hover{background:#e4e6ea;color:#1f2328;}
+    .cu-col-chevron-btn{
+        width:24px;height:24px;border-radius:5px;border:none;
+        background:transparent;cursor:pointer;display:flex;align-items:center;
+        justify-content:center;color:#8b8d98;font-size:11px;transition:all .15s;padding:0;
+    }
+    .cu-col-chevron-btn:hover{background:#e4e6ea;color:#1f2328;}
+    .cu-col.collapsed .cu-col-chevron-btn i{transform:rotate(-90deg);}
+    .cu-col-chevron-btn i{transition:transform .15s;}
     .cu-col-body{padding:4px 8px 8px;min-height:100px;max-height:calc(100vh - 330px);overflow-y:auto;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;}
     .cu-col.collapsed .cu-col-body{display:none;}
     .cu-col-body.drop-target{background:#ece9fd;border-radius:6px;}
@@ -483,7 +491,7 @@
                         <button class="cu-col-add" data-bs-toggle="modal" data-bs-target="#createTaskModal" data-status="{{ $statusKey }}" title="New task in this column">
                             <i class="bi bi-plus-lg"></i>
                         </button>
-                        <button class="cu-col-add" data-chevron="{{ $statusKey }}" title="Collapse / expand">
+                        <button type="button" class="cu-col-chevron-btn" data-chevron="{{ $statusKey }}" title="Collapse / expand">
                             <i class="bi bi-chevron-down"></i>
                         </button>
                     </div>
@@ -837,10 +845,10 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.cu-chapter').forEach(ch => ch.classList.add('collapsed'));
         savePrefs();
     });
-    /* Column collapse / expand */
+    /* Column collapse / expand (the "+" modal button is excluded; chevron toggles) */
     document.querySelectorAll('[data-col-toggle]').forEach(head => {
         head.addEventListener('click', e => {
-            if (e.target.closest('.cu-col-add')) return;
+            if (e.target.closest('[data-bs-toggle="modal"]')) return;
             const col = head.closest('.cu-col');
             col.classList.toggle('collapsed');
             col.dataset.collapsed = col.classList.contains('collapsed') ? '1' : '0';

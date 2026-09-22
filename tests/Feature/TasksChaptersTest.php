@@ -256,6 +256,22 @@ class TasksChaptersTest extends TestCase
             ->assertUnauthorized();
     }
 
+    public function test_column_collapse_chevron_is_clickable_and_not_swallowed(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->create(['user_id' => $user->id, 'status' => 'in_progress']);
+        Task::factory()->create(['user_id' => $user->id, 'project_id' => $project->id]);
+
+        $response = $this->actingAs($user)->get(route('tasks.index'));
+
+        $response->assertOk();
+        // The chevron must NOT share the .cu-col-add class: the column-head
+        // click handler ignores .cu-col-add (the "+" modal button), which
+        // used to swallow chevron clicks and made collapse dead.
+        $response->assertSee('cu-col-chevron-btn', false);
+        $response->assertDontSee('cu-col-add" data-chevron', false);
+    }
+
     public function test_reorder_persists_order_without_detaching_children(): void
     {
         $user = User::factory()->create();
