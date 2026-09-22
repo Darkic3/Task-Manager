@@ -135,8 +135,8 @@
     .cu-check-item label:hover { border-color: #7c3aed; color: #7c3aed; background: #faf5ff; }
     .cu-check-item input:checked + label { background: #7c3aed; border-color: #7c3aed; color: white; }
 
-    /* week grid — smaller pills to fit 52 */
-    .cu-week-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px,1fr)); gap: 5px; max-height: 220px; overflow-y: auto; }
+    /* compact grid for month-days 1-31 */
+    .cu-week-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px,1fr)); gap: 5px; }
     .cu-week-grid .cu-check-item label { width: 100%; font-size: 11px; padding: 4px 6px; }
 
     /* ── Action bar ──────────────────────────────────────── */
@@ -207,7 +207,7 @@
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-info-circle"></i>
-                    <span style="font-size:11px;line-height:1.5;">Choose a frequency then select which days, weeks, or months the routine applies to.</span>
+                    <span style="font-size:11px;line-height:1.5;">Choose a frequency, then pick the days of the week or days of the month it applies to.</span>
                 </div>
             </div>
         </div>
@@ -281,11 +281,19 @@
                             @error('frequency')<div class="invalid-feedback mt-1">{{ $message }}</div>@enderror
                         </div>
 
-                        {{-- Day picker --}}
+                        {{-- Daily: no selection needed --}}
                         <div class="cu-picker" id="picker-daily">
-                            <div class="cu-picker-title">Select days</div>
+                            <div class="cu-picker-title">Schedule</div>
+                            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#5b21b6;font-weight:600;background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:10px 14px;">
+                                <i class="bi bi-sun"></i> This routine runs every day.
+                            </div>
+                        </div>
+
+                        {{-- Weekly: pick weekdays --}}
+                        <div class="cu-picker" id="picker-weekly">
+                            <div class="cu-picker-title">Select days of the week <span style="color:#dc2626;">*</span></div>
                             <div class="cu-check-grid">
-                                @foreach(['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as $day)
+                                @foreach(['saturday','sunday','monday','tuesday','wednesday','thursday','friday'] as $day)
                                 <div class="cu-check-item">
                                     <input type="checkbox" name="days[]" value="{{ $day }}" id="day_{{ $day }}"
                                         {{ in_array($day, old('days', [])) ? 'checked' : '' }}>
@@ -293,34 +301,24 @@
                                 </div>
                                 @endforeach
                             </div>
+                            @error('days')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            @error('days.*')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
 
-                        {{-- Week picker --}}
-                        <div class="cu-picker" id="picker-weekly">
-                            <div class="cu-picker-title">Select weeks (1 – 52)</div>
+                        {{-- Monthly: pick days of month 1-31 --}}
+                        <div class="cu-picker" id="picker-monthly">
+                            <div class="cu-picker-title">Select days of the month <span style="color:#dc2626;">*</span></div>
                             <div class="cu-week-grid">
-                                @for($w = 1; $w <= 52; $w++)
+                                @for($d = 1; $d <= 31; $d++)
                                 <div class="cu-check-item">
-                                    <input type="checkbox" name="weeks[]" value="{{ $w }}" id="week_{{ $w }}"
-                                        {{ in_array($w, old('weeks', [])) ? 'checked' : '' }}>
-                                    <label for="week_{{ $w }}">W{{ $w }}</label>
+                                    <input type="checkbox" name="month_days[]" value="{{ $d }}" id="mday_{{ $d }}"
+                                        {{ in_array($d, array_map('intval', old('month_days', []))) ? 'checked' : '' }}>
+                                    <label for="mday_{{ $d }}">{{ $d }}</label>
                                 </div>
                                 @endfor
                             </div>
-                        </div>
-
-                        {{-- Month picker --}}
-                        <div class="cu-picker" id="picker-monthly">
-                            <div class="cu-picker-title">Select months</div>
-                            <div class="cu-check-grid">
-                                @foreach(['January','February','March','April','May','June','July','August','September','October','November','December'] as $idx => $month)
-                                <div class="cu-check-item">
-                                    <input type="checkbox" name="months[]" value="{{ $idx + 1 }}" id="month_{{ $idx + 1 }}"
-                                        {{ in_array($idx + 1, old('months', [])) ? 'checked' : '' }}>
-                                    <label for="month_{{ $idx + 1 }}">{{ substr($month,0,3) }}</label>
-                                </div>
-                                @endforeach
-                            </div>
+                            @error('month_days')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            @error('month_days.*')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
                 </div>
@@ -385,9 +383,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     radios.forEach(r => r.addEventListener('change', () => updatePickers(r.value)));
 
-    // Restore on validation failure
-    const checked = document.querySelector('input[name="frequency"]:checked');
-    if (checked) updatePickers(checked.value);
+    // Restore on validation failure (default daily)
+    const checked = document.querySelector('input[name="frequency"]:checked')
+        || document.querySelector('input[name="frequency"][value="daily"]');
+    if (checked) { checked.checked = true; updatePickers(checked.value); }
 });
 </script>
 @endpush

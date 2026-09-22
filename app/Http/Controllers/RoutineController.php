@@ -1,29 +1,24 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Routine;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
 
 class RoutineController extends Controller
 {
+    private const WEEK_DAYS = [
+        'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+    ];
+
     public function index()
     {
-        $upcomingDailyRoutines = Auth::user()->routines()
-            ->where('frequency', 'daily')
-            ->latest()
-            ->get();
+        $user = Auth::user();
 
-        $upcomingWeeklyRoutines = Auth::user()->routines()
-            ->where('frequency', 'weekly')
-            ->latest()
-            ->get();
-
-        $upcomingMonthlyRoutines = Auth::user()->routines()
-            ->where('frequency', 'monthly')
-            ->latest()
-            ->get();
+        $upcomingDailyRoutines = $user->routines()->where('frequency', 'daily')->latest()->get();
+        $upcomingWeeklyRoutines = $user->routines()->where('frequency', 'weekly')->latest()->get();
+        $upcomingMonthlyRoutines = $user->routines()->where('frequency', 'monthly')->latest()->get();
 
         return view('routines.index', compact('upcomingDailyRoutines', 'upcomingWeeklyRoutines', 'upcomingMonthlyRoutines'));
     }
@@ -35,97 +30,115 @@ class RoutineController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'frequency' => 'required|in:daily,weekly,monthly',
-            'days' => 'nullable|array',
-            'weeks' => 'nullable|array',
-            'months' => 'nullable|array',
-            'start_time' => 'required',
-            'end_time' => 'required',
-        ]);
+        $data = $this->validated($request);
 
-        $routineData = $request->all();
-        if ($request->has('days')) {
-            $routineData['days'] = json_encode($request->days);
-        }
-        if ($request->has('weeks')) {
-            $routineData['weeks'] = json_encode($request->weeks);
-        }
-        if ($request->has('months')) {
-            $routineData['months'] = json_encode($request->months);
-        }
-
-        Auth::user()->routines()->create($routineData);
+        Auth::user()->routines()->create($data);
 
         return redirect()->route('routines.index')->with('success', 'Routine created successfully.');
     }
 
     public function edit(Routine $routine)
     {
+        $this->authorizeRoutine($routine);
+
         return view('routines.edit', compact('routine'));
     }
 
     public function update(Request $request, Routine $routine)
     {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'frequency' => 'required|in:daily,weekly,monthly',
-            'days' => 'nullable|array',
-            'weeks' => 'nullable|array',
-            'months' => 'nullable|array',
-            'start_time' => 'required',
-            'end_time' => 'required',
-        ]);
+        $this->authorizeRoutine($routine);
 
-        $routineData = $request->all();
-        if ($request->has('days')) {
-            $routineData['days'] = json_encode($request->days);
-        }
-        if ($request->has('weeks')) {
-            $routineData['weeks'] = json_encode($request->weeks);
-        }
-        if ($request->has('months')) {
-            $routineData['months'] = json_encode($request->months);
-        }
-
-        $routine->update($routineData);
+        $routine->update($this->validated($request));
 
         return redirect()->route('routines.index')->with('success', 'Routine updated successfully.');
     }
 
     public function destroy(Routine $routine)
     {
+        $this->authorizeRoutine($routine);
+
         $routine->delete();
+
         return redirect()->route('routines.index')->with('success', 'Routine deleted successfully.');
     }
 
     public function showAll()
     {
-        $dailyRoutines = Auth::user()->routines()->where('frequency', 'daily')->get();
-        $weeklyRoutines = Auth::user()->routines()->where('frequency', 'weekly')->get();
-        $monthlyRoutines = Auth::user()->routines()->where('frequency', 'monthly')->get();
-
-        return view('routines.all', compact('dailyRoutines', 'weeklyRoutines', 'monthlyRoutines'));
+        return redirect()->route('routines.index');
     }
 
     public function showDaily()
     {
-        $dailyRoutines = Auth::user()->routines()->where('frequency', 'daily')->get();
-        return view('routines.daily', compact('dailyRoutines'));
+        return $this->byFrequency('daily', 'routines.daily');
     }
 
     public function showWeekly()
     {
-        $weeklyRoutines = Auth::user()->routines()->where('frequency', 'weekly')->get();
-        return view('routines.weekly', compact('weeklyRoutines'));
+        return $this->byFrequency('weekly', 'routines.weekly');
     }
 
     public function showMonthly()
     {
-        $monthlyRoutines = Auth::user()->routines()->where('frequency', 'monthly')->get();
-        return view('routines.monthly', compact('monthlyRoutines'));
+        return $this->byFrequency('monthly', 'routines.monthly');
+    }
+
+    private function byFrequency(string $frequency, string $view)
+    {
+        $routines = Auth::user()->routines()
+            ->when($frequency !== 'all', fn ($q) => $q->where('frequency', $frequency))
+            ->latest()
+            ->get();
+
+        $dailyRoutines = $routines->where('frequency', 'daily')->values();
+        $weeklyRoutines = $routines->where('frequency', 'weekly')->values();
+        $monthlyRoutines = $routines->where('frequency', 'monthly')->values();
+
+        return view($view, compact('dailyRoutines', 'weeklyRoutines', 'monthlyRoutines'));
+    }
+
+    private function validated(Request $request): array
+    {
+        $rules = [
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'frequency' => 'required|in:daily,weekly,monthly',
+            'start_time' => 'required',
+            'end_time' => 'required',
+        ];
+
+        if ($request->input('frequency') === 'weekly') {
+            $rules['days'] = 'required|array|min:1';
+            $rules['days.*'] = 'string|in:'.implode(',', self::WEEK_DAYS);
+        } elseif ($request->input('frequency') === 'monthly') {
+            $rules['month_days'] = 'required|array|min:1';
+            $rules['month_days.*'] = 'integer|between:1,31';
+        }
+
+        $data = $request->validate($rules);
+
+        $frequency = $data['frequency'];
+
+        if ($frequency === 'weekly') {
+            $data['days'] = array_values(array_unique(array_map('strtolower', $data['days'])));
+            $data['month_days'] = null;
+        } elseif ($frequency === 'monthly') {
+            $monthDays = array_values(array_unique(array_map('intval', $data['month_days'])));
+            sort($monthDays);
+            $data['month_days'] = $monthDays;
+            $data['days'] = null;
+        } else {
+            $data['days'] = null;
+            $data['month_days'] = null;
+        }
+
+        $data['weeks'] = null;
+        $data['months'] = null;
+
+        return $data;
+    }
+
+    private function authorizeRoutine(Routine $routine): void
+    {
+        abort_if($routine->user_id !== Auth::id(), 403);
     }
 }

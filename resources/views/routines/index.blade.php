@@ -210,18 +210,14 @@
                     <div class="cu-routine-desc">{{ Str::limit(strip_tags($routine->description), 90) }}</div>
                     @endif
                     <div class="cu-routine-meta">
-                        @if($routine->days)
                         <span class="cu-meta-pill">
-                            <i class="bi bi-calendar-day"></i>
-                            {{ implode(', ', array_map('ucfirst', json_decode($routine->days, true) ?? [])) }}
+                            <i class="bi bi-arrow-repeat"></i>
+                            {{ $routine->recurrenceLabel() }}
                         </span>
-                        @endif
-                        @if($routine->start_time && $routine->end_time)
+                        @if($routine->timeLabel())
                         <span class="cu-meta-pill">
                             <i class="bi bi-clock"></i>
-                            {{ \Carbon\Carbon::parse($routine->start_time)->format('g:i A') }}
-                            &ndash;
-                            {{ \Carbon\Carbon::parse($routine->end_time)->format('g:i A') }}
+                            {{ $routine->timeLabel() }}
                         </span>
                         @endif
                     </div>
@@ -272,18 +268,14 @@
                     <div class="cu-routine-desc">{{ Str::limit(strip_tags($routine->description), 90) }}</div>
                     @endif
                     <div class="cu-routine-meta">
-                        @if($routine->weeks)
                         <span class="cu-meta-pill">
-                            <i class="bi bi-calendar-week"></i>
-                            Week {{ implode(', ', json_decode($routine->weeks, true) ?? []) }}
+                            <i class="bi bi-arrow-repeat"></i>
+                            {{ $routine->recurrenceLabel() }}
                         </span>
-                        @endif
-                        @if($routine->start_time && $routine->end_time)
+                        @if($routine->timeLabel())
                         <span class="cu-meta-pill">
                             <i class="bi bi-clock"></i>
-                            {{ \Carbon\Carbon::parse($routine->start_time)->format('g:i A') }}
-                            &ndash;
-                            {{ \Carbon\Carbon::parse($routine->end_time)->format('g:i A') }}
+                            {{ $routine->timeLabel() }}
                         </span>
                         @endif
                     </div>
@@ -334,21 +326,14 @@
                     <div class="cu-routine-desc">{{ Str::limit(strip_tags($routine->description), 90) }}</div>
                     @endif
                     <div class="cu-routine-meta">
-                        @if($routine->months)
                         <span class="cu-meta-pill">
-                            <i class="bi bi-calendar3"></i>
-                            @php
-                                $monthNames = array_map(fn($m) => \Carbon\Carbon::createFromDate(null, (int)$m, 1)->format('M'), json_decode($routine->months, true) ?? []);
-                            @endphp
-                            {{ implode(', ', $monthNames) }}
+                            <i class="bi bi-arrow-repeat"></i>
+                            {{ $routine->recurrenceLabel() }}
                         </span>
-                        @endif
-                        @if($routine->start_time && $routine->end_time)
+                        @if($routine->timeLabel())
                         <span class="cu-meta-pill">
                             <i class="bi bi-clock"></i>
-                            {{ \Carbon\Carbon::parse($routine->start_time)->format('g:i A') }}
-                            &ndash;
-                            {{ \Carbon\Carbon::parse($routine->end_time)->format('g:i A') }}
+                            {{ $routine->timeLabel() }}
                         </span>
                         @endif
                     </div>

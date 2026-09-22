@@ -2,16 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Task;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
-use App\Models\Project;
-use App\Models\Task;
-use App\Models\Note;
-use App\Models\Reminder;
-use App\Models\Routine;
-use App\Models\File;
-use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -42,12 +35,11 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        // Today's routines (based on current day and time)
-        $today = now()->format('l'); // Full day name (Monday, Tuesday, etc.)
+        // Today's routines (daily + weekly on this weekday + monthly on this day)
         $todayRoutines = $user->routines()
-            ->where('frequency', 'daily')
-            ->whereJsonContains('days', strtolower($today))
-            ->get();
+            ->get()
+            ->filter(fn ($routine) => $routine->occursOn(now()))
+            ->values();
 
         // Upcoming reminders
         $upcomingReminders = $user->reminders()
@@ -170,7 +162,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'labels' => $labels,
-            'data' => $data
+            'data' => $data,
         ]);
     }
 }

@@ -114,10 +114,6 @@
 
     <div class="cu-grid">
         @forelse($monthlyRoutines as $routine)
-        @php
-            $months = json_decode($routine->months, true) ?? [];
-            $monthNames = array_map(fn($m) => \Carbon\Carbon::createFromDate(null, (int)$m, 1)->format('M'), $months);
-        @endphp
         <div class="cu-card">
             <div class="cu-card-accent" style="background:#d97706;"></div>
             <div class="cu-card-body">
@@ -126,18 +122,14 @@
                 <div class="cu-card-desc">{{ Str::limit(strip_tags($routine->description), 100) }}</div>
                 @endif
                 <div class="cu-card-meta">
-                    @if(count($monthNames))
                     <span class="cu-pill">
-                        <i class="bi bi-calendar3"></i>
-                        {{ implode(', ', $monthNames) }}
+                        <i class="bi bi-arrow-repeat"></i>
+                        {{ $routine->recurrenceLabel() }}
                     </span>
-                    @endif
-                    @if($routine->start_time && $routine->end_time)
+                    @if($routine->timeLabel())
                     <span class="cu-pill">
                         <i class="bi bi-clock"></i>
-                        {{ \Carbon\Carbon::parse($routine->start_time)->format('g:i A') }}
-                        &ndash;
-                        {{ \Carbon\Carbon::parse($routine->end_time)->format('g:i A') }}
+                        {{ $routine->timeLabel() }}
                     </span>
                     @endif
                 </div>

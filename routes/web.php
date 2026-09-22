@@ -1,4 +1,5 @@
 <?php
+
 use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\AiProviderController;
 use App\Http\Controllers\AiSettingsController;
@@ -11,11 +12,9 @@ use App\Http\Controllers\NoteController;
 use App\Http\Controllers\PlannerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
-use App\Http\Controllers\ProjectFileController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\TaskController;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -68,6 +67,7 @@ Route::middleware(['auth'])->group(function () {
     // My Day / Planner
     Route::get('/planner', [PlannerController::class, 'index'])->name('planner.index');
     Route::post('/planner/tasks/{task}/toggle', [PlannerController::class, 'toggleTask'])->name('planner.tasks.toggle');
+    Route::post('/planner/routines/{routine}/toggle', [PlannerController::class, 'toggleRoutine'])->name('planner.routines.toggle');
 
     // AI Chat
     Route::get('/ai', [AiChatController::class, 'index'])->name('ai.index');

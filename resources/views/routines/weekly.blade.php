@@ -114,12 +114,6 @@
 
     <div class="cu-grid">
         @forelse($weeklyRoutines as $routine)
-        @php
-            $weeks = json_decode($routine->weeks, true) ?? [];
-            $weekDisplay = count($weeks) > 4
-                ? 'Weeks ' . implode(', ', array_slice($weeks, 0, 4)) . ' +' . (count($weeks) - 4) . ' more'
-                : (count($weeks) ? 'Week ' . implode(', ', $weeks) : '');
-        @endphp
         <div class="cu-card">
             <div class="cu-card-accent" style="background:#2563eb;"></div>
             <div class="cu-card-body">
@@ -128,18 +122,14 @@
                 <div class="cu-card-desc">{{ Str::limit(strip_tags($routine->description), 100) }}</div>
                 @endif
                 <div class="cu-card-meta">
-                    @if($weekDisplay)
                     <span class="cu-pill">
-                        <i class="bi bi-calendar-week"></i>
-                        {{ $weekDisplay }}
+                        <i class="bi bi-arrow-repeat"></i>
+                        {{ $routine->recurrenceLabel() }}
                     </span>
-                    @endif
-                    @if($routine->start_time && $routine->end_time)
+                    @if($routine->timeLabel())
                     <span class="cu-pill">
                         <i class="bi bi-clock"></i>
-                        {{ \Carbon\Carbon::parse($routine->start_time)->format('g:i A') }}
-                        &ndash;
-                        {{ \Carbon\Carbon::parse($routine->end_time)->format('g:i A') }}
+                        {{ $routine->timeLabel() }}
                     </span>
                     @endif
                 </div>

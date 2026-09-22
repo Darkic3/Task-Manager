@@ -98,6 +98,13 @@
     }
     .pl-task-open:hover{color:#7c3aed;background:#faf5ff;}
 
+    /* Routine row accent */
+    .pl-routine .pl-check input:checked + .pl-check-box{background:#7c3aed;border-color:#7c3aed;}
+    .pl-routine-static{
+        flex-shrink:0;margin-top:1px;width:19px;height:19px;display:flex;
+        align-items:center;justify-content:center;color:#c4c9d4;font-size:12px;
+    }
+
     /* Week grid */
     .pl-week{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px;}
     @media(max-width:1100px){ .pl-week{grid-template-columns:repeat(7,minmax(160px,1fr));} }
@@ -160,11 +167,52 @@
     @if($view === 'day')
         {{-- Stats --}}
         <div class="pl-stats">
+            <div class="pl-stat"><i class="bi bi-arrow-repeat"></i> Routines <strong><span id="plRoutineDone">{{ $routineDone }}</span><span style="color:#adb0b8;font-weight:600;">/{{ $routineTotal }}</span></strong></div>
             <div class="pl-stat"><i class="bi bi-list-check"></i> Pending <strong id="plPendingCount">{{ $pending->count() }}</strong></div>
             <div class="pl-stat"><i class="bi bi-check-circle"></i> Done <strong id="plDoneCount">{{ $done->count() }}</strong></div>
             @if($overdue->count())
                 <div class="pl-stat overdue"><i class="bi bi-exclamation-triangle"></i> Overdue <strong>{{ $overdue->count() }}</strong></div>
             @endif
+        </div>
+
+        {{-- Buckets: this week / this month --}}
+        @if($bucketWeek->count() || $bucketMonth->count())
+            <div class="pl-section">
+                <div class="pl-section-head">
+                    <i class="bi bi-calendar3" style="color:#2563eb;"></i>
+                    <span class="pl-section-title">Upcoming</span>
+                </div>
+                <div class="pl-section-body">
+                    @if($bucketWeek->count())
+                        <div style="font-size:11px;font-weight:700;color:#8a8f98;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;">This week</div>
+                        @foreach($bucketWeek as $routine)
+                            @include('planner._routine-row', ['routine' => $routine, 'routineDate' => $date, 'count' => false, 'toggleable' => false])
+                        @endforeach
+                    @endif
+                    @if($bucketMonth->count())
+                        <div style="font-size:11px;font-weight:700;color:#8a8f98;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;">This month</div>
+                        @foreach($bucketMonth as $routine)
+                            @include('planner._routine-row', ['routine' => $routine, 'routineDate' => $date, 'count' => false, 'toggleable' => false])
+                        @endforeach
+                    @endif
+                </div>
+            </div>
+        @endif
+
+        {{-- Routines for the selected day --}}
+        <div class="pl-section">
+            <div class="pl-section-head">
+                <i class="bi bi-arrow-repeat" style="color:#7c3aed;"></i>
+                <span class="pl-section-title">{{ $isToday ? "Today's Routines" : 'Routines' }}</span>
+                <span class="pl-section-count" id="plRoutineSectionCount">{{ $routineTotal }}</span>
+            </div>
+            <div class="pl-section-body" id="plRoutinesBody">
+                @forelse($routines as $routine)
+                    @include('planner._routine-row', ['routine' => $routine, 'routineDate' => $date, 'count' => true])
+                @empty
+                    <div class="pl-empty"><i class="bi bi-arrow-repeat"></i>No routines scheduled for this day.</div>
+                @endforelse
+            </div>
         </div>
 
         {{-- Overdue --}}
@@ -225,13 +273,20 @@
                             <div class="pl-day-name">{{ $dayDate->format('D') }}</div>
                             <div class="pl-day-date">{{ $dayDate->format('M j') }}</div>
                         </div>
-                        <span class="pl-day-count">{{ $day['tasks']->count() }}</span>
+                        <span class="pl-day-count" title="Routines done">{{ $day['routineDone'] }}/{{ $day['routineTotal'] }}</span>
                     </div>
                     <div class="pl-day-body">
+                        @if(count($day['routines']))
+                            @foreach($day['routines'] as $routine)
+                                @include('planner._routine-row', ['routine' => $routine, 'routineDate' => $dayDate, 'count' => false])
+                            @endforeach
+                        @endif
                         @forelse($day['tasks'] as $task)
                             @include('planner._task-row', ['task' => $task, 'hideDue' => true, 'count' => false])
                         @empty
-                            <div class="pl-day-empty">—</div>
+                            @if(!count($day['routines']))
+                                <div class="pl-day-empty">—</div>
+                            @endif
                         @endforelse
                     </div>
                 </div>
@@ -281,6 +336,52 @@
         if (p) p.textContent = pending;
         if (d) d.textContent = done;
         if (t) t.textContent = pending;
+    }
+
+    async function toggleRoutine(cb) {
+        const url = cb.dataset.url;
+        const id  = cb.dataset.id;
+        cb.disabled = true;
+        try {
+            const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'date=' + encodeURIComponent(cb.dataset.date), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            document.querySelectorAll('[data-routine-item][data-id="' + id + '"][data-date="' + cb.dataset.date + '"]').forEach(row => {
+                row.classList.toggle('is-done', !!json.completed);
+                row.dataset.completed = json.completed ? '1' : '0';
+            });
+            refreshRoutineCounters();
+        } catch (e) {
+            cb.checked = !cb.checked;
+            console.error('[Planner] routine toggle failed', e);
+        } finally {
+            cb.disabled = false;
+        }
+    }
+
+    function refreshRoutineCounters() {
+        let done = 0, total = 0;
+        document.querySelectorAll('[data-routine-item][data-count="1"]').forEach(el => {
+            total++;
+            if (el.dataset.completed === '1') done++;
+        });
+        const rd = document.getElementById('plRoutineDone');
+        const rs = document.getElementById('plRoutineSectionCount');
+        if (rd) rd.textContent = done;
+        if (rs) rs.textContent = total;
+
+        // per-day counters in week view
+        document.querySelectorAll('.pl-day').forEach(dayEl => {
+            const routines = dayEl.querySelectorAll('[data-routine-item]');
+            if (!routines.length) return;
+            let d = 0;
+            routines.forEach(r => { if (r.dataset.completed === '1') d++; });
+            const countEl = dayEl.querySelector('.pl-day-count');
+            if (countEl) countEl.textContent = d + '/' + routines.length;
+        });
     }
 </script>
 @endpush

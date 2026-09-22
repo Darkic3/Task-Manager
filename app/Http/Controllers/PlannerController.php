@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Routine;
 use App\Models\Task;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -32,7 +33,7 @@ class PlannerController extends Controller
             ->get();
 
         $pending = $this->sortByPriority($tasks->where('status', '!=', 'completed')->values());
-        $done    = $tasks->where('status', 'completed')->values();
+        $done = $tasks->where('status', 'completed')->values();
 
         $overdue = $this->sortByPriority(
             Task::where('user_id', $user->id)
@@ -42,20 +43,27 @@ class PlannerController extends Controller
                 ->get()
         );
 
+        $routinesData = $this->routinesForDate($user, $selected);
+
         return view('planner.index', [
-            'view'     => 'day',
-            'date'     => $selected,
-            'isToday'  => $selected->isSameDay(now()),
-            'pending'  => $pending,
-            'done'     => $done,
-            'overdue'  => $overdue,
+            'view' => 'day',
+            'date' => $selected,
+            'isToday' => $selected->isSameDay(now()),
+            'pending' => $pending,
+            'done' => $done,
+            'overdue' => $overdue,
+            'routines' => $routinesData['today'],
+            'bucketWeek' => $routinesData['week'],
+            'bucketMonth' => $routinesData['month'],
+            'routineDone' => $routinesData['done'],
+            'routineTotal' => $routinesData['total'],
         ]);
     }
 
     private function weekView($user, Carbon $date)
     {
         $start = $date->copy()->startOfWeek(Carbon::SATURDAY)->startOfDay();
-        $end   = $start->copy()->addDays(6);
+        $end = $start->copy()->addDays(6);
 
         $tasks = Task::where('user_id', $user->id)
             ->whereBetween('due_date', [$start->toDateString(), $end->toDateString()])
@@ -68,18 +76,22 @@ class PlannerController extends Controller
             $dayTasks = $tasks->filter(
                 fn ($t) => $t->due_date && Carbon::parse($t->due_date)->isSameDay($day)
             );
+            $dayRoutines = $this->routinesForDate($user, $day);
             $days[] = [
-                'date'  => $day,
+                'date' => $day,
                 'tasks' => $this->sortByPriority($dayTasks->values()),
+                'routines' => $dayRoutines['today'],
+                'routineDone' => $dayRoutines['done'],
+                'routineTotal' => $dayRoutines['total'],
             ];
         }
 
         return view('planner.index', [
-            'view'    => 'week',
-            'date'    => $date->copy(),
-            'start'   => $start,
-            'end'     => $end,
-            'days'    => $days,
+            'view' => 'week',
+            'date' => $date->copy(),
+            'start' => $start,
+            'end' => $end,
+            'days' => $days,
             'isToday' => now()->between($start->copy()->startOfDay(), $end->copy()->endOfDay()),
         ]);
     }
@@ -92,10 +104,97 @@ class PlannerController extends Controller
         $task->save();
 
         return response()->json([
-            'ok'        => true,
-            'status'    => $task->status,
+            'ok' => true,
+            'status' => $task->status,
             'completed' => $task->status === 'completed',
         ]);
+    }
+
+    public function toggleRoutine(Request $request, Routine $routine)
+    {
+        abort_if($routine->user_id !== Auth::id(), 403);
+
+        $date = $this->parseDate($request->input('date'));
+        $completed = $routine->toggleOn($date);
+
+        return response()->json([
+            'ok' => true,
+            'completed' => $completed,
+            'date' => $date->toDateString(),
+        ]);
+    }
+
+    /**
+     * Split routines into: occurring today, later-this-week, later-this-month,
+     * plus completion counts for the selected date.
+     */
+    private function routinesForDate($user, Carbon $date): array
+    {
+        $routines = $user->routines()->get();
+
+        $today = $routines
+            ->filter(fn ($r) => $r->occursOn($date))
+            ->sortBy(fn ($r) => $r->start_time ?: '00:00:00')
+            ->values();
+
+        // Buckets: routines NOT occurring today but still relevant this week / this month
+        $weekStart = $date->copy()->startOfWeek(Carbon::SATURDAY);
+        $weekEnd = $weekStart->copy()->addDays(6);
+
+        $weekBucket = $routines
+            ->filter(fn ($r) => ! $r->occursOn($date))
+            ->filter(function ($r) use ($weekStart, $weekEnd) {
+                if ($r->frequency === 'weekly' && empty($r->decodedDays())) {
+                    return true; // weekly with no days selected → "this week" bucket
+                }
+                for ($i = 0; $i < 7; $i++) {
+                    $d = $weekStart->copy()->addDays($i);
+                    if ($d->between($weekStart, $weekEnd) && $r->occursOn($d)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })
+            ->filter(fn ($r) => ! $r->occursOn($date))
+            ->values();
+
+        $monthBucket = $routines
+            ->filter(fn ($r) => $r->frequency === 'monthly')
+            ->filter(function ($r) use ($date) {
+                if (empty($r->decodedMonthDays())) {
+                    return true; // monthly with no days selected → "this month" bucket
+                }
+                // occurs later this month but not today
+                if ($r->occursOn($date)) {
+                    return false;
+                }
+                $daysInMonth = $date->daysInMonth;
+                for ($d = 1; $d <= $daysInMonth; $d++) {
+                    $candidate = $date->copy()->startOfMonth()->addDays($d - 1);
+                    if ($r->occursOn($candidate)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })
+            ->filter(fn ($r) => ! $r->occursOn($date))
+            ->values();
+
+        // Avoid duplicates in both buckets
+        $weekIds = $weekBucket->pluck('id')->all();
+        $monthBucket = $monthBucket->filter(fn ($r) => ! in_array($r->id, $weekIds))->values();
+
+        $done = $today->filter(fn ($r) => $r->completedOn($date))->count();
+
+        return [
+            'today' => $today,
+            'week' => $weekBucket,
+            'month' => $monthBucket,
+            'done' => $done,
+            'total' => $today->count(),
+        ];
     }
 
     private function sortByPriority($tasks)
@@ -115,6 +214,7 @@ class PlannerController extends Controller
                 // fall through to now()
             }
         }
+
         return now();
     }
 }

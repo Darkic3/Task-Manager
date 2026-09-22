@@ -132,7 +132,7 @@
     }
     .cu-check-item label:hover { border-color: #7c3aed; color: #7c3aed; background: #faf5ff; }
     .cu-check-item input:checked + label { background: #7c3aed; border-color: #7c3aed; color: white; }
-    .cu-week-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px,1fr)); gap: 5px; max-height: 220px; overflow-y: auto; }
+    .cu-week-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px,1fr)); gap: 5px; }
     .cu-week-grid .cu-check-item label { width: 100%; font-size: 11px; padding: 4px 6px; }
 
     .cu-action-bar {
@@ -186,10 +186,9 @@
 @endpush
 
 @php
-    $currentDays   = json_decode($routine->days,   true) ?? [];
-    $currentWeeks  = json_decode($routine->weeks,  true) ?? [];
-    $currentMonths = json_decode($routine->months, true) ?? [];
-    $freq          = old('frequency', $routine->frequency);
+    $currentDays      = $routine->decodedDays();
+    $currentMonthDays = $routine->decodedMonthDays();
+    $freq             = old('frequency', $routine->frequency);
 @endphp
 
 @section('content')
@@ -227,36 +226,14 @@
                 <div class="cu-panel-name">{{ $routine->title }}</div>
                 <div class="cu-freq-badge {{ $routine->frequency }}">{{ ucfirst($routine->frequency) }}</div>
 
+                <div class="cu-meta-row">
+                    <i class="bi bi-arrow-repeat"></i>
+                    <span>{{ $routine->recurrenceLabel() }}</span>
+                </div>
                 @if($routine->start_time)
                 <div class="cu-meta-row">
                     <i class="bi bi-clock"></i>
-                    <span>
-                        {{ \Carbon\Carbon::parse($routine->start_time)->format('g:i A') }}
-                        @if($routine->end_time)
-                            &ndash; {{ \Carbon\Carbon::parse($routine->end_time)->format('g:i A') }}
-                        @endif
-                    </span>
-                </div>
-                @endif
-
-                @if($routine->frequency === 'daily' && count($currentDays))
-                <div class="cu-meta-row">
-                    <i class="bi bi-calendar3"></i>
-                    <span>{{ implode(', ', array_map(fn($d) => ucfirst(substr($d,0,3)), $currentDays)) }}</span>
-                </div>
-                @endif
-
-                @if($routine->frequency === 'weekly' && count($currentWeeks))
-                <div class="cu-meta-row">
-                    <i class="bi bi-calendar3"></i>
-                    <span>{{ count($currentWeeks) }} week{{ count($currentWeeks) > 1 ? 's' : '' }} selected</span>
-                </div>
-                @endif
-
-                @if($routine->frequency === 'monthly' && count($currentMonths))
-                <div class="cu-meta-row">
-                    <i class="bi bi-calendar3"></i>
-                    <span>{{ implode(', ', array_map(fn($m) => \Carbon\Carbon::createFromDate(null,(int)$m,1)->format('M'), $currentMonths)) }}</span>
+                    <span>{{ $routine->timeLabel() }}</span>
                 </div>
                 @endif
 
@@ -337,11 +314,19 @@
                             @error('frequency')<div class="invalid-feedback mt-1">{{ $message }}</div>@enderror
                         </div>
 
-                        {{-- Day picker --}}
+                        {{-- Daily: no selection needed --}}
                         <div class="cu-picker {{ $freq === 'daily' ? 'visible' : '' }}" id="picker-daily">
-                            <div class="cu-picker-title">Select days</div>
+                            <div class="cu-picker-title">Schedule</div>
+                            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#5b21b6;font-weight:600;background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:10px 14px;">
+                                <i class="bi bi-sun"></i> This routine runs every day.
+                            </div>
+                        </div>
+
+                        {{-- Weekly: pick weekdays --}}
+                        <div class="cu-picker {{ $freq === 'weekly' ? 'visible' : '' }}" id="picker-weekly">
+                            <div class="cu-picker-title">Select days of the week <span style="color:#dc2626;">*</span></div>
                             <div class="cu-check-grid">
-                                @foreach(['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as $day)
+                                @foreach(['saturday','sunday','monday','tuesday','wednesday','thursday','friday'] as $day)
                                 <div class="cu-check-item">
                                     <input type="checkbox" name="days[]" value="{{ $day }}" id="day_{{ $day }}"
                                         {{ in_array($day, old('days', $currentDays)) ? 'checked' : '' }}>
@@ -349,34 +334,24 @@
                                 </div>
                                 @endforeach
                             </div>
+                            @error('days')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            @error('days.*')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
 
-                        {{-- Week picker --}}
-                        <div class="cu-picker {{ $freq === 'weekly' ? 'visible' : '' }}" id="picker-weekly">
-                            <div class="cu-picker-title">Select weeks (1 - 52)</div>
+                        {{-- Monthly: pick days of month 1-31 --}}
+                        <div class="cu-picker {{ $freq === 'monthly' ? 'visible' : '' }}" id="picker-monthly">
+                            <div class="cu-picker-title">Select days of the month <span style="color:#dc2626;">*</span></div>
                             <div class="cu-week-grid">
-                                @for($w = 1; $w <= 52; $w++)
+                                @for($d = 1; $d <= 31; $d++)
                                 <div class="cu-check-item">
-                                    <input type="checkbox" name="weeks[]" value="{{ $w }}" id="week_{{ $w }}"
-                                        {{ in_array($w, old('weeks', $currentWeeks)) ? 'checked' : '' }}>
-                                    <label for="week_{{ $w }}">W{{ $w }}</label>
+                                    <input type="checkbox" name="month_days[]" value="{{ $d }}" id="mday_{{ $d }}"
+                                        {{ in_array($d, array_map('intval', old('month_days', $currentMonthDays))) ? 'checked' : '' }}>
+                                    <label for="mday_{{ $d }}">{{ $d }}</label>
                                 </div>
                                 @endfor
                             </div>
-                        </div>
-
-                        {{-- Month picker --}}
-                        <div class="cu-picker {{ $freq === 'monthly' ? 'visible' : '' }}" id="picker-monthly">
-                            <div class="cu-picker-title">Select months</div>
-                            <div class="cu-check-grid">
-                                @foreach(['January','February','March','April','May','June','July','August','September','October','November','December'] as $idx => $month)
-                                <div class="cu-check-item">
-                                    <input type="checkbox" name="months[]" value="{{ $idx + 1 }}" id="month_{{ $idx + 1 }}"
-                                        {{ in_array($idx + 1, old('months', $currentMonths)) ? 'checked' : '' }}>
-                                    <label for="month_{{ $idx + 1 }}">{{ substr($month,0,3) }}</label>
-                                </div>
-                                @endforeach
-                            </div>
+                            @error('month_days')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            @error('month_days.*')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
                 </div>
