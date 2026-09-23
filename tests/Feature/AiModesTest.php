@@ -56,15 +56,15 @@ class AiModesTest extends TestCase
             'content' => '',
             'tool_calls' => [[
                 'id' => 'call_1', 'type' => 'function',
-                'function' => ['name' => 'task.create', 'arguments' => json_encode(['title' => 'Agent task'])],
+                'function' => ['name' => 'task_create', 'arguments' => json_encode(['title' => 'Agent task'])],
             ]],
         ]]]], 200));
 
         $this->actingAs($user)->postJson(route('ai.chat'), ['message' => 'Make a task', 'mode' => 'agent'])
             ->assertOk()
-            ->assertJsonPath('proposal.tool', 'task.create');
+            ->assertJsonPath('proposal.tool', 'task_create');
 
-        $this->assertDatabaseHas('ai_pending_actions', ['user_id' => $user->id, 'tool' => 'task.create']);
+        $this->assertDatabaseHas('ai_pending_actions', ['user_id' => $user->id, 'tool' => 'task_create']);
     }
 
     public function test_chat_prompt_is_read_only_and_agent_prompt_acts(): void
@@ -86,31 +86,31 @@ class AiModesTest extends TestCase
         $user = User::factory()->create();
         $svc = new AiToolService;
 
-        $check = $svc->validateCall('routine.create', [
+        $check = $svc->validateCall('routine_create', [
             'title' => 'Workout', 'frequency' => 'weekly', 'days' => ['monday', 'wednesday'],
         ], $user);
         $this->assertTrue($check['ok']);
 
-        $result = $svc->execute('routine.create', $check['resolved'], $user);
+        $result = $svc->execute('routine_create', $check['resolved'], $user);
         $this->assertTrue($result['ok']);
         $routine = Routine::find($result['id']);
         $this->assertEquals(['monday', 'wednesday'], $routine->decodedDays());
 
-        $bad = $svc->validateCall('routine.create', ['title' => 'X', 'frequency' => 'weekly'], $user);
+        $bad = $svc->validateCall('routine_create', ['title' => 'X', 'frequency' => 'weekly'], $user);
         $this->assertFalse($bad['ok']);
 
-        $done = $svc->execute('routine.complete', ['id' => $routine->id, 'title' => $routine->title, 'date' => now()->toDateString()], $user);
+        $done = $svc->execute('routine_complete', ['id' => $routine->id, 'title' => $routine->title, 'date' => now()->toDateString()], $user);
         $this->assertTrue($done['ok']);
         $this->assertTrue($routine->fresh()->completedOn(now()));
 
-        $again = $svc->execute('routine.complete', ['id' => $routine->id, 'title' => $routine->title, 'date' => now()->toDateString()], $user);
+        $again = $svc->execute('routine_complete', ['id' => $routine->id, 'title' => $routine->title, 'date' => now()->toDateString()], $user);
         $this->assertStringContainsString('already done', $again['message']);
 
-        $preview = $svc->preview('routine.delete', ['id' => $routine->id, 'title' => $routine->title], $user);
+        $preview = $svc->preview('routine_delete', ['id' => $routine->id, 'title' => $routine->title], $user);
         $this->assertTrue($preview['danger']);
         $this->assertStringContainsString('1 recorded', $preview['impact']);
 
-        $del = $svc->execute('routine.delete', ['id' => $routine->id], $user);
+        $del = $svc->execute('routine_delete', ['id' => $routine->id], $user);
         $this->assertTrue($del['ok']);
         $this->assertSoftDeleted('routines', ['id' => $routine->id]);
     }

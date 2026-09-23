@@ -16,12 +16,12 @@ use Illuminate\Support\Facades\Validator;
 class AiToolService
 {
     public const TOOLS = [
-        'task.create', 'task.update', 'task.complete', 'task.delete',
-        'reminder.create', 'reminder.complete', 'reminder.delete',
-        'note.create', 'note.update', 'note.delete',
-        'project.create',
-        'checklist.add', 'checklist.toggle',
-        'routine.create', 'routine.complete', 'routine.delete',
+        'task_create', 'task_update', 'task_complete', 'task_delete',
+        'reminder_create', 'reminder_complete', 'reminder_delete',
+        'note_create', 'note_update', 'note_delete',
+        'project_create',
+        'checklist_add', 'checklist_toggle',
+        'routine_create', 'routine_complete', 'routine_delete',
     ];
 
     public const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -34,7 +34,7 @@ class AiToolService
         $date = fn () => ['type' => 'string', 'description' => 'Date as YYYY-MM-DD'];
 
         return [
-            $this->fn('task.create', 'Create a task for the user', [
+            $this->fn('task_create', 'Create a task for the user', [
                 'title' => ['type' => 'string', 'description' => 'Task title'],
                 'project' => ['type' => 'string', 'description' => 'Project name or ID (optional)'],
                 'project_id' => ['type' => 'integer', 'description' => 'Project ID (optional, preferred over name)'],
@@ -43,7 +43,7 @@ class AiToolService
                 'status' => ['type' => 'string', 'enum' => ['to_do', 'in_progress', 'on_hold', 'in_review', 'completed']],
                 'description' => ['type' => 'string'],
             ], ['title']),
-            $this->fn('task.update', 'Edit a task by ID', [
+            $this->fn('task_update', 'Edit a task by ID', [
                 'id' => ['type' => 'integer'],
                 'title' => ['type' => 'string'],
                 'due_date' => $date(),
@@ -51,52 +51,52 @@ class AiToolService
                 'status' => ['type' => 'string', 'enum' => ['to_do', 'in_progress', 'on_hold', 'in_review', 'completed']],
                 'description' => ['type' => 'string'],
             ], ['id']),
-            $this->fn('task.complete', 'Mark a task completed by ID', [
+            $this->fn('task_complete', 'Mark a task completed by ID', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
-            $this->fn('task.delete', 'Delete a task by ID (shows subtask impact before confirm)', [
+            $this->fn('task_delete', 'Delete a task by ID (shows subtask impact before confirm)', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
-            $this->fn('reminder.create', 'Create a reminder', [
+            $this->fn('reminder_create', 'Create a reminder', [
                 'title' => ['type' => 'string'],
                 'date' => $date(),
                 'time' => ['type' => 'string', 'description' => 'HH:MM 24h'],
                 'priority' => ['type' => 'string', 'enum' => ['low', 'medium', 'high', 'urgent']],
                 'description' => ['type' => 'string'],
             ], ['title']),
-            $this->fn('reminder.complete', 'Mark a reminder completed', [
+            $this->fn('reminder_complete', 'Mark a reminder completed', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
-            $this->fn('reminder.delete', 'Delete a reminder', [
+            $this->fn('reminder_delete', 'Delete a reminder', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
-            $this->fn('note.create', 'Create a note', [
+            $this->fn('note_create', 'Create a note', [
                 'title' => ['type' => 'string'],
                 'content' => ['type' => 'string'],
                 'category' => ['type' => 'string'],
             ], ['title', 'content']),
-            $this->fn('note.update', 'Edit a note by ID', [
+            $this->fn('note_update', 'Edit a note by ID', [
                 'id' => ['type' => 'integer'],
                 'title' => ['type' => 'string'],
                 'content' => ['type' => 'string'],
                 'category' => ['type' => 'string'],
             ], ['id']),
-            $this->fn('note.delete', 'Delete a note by ID', [
+            $this->fn('note_delete', 'Delete a note by ID', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
-            $this->fn('project.create', 'Create a project', [
+            $this->fn('project_create', 'Create a project', [
                 'name' => ['type' => 'string'],
                 'description' => ['type' => 'string'],
                 'status' => ['type' => 'string', 'enum' => ['not_started', 'in_progress', 'completed', 'closed']],
             ], ['name']),
-            $this->fn('checklist.add', 'Add a checklist item to a task', [
+            $this->fn('checklist_add', 'Add a checklist item to a task', [
                 'task_id' => ['type' => 'integer'],
                 'name' => ['type' => 'string'],
             ], ['task_id', 'name']),
-            $this->fn('checklist.toggle', 'Toggle a checklist item completed state', [
+            $this->fn('checklist_toggle', 'Toggle a checklist item completed state', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
-            $this->fn('routine.create', 'Create a recurring routine (e.g. weekly workout). Prefer this over N tasks for repeating programs', [
+            $this->fn('routine_create', 'Create a recurring routine (e.g. weekly workout). Prefer this over N tasks for repeating programs', [
                 'title' => ['type' => 'string', 'description' => 'Routine title'],
                 'frequency' => ['type' => 'string', 'enum' => ['daily', 'weekly', 'monthly', 'every_n_days']],
                 'days' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => self::WEEK_DAYS], 'description' => 'Weekdays for weekly frequency'],
@@ -105,11 +105,11 @@ class AiToolService
                 'time_period' => ['type' => 'string', 'description' => 'Time-of-day period key (morning, afternoon, evening, night) if known'],
                 'description' => ['type' => 'string', 'description' => 'Short plan summary, under 500 chars'],
             ], ['title', 'frequency']),
-            $this->fn('routine.complete', 'Mark a routine done for a date (defaults to today). Never un-completes', [
+            $this->fn('routine_complete', 'Mark a routine done for a date (defaults to today). Never un-completes', [
                 'id' => ['type' => 'integer'],
                 'date' => $date(),
             ], ['id']),
-            $this->fn('routine.delete', 'Delete a routine by ID (shows recorded-history impact before confirm)', [
+            $this->fn('routine_delete', 'Delete a routine by ID (shows recorded-history impact before confirm)', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
         ];
@@ -138,6 +138,7 @@ class AiToolService
      */
     public function validateCall(string $tool, array $args, $user): array
     {
+        $tool = self::normalizeToolName($tool);
         if (! in_array($tool, self::TOOLS, true)) {
             return $this->fail("Unknown tool: {$tool}");
         }
@@ -145,22 +146,22 @@ class AiToolService
         $args = $this->normalize($args);
 
         return match ($tool) {
-            'task.create' => $this->validateTaskCreate($args, $user),
-            'task.update' => $this->validateTaskUpdate($args, $user),
-            'task.complete' => $this->validateOwned($args, $user, Task::class, 'id'),
-            'task.delete' => $this->validateOwned($args, $user, Task::class, 'id'),
-            'reminder.create' => $this->validateReminderCreate($args),
-            'reminder.complete' => $this->validateOwned($args, $user, Reminder::class, 'id'),
-            'reminder.delete' => $this->validateOwned($args, $user, Reminder::class, 'id'),
-            'note.create' => $this->validateNoteCreate($args),
-            'note.update' => $this->validateNoteUpdate($args, $user),
-            'note.delete' => $this->validateOwned($args, $user, Note::class, 'id'),
-            'project.create' => $this->validateProjectCreate($args),
-            'checklist.add' => $this->validateChecklistAdd($args, $user),
-            'checklist.toggle' => $this->validateChecklistToggle($args, $user),
-            'routine.create' => $this->validateRoutineCreate($args),
-            'routine.complete' => $this->validateRoutineComplete($args, $user),
-            'routine.delete' => $this->validateOwned($args, $user, Routine::class, 'id'),
+            'task_create' => $this->validateTaskCreate($args, $user),
+            'task_update' => $this->validateTaskUpdate($args, $user),
+            'task_complete' => $this->validateOwned($args, $user, Task::class, 'id'),
+            'task_delete' => $this->validateOwned($args, $user, Task::class, 'id'),
+            'reminder_create' => $this->validateReminderCreate($args),
+            'reminder_complete' => $this->validateOwned($args, $user, Reminder::class, 'id'),
+            'reminder_delete' => $this->validateOwned($args, $user, Reminder::class, 'id'),
+            'note_create' => $this->validateNoteCreate($args),
+            'note_update' => $this->validateNoteUpdate($args, $user),
+            'note_delete' => $this->validateOwned($args, $user, Note::class, 'id'),
+            'project_create' => $this->validateProjectCreate($args),
+            'checklist_add' => $this->validateChecklistAdd($args, $user),
+            'checklist_toggle' => $this->validateChecklistToggle($args, $user),
+            'routine_create' => $this->validateRoutineCreate($args),
+            'routine_complete' => $this->validateRoutineComplete($args, $user),
+            'routine_delete' => $this->validateOwned($args, $user, Routine::class, 'id'),
             default => $this->fail('Unsupported tool'),
         };
     }
@@ -170,15 +171,17 @@ class AiToolService
      */
     public function preview(string $tool, array $resolved, $user): array
     {
+        $tool = self::normalizeToolName($tool);
+
         return match ($tool) {
-            'task.delete' => $this->previewTaskDelete($resolved),
-            'project.create' => ['title' => 'Create project', 'rows' => $this->rows($resolved, ['name', 'status', 'description'])],
-            'task.create' => ['title' => 'Create task', 'rows' => $this->rows($resolved, ['title', 'project_name', 'due_date', 'priority', 'status'])],
-            'reminder.create' => ['title' => 'Create reminder', 'rows' => $this->rows($resolved, ['title', 'date', 'time', 'priority'])],
-            'note.create' => ['title' => 'Create note', 'rows' => $this->rows($resolved, ['title', 'category'])],
-            'routine.create' => ['title' => 'Create routine', 'rows' => $this->rows($resolved, ['title', 'frequency', 'days_label', 'time_period', 'description'])],
-            'routine.delete' => $this->previewRoutineDelete($resolved),
-            default => ['title' => $tool, 'rows' => $this->rows($resolved, array_keys($resolved))],
+            'task_delete' => $this->previewTaskDelete($resolved),
+            'project_create' => ['title' => 'Create project', 'rows' => $this->rows($resolved, ['name', 'status', 'description'])],
+            'task_create' => ['title' => 'Create task', 'rows' => $this->rows($resolved, ['title', 'project_name', 'due_date', 'priority', 'status'])],
+            'reminder_create' => ['title' => 'Create reminder', 'rows' => $this->rows($resolved, ['title', 'date', 'time', 'priority'])],
+            'note_create' => ['title' => 'Create note', 'rows' => $this->rows($resolved, ['title', 'category'])],
+            'routine_create' => ['title' => 'Create routine', 'rows' => $this->rows($resolved, ['title', 'frequency', 'days_label', 'time_period', 'description'])],
+            'routine_delete' => $this->previewRoutineDelete($resolved),
+            default => ['title' => ucfirst(str_replace('_', ' ', $tool)), 'rows' => $this->rows($resolved, array_keys($resolved))],
         };
     }
 
@@ -188,24 +191,26 @@ class AiToolService
      */
     public function execute(string $tool, array $resolved, $user): array
     {
+        $tool = self::normalizeToolName($tool);
+
         return DB::transaction(function () use ($tool, $resolved, $user) {
             return match ($tool) {
-                'task.create' => $this->execTaskCreate($resolved, $user),
-                'task.update' => $this->execTaskUpdate($resolved, $user),
-                'task.complete' => $this->execTaskComplete($resolved, $user),
-                'task.delete' => $this->execTaskDelete($resolved, $user),
-                'reminder.create' => $this->execReminderCreate($resolved, $user),
-                'reminder.complete' => $this->execReminderComplete($resolved, $user),
-                'reminder.delete' => $this->execDelete($resolved, $user, Reminder::class, 'Reminder'),
-                'note.create' => $this->execNoteCreate($resolved, $user),
-                'note.update' => $this->execNoteUpdate($resolved, $user),
-                'note.delete' => $this->execDelete($resolved, $user, Note::class, 'Note'),
-                'project.create' => $this->execProjectCreate($resolved, $user),
-                'checklist.add' => $this->execChecklistAdd($resolved, $user),
-                'checklist.toggle' => $this->execChecklistToggle($resolved, $user),
-                'routine.create' => $this->execRoutineCreate($resolved, $user),
-                'routine.complete' => $this->execRoutineComplete($resolved, $user),
-                'routine.delete' => $this->execRoutineDelete($resolved, $user),
+                'task_create' => $this->execTaskCreate($resolved, $user),
+                'task_update' => $this->execTaskUpdate($resolved, $user),
+                'task_complete' => $this->execTaskComplete($resolved, $user),
+                'task_delete' => $this->execTaskDelete($resolved, $user),
+                'reminder_create' => $this->execReminderCreate($resolved, $user),
+                'reminder_complete' => $this->execReminderComplete($resolved, $user),
+                'reminder_delete' => $this->execDelete($resolved, $user, Reminder::class, 'Reminder'),
+                'note_create' => $this->execNoteCreate($resolved, $user),
+                'note_update' => $this->execNoteUpdate($resolved, $user),
+                'note_delete' => $this->execDelete($resolved, $user, Note::class, 'Note'),
+                'project_create' => $this->execProjectCreate($resolved, $user),
+                'checklist_add' => $this->execChecklistAdd($resolved, $user),
+                'checklist_toggle' => $this->execChecklistToggle($resolved, $user),
+                'routine_create' => $this->execRoutineCreate($resolved, $user),
+                'routine_complete' => $this->execRoutineComplete($resolved, $user),
+                'routine_delete' => $this->execRoutineDelete($resolved, $user),
                 default => ['ok' => false, 'message' => 'Unsupported tool', 'id' => null],
             };
         });
@@ -680,6 +685,15 @@ class AiToolService
     }
 
     // ── helpers ──
+
+    /**
+     * Provider-safe tool names use underscores (dots/dashes are rejected by
+     * OpenAI-compatible APIs). Old pending rows may still hold dotted names.
+     */
+    public static function normalizeToolName(string $tool): string
+    {
+        return str_replace(['.', '-'], '_', trim($tool));
+    }
 
     private function normalize(array $args): array
     {

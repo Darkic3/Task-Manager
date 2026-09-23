@@ -14,6 +14,19 @@ class AiToolsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_legacy_dotted_tool_names_still_work(): void
+    {
+        $user = User::factory()->create();
+        Project::factory()->create(['user_id' => $user->id]);
+        $svc = new AiToolService;
+
+        // Pending rows stored before the rename used dots.
+        $check = $svc->validateCall('task.create', ['title' => 'Legacy'], $user);
+        $this->assertTrue($check['ok']);
+        $result = $svc->execute('task.create', $check['resolved'], $user);
+        $this->assertTrue($result['ok']);
+    }
+
     public function test_service_accepts_camelcase_aliases(): void
     {
         $user = User::factory()->create();
@@ -21,7 +34,7 @@ class AiToolsTest extends TestCase
         $svc = new AiToolService;
 
         // Models via OpenRouter often send projectId/dueDate despite the schema.
-        $check = $svc->validateCall('task.create', [
+        $check = $svc->validateCall('task_create', [
             'title' => 'Alias task',
             'projectId' => (string) $project->id,
             'dueDate' => '2026-10-01',
@@ -37,11 +50,11 @@ class AiToolsTest extends TestCase
         $project = Project::factory()->create(['user_id' => $user->id]);
         $svc = new AiToolService;
 
-        $check = $svc->validateCall('task.create', ['title' => 'AI task'], $user);
+        $check = $svc->validateCall('task_create', ['title' => 'AI task'], $user);
         $this->assertTrue($check['ok']);
         $this->assertEquals($project->id, $check['resolved']['project_id']);
 
-        $result = $svc->execute('task.create', $check['resolved'], $user);
+        $result = $svc->execute('task_create', $check['resolved'], $user);
         $this->assertTrue($result['ok']);
         $this->assertDatabaseHas('tasks', ['id' => $result['id'], 'title' => 'AI task', 'user_id' => $user->id]);
     }
@@ -53,7 +66,7 @@ class AiToolsTest extends TestCase
         $foreign = Project::factory()->create(['user_id' => $other->id]);
         $svc = new AiToolService;
 
-        $check = $svc->validateCall('task.create', ['title' => 'X', 'project_id' => $foreign->id], $user);
+        $check = $svc->validateCall('task_create', ['title' => 'X', 'project_id' => $foreign->id], $user);
         $this->assertFalse($check['ok']);
     }
 
@@ -62,14 +75,14 @@ class AiToolsTest extends TestCase
         $user = User::factory()->create();
         Project::factory()->create(['user_id' => $user->id]);
         $svc = new AiToolService;
-        $check = $svc->validateCall('task.create', ['title' => 'Confirm me'], $user);
+        $check = $svc->validateCall('task_create', ['title' => 'Confirm me'], $user);
         $this->assertTrue($check['ok']);
 
         $action = AiPendingAction::create([
             'user_id' => $user->id,
-            'tool' => 'task.create',
+            'tool' => 'task_create',
             'args' => $check['resolved'],
-            'preview' => $svc->preview('task.create', $check['resolved'], $user),
+            'preview' => $svc->preview('task_create', $check['resolved'], $user),
             'status' => AiPendingAction::STATUS_PENDING,
             'expires_at' => now()->addMinutes(15),
             'idempotency_key' => bin2hex(random_bytes(16)),
@@ -85,10 +98,10 @@ class AiToolsTest extends TestCase
         $this->assertEquals(1, Task::where('title', 'Confirm me')->count());
 
         // Reject path creates nothing.
-        $check2 = $svc->validateCall('note.create', ['title' => 'N', 'content' => 'C'], $user);
+        $check2 = $svc->validateCall('note_create', ['title' => 'N', 'content' => 'C'], $user);
         $action2 = AiPendingAction::create([
             'user_id' => $user->id,
-            'tool' => 'note.create',
+            'tool' => 'note_create',
             'args' => $check2['resolved'],
             'status' => AiPendingAction::STATUS_PENDING,
             'expires_at' => now()->addMinutes(15),
@@ -105,11 +118,11 @@ class AiToolsTest extends TestCase
         $other = User::factory()->create();
         Project::factory()->create(['user_id' => $user->id]);
         $svc = new AiToolService;
-        $check = $svc->validateCall('task.create', ['title' => 'Old'], $user);
+        $check = $svc->validateCall('task_create', ['title' => 'Old'], $user);
 
         $expired = AiPendingAction::create([
             'user_id' => $user->id,
-            'tool' => 'task.create',
+            'tool' => 'task_create',
             'args' => $check['resolved'],
             'status' => AiPendingAction::STATUS_PENDING,
             'expires_at' => now()->subMinute(),
@@ -121,7 +134,7 @@ class AiToolsTest extends TestCase
 
         $foreign = AiPendingAction::create([
             'user_id' => $other->id,
-            'tool' => 'note.create',
+            'tool' => 'note_create',
             'args' => ['title' => 'H', 'content' => 'C'],
             'status' => AiPendingAction::STATUS_PENDING,
             'expires_at' => now()->addMinutes(15),

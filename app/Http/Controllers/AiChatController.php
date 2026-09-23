@@ -698,7 +698,7 @@ class AiChatController extends Controller
             - When the user asks to create, edit, complete or delete a task, reminder, note, project, routine or checklist item, call the matching tool instead of just describing it. Destructive deletes need no extra warning text because the app shows a confirmation card.
             - Keep every single tool argument SHORT: title under 80 chars, description under 500 chars. Never paste a whole program, list or long text into one argument — it gets cut off and garbled.
             - For a multi-day plan, make MULTIPLE tool calls instead of one giant call: one call per day with its own due_date (YYYY-MM-DD) and a 1-2 line description. Max 5 calls per message; if more days are needed, create the first 5 and tell the user to say "continue" for the rest.
-            - For a recurring weekly program, prefer routine.create (frequency weekly + days) over N separate tasks, unless the user explicitly asked for tasks.
+            - For a recurring weekly program, prefer routine_create (frequency weekly + days) over N separate tasks, unless the user explicitly asked for tasks.
             - Use exact snake_case argument names from the schema (project_id, due_date, task_id). Omit project_id when unsure — the server picks the user's first project.
             AGENT
             : <<<CHAT
