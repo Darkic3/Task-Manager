@@ -101,10 +101,10 @@ class AiChatController extends Controller
     public function chat(Request $request)
     {
         $request->validate([
-            'message' => 'required|string|max:2000',
+            'message' => 'required|string|max:8000',
             'history' => 'nullable|array|max:40',
             'history.*.role'    => 'required|in:user,assistant',
-            'history.*.content' => 'required|string|max:4000',
+            'history.*.content' => 'required|string|max:8000',
         ]);
 
         $user = Auth::user();
@@ -144,11 +144,11 @@ class AiChatController extends Controller
     public function stream(Request $request)
     {
         $request->validate([
-            'message'         => 'required|string|max:2000',
+            'message'         => 'required|string|max:8000',
             'conversation_id' => 'nullable|integer',
             'history'         => 'nullable|array|max:40',
             'history.*.role'    => 'required|in:user,assistant',
-            'history.*.content' => 'required|string|max:4000',
+            'history.*.content' => 'required|string|max:8000',
         ]);
 
         $user = Auth::user();

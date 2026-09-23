@@ -271,12 +271,12 @@
 
     <div class="ai-drawer-foot">
         <div class="ai-input-row">
-            <textarea id="aiInput" placeholder="Ask anything… (Shift+Enter for new line)" rows="1" maxlength="2000"></textarea>
+            <textarea id="aiInput" placeholder="Ask anything… (Shift+Enter for new line)" rows="1" maxlength="8000"></textarea>
             <button id="aiSend" onclick="sendAiMessage()" title="Send"><i class="bi bi-send-fill"></i></button>
         </div>
         <div class="ai-foot-meta">
             <span><kbd style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:1px 5px;font-size:10px;">Enter</kbd> send &nbsp; <kbd style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:1px 5px;font-size:10px;">Shift+Enter</kbd> new line</span>
-            <span id="aiCharCount">0 / 2000</span>
+            <span id="aiCharCount">0 / 8000</span>
         </div>
     </div>
 </div>
@@ -285,7 +285,7 @@
 (function () {
     const STORAGE_KEY = 'ai_chat_history_v2';
     const MAX_HISTORY = 20;
-    const MAX_CHARS   = 2000;
+    const MAX_CHARS   = 8000;
     let isBusy  = false;
     let history = [];
 

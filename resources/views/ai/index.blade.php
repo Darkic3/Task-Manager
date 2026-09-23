@@ -322,6 +322,31 @@ footer { display: none !important; }
     margin: 0 auto; max-width: 400px;
 }
 
+/* ── Tool proposal card ── */
+.lina-tool-card {
+    background: #fff; border: 1px solid var(--gray-200); border-radius: 14px;
+    padding: 14px 16px; max-width: 72%; box-shadow: var(--shadow-sm);
+    font-size: 13px; color: var(--gray-800);
+}
+.lina-tool-card.danger { border-color: #fca5a5; background: #fff7f7; }
+.lina-tool-card h4 { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.lina-tool-card table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12.5px; }
+.lina-tool-card td { padding: 3px 6px; border-top: 1px solid var(--gray-100); vertical-align: top; }
+.lina-tool-card td:first-child { color: var(--gray-500); width: 110px; }
+.lina-tool-impact { font-size: 12px; color: #b45309; margin-top: 6px; }
+.lina-tool-card.danger .lina-tool-impact { color: #dc2626; font-weight: 600; }
+.lina-tool-actions { display: flex; gap: 8px; margin-top: 10px; }
+.lina-tool-confirm {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff;
+    border: none; border-radius: 9px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.lina-tool-confirm:disabled { opacity: .5; cursor: not-allowed; }
+.lina-tool-reject {
+    background: #fff; border: 1px solid var(--gray-200); border-radius: 9px;
+    padding: 7px 14px; font-size: 13px; color: var(--gray-600); cursor: pointer;
+}
+.lina-tool-expiry { font-size: 11px; color: var(--gray-400); margin-top: 6px; }
+
 /* ── Mobile sidebar slide-over ── */
 @media (max-width: 768px) {
     .lina-msg { max-width: 90%; }
@@ -439,7 +464,7 @@ footer { display: none !important; }
             <div class="lina-input-box">
                 <textarea id="linaInput"
                     placeholder="Message Lina…"
-                    rows="1" maxlength="2000"></textarea>
+                    rows="1" maxlength="8000"></textarea>
                 <div class="lina-input-toolbar">
                     <div class="lina-input-hints">
                         <span><kbd>Enter</kbd> send</span>
@@ -466,7 +491,7 @@ footer { display: none !important; }
     const CONV_URL      = "{{ url('/ai/conversations') }}";
     const CSRF          = "{{ csrf_token() }}";
     const MAX_HISTORY   = 20;
-    const MAX_CHARS     = 2000;
+    const MAX_CHARS     = 8000;
 
     /* ── State ── */
     let conversations = [];   // [{ id, label, updated_at }]
@@ -743,7 +768,11 @@ footer { display: none !important; }
 
                     try {
                         const json = JSON.parse(data);
-                        if (json.conversation_id !== undefined && json.choices === undefined) {
+                        if (json.type === 'tool_proposal' && json.action_id) {
+                            renderProposalCard(json);
+                        } else if (json.type === 'tool_proposal' && json.error) {
+                            appendError(json.error);
+                        } else if (json.conversation_id !== undefined && json.choices === undefined) {
                             // Our metadata packet: { model, conversation_id }
                             if (json.model) {
                                 selectedModel = json.model;
@@ -844,6 +873,73 @@ footer { display: none !important; }
         a.download = 'lina-chat-' + new Date().toISOString().slice(0,10) + '.txt';
         a.click();
     };
+
+    /* ── Tool proposal card ── */
+    function renderProposalCard(p) {
+        const wrap = document.createElement('div');
+        wrap.className = 'lina-msg-wrap bot';
+        const prev = p.preview || {};
+        const card = document.createElement('div');
+        card.className = 'lina-tool-card' + (prev.danger ? ' danger' : '');
+        const title = document.createElement('h4');
+        title.textContent = (prev.danger ? '⚠ ' : '🛠 ') + (prev.title || p.tool);
+        card.appendChild(title);
+        if ((prev.rows || []).length) {
+            const tbl = document.createElement('table');
+            prev.rows.forEach(r => {
+                const tr = document.createElement('tr');
+                const tdK = document.createElement('td'); tdK.textContent = r.k;
+                const tdV = document.createElement('td'); tdV.textContent = r.v;
+                tr.appendChild(tdK); tr.appendChild(tdV); tbl.appendChild(tr);
+            });
+            card.appendChild(tbl);
+        }
+        if (prev.impact) {
+            const imp = document.createElement('div');
+            imp.className = 'lina-tool-impact'; imp.textContent = prev.impact;
+            card.appendChild(imp);
+        }
+        const actions = document.createElement('div');
+        actions.className = 'lina-tool-actions';
+        const okBtn = document.createElement('button');
+        okBtn.className = 'lina-tool-confirm'; okBtn.textContent = 'Confirm & run';
+        const noBtn = document.createElement('button');
+        noBtn.className = 'lina-tool-reject'; noBtn.textContent = 'Cancel';
+        okBtn.onclick = async () => {
+            okBtn.disabled = true; noBtn.disabled = true; okBtn.textContent = 'Running…';
+            try {
+                const res = await api('POST', '/ai/actions/' + p.action_id + '/confirm');
+                card.querySelector('.lina-tool-actions')?.remove();
+                const done = document.createElement('div');
+                done.style.cssText = 'font-size:12.5px;color:#16a34a;font-weight:600;margin-top:8px;';
+                done.textContent = '✅ ' + (res.message || 'Done.');
+                card.appendChild(done);
+            } catch (e) {
+                okBtn.disabled = false; noBtn.disabled = false; okBtn.textContent = 'Confirm & run';
+                appendError('Action failed or expired.');
+            }
+        };
+        noBtn.onclick = async () => {
+            okBtn.disabled = true; noBtn.disabled = true;
+            try { await api('POST', '/ai/actions/' + p.action_id + '/reject'); } catch {}
+            card.querySelector('.lina-tool-actions')?.remove();
+            const done = document.createElement('div');
+            done.style.cssText = 'font-size:12.5px;color:var(--gray-500);margin-top:8px;';
+            done.textContent = 'Cancelled — nothing changed.';
+            card.appendChild(done);
+        };
+        actions.appendChild(okBtn); actions.appendChild(noBtn);
+        card.appendChild(actions);
+        if (p.expires_at) {
+            const exp = document.createElement('div');
+            exp.className = 'lina-tool-expiry';
+            exp.textContent = 'Expires ' + formatTime(p.expires_at);
+            card.appendChild(exp);
+        }
+        wrap.appendChild(card);
+        msgsEl.appendChild(wrap);
+        scrollBottom();
+    }
 
     /* ── Helpers ── */
     function scrollBottom() { setTimeout(() => msgsEl.scrollTop = msgsEl.scrollHeight, 30); }
