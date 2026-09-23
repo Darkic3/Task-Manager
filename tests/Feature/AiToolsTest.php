@@ -14,6 +14,23 @@ class AiToolsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_service_accepts_camelcase_aliases(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->create(['user_id' => $user->id]);
+        $svc = new AiToolService;
+
+        // Models via OpenRouter often send projectId/dueDate despite the schema.
+        $check = $svc->validateCall('task.create', [
+            'title' => 'Alias task',
+            'projectId' => (string) $project->id,
+            'dueDate' => '2026-10-01',
+        ], $user);
+        $this->assertTrue($check['ok']);
+        $this->assertEquals($project->id, $check['resolved']['project_id']);
+        $this->assertEquals('2026-10-01', $check['resolved']['due_date']);
+    }
+
     public function test_service_validates_and_executes_task_create(): void
     {
         $user = User::factory()->create();

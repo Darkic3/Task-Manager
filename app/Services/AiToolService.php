@@ -514,6 +514,29 @@ class AiToolService
 
     private function normalize(array $args): array
     {
+        // Models (esp. smaller ones via OpenRouter) often send camelCase keys
+        // despite the schema. Map the common ones before validating.
+        $aliases = [
+            'projectId' => 'project_id',
+            'taskId' => 'task_id',
+            'task_id_' => 'task_id',
+            'dueDate' => 'due_date',
+            'due_date_' => 'due_date',
+            'startDate' => 'start_date',
+            'endDate' => 'end_date',
+            'isRecurring' => 'is_recurring',
+            'recurrenceType' => 'recurrence_type',
+            'recurrenceInterval' => 'recurrence_interval',
+            'isCompleted' => 'is_completed',
+            'isFavorite' => 'is_favorite',
+        ];
+        foreach ($aliases as $from => $to) {
+            if (array_key_exists($from, $args) && ! array_key_exists($to, $args)) {
+                $args[$to] = $args[$from];
+            }
+            unset($args[$from]);
+        }
+
         // OpenRouter may send numbers as strings; keep strict but forgiving for ids.
         foreach (['id', 'task_id', 'project_id'] as $k) {
             if (isset($args[$k]) && is_numeric($args[$k])) {

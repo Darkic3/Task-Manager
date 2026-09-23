@@ -358,7 +358,8 @@ class AiProviderService
     {
         $payload = [
             'messages'    => $messages,
-            'max_tokens'  => 2048,
+            // Tool calls carry their arguments in the output, so they need headroom.
+            'max_tokens'  => ! empty($tools) ? 4096 : 2048,
             'temperature' => 0.7,
         ];
         if ($stream) $payload['stream'] = true;
