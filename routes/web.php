@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AiActionController;
 use App\Http\Controllers\AiChatController;
+use App\Http\Controllers\AiPlanController;
 use App\Http\Controllers\AiProviderController;
 use App\Http\Controllers\AiSettingsController;
 use App\Http\Controllers\Auth\LoginController;
@@ -106,6 +107,13 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('throttle:30,1')->name('ai.actions.confirm');
     Route::post('/ai/actions/{action}/reject', [AiActionController::class, 'reject'])
         ->middleware('throttle:30,1')->name('ai.actions.reject');
+    // AI structured plans (structure approval + phased execution)
+    Route::post('/ai/plans/{plan}/confirm-structure', [AiPlanController::class, 'confirmStructure'])
+        ->middleware('throttle:30,1')->name('ai.plans.confirm-structure');
+    Route::post('/ai/plans/{plan}/confirm-phase', [AiPlanController::class, 'confirmPhase'])
+        ->middleware('throttle:30,1')->name('ai.plans.confirm-phase');
+    Route::post('/ai/plans/{plan}/cancel', [AiPlanController::class, 'cancel'])
+        ->middleware('throttle:30,1')->name('ai.plans.cancel');
     // AI Conversations (DB-backed)
     Route::get('/ai/conversations', [AiChatController::class, 'conversations'])->name('ai.conversations.index');
     Route::post('/ai/conversations', [AiChatController::class, 'createConversation'])->name('ai.conversations.create');

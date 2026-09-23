@@ -85,21 +85,25 @@
 
 تاگل در هدر چت (`ai/index.blade.php`)، ذخیره در `localStorage`، ارسال `mode` با هر درخواست؛ **سرور تنها مرجع تصمیم است** و فرانت در مود chat کارت proposal را رندر نمی‌کند.
 
-### ۳.۴ ابزارها (۱۶ عدد، `AiToolService::TOOLS`)
+### ۳.۴ ابزارها (۱۷ عدد، `AiToolService::TOOLS`)
 نام‌ها فقط آندرلاین (API نقطه/خط‌فاصله را با ۴۰۰ رد می‌کند): `normalizeToolName` رکوردهای قدیمی نقطه‌دار را هم می‌پذیرد.
 
 | ابزار | ورودی کلیدی | رفتار |
 |---|---|---|
-| task_create/update/complete/delete | title*, project_id/نام پروژه, due_date, priority, status | complete فقط تیک می‌زند؛ delete اثر ساب‌تسک‌ها را نشان می‌دهد |
+| task_create/update/complete/delete | title*, project_id/نام پروژه, **parent_id?** (زیرتسک؛ پروژه از والد ارث می‌رسد), due_date, priority, status | complete فقط تیک می‌زند؛ delete اثر ساب‌تسک‌ها را نشان می‌دهد |
 | reminder_create/complete/delete | title*, date, time(HH:MM), priority | complete رکورد تکرار بعدی را می‌سازد |
 | note_create/update/delete | title*, content* | — |
-| project_create | name* | type=project |
+| project_create | name*, **parent?** (نام یا ID ساب‌پروژه، سقف عمق ۵) | type=project |
 | checklist_add/toggle | task_id+name / id | toggle برمی‌گرداند (done/reopened) |
 | routine_create | title*, frequency*, days/month_days/every_n_days, time_period?, description | آینه قوانین `RoutineController@validated`؛ پیام موفقیت شامل `recurrenceLabel` |
 | routine_complete | id, date? (پیش‌فرض امروز) | **هرگز آنتیک نمی‌کند**؛ تکراری = «already done» |
+| plan_propose | title*, project{name,tasks[]}, subprojects[] (هر تسک: title*, due_date?, priority?, subtasks[]) | فقط validate؛ اجرا مرحله‌ای بعد از تأیید ساختار (بخش ۳٫۶) |
 | routine_delete | id | سافت‌دیلیت؛ کارت می‌گوید تاریخچه می‌ماند |
 
 چرخه: `definitions()` (JSON Schema با `additionalProperties:false`) → مدل tool_call می‌زند → `validateCall` (فقط خواندن + چک `user_id`، aliasهای camelCase مثل `projectId/dueDate/monthDays` هم پذیرفته می‌شود) → رکورد `ai_pending_actions` (pending، انقضا ۱۵ دقیقه، سقف ۵ باز به‌ازای کاربر، `idempotency_key`) → **کارت تأیید** (مشخصات + اثر خطرناک) → `POST /ai/actions/{id}/confirm|reject` (throttle:30,1، مالکیت ۴۰۳، re-validate، اجرا در transaction، تأیید تکراری dedupe، پیام ✅ در تاریخچه، لاگ `ai.tool.*`). بدون Undo.
+
+### ۳.۶ پلن‌های ساختاری (`AiPlan` + `AiPlanController`)
+برای درخواست‌های ساختی (پروژه چندبخشی، برنامه چندروزه): مدل فقط ONE کال `plan_propose` می‌زند → سرور validate می‌کند (سقف ۱ پروژه / ۳ ساب‌پروژه / ۳۰ تسک / ۱۰۰ زیرتسک، عنوان تسک ≤۱۲۰) → **کارت ساختار** (درخت + جمع اقلام) → [تأیید ساختار] → کارت stepper می‌شود: فاز ۱ پروژه، فاز ۲ ساب‌پروژه‌ها، فاز ۳ تسک‌ها، فاز ۴ زیرتسک‌ها — هر فاز دکمه [اجرای مرحله] + [اجرای همه باقی‌مانده] + [توقف پلن]. مدل هیچ IDای نمی‌بیند؛ سرور IDهای واقعی هر فاز را به فاز بعد تزریق می‌کند. اندپوینت‌ها: `POST /ai/plans/{plan}/confirm-structure|confirm-phase|/cancel` (throttle، ۴۰۳، انقضای لغزشی ۱۵ دقیقه؛ ایندکس فاز باید با پوینتر سرور بخواند تا دابل‌کلیک فاز بعد را اجرا نکند). پکت‌های SSE: `plan_proposal` / `plan_phase_update` (ضمنی در repaint).
 
 ### ۳.۵ فرانت چت (`ai/index.blade.php`)
 سایدبار کانورسیشن‌ها (ساخت/تغییرنام/حذف/پاک‌کردن)، حباب‌ها با Markdown (`marked`) + هایلایت کد (`hljs`) + دکمه کپی، تایپینگ، استریم توکنی، کارت proposal (جدول rows، هشدار impact قرمز برای delete، دکمه‌های Confirm/Cancel + انقضا)، شمارنده کاراکتر، chips پیشنهادی، حالت موبایل (سایدبار کشویی). ویجت شناور سراسری (`layouts/_ai_chat.blade.php`) نسخه سبک همین چت است (سقف ۸۰۰۰ مشترک).
@@ -110,8 +114,9 @@
 - ولیدیشن ورودی در همه store/update؛ خروجی‌های JSON خطا اطلاعات чужой لو ندهند.
 - AI: ابزار فقط در Agent + openai-compatible؛ re-validate لحظه اجرا؛ سقف pending؛ throttle روی confirm/reject.
 
-## ۵. تست‌ها (`php artisan test` — سبز: ۴۸ تست)
-`AiToolsTest` (validate/execute/confirm/reject/انقضا/403/aliasها/legacy)، `AiModesTest` (chat ابزار نمی‌فرستد، agent proposal می‌سازد، پرامپت‌ها، ابزارهای روتین)، `RoutinesHabitTest`، `TasksChaptersTest`، `DetailsPagesTest` و بقیه. برای HTTP پروایدر از `Http::fake` استفاده کن (الگو در `AiModesTest`).
+## ۵. تست‌ها (`php artisan test` — سبز: ۵۵ تست)
+`AiPlansTest` (سقف‌ها، فلو کامل سلسله‌مراتب، mismatch ایندکس فاز، run_all، ۴۰۳/انقضا، parent در ابزارهای تکی، پکت plan از chat)، `AiToolsTest` (validate/execute/confirm/reject/انقضا/403/aliasها/legacy)، `AiModesTest` (chat ابزار نمی‌فرستد، agent proposal می‌سازد، پرامپت‌ها، ابزارهای روتین)، `RoutinesHabitTest`، `TasksChaptersTest`، `DetailsPagesTest` و بقیه. برای HTTP پروایدر از `Http::fake` استفاده کن (الگو در `AiModesTest`).
+نکته محیطی: تست‌ها به MySQL روی `127.0.0.1:3306` (دیتابیس `task_test`) وصل می‌شوند؛ اگر MySQL پایین بود تست‌ها خطای connection می‌دهند.
 
 ## ۶. افزودن قابلیت (چک‌لیست توسعه)
 - **ابزار AI جدید:** نام به `TOOLS` → تعریف در `definitions()` → `validate*` (فقط خواندن + user_id) → `exec*` → ردیف `preview` → تست در `AiToolsTest`.

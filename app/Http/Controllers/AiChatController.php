@@ -376,6 +376,11 @@ class AiChatController extends Controller
      */
     private function createPendingFromToolCall($user, $conversationId, string $tool, $argsJson): array
     {
+        $tool = \App\Services\AiToolService::normalizeToolName($tool);
+        if ($tool === 'plan_propose') {
+            return $this->createPlanFromToolCall($user, $conversationId, $argsJson);
+        }
+
         $service = new \App\Services\AiToolService;
         $args = is_string($argsJson) ? (json_decode($argsJson, true) ?? []) : (array) $argsJson;
 
@@ -420,6 +425,51 @@ class AiChatController extends Controller
         }
 
         return (new \App\Services\AiToolService)->definitions();
+    }
+
+    /**
+     * Validate + store a plan_propose call as an AiPlan (no execution).
+     * Returns a plan_proposal packet for the structure card.
+     */
+    private function createPlanFromToolCall($user, $conversationId, $argsJson): array
+    {
+        $service = new \App\Services\AiToolService;
+        $args = is_string($argsJson) ? (json_decode($argsJson, true) ?? []) : (array) $argsJson;
+
+        $open = \App\Models\AiPlan::where('user_id', $user->id)
+            ->whereIn('status', [
+                \App\Models\AiPlan::STATUS_PROPOSED,
+                \App\Models\AiPlan::STATUS_CONFIRMED,
+                \App\Models\AiPlan::STATUS_EXECUTING,
+            ])
+            ->where('expires_at', '>', now())
+            ->count();
+        if ($open >= 3) {
+            return ['error' => 'Too many open plans. Finish or cancel one first.'];
+        }
+
+        $check = $service->validateCall('plan_propose', $args, $user);
+        if (! ($check['ok'] ?? false)) {
+            return ['error' => $check['error'] ?? 'Invalid plan.'];
+        }
+
+        $plan = \App\Models\AiPlan::create([
+            'user_id' => $user->id,
+            'conversation_id' => $conversationId,
+            'title' => $check['resolved']['title'],
+            'structure' => $check['resolved']['structure'],
+            'phases' => $service->buildPlanPhases($check['resolved']['structure']),
+            'status' => \App\Models\AiPlan::STATUS_PROPOSED,
+            'current_phase' => 0,
+            'expires_at' => now()->addMinutes(\App\Models\AiPlan::EXPIRY_MINUTES),
+            'idempotency_key' => bin2hex(random_bytes(32)),
+        ]);
+
+        \Log::info('ai.plan.proposed', ['user_id' => $user->id, 'plan_id' => $plan->id]);
+
+        $controller = app(\App\Http\Controllers\AiPlanController::class);
+
+        return ['plan' => $controller->serialize($plan)] + ['expires_at' => $plan->expires_at->toIso8601String()];
     }
 
     private function callGeminiSync(string $key, string $baseUrl, array $messages, string $model): string
@@ -662,7 +712,10 @@ class AiChatController extends Controller
                 continue;
             }
             $proposal = $this->createPendingFromToolCall($user, $conversationId, $name, $tc['arguments'] ?? '{}');
-            echo 'data: ' . json_encode(['type' => 'tool_proposal'] + $proposal) . "\n\n";
+            $packetType = \App\Services\AiToolService::normalizeToolName($name) === 'plan_propose'
+                ? 'plan_proposal'
+                : 'tool_proposal';
+            echo 'data: ' . json_encode(['type' => $packetType] + $proposal) . "\n\n";
             $sseFlush();
         }
     }
@@ -695,10 +748,11 @@ class AiChatController extends Controller
         $modeBlock = $mode === 'agent'
             ? <<<AGENT
             MODE: AGENT — you can act on the workspace via tools.
-            - When the user asks to create, edit, complete or delete a task, reminder, note, project, routine or checklist item, call the matching tool instead of just describing it. Destructive deletes need no extra warning text because the app shows a confirmation card.
-            - Keep every single tool argument SHORT: title under 80 chars, description under 500 chars. Never paste a whole program, list or long text into one argument — it gets cut off and garbled.
-            - For a multi-day plan, make MULTIPLE tool calls instead of one giant call: one call per day with its own due_date (YYYY-MM-DD) and a 1-2 line description. Max 5 calls per message; if more days are needed, create the first 5 and tell the user to say "continue" for the rest.
-            - For a recurring weekly program, prefer routine_create (frequency weekly + days) over N separate tasks, unless the user explicitly asked for tasks.
+            - When the user asks to create, edit, complete or delete a SINGLE task, reminder, note, project, routine or checklist item, call the matching tool instead of just describing it. Destructive deletes need no extra warning text because the app shows a confirmation card.
+            - For a BUILD request (a program, a project with parts, anything with more than 2 items): call plan_propose ONCE with the FULL tree (project + sub-projects + tasks with due_dates + subtasks). Never fire many single calls for one program. The user confirms the structure first, then each phase separately.
+            - For a recurring weekly program with no sub-parts, prefer routine_create (frequency weekly + days) over tasks, unless the user explicitly asked for tasks/projects.
+            - Keep every single title SHORT: task/subtask titles under 120 chars, descriptions under 500 chars. Never paste a whole program, list or long text into one argument — it gets cut off and garbled. Exercises go into subtasks, one per subtask.
+            - Compute due_dates yourself from today's date (given above). Max per plan: 3 sub-projects, 30 tasks, 100 subtasks. If the request is bigger, propose the first chunk and tell the user to say "continue" for the rest.
             - Use exact snake_case argument names from the schema (project_id, due_date, task_id). Omit project_id when unsure — the server picks the user's first project.
             AGENT
             : <<<CHAT

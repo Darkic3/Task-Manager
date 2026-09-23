@@ -22,6 +22,7 @@ class AiToolService
         'project_create',
         'checklist_add', 'checklist_toggle',
         'routine_create', 'routine_complete', 'routine_delete',
+        'plan_propose',
     ];
 
     public const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -34,10 +35,11 @@ class AiToolService
         $date = fn () => ['type' => 'string', 'description' => 'Date as YYYY-MM-DD'];
 
         return [
-            $this->fn('task_create', 'Create a task for the user', [
+            $this->fn('task_create', 'Create a task for the user. Pass parent_id to create a subtask (project is inherited from the parent)', [
                 'title' => ['type' => 'string', 'description' => 'Task title'],
                 'project' => ['type' => 'string', 'description' => 'Project name or ID (optional)'],
                 'project_id' => ['type' => 'integer', 'description' => 'Project ID (optional, preferred over name)'],
+                'parent_id' => ['type' => 'integer', 'description' => 'Parent task ID for a subtask (project is inherited)'],
                 'due_date' => $date(),
                 'priority' => ['type' => 'string', 'enum' => ['low', 'medium', 'high']],
                 'status' => ['type' => 'string', 'enum' => ['to_do', 'in_progress', 'on_hold', 'in_review', 'completed']],
@@ -84,10 +86,11 @@ class AiToolService
             $this->fn('note_delete', 'Delete a note by ID', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
-            $this->fn('project_create', 'Create a project', [
+            $this->fn('project_create', 'Create a project. Pass parent (name or ID) to create a sub-project', [
                 'name' => ['type' => 'string'],
                 'description' => ['type' => 'string'],
                 'status' => ['type' => 'string', 'enum' => ['not_started', 'in_progress', 'completed', 'closed']],
+                'parent' => ['type' => 'string', 'description' => 'Parent project name or ID (optional)'],
             ], ['name']),
             $this->fn('checklist_add', 'Add a checklist item to a task', [
                 'task_id' => ['type' => 'integer'],
@@ -112,6 +115,77 @@ class AiToolService
             $this->fn('routine_delete', 'Delete a routine by ID (shows recorded-history impact before confirm)', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'plan_propose',
+                    'description' => 'Propose a whole multi-level build (project with sub-projects, tasks and subtasks) as ONE plan. Use this for programs and multi-part builds instead of many single calls',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'title' => ['type' => 'string', 'description' => 'Short plan title'],
+                            'project' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'name' => ['type' => 'string'],
+                                    'description' => ['type' => 'string'],
+                                    'tasks' => [
+                                        'type' => 'array',
+                                        'description' => 'Tasks directly under the project (no sub-project)',
+                                        'items' => $this->planTaskSchema(),
+                                    ],
+                                ],
+                                'required' => ['name'],
+                                'additionalProperties' => false,
+                            ],
+                            'subprojects' => [
+                                'type' => 'array',
+                                'description' => 'Max 3 sub-projects',
+                                'items' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'name' => ['type' => 'string'],
+                                        'description' => ['type' => 'string'],
+                                        'tasks' => ['type' => 'array', 'items' => $this->planTaskSchema()],
+                                    ],
+                                    'required' => ['name'],
+                                    'additionalProperties' => false,
+                                ],
+                            ],
+                        ],
+                        'required' => ['title', 'project'],
+                        'additionalProperties' => false,
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Shared task schema for plan_propose (inlined twice: $ref is not
+     * reliably resolved by smaller OpenRouter models).
+     */
+    private function planTaskSchema(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => [
+                'title' => ['type' => 'string', 'description' => 'Max 120 chars'],
+                'due_date' => ['type' => 'string', 'description' => 'YYYY-MM-DD'],
+                'priority' => ['type' => 'string', 'enum' => ['low', 'medium', 'high']],
+                'description' => ['type' => 'string', 'description' => 'Max 500 chars'],
+                'subtasks' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => ['title' => ['type' => 'string', 'description' => 'Max 120 chars']],
+                        'required' => ['title'],
+                        'additionalProperties' => false,
+                    ],
+                ],
+            ],
+            'required' => ['title'],
+            'additionalProperties' => false,
         ];
     }
 
@@ -156,12 +230,13 @@ class AiToolService
             'note_create' => $this->validateNoteCreate($args),
             'note_update' => $this->validateNoteUpdate($args, $user),
             'note_delete' => $this->validateOwned($args, $user, Note::class, 'id'),
-            'project_create' => $this->validateProjectCreate($args),
+            'project_create' => $this->validateProjectCreate($args, $user),
             'checklist_add' => $this->validateChecklistAdd($args, $user),
             'checklist_toggle' => $this->validateChecklistToggle($args, $user),
             'routine_create' => $this->validateRoutineCreate($args),
             'routine_complete' => $this->validateRoutineComplete($args, $user),
             'routine_delete' => $this->validateOwned($args, $user, Routine::class, 'id'),
+            'plan_propose' => $this->validatePlanPropose($args),
             default => $this->fail('Unsupported tool'),
         };
     }
@@ -175,12 +250,13 @@ class AiToolService
 
         return match ($tool) {
             'task_delete' => $this->previewTaskDelete($resolved),
-            'project_create' => ['title' => 'Create project', 'rows' => $this->rows($resolved, ['name', 'status', 'description'])],
-            'task_create' => ['title' => 'Create task', 'rows' => $this->rows($resolved, ['title', 'project_name', 'due_date', 'priority', 'status'])],
+            'project_create' => ['title' => isset($resolved['parent_id']) ? 'Create sub-project' : 'Create project', 'rows' => $this->rows($resolved, ['name', 'parent_name', 'status', 'description'])],
+            'task_create' => ['title' => isset($resolved['parent_id']) ? 'Create subtask' : 'Create task', 'rows' => $this->rows($resolved, ['title', 'project_name', 'parent_title', 'due_date', 'priority', 'status'])],
             'reminder_create' => ['title' => 'Create reminder', 'rows' => $this->rows($resolved, ['title', 'date', 'time', 'priority'])],
             'note_create' => ['title' => 'Create note', 'rows' => $this->rows($resolved, ['title', 'category'])],
             'routine_create' => ['title' => 'Create routine', 'rows' => $this->rows($resolved, ['title', 'frequency', 'days_label', 'time_period', 'description'])],
             'routine_delete' => $this->previewRoutineDelete($resolved),
+            'plan_propose' => $this->previewPlan($resolved),
             default => ['title' => ucfirst(str_replace('_', ' ', $tool)), 'rows' => $this->rows($resolved, array_keys($resolved))],
         };
     }
@@ -211,6 +287,8 @@ class AiToolService
                 'routine_create' => $this->execRoutineCreate($resolved, $user),
                 'routine_complete' => $this->execRoutineComplete($resolved, $user),
                 'routine_delete' => $this->execRoutineDelete($resolved, $user),
+                // Plans never execute as a single action; they run phase by phase.
+                'plan_propose' => ['ok' => false, 'message' => 'Plans run phase by phase after structure approval.', 'id' => null],
                 default => ['ok' => false, 'message' => 'Unsupported tool', 'id' => null],
             };
         });
@@ -224,6 +302,7 @@ class AiToolService
             'title' => 'required|string|max:255',
             'project_id' => 'nullable|integer',
             'project' => 'nullable|string|max:255',
+            'parent_id' => 'nullable|integer',
             'due_date' => 'nullable|date',
             'priority' => 'nullable|in:low,medium,high',
             'status' => 'nullable|in:to_do,in_progress,on_hold,in_review,completed',
@@ -231,6 +310,29 @@ class AiToolService
         ]);
         if ($v->fails()) {
             return $this->fail($v->errors()->first());
+        }
+
+        // Subtask: parent must belong to the user; project is inherited.
+        $parentId = $args['parent_id'] ?? null;
+        $parentTitle = null;
+        if ($parentId) {
+            $parent = Task::where('id', $parentId)->where('user_id', $user->id)->first();
+            if (! $parent) {
+                return $this->fail('Parent task not found or not yours.');
+            }
+            $parentTitle = $parent->title;
+
+            return ['ok' => true, 'error' => null, 'resolved' => [
+                'title' => $args['title'],
+                'project_id' => $parent->project_id,
+                'project_name' => $parent->project?->name,
+                'parent_id' => $parent->id,
+                'parent_title' => $parentTitle,
+                'due_date' => $args['due_date'] ?? null,
+                'priority' => $args['priority'] ?? 'medium',
+                'status' => $args['status'] ?? 'to_do',
+                'description' => $args['description'] ?? null,
+            ]];
         }
 
         $projectId = $args['project_id'] ?? null;
@@ -373,22 +475,64 @@ class AiToolService
         ], fn ($x) => $x !== null))];
     }
 
-    private function validateProjectCreate(array $args): array
+    private function validateProjectCreate(array $args, $user = null): array
     {
         $v = Validator::make($args, [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'status' => 'nullable|in:not_started,in_progress,completed,closed',
+            'parent' => 'nullable|string|max:255',
+            'parent_id' => 'nullable|integer',
         ]);
         if ($v->fails()) {
             return $this->fail($v->errors()->first());
+        }
+
+        $parentId = $args['parent_id'] ?? null;
+        $parentName = null;
+        $needle = $parentId ?? ($args['parent'] ?? null);
+        if ($needle !== null && $needle !== '') {
+            $parent = is_numeric($needle)
+                ? Project::where('id', (int) $needle)->where('user_id', $user->id)->first()
+                : Project::where('user_id', $user->id)->where('name', 'like', "%{$needle}%")->first();
+            if (! $parent) {
+                return $this->fail("Parent project '{$needle}' not found or not yours.");
+            }
+            if ($this->projectDepth($parent) >= 5) {
+                return $this->fail('Parent project is nested too deep (max 5 levels).');
+            }
+            $parentId = $parent->id;
+            $parentName = $parent->name;
         }
 
         return ['ok' => true, 'error' => null, 'resolved' => [
             'name' => $args['name'],
             'description' => $args['description'] ?? null,
             'status' => $args['status'] ?? 'not_started',
+            'parent_id' => $parentId,
+            'parent_name' => $parentName,
         ]];
+    }
+
+    /**
+     * Depth of a project (root = 0) following loaded-or-queried parents.
+     */
+    private function projectDepth(Project $project): int
+    {
+        $depth = 0;
+        $current = $project;
+        $guard = 0;
+        while ($current->parent_id && $guard++ < 10) {
+            $depth++;
+            $current = $current->relationLoaded('parent') && $current->parent
+                ? $current->parent
+                : Project::find($current->parent_id);
+            if (! $current) {
+                break;
+            }
+        }
+
+        return $depth;
     }
 
     private function validateChecklistAdd(array $args, $user): array
@@ -503,6 +647,294 @@ class AiToolService
         ]];
     }
 
+    /**
+     * Validate a whole build plan WITHOUT writing anything.
+     * Caps: 1 project, 3 sub-projects, 30 tasks, 100 subtasks.
+     */
+    private function validatePlanPropose(array $args): array
+    {
+        $args['subprojects'] = $args['subProjects'] ?? $args['subprojects'] ?? [];
+        unset($args['subProjects']);
+        if (! is_array($args['subprojects'])) {
+            return $this->fail('subprojects must be a list.');
+        }
+
+        $v = Validator::make($args, [
+            'title' => 'required|string|max:120',
+            'project' => 'required|array',
+            'project.name' => 'required|string|max:255',
+            'project.description' => 'nullable|string|max:2000',
+            'project.tasks' => 'nullable|array',
+            'subprojects' => 'nullable|array|max:' . \App\Models\AiPlan::MAX_SUBPROJECTS,
+            'subprojects.*.name' => 'required|string|max:255',
+            'subprojects.*.description' => 'nullable|string|max:2000',
+            'subprojects.*.tasks' => 'nullable|array',
+        ]);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+
+        $cleanTasks = function ($tasks, string $where) {
+            $tasks = is_array($tasks) ? array_values($tasks) : [];
+            $out = [];
+            foreach ($tasks as $t) {
+                if (! is_array($t)) {
+                    return $this->fail("A task in {$where} is malformed.");
+                }
+                $t['subtasks'] = $t['subTasks'] ?? $t['subtasks'] ?? [];
+                unset($t['subTasks']);
+                $tv = Validator::make($t, [
+                    'title' => 'required|string|max:120',
+                    'due_date' => 'nullable|date',
+                    'priority' => 'nullable|in:low,medium,high',
+                    'description' => 'nullable|string|max:500',
+                    'subtasks' => 'nullable|array',
+                    'subtasks.*.title' => 'required|string|max:120',
+                ]);
+                if ($tv->fails()) {
+                    return $this->fail("{$where}: " . $tv->errors()->first());
+                }
+                $subs = [];
+                foreach ((array) ($t['subtasks'] ?? []) as $s) {
+                    $subs[] = ['title' => trim((string) $s['title'])];
+                }
+                $out[] = [
+                    'title' => trim((string) $t['title']),
+                    'due_date' => $t['due_date'] ?? null,
+                    'priority' => $t['priority'] ?? 'medium',
+                    'description' => $t['description'] ?? null,
+                    'subtasks' => $subs,
+                ];
+            }
+
+            return $out;
+        };
+
+        $direct = $cleanTasks($args['project']['tasks'] ?? [], 'project tasks');
+        if (isset($direct['ok'])) {
+            return $direct;
+        }
+        $subs = [];
+        foreach (array_values($args['subprojects']) as $si => $sub) {
+            $tasks = $cleanTasks($sub['tasks'] ?? [], "sub-project '{$sub['name']}'");
+            if (isset($tasks['ok'])) {
+                return $tasks;
+            }
+            $subs[] = [
+                'name' => trim((string) $sub['name']),
+                'description' => $sub['description'] ?? null,
+                'tasks' => $tasks,
+            ];
+        }
+
+        $taskCount = count($direct) + array_sum(array_map(fn ($s) => count($s['tasks']), $subs));
+        $subCount = array_sum(array_map(
+            fn ($s) => array_sum(array_map(fn ($t) => count($t['subtasks']), $s['tasks'])),
+            $subs
+        )) + array_sum(array_map(fn ($t) => count($t['subtasks']), $direct));
+
+        if ($taskCount < 1) {
+            return $this->fail('The plan must contain at least one task.');
+        }
+        if ($taskCount > \App\Models\AiPlan::MAX_TASKS) {
+            return $this->fail('Too many tasks (max ' . \App\Models\AiPlan::MAX_TASKS . '). Split into smaller plans.');
+        }
+        if ($subCount > \App\Models\AiPlan::MAX_SUBTASKS) {
+            return $this->fail('Too many subtasks (max ' . \App\Models\AiPlan::MAX_SUBTASKS . '). Split into smaller plans.');
+        }
+
+        $structure = [
+            'project' => [
+                'name' => trim((string) $args['project']['name']),
+                'description' => $args['project']['description'] ?? null,
+                'tasks' => $direct,
+            ],
+            'subprojects' => $subs,
+        ];
+
+        return ['ok' => true, 'error' => null, 'resolved' => [
+            'title' => trim((string) $args['title']),
+            'structure' => $structure,
+            'totals' => [
+                'subprojects' => count($subs),
+                'tasks' => $taskCount,
+                'subtasks' => $subCount,
+            ],
+        ]];
+    }
+
+    /**
+     * Phase list for a validated structure. Empty phases are pre-marked done
+     * so the stepper skips them.
+     */
+    public function buildPlanPhases(array $structure): array
+    {
+        $subCount = count($structure['subprojects']);
+        $taskCount = count($structure['project']['tasks'])
+            + array_sum(array_map(fn ($s) => count($s['tasks']), $structure['subprojects']));
+        $subTaskCount = array_sum(array_map(fn ($t) => count($t['subtasks']), $structure['project']['tasks']))
+            + array_sum(array_map(
+                fn ($s) => array_sum(array_map(fn ($t) => count($t['subtasks']), $s['tasks'])),
+                $structure['subprojects']
+            ));
+
+        $phase = fn ($key, $label, $total) => [
+            'key' => $key, 'label' => $label, 'total' => $total, 'done' => 0,
+            'status' => $total > 0 ? 'locked' : 'done', 'result' => null,
+        ];
+
+        return [
+            $phase('project', 'Create project', 1),
+            $phase('subprojects', 'Create sub-projects', $subCount),
+            $phase('tasks', 'Create daily tasks', $taskCount),
+            $phase('subtasks', 'Add exercise subtasks', $subTaskCount),
+        ];
+    }
+
+    /**
+     * Execute the CURRENT phase of a plan inside one transaction.
+     * Returns ['ok'=>bool,'message'=>string,'phase'=>array].
+     */
+    public function executePlanPhase(\App\Models\AiPlan $plan, $user): array
+    {
+        return DB::transaction(function () use ($plan, $user) {
+            $idx = $plan->current_phase;
+            $phases = $plan->phases;
+            $phase = $phases[$idx] ?? null;
+            if (! $phase || ($phase['status'] ?? null) === 'done') {
+                return ['ok' => false, 'message' => 'No pending phase.', 'phase' => $phase];
+            }
+
+            $structure = $plan->structure;
+            $key = $phase['key'];
+
+            if ($key === 'project') {
+                $project = $user->projects()->create([
+                    'name' => $structure['project']['name'],
+                    'description' => $structure['project']['description'] ?? null,
+                    'status' => 'in_progress',
+                    'type' => 'project',
+                    'sort_order' => 0,
+                ]);
+                $phase['result'] = ['project_id' => $project->id, 'project_name' => $project->name];
+                $message = "Project '{$project->name}' created.";
+            } elseif ($key === 'subprojects') {
+                $projectId = $phases[0]['result']['project_id'] ?? null;
+                $project = $projectId ? Project::where('id', $projectId)->where('user_id', $user->id)->first() : null;
+                if (! $project) {
+                    return ['ok' => false, 'message' => 'Plan project is missing. Cancel and start over.', 'phase' => $phase];
+                }
+                $ids = [];
+                foreach ($structure['subprojects'] as $sub) {
+                    $created = $user->projects()->create([
+                        'name' => $sub['name'],
+                        'description' => $sub['description'] ?? null,
+                        'status' => 'in_progress',
+                        'parent_id' => $project->id,
+                        'type' => 'project',
+                        'sort_order' => 0,
+                    ]);
+                    $ids[] = $created->id;
+                }
+                $phase['result'] = ['sub_ids' => $ids];
+                $message = count($ids) . ' sub-project(s) created.';
+            } elseif ($key === 'tasks') {
+                $map = $this->planProjectMap($phases);
+                if (! $map) {
+                    return ['ok' => false, 'message' => 'Plan project is missing. Cancel and start over.', 'phase' => $phase];
+                }
+                [$projectId, $subIds] = $map;
+                $taskIds = ['direct' => [], 'subs' => []];
+                foreach ($structure['project']['tasks'] as $t) {
+                    $taskIds['direct'][] = $this->createPlanTask($user, $projectId, null, $t);
+                }
+                foreach ($structure['subprojects'] as $si => $sub) {
+                    foreach ($sub['tasks'] as $t) {
+                        $taskIds['subs'][$si][] = $this->createPlanTask($user, $subIds[$si], null, $t);
+                    }
+                }
+                $phase['result'] = ['task_ids' => $taskIds];
+                $message = $phase['total'] . ' task(s) created.';
+            } else { // subtasks
+                $map = $this->planProjectMap($phases);
+                $taskIds = $phases[2]['result']['task_ids'] ?? null;
+                if (! $map || ! $taskIds) {
+                    return ['ok' => false, 'message' => 'Plan tasks are missing. Cancel and start over.', 'phase' => $phase];
+                }
+                [$projectId, $subIds] = $map;
+                $n = 0;
+                foreach ($structure['project']['tasks'] as $ti => $t) {
+                    foreach ($t['subtasks'] as $s) {
+                        $this->createPlanTask($user, $projectId, $taskIds['direct'][$ti], ['title' => $s['title']]);
+                        $n++;
+                    }
+                }
+                foreach ($structure['subprojects'] as $si => $sub) {
+                    foreach ($sub['tasks'] as $ti => $t) {
+                        foreach ($t['subtasks'] as $s) {
+                            $this->createPlanTask($user, $subIds[$si] ?? $projectId, $taskIds['subs'][$si][$ti], ['title' => $s['title']]);
+                            $n++;
+                        }
+                    }
+                }
+                $phase['result'] = ['created' => $n];
+                $message = $n . ' subtask(s) added.';
+            }
+
+            $phase['done'] = $phase['total'];
+            $phase['status'] = 'done';
+            $phases[$idx] = $phase;
+
+            // Advance past already-done (e.g. zero-count) phases.
+            $next = $idx + 1;
+            $plan->phases = $phases;
+            $plan->current_phase = $next;
+            $plan->status = \App\Models\AiPlan::STATUS_EXECUTING;
+            $finished = true;
+            foreach ($phases as $p) {
+                if (($p['status'] ?? null) !== 'done') {
+                    $finished = false;
+                    break;
+                }
+            }
+            if ($finished) {
+                $plan->status = \App\Models\AiPlan::STATUS_DONE;
+                $plan->executed_at = now();
+                $message .= ' Plan complete ✅';
+            }
+            $plan->touchExpiry();
+            $plan->save();
+
+            return ['ok' => true, 'message' => $message, 'phase' => $phase];
+        });
+    }
+
+    private function planProjectMap(array $phases): ?array
+    {
+        $projectId = $phases[0]['result']['project_id'] ?? null;
+        if (! $projectId) {
+            return null;
+        }
+
+        return [$projectId, $phases[1]['result']['sub_ids'] ?? []];
+    }
+
+    private function createPlanTask($user, int $projectId, ?int $parentId, array $t): int
+    {
+        $task = $user->tasks()->create([
+            'project_id' => $projectId,
+            'user_id' => $user->id,
+            'parent_id' => $parentId,
+            'title' => $t['title'],
+            'description' => $t['description'] ?? null,
+            'due_date' => $t['due_date'] ?? null,
+            'priority' => $t['priority'] ?? 'medium',
+            'status' => 'to_do',
+        ]);
+
+        return $task->id;
+    }
+
     // ── previews ──
 
     private function previewTaskDelete(array $resolved): array
@@ -531,6 +963,39 @@ class AiToolService
         ];
     }
 
+    /**
+     * Tree preview for a plan (rendered as the structure card, no DB writes).
+     */
+    public function previewPlan(array $resolved): array
+    {
+        $structure = $resolved['structure'];
+        $totals = $resolved['totals'];
+        $tree = [
+            'project' => [
+                'name' => $structure['project']['name'],
+                'tasks' => array_map(fn ($t) => [
+                    'title' => $t['title'],
+                    'due_date' => $t['due_date'],
+                    'subtasks' => array_map(fn ($s) => $s['title'], $t['subtasks']),
+                ], $structure['project']['tasks']),
+            ],
+            'subprojects' => array_map(fn ($s) => [
+                'name' => $s['name'],
+                'tasks' => array_map(fn ($t) => [
+                    'title' => $t['title'],
+                    'due_date' => $t['due_date'],
+                    'subtasks' => array_map(fn ($x) => $x['title'], $t['subtasks']),
+                ], $s['tasks']),
+            ], $structure['subprojects']),
+        ];
+
+        return [
+            'title' => $resolved['title'],
+            'tree' => $tree,
+            'totals' => $totals,
+        ];
+    }
+
     // ── executors ──
 
     private function execTaskCreate(array $r, $user): array
@@ -538,6 +1003,7 @@ class AiToolService
         $task = $user->tasks()->create([
             'project_id' => $r['project_id'],
             'user_id' => $user->id,
+            'parent_id' => $r['parent_id'] ?? null,
             'title' => $r['title'],
             'description' => $r['description'] ?? null,
             'due_date' => $r['due_date'] ?? null,
@@ -545,7 +1011,11 @@ class AiToolService
             'status' => $r['status'],
         ]);
 
-        return ['ok' => true, 'message' => "Task '{$task->title}' created.", 'id' => $task->id];
+        $msg = isset($r['parent_id'])
+            ? "Subtask '{$task->title}' created under '{$r['parent_title']}'."
+            : "Task '{$task->title}' created.";
+
+        return ['ok' => true, 'message' => $msg, 'id' => $task->id];
     }
 
     private function execTaskUpdate(array $r, $user): array
@@ -620,9 +1090,20 @@ class AiToolService
 
     private function execProjectCreate(array $r, $user): array
     {
-        $project = $user->projects()->create(array_merge($r, ['type' => 'project', 'sort_order' => 0]));
+        $project = $user->projects()->create([
+            'name' => $r['name'],
+            'description' => $r['description'] ?? null,
+            'status' => $r['status'] ?? 'not_started',
+            'parent_id' => $r['parent_id'] ?? null,
+            'type' => 'project',
+            'sort_order' => 0,
+        ]);
 
-        return ['ok' => true, 'message' => "Project '{$project->name}' created.", 'id' => $project->id];
+        $msg = isset($r['parent_id'])
+            ? "Sub-project '{$project->name}' created under '{$r['parent_name']}'."
+            : "Project '{$project->name}' created.";
+
+        return ['ok' => true, 'message' => $msg, 'id' => $project->id];
     }
 
     private function execChecklistAdd(array $r, $user): array
@@ -703,6 +1184,7 @@ class AiToolService
             'projectId' => 'project_id',
             'taskId' => 'task_id',
             'task_id_' => 'task_id',
+            'parentId' => 'parent_id',
             'dueDate' => 'due_date',
             'due_date_' => 'due_date',
             'startDate' => 'start_date',

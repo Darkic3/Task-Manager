@@ -347,6 +347,29 @@ footer { display: none !important; }
 }
 .lina-tool-expiry { font-size: 11px; color: var(--gray-400); margin-top: 6px; }
 
+/* ── Plan structure card + stepper ── */
+.lina-plan-card {
+    background: #fff; border: 1px solid #c4b5fd; border-radius: 14px;
+    padding: 14px 16px; max-width: 78%; box-shadow: var(--shadow-sm);
+    font-size: 13px; color: var(--gray-800);
+}
+.lina-plan-card h4 { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.lina-plan-totals { font-size: 12px; color: var(--gray-500); margin-bottom: 8px; }
+.lina-plan-tree { font-size: 12.5px; line-height: 1.7; }
+.lina-plan-tree ul { list-style: none; margin: 2px 0 2px 14px; padding: 0 0 0 10px; border-left: 2px solid var(--gray-100); }
+.lina-plan-tree > ul { margin-left: 0; padding-left: 0; border-left: none; }
+.lina-plan-due { color: var(--gray-400); font-size: 11.5px; }
+.lina-plan-subs { color: var(--gray-500); font-size: 11.5px; }
+.lina-phase { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--gray-100); font-size: 12.5px; }
+.lina-phase .st { font-weight: 700; }
+.lina-phase.done .st { color: #16a34a; }
+.lina-phase.current .st { color: #6d28d9; }
+.lina-phase.locked { color: var(--gray-400); }
+.lina-phase .cnt { margin-left: auto; color: var(--gray-400); font-size: 11.5px; }
+.lina-plan-note { font-size: 12.5px; margin-top: 8px; }
+.lina-plan-note.ok { color: #16a34a; font-weight: 600; }
+.lina-plan-note.muted { color: var(--gray-500); }
+
 /* ── Mobile sidebar slide-over ── */
 @media (max-width: 768px) {
     .lina-msg { max-width: 90%; }
@@ -828,6 +851,11 @@ footer { display: none !important; }
                             else console.warn('[Lina] proposal ignored in chat mode');
                         } else if (json.type === 'tool_proposal' && json.error) {
                             appendError(json.error);
+                        } else if (json.type === 'plan_proposal' && json.plan) {
+                            if (chatMode === 'agent') renderPlanCard(json.plan);
+                            else console.warn('[Lina] plan ignored in chat mode');
+                        } else if (json.type === 'plan_proposal' && json.error) {
+                            appendError(json.error);
                         } else if (json.conversation_id !== undefined && json.choices === undefined) {
                             // Our metadata packet: { model, conversation_id }
                             if (json.model) {
@@ -994,6 +1022,144 @@ footer { display: none !important; }
         }
         wrap.appendChild(card);
         msgsEl.appendChild(wrap);
+        scrollBottom();
+    }
+
+    /* ── Plan structure card + stepper ── */
+    function renderPlanCard(plan) {
+        const wrap = document.createElement('div');
+        wrap.className = 'lina-msg-wrap bot';
+        const card = document.createElement('div');
+        card.className = 'lina-plan-card';
+        wrap.appendChild(card);
+        msgsEl.appendChild(wrap);
+        paintPlan(card, plan);
+        scrollBottom();
+    }
+
+    function escPlan(s) {
+        return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function paintPlan(card, plan) {
+        const prev = plan.preview || {};
+        const tree = prev.tree || {};
+        const totals = prev.totals || {};
+        let html = '<h4>📋 ' + escPlan(plan.title) + '</h4>'
+            + '<div class="lina-plan-totals">'
+            + (totals.subprojects || 0) + ' sub-project(s) · '
+            + (totals.tasks || 0) + ' task(s) · '
+            + (totals.subtasks || 0) + ' subtask(s)</div>';
+
+        html += '<div class="lina-plan-tree"><ul><li>📁 <strong>' + escPlan(tree.project?.name) + '</strong>';
+        const taskHtml = (t) => {
+            let s = escPlan(t.title);
+            if (t.due_date) s += ' <span class="lina-plan-due">' + escPlan(t.due_date) + '</span>';
+            const subs = t.subtasks || [];
+            if (subs.length) {
+                const shown = subs.slice(0, 8).map(x => '<li>• ' + escPlan(x) + '</li>').join('');
+                const more = subs.length > 8 ? '<li class="lina-plan-subs">+' + (subs.length - 8) + ' more…</li>' : '';
+                s += '<ul>' + shown + more + '</ul>';
+            }
+            return '<li>☑ ' + s + '</li>';
+        };
+        html += '<ul>';
+        (tree.project?.tasks || []).forEach(t => { html += taskHtml(t); });
+        (tree.subprojects || []).forEach(s => {
+            html += '<li>📂 <strong>' + escPlan(s.name) + '</strong><ul>';
+            (s.tasks || []).forEach(t => { html += taskHtml(t); });
+            html += '</ul></li>';
+        });
+        html += '</ul></li></ul></div>';
+        html += '<div class="lina-plan-body"></div>';
+        card.innerHTML = html;
+        const body = card.querySelector('.lina-plan-body');
+
+        if (plan.status === 'proposed') {
+            const actions = document.createElement('div');
+            actions.className = 'lina-tool-actions';
+            const ok = document.createElement('button');
+            ok.className = 'lina-tool-confirm'; ok.textContent = 'تأیید ساختار';
+            const no = document.createElement('button');
+            no.className = 'lina-tool-reject'; no.textContent = 'انصراف';
+            ok.onclick = async () => {
+                ok.disabled = true; no.disabled = true; ok.textContent = '…';
+                try {
+                    const res = await api('POST', '/ai/plans/' + plan.id + '/confirm-structure');
+                    paintPlan(card, res.plan);
+                } catch { appendError('Plan confirmation failed or expired.'); paintPlan(card, plan); }
+                scrollBottom();
+            };
+            no.onclick = async () => {
+                ok.disabled = true; no.disabled = true;
+                try { await api('POST', '/ai/plans/' + plan.id + '/cancel'); } catch {}
+                plan.status = 'cancelled';
+                paintPlan(card, plan);
+                scrollBottom();
+            };
+            actions.appendChild(ok); actions.appendChild(no);
+            body.appendChild(actions);
+        } else if (plan.status === 'confirmed' || plan.status === 'executing') {
+            (plan.phases || []).forEach((ph, idx) => {
+                const row = document.createElement('div');
+                const cls = ph.status === 'done' ? 'done' : (idx === plan.current_phase ? 'current' : 'locked');
+                row.className = 'lina-phase ' + cls;
+                const icon = ph.status === 'done' ? '✅' : (idx === plan.current_phase ? '▶' : '🔒');
+                row.innerHTML = '<span class="st">' + icon + ' ' + escPlan(ph.label) + '</span>'
+                    + '<span class="cnt">' + (ph.done || 0) + '/' + (ph.total || 0) + '</span>';
+                if (idx === plan.current_phase && (ph.total || 0) > 0) {
+                    const run = document.createElement('button');
+                    run.className = 'lina-tool-confirm'; run.style.cssText = 'padding:4px 10px;font-size:12px;';
+                    run.textContent = 'اجرای مرحله';
+                    run.onclick = () => planRunPhase(card, plan.id, idx, false, run);
+                    row.appendChild(run);
+                    if (planRemains(plan) > (ph.total || 0)) {
+                        const all = document.createElement('button');
+                        all.className = 'lina-tool-reject'; all.style.cssText = 'padding:4px 10px;font-size:12px;';
+                        all.textContent = 'اجرای همه باقی‌مانده';
+                        all.onclick = () => planRunPhase(card, plan.id, idx, true, all);
+                        row.appendChild(all);
+                    }
+                }
+                body.appendChild(row);
+            });
+            const cancel = document.createElement('button');
+            cancel.className = 'lina-tool-reject'; cancel.style.cssText = 'margin-top:8px;font-size:12px;';
+            cancel.textContent = 'توقف پلن';
+            cancel.onclick = async () => {
+                cancel.disabled = true;
+                try { await api('POST', '/ai/plans/' + plan.id + '/cancel'); } catch {}
+                plan.status = 'cancelled';
+                paintPlan(card, plan);
+                scrollBottom();
+            };
+            body.appendChild(cancel);
+        } else if (plan.status === 'done') {
+            body.innerHTML = '<div class="lina-plan-note ok">✅ Plan complete — همه مراحل ساخته شد.</div>';
+        } else {
+            body.innerHTML = '<div class="lina-plan-note muted">Plan ' + escPlan(plan.status) + ' — چیزی بیشتر ساخته نشد.</div>';
+        }
+        if (plan.expires_at && (plan.status === 'proposed' || plan.status === 'confirmed' || plan.status === 'executing')) {
+            const exp = document.createElement('div');
+            exp.className = 'lina-tool-expiry';
+            exp.textContent = 'Expires ' + formatTime(plan.expires_at);
+            body.appendChild(exp);
+        }
+    }
+
+    function planRemains(plan) {
+        return (plan.phases || []).reduce((n, p) => n + ((p.status === 'done') ? 0 : (p.total || 0)), 0);
+    }
+
+    async function planRunPhase(card, planId, phaseIdx, runAll, btn) {
+        card.querySelectorAll('button').forEach(b => { b.disabled = true; });
+        if (btn) btn.textContent = 'Running…';
+        try {
+            const res = await api('POST', '/ai/plans/' + planId + '/confirm-phase', { phase: phaseIdx, run_all: !!runAll });
+            paintPlan(card, res.plan);
+        } catch {
+            appendError('Phase failed — plan stopped. Already-created items stay.');
+        }
         scrollBottom();
     }
 
