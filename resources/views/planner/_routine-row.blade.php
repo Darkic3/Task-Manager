@@ -4,9 +4,9 @@
     $record      = $toggleable ? $routine->completionRecord($routineDate) : null;
     $isDone      = $record !== null;
     $doneAt      = $record?->completed_at;
-    $freqColors  = ['daily' => '#7c3aed', 'weekly' => '#2563eb', 'monthly' => '#d97706'];
+    $freqColors  = ['daily' => '#7c3aed', 'weekly' => '#2563eb', 'monthly' => '#d97706', 'every_n_days' => '#0e7490'];
     $fc          = $freqColors[$routine->frequency] ?? '#7c3aed';
-    $freqIcons   = ['daily' => 'bi-sun', 'weekly' => 'bi-calendar-week', 'monthly' => 'bi-calendar-month'];
+    $freqIcons   = ['daily' => 'bi-sun', 'weekly' => 'bi-calendar-week', 'monthly' => 'bi-calendar-month', 'every_n_days' => 'bi-arrow-left-right'];
     $fi          = $freqIcons[$routine->frequency] ?? 'bi-arrow-repeat';
     $accent      = $routine->periodColor() ?: $fc;
 
@@ -60,6 +60,12 @@
             @if($isDone && $toggleable && $ringStreak !== null && $ringStreak > 0)
                 <span class="flame" title="{{ $ringStreak }} in a row">🔥{{ $ringStreak }}</span>
             @endif
+            @if($toggleable && ! empty($routine->ringSteps) && $routine->ringSteps->count() > 0)
+                @php $stepsDone = $routine->ringSteps->where('completed', true)->count(); @endphp
+                <span class="steps-count {{ $stepsDone === $routine->ringSteps->count() ? 'all' : '' }}">
+                    {{ $stepsDone }}/{{ $routine->ringSteps->count() }}
+                </span>
+            @endif
         </div>
         <div class="pl-task-meta">
             @if($routine->time_period)
@@ -85,5 +91,22 @@
                 </span>
             @endif
         </div>
+
+        @if($toggleable && ! empty($routine->ringSteps) && count($routine->ringSteps) > 0)
+            <div class="pl-steps">
+                @foreach($routine->ringSteps as $step)
+                    <button type="button"
+                            class="pl-step {{ $step['completed'] ? 'done' : '' }}"
+                            data-step-item data-id="{{ $step['id'] }}"
+                            data-routine="{{ $routine->id }}"
+                            data-date="{{ $routineDate->toDateString() }}"
+                            data-url="{{ route('planner.check-items.toggle', $step['id']) }}"
+                            onclick="toggleCheckItem(this)">
+                        <i class="bi {{ $step['completed'] ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
+                        {{ $step['name'] }}
+                    </button>
+                @endforeach
+            </div>
+        @endif
     </div>
 </div>

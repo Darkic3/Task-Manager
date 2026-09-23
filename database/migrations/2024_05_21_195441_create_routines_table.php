@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('title');
             $table->text('description')->nullable();
-            $table->enum('frequency', ['daily', 'weekly', 'monthly']);
+            $table->enum('frequency', ['daily', 'weekly', 'monthly', 'every_n_days']);
             $table->json('days')->nullable();
             $table->json('weeks')->nullable();
             $table->json('months')->nullable();

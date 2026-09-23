@@ -114,6 +114,7 @@
     .chip-daily   input:checked + .cu-chip-label { color: #5b21b6; border-color: #7c3aed; background: #ede9fe; }
     .chip-weekly  input:checked + .cu-chip-label { color: #1d4ed8; border-color: #2563eb; background: #dbeafe; }
     .chip-monthly input:checked + .cu-chip-label { color: #b45309; border-color: #d97706; background: #fef3c7; }
+    .chip-everyn  input:checked + .cu-chip-label { color: #0e7490; border-color: #06b6d4; background: #cffafe; }
 
     /* ── Day / Week / Month pickers ──────────────────────── */
     .cu-picker { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e3e4e8; }
@@ -246,6 +247,13 @@
                                         <i class="bi bi-calendar-month"></i> Monthly
                                     </label>
                                 </div>
+                                <div class="cu-chip-opt chip-everyn">
+                                    <input type="radio" name="frequency" id="freq_everyn" value="every_n_days"
+                                        {{ old('frequency') == 'every_n_days' ? 'checked' : '' }}>
+                                    <label for="freq_everyn" class="cu-chip-label">
+                                        <i class="bi bi-arrow-left-right"></i> Every N days
+                                    </label>
+                                </div>
                             </div>
                             @error('frequency')<div class="invalid-feedback mt-1">{{ $message }}</div>@enderror
                         </div>
@@ -288,6 +296,21 @@
                             </div>
                             @error('month_days')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             @error('month_days.*')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- Every N days --}}
+                        <div class="cu-picker" id="picker-every_n_days">
+                            <div class="cu-picker-title">Run every how many days?</div>
+                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                <input type="number" name="every_n_days" id="every_n_days"
+                                       class="cu-input {{ $errors->has('every_n_days') ? 'is-invalid' : '' }}"
+                                       style="width:110px;padding-left:10px;"
+                                       min="2" max="60" step="1" value="{{ old('every_n_days', 2) }}">
+                                <span style="font-size:12px;color:#6b7385;">
+                                    <strong>2</strong> = one day on, one day off · <strong>3</strong> = every third day
+                                </span>
+                            </div>
+                            @error('every_n_days')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
                 </div>
@@ -373,6 +396,25 @@
                     </div>
                 </div>
 
+                {{-- Steps (optional sub-items) --}}
+                <div class="cu-section">
+                    <div class="cu-section-header">
+                        <span class="cu-section-icon purple"><i class="bi bi-list-check"></i></span>
+                        <span class="cu-section-title">Steps</span>
+                        <span class="cu-section-sub">Optional — tick each part to finish</span>
+                    </div>
+                    <div class="cu-section-body">
+                        <div id="stepRows"></div>
+                        <button type="button" class="cu-chip-label" style="margin-top:4px;" onclick="addStepRow()">
+                            <i class="bi bi-plus-lg"></i> Add step
+                        </button>
+                        <div style="font-size:11px;color:#8a8f98;margin-top:8px;">
+                            e.g. "Set 1 (3×15)", "Set 2 (3×15)", "Set 3 (3×15)" — on the Day page the routine auto-completes when all steps are ticked.
+                        </div>
+                        @error('items.*.name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                </div>
+
             </div>
         </form>
     </div>
@@ -384,7 +426,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const radios   = document.querySelectorAll('input[name="frequency"]');
-    const pickers  = { daily: document.getElementById('picker-daily'), weekly: document.getElementById('picker-weekly'), monthly: document.getElementById('picker-monthly') };
+    const pickers  = { daily: document.getElementById('picker-daily'), weekly: document.getElementById('picker-weekly'), monthly: document.getElementById('picker-monthly'), every_n_days: document.getElementById('picker-every_n_days') };
 
     function updatePickers(val) {
         Object.entries(pickers).forEach(([key, el]) => {
@@ -398,6 +440,24 @@ document.addEventListener('DOMContentLoaded', function () {
     const checked = document.querySelector('input[name="frequency"]:checked')
         || document.querySelector('input[name="frequency"][value="daily"]');
     if (checked) { checked.checked = true; updatePickers(checked.value); }
+
+    /* ── Steps editor ── */
+    let stepIdx = 0;
+    window.addStepRow = function (name = '', id = '') {
+        const i = stepIdx++;
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;';
+        wrap.innerHTML = `
+            <input type="hidden" name="items[${i}][id]" value="${id}">
+            <input type="text" class="cu-input" name="items[${i}][name]" style="padding-left:10px;flex:1;" placeholder="e.g. Set ${i + 1} (3×15)" maxlength="255">
+            <button type="button" class="cu-chip-label" style="padding:4px 8px;color:#dc2626;border-color:#fecaca;" title="Remove"><i class="bi bi-x-lg"></i></button>`;
+        wrap.querySelector('input[type=text]').value = name;
+        wrap.querySelector('button').onclick = () => wrap.remove();
+        document.getElementById('stepRows').appendChild(wrap);
+    };
+    @foreach(collect(old('items', [])) as $row)
+    addStepRow(@json($row['name'] ?? ''), @json($row['id'] ?? ''));
+    @endforeach
 
     // "When" mode: Any time / Time of day / Exact time
     const whenPanels = {

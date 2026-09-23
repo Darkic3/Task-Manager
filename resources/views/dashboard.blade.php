@@ -360,7 +360,7 @@
                                 <div class="activity-item-content">
                                     <div class="activity-item-title">{{ $routine->title }}</div>
                                     <div class="activity-item-meta">
-                                        <span class="routine-frequency-badge">{{ ucfirst($routine->frequency) }}</span>
+                                        <span class="routine-frequency-badge">{{ $routine->recurrenceLabel() }}</span>
                                         @if($routine->timeLabel())
                                             <span class="activity-item-date"><i class="bi bi-clock" style="font-size:10px;"></i> {{ $routine->timeLabel() }}</span>
                                         @endif

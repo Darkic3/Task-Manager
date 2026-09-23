@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Routine;
+use App\Models\RoutineCheckitemCompletion;
+use App\Models\RoutineChecklistItem;
 use App\Models\Task;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -123,11 +125,58 @@ class PlannerController extends Controller
         $date = $this->parseDate($request->input('date'));
         $completed = $routine->toggleOn($date);
 
+        /* Keep per-step completions in sync with the whole-routine toggle */
+        $items = $routine->checklistItems()->get();
+        foreach ($items as $item) {
+            if ($item->completedOn($date) !== $completed) {
+                $item->toggleOn($date);
+            }
+        }
+
         return response()->json([
             'ok' => true,
             'completed' => $completed,
             'date' => $date->toDateString(),
             /* accurate streak so the UI never inflates counts client-side */
+            'streak' => $routine->fresh()->streakStats($date)['current'],
+            'items' => $items->map(fn ($it) => ['id' => $it->id, 'completed' => $completed])->values(),
+        ]);
+    }
+
+    /**
+     * Toggle a single step of a routine; when every step is done the routine
+     * itself completes for that day (and un-completes if a step is undone).
+     */
+    public function toggleCheckItem(Request $request, RoutineChecklistItem $item)
+    {
+        abort_if($item->user_id !== Auth::id(), 403);
+
+        $date = $this->parseDate($request->input('date'));
+        $itemCompleted = $item->toggleOn($date);
+
+        $routine = $item->routine;
+        $items = $routine->checklistItems()->get();
+        $done = $items->filter(fn ($it) => $it->completedOn($date))->count();
+        $total = $items->count();
+        $allDone = $total > 0 && $done === $total;
+
+        $routineCompleted = $routine->completedOn($date);
+        if ($allDone && ! $routineCompleted) {
+            $routine->toggleOn($date);
+            $routineCompleted = true;
+        } elseif (! $allDone && $routineCompleted) {
+            $routine->toggleOn($date);
+            $routineCompleted = false;
+        }
+
+        return response()->json([
+            'ok' => true,
+            'item_id' => $item->id,
+            'completed' => $itemCompleted,
+            'routine_id' => $routine->id,
+            'routine_completed' => $routineCompleted,
+            'steps_done' => $done,
+            'steps_total' => $total,
             'streak' => $routine->fresh()->streakStats($date)['current'],
         ]);
     }
@@ -211,11 +260,25 @@ class PlannerController extends Controller
      */
     private function decorateHabitMetrics($routines, Carbon $date): void
     {
+        $items = RoutineChecklistItem::whereIn('routine_id', $routines->pluck('id'))
+            ->orderBy('sort_order')->orderBy('id')->get()->groupBy('routine_id');
+
         foreach ($routines as $routine) {
             $m = $routine->habitMetrics($date);
             $routine->ringRate = $m['rate'];
             $routine->ringStreak = $m['streak'];
             $routine->ringLast7 = $m['last7'];
+
+            $steps = $items->get($routine->id, collect());
+            $doneIds = array_map('intval', RoutineCheckitemCompletion::whereIn('checklist_item_id', $steps->pluck('id'))
+                ->where('completed_date', $date->toDateString())
+                ->pluck('checklist_item_id')->all());
+
+            $routine->ringSteps = $steps->map(fn ($s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'completed' => in_array((int) $s->id, $doneIds, true),
+            ])->values();
         }
     }
 

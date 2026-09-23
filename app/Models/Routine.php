@@ -27,6 +27,7 @@ class Routine extends Model
         'weeks',
         'months',
         'month_days',
+        'every_n_days',
         'start_time',
         'end_time',
     ];
@@ -46,6 +47,11 @@ class Routine extends Model
     public function completions(): HasMany
     {
         return $this->hasMany(RoutineCompletion::class);
+    }
+
+    public function checklistItems(): HasMany
+    {
+        return $this->hasMany(RoutineChecklistItem::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function decodedDays(): array
@@ -96,6 +102,11 @@ class Routine extends Model
                 }
 
                 return 'Day '.implode(', ', $monthDays);
+
+            case 'every_n_days':
+                $n = max(2, (int) $this->every_n_days);
+
+                return $n === 2 ? 'Every other day' : "Every {$n} days";
         }
 
         return ucfirst((string) $this->frequency);
@@ -245,6 +256,13 @@ class Routine extends Model
 
             case 'monthly':
                 return in_array((int) $date->day, $this->decodedMonthDays(), true);
+
+            case 'every_n_days':
+                $n = max(2, (int) $this->every_n_days);
+                $base = $this->created_at ? $this->created_at->copy()->startOfDay() : $date->copy();
+
+                /* Anchored to creation day: runs on day 0, n, 2n, … */
+                return (int) round($date->copy()->diffInDays($base, true)) % $n === 0;
         }
 
         return false;

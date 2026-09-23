@@ -124,9 +124,9 @@
     </div>
 
     {{-- Frequency filter --}}
-    @php $counts = ['all' => $routines->count(), 'daily' => $routines->where('frequency','daily')->count(), 'weekly' => $routines->where('frequency','weekly')->count(), 'monthly' => $routines->where('frequency','monthly')->count()]; @endphp
+    @php $counts = ['all' => $routines->count(), 'daily' => $routines->where('frequency','daily')->count(), 'weekly' => $routines->where('frequency','weekly')->count(), 'monthly' => $routines->where('frequency','monthly')->count(), 'every_n_days' => $routines->where('frequency','every_n_days')->count()]; @endphp
     <div class="rh-filters" id="rhFilters">
-        @foreach(['all' => 'All', 'daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'] as $key => $label)
+        @foreach(['all' => 'All', 'daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly', 'every_n_days' => 'Every N days'] as $key => $label)
             <button class="rh-chip {{ ($key === 'all') ? 'active' : '' }}" data-filter="{{ $key }}">
                 {{ $label }} <small>{{ $counts[$key] }}</small>
             </button>

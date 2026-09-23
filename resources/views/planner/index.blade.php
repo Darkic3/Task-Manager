@@ -135,6 +135,23 @@
     .sq-na{background:#f2f3f5;}
     .sq-future,.sq-today{background:transparent;box-shadow:inset 0 0 0 1px #e8eaef;}
 
+    /* ── Routine steps (package: sub-items) ── */
+    .pl-steps{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;}
+    .pl-step{
+        display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;
+        border:1px solid #e5e7eb;background:#fafbfc;color:#6b6f78;font-size:11.5px;font-weight:600;
+        cursor:pointer;transition:all .12s;
+    }
+    .pl-step:hover{border-color:#c4b5fd;color:#7c3aed;}
+    .pl-step i{font-size:13px;color:#c1c4cc;transition:color .12s;}
+    .pl-step.done{background:#e3f5ec;border-color:#a9dfbf;color:#29774b;}
+    .pl-step.done i{color:#30a46c;}
+    .steps-count{
+        font-size:10.5px;font-weight:700;color:#8a8f98;background:#f2f3f5;
+        border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:1px;
+    }
+    .steps-count.all{color:#29774b;background:#e3f5ec;}
+
     /* ── Package B: confetti + toast ── */
     #plConfetti{position:fixed;inset:0;pointer-events:none;z-index:1080;overflow:hidden;}
     #plConfetti i{position:absolute;top:-12px;width:8px;height:14px;border-radius:2px;opacity:0;animation:plFall 1.4s ease-in forwards;}
@@ -399,6 +416,7 @@
         try {
             const json = await routineToggleRequest(url, date);
             applyRoutineToggle(id, date, !!json.completed);
+            if (json.items && json.items.length) syncStepButtons(id, date, !!json.completed);
             /* Package B: accurate flame from server + minimal undo toast */
             if (json.completed) {
                 setStreak(id, json.streak ?? null);
@@ -436,6 +454,58 @@
         });
     }
 
+    /* Reflect whole-routine toggles on the step chips too */
+    function syncStepButtons(id, date, completed) {
+        document.querySelectorAll('[data-step-item][data-routine="' + id + '"][data-date="' + date + '"]').forEach(btn => {
+            btn.classList.toggle('done', completed);
+            const i = btn.querySelector('i');
+            if (i) i.className = 'bi ' + (completed ? 'bi-check-circle-fill' : 'bi-circle');
+        });
+        refreshStepCounts();
+    }
+
+    function refreshStepCounts() {
+        document.querySelectorAll('[data-routine-item]').forEach(row => {
+            const steps = row.querySelectorAll('[data-step-item]');
+            if (!steps.length) return;
+            const done = [...steps].filter(s => s.classList.contains('done')).length;
+            const badge = row.querySelector('.steps-count');
+            if (badge) {
+                badge.textContent = done + '/' + steps.length;
+                badge.classList.toggle('all', done === steps.length);
+            }
+        });
+    }
+
+    async function toggleCheckItem(btn) {
+        btn.disabled = true;
+        try {
+            const res = await fetch(btn.dataset.url + '?date=' + encodeURIComponent(btn.dataset.date), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+
+            btn.classList.toggle('done', !!json.completed);
+            const i = btn.querySelector('i');
+            if (i) i.className = 'bi ' + (json.completed ? 'bi-check-circle-fill' : 'bi-circle');
+            refreshStepCounts();
+
+            /* routine auto-completes/un-completes with its steps */
+            if (json.routine_completed !== undefined) {
+                applyRoutineToggle(json.routine_id, btn.dataset.date, !!json.routine_completed);
+                if (json.routine_completed && json.streak != null) setStreak(json.routine_id, json.streak);
+                refreshRoutineCounters();
+                if (json.routine_completed) maybeCelebrate();
+            }
+        } catch (e) {
+            console.error('[Planner] step toggle failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
     /* Flame reflects the server-computed streak (never inflated client-side) */
     function setStreak(id, streak, hideIfZero) {
         document.querySelectorAll('[data-routine-item][data-id="' + id + '"] .flame').forEach(fl => {
@@ -465,7 +535,7 @@
             hideRoutineToast();
             try {
                 routineToggleRequest(document.querySelector('[data-routine-item][data-id="' + id + '"][data-date="' + date + '"] input[type="checkbox"]')?.dataset.url || '', date)
-                    .then(() => { applyRoutineToggle(id, date, false); refreshRoutineCounters(); });
+                    .then(() => { applyRoutineToggle(id, date, false); syncStepButtons(id, date, false); refreshRoutineCounters(); });
             } catch (e) { /* keep UI state */ }
         };
         toast.appendChild(undo);

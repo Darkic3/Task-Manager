@@ -74,6 +74,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/planner', [PlannerController::class, 'index'])->name('planner.index');
     Route::post('/planner/tasks/{task}/toggle', [PlannerController::class, 'toggleTask'])->name('planner.tasks.toggle');
     Route::post('/planner/routines/{routine}/toggle', [PlannerController::class, 'toggleRoutine'])->name('planner.routines.toggle');
+    Route::post('/planner/check-items/{item}/toggle', [PlannerController::class, 'toggleCheckItem'])->name('planner.check-items.toggle');
 
     // Time tracking
     Route::get('/time/active', [TimeTrackingController::class, 'active'])->name('time.active');

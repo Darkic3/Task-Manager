@@ -38,8 +38,10 @@ class RoutineController extends Controller
     public function store(Request $request)
     {
         $data = $this->validated($request);
+        $items = $request->input('items', []);
 
-        Auth::user()->routines()->create($data);
+        $routine = Auth::user()->routines()->create($data);
+        $this->syncItems($routine, $items);
 
         return redirect()->route('routines.index')->with('success', 'Routine created successfully.');
     }
@@ -47,6 +49,7 @@ class RoutineController extends Controller
     public function edit(Routine $routine)
     {
         $this->authorizeRoutine($routine);
+        $routine->load('checklistItems');
 
         return view('routines.edit', compact('routine'));
     }
@@ -55,7 +58,9 @@ class RoutineController extends Controller
     {
         $this->authorizeRoutine($routine);
 
-        $routine->update($this->validated($request));
+        $data = $this->validated($request);
+        $routine->update($data);
+        $this->syncItems($routine, $request->input('items', []));
 
         return redirect()->route('routines.index')->with('success', 'Routine updated successfully.');
     }
@@ -161,10 +166,13 @@ class RoutineController extends Controller
         $rules = [
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'frequency' => 'required|in:daily,weekly,monthly',
+            'frequency' => 'required|in:daily,weekly,monthly,every_n_days',
+            'every_n_days' => 'nullable|required_if:frequency,every_n_days|integer|min:2|max:60',
             'time_period' => 'nullable|in:'.implode(',', $periodKeys),
             'start_time' => 'nullable|required_with:end_time',
             'end_time' => 'nullable|required_with:start_time|after_or_equal:start_time',
+            'items' => 'nullable|array|max:20',
+            'items.*.name' => 'required_with:items.*.id|string|max:255',
         ];
 
         if ($request->input('frequency') === 'weekly') {
@@ -192,6 +200,14 @@ class RoutineController extends Controller
             $data['month_days'] = null;
         }
 
+        if ($frequency === 'every_n_days') {
+            $data['every_n_days'] = max(2, (int) $data['every_n_days']);
+            $data['days'] = null;
+            $data['month_days'] = null;
+        } else {
+            $data['every_n_days'] = null;
+        }
+
         $data['weeks'] = null;
         $data['months'] = null;
 
@@ -213,5 +229,42 @@ class RoutineController extends Controller
     private function authorizeRoutine(Routine $routine): void
     {
         abort_if($routine->user_id !== Auth::id(), 403);
+    }
+
+    /**
+     * Sync persistent checklist "steps" from form rows:
+     * rows with an id update, new rows create, missing rows delete.
+     */
+    private function syncItems(Routine $routine, $items): void
+    {
+        $keep = [];
+
+        foreach ((array) $items as $i => $row) {
+            $name = trim((string) ($row['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+
+            $id = isset($row['id']) ? (int) $row['id'] : null;
+
+            if ($id) {
+                $item = $routine->checklistItems()->whereKey($id)->first();
+                if ($item) {
+                    $item->update(['name' => $name, 'sort_order' => $i]);
+                    $keep[] = $item->id;
+
+                    continue;
+                }
+            }
+
+            $item = $routine->checklistItems()->create([
+                'user_id' => $routine->user_id,
+                'name' => $name,
+                'sort_order' => $i,
+            ]);
+            $keep[] = $item->id;
+        }
+
+        $routine->checklistItems()->whereNotIn('id', $keep ?: [0])->delete();
     }
 }
