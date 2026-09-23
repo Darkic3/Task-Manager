@@ -333,13 +333,27 @@
                             <i class="bi bi-calendar-day"></i>
                             <span>Today's Routines</span>
                         </div>
-                        <a href="{{ route('routines.index') }}" class="btn btn-outline btn-sm">
-                            View all
-                        </a>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge rounded-pill bg-light text-dark border" id="dbRoutineCount" style="font-size:11px;">{{ $routineDoneCount }}/{{ $routineTotalCount }}</span>
+                            <a href="{{ route('planner.index') }}" class="btn btn-outline btn-sm">
+                                Open Day
+                            </a>
+                        </div>
                     </div>
-                    <div class="activity-card-content">
+                    <div class="activity-card-content" id="dbRoutineList">
                         @forelse($todayRoutines as $routine)
-                            <div class="activity-item">
+                            @php $rDone = $routine->completedOn(now()); @endphp
+                            <div class="activity-item {{ $rDone ? 'is-done' : '' }}"
+                                 data-db-routine
+                                 data-id="{{ $routine->id }}"
+                                 data-completed="{{ $rDone ? 1 : 0 }}">
+                                <label class="db-routine-check" title="{{ $rDone ? 'Mark as not done' : 'Mark as done' }}">
+                                    <input type="checkbox" {{ $rDone ? 'checked' : '' }}
+                                           data-id="{{ $routine->id }}"
+                                           data-url="{{ route('planner.routines.toggle', $routine) }}"
+                                           onchange="dbToggleRoutine(this)">
+                                    <span class="db-check-box"><i class="bi bi-check-lg"></i></span>
+                                </label>
                                 <div class="activity-item-icon routine-frequency">
                                     <i class="bi bi-arrow-repeat"></i>
                                 </div>
@@ -347,8 +361,8 @@
                                     <div class="activity-item-title">{{ $routine->title }}</div>
                                     <div class="activity-item-meta">
                                         <span class="routine-frequency-badge">{{ ucfirst($routine->frequency) }}</span>
-                                        @if($routine->time)
-                                            <span class="activity-item-date">{{ $routine->time->format('H:i') }}</span>
+                                        @if($routine->timeLabel())
+                                            <span class="activity-item-date"><i class="bi bi-clock" style="font-size:10px;"></i> {{ $routine->timeLabel() }}</span>
                                         @endif
                                     </div>
                                 </div>
@@ -446,12 +460,62 @@
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('assets/dashboard/style.css') }}">
+<style>
+    /* ── Dashboard routines quick-check (package D) ── */
+    .db-routine-check{position:relative;flex-shrink:0;cursor:pointer;display:inline-flex;margin-right:8px;}
+    .db-routine-check input{position:absolute;opacity:0;width:0;height:0;}
+    .db-check-box{
+        width:19px;height:19px;border:2px solid #c4c9d4;border-radius:50%;
+        display:flex;align-items:center;justify-content:center;color:transparent;
+        font-size:10px;transition:all .15s;background:white;
+    }
+    .db-routine-check:hover .db-check-box{border-color:#7c3aed;}
+    .db-routine-check input:checked + .db-check-box{background:#16a34a;border-color:#16a34a;color:white;}
+    .activity-item.is-done .activity-item-title{text-decoration:line-through;color:#adb0b8;}
+</style>
 @endpush
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    const DB_CSRF = '{{ csrf_token() }}';
+
+    /* Quick routine check straight from the dashboard (package D) */
+    async function dbToggleRoutine(box) {
+        box.disabled = true;
+        const id = box.dataset.id;
+        const url = box.dataset.url;
+        try {
+            const res = await fetch(url + '?date=' + encodeURIComponent(new Date().toISOString().slice(0, 10)), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': DB_CSRF, 'Accept': 'application/json' },
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            document.querySelectorAll('[data-db-routine][data-id="' + id + '"]').forEach(el => {
+                el.classList.toggle('is-done', !!json.completed);
+                el.dataset.completed = json.completed ? '1' : '0';
+            });
+            dbRefreshCount();
+        } catch (e) {
+            box.checked = !box.checked;
+            console.error('Routine toggle failed', e);
+        } finally {
+            box.disabled = false;
+        }
+    }
+
+    function dbRefreshCount() {
+        const items = document.querySelectorAll('[data-db-routine]');
+        let done = 0;
+        items.forEach(el => { if (el.dataset.completed === '1') done++; });
+        const badge = document.getElementById('dbRoutineCount');
+        if (badge && items.length) badge.textContent = done + '/' + items.length;
+    }
+</script>
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing charts...');
+
 
     // Productivity Chart
     const chartCanvas = document.getElementById('productivityChart');

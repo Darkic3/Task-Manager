@@ -6,22 +6,19 @@
 <style>
     .main-content { padding: 14px 16px; background: #f7f8fa; min-height: 100vh; }
 
-    /* ── Header ─────────────────────────────────────────── */
+    /* ── Header (minimal) ───────────────────────────────── */
     .rs-header {
-        background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
-        border-radius: 10px; padding: 12px 18px; color: white;
-        margin-bottom: 14px; position: relative; overflow: hidden;
-        border: 1px solid #6d28d9; box-shadow: 0 2px 8px rgba(124,58,237,.3);
+        background: transparent; border: none; box-shadow: none; border-radius: 0;
+        padding: 0 0 14px; color: #1f2328; margin-bottom: 14px; position: relative; overflow: visible;
     }
-    .rs-header::before {
-        content: ''; position: absolute; top: 0; right: 0;
-        width: 80px; height: 80px; background: rgba(255,255,255,.08);
-        border-radius: 50%; transform: translate(20px,-20px);
+    .rs-header::before { display: none; }
+    .rs-back {
+        display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:500;
+        color:#8a8f98; text-decoration:none;
     }
-    .rs-header-title { font-weight: 700; font-size: 17px; margin: 0; position: relative; z-index: 1; }
-    .rs-header-sub   { font-size: 12px; opacity: .85; margin: 2px 0 0; position: relative; z-index: 1; }
-    .rs-back { color: rgba(255,255,255,.85); text-decoration: none; margin-right: 12px; }
-    .rs-back:hover { color: #fff; }
+    .rs-back:hover { color:#7c3aed; }
+    .rs-header-title { font-weight: 700; font-size: 19px; margin: 12px 0 0; position: relative; color:#1f2328; word-break:break-word; }
+    .rs-header-sub   { font-size: 12px; opacity: .8; margin: 2px 0 0; position: relative; color:#8a8f98; }
 
     /* ── Stat cards ─────────────────────────────────────── */
     .rs-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 14px; }
@@ -92,15 +89,13 @@
     {{-- Header --}}
     <div class="rs-header">
         <div class="d-flex align-items-center" style="position:relative;z-index:1;">
-            <a href="{{ route('routines.index') }}" class="rs-back"><i class="bi bi-arrow-left fs-5"></i></a>
-            <div>
-                <h1 class="rs-header-title">{{ $routine->title }}</h1>
-                <p class="rs-header-sub">
-                    {{ $routine->recurrenceLabel() }}
-                    @if($routine->timeLabel()) &middot; {{ $routine->timeLabel() }} @endif
-                </p>
-            </div>
+            <a href="{{ route('routines.index') }}" class="rs-back"><i class="bi bi-arrow-left"></i> Routines</a>
         </div>
+        <h1 class="rs-header-title">{{ $routine->title }}</h1>
+        <p class="rs-header-sub">
+            {{ $routine->recurrenceLabel() }}
+            @if($routine->timeLabel()) &middot; {{ $routine->timeLabel() }} @endif
+        </p>
     </div>
 
     {{-- Stat cards --}}

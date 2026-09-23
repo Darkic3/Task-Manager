@@ -7,24 +7,22 @@
     /* ── Page shell ──────────────────────────────────────── */
     .main-content { padding: 14px 16px; background: #f7f8fa; min-height: 100vh; }
 
-    /* ── Gradient header ─────────────────────────────────── */
+    /* ── Minimal topbar (was gradient) ───────────────────── */
     .cu-header {
-        background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
-        border-radius: 10px; padding: 12px 18px; color: white;
-        margin-bottom: 14px; position: relative; overflow: hidden;
-        border: 1px solid #6d28d9; box-shadow: 0 2px 8px rgba(124,58,237,.3);
+        background: transparent; border: none; box-shadow: none; border-radius: 0;
+        padding: 0 0 14px; color: #1f2328; overflow: visible; margin-bottom: 14px; position: relative;
     }
-    .cu-header::before {
-        content: ''; position: absolute; top: 0; right: 0;
-        width: 80px; height: 80px; background: rgba(255,255,255,.08);
-        border-radius: 50%; transform: translate(20px,-20px);
+    .cu-header::before { display: none; }
+    .cu-back {
+        display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:500;
+        color:#8a8f98; text-decoration:none;
     }
-    .cu-header-title { font-weight: 700; font-size: 17px; margin: 0; position: relative; z-index: 1; }
-    .cu-header-sub   { font-size: 12px; opacity: .8; margin: 2px 0 0; position: relative; z-index: 1; }
+    .cu-back:hover { color:#7c3aed; }
+    .cu-header-title { font-weight: 700; font-size: 19px; margin: 14px 0 0; position: relative; color:#1f2328; }
+    .cu-header-sub   { font-size: 12px; opacity: .8; margin: 2px 0 0; position: relative; color:#8a8f98; }
 
-    /* ── Two-panel grid ──────────────────────────────────── */
-    .cu-layout { display: grid; grid-template-columns: 220px 1fr; gap: 14px; align-items: start; }
-    @media(max-width:768px) { .cu-layout { grid-template-columns: 1fr; } }
+    /* ── Two-panel grid → single column ────────────────── */
+    .cu-layout { display: block; max-width: 720px; margin: 0 auto; }
 
     /* ── Left info panel ─────────────────────────────────── */
     .cu-info-panel {
@@ -174,44 +172,17 @@
 @section('content')
 <div class="main-content">
 
-    {{-- ── Gradient Header ───────────────────────────────── --}}
+    {{-- ── Minimal header + single-column form ──────────── --}}
     <div class="cu-header">
-        <div class="d-flex align-items-center" style="position:relative;z-index:1;">
-            <a href="{{ route('routines.index') }}" class="me-3 text-decoration-none">
-                <i class="bi bi-arrow-left fs-5" style="color:rgba(255,255,255,.8);"></i>
-            </a>
-            <div>
-                <h1 class="cu-header-title">Create Routine</h1>
-                <p class="cu-header-sub">Set up your daily, weekly, or monthly routine schedule</p>
-            </div>
-        </div>
+        <a href="{{ route('routines.index') }}" class="cu-back">
+            <i class="bi bi-arrow-left"></i> Routines
+        </a>
+        <h1 class="cu-header-title">Create Routine</h1>
+        <p class="cu-header-sub">Set up your daily, weekly, or monthly routine schedule</p>
     </div>
 
-    {{-- ── Two-Panel Layout ───────────────────────────────── --}}
+    {{-- ── Form ───────────────────────────────────────────── --}}
     <div class="cu-layout">
-
-        {{-- Left Panel --}}
-        <div class="cu-info-panel">
-            <div class="cu-info-panel-header"><span>New Routine</span></div>
-            <div class="cu-info-body">
-                <div class="cu-avatar"><i class="bi bi-arrow-repeat"></i></div>
-                <div class="cu-panel-name">New Routine</div>
-                <div class="cu-panel-sub">Fill in the form to add a routine</div>
-
-                <div class="cu-meta-row">
-                    <i class="bi bi-person"></i>
-                    <span>Owner&nbsp;<strong>{{ auth()->user()->name }}</strong></span>
-                </div>
-                <div class="cu-meta-row">
-                    <i class="bi bi-calendar3"></i>
-                    <span>Created&nbsp;<strong>{{ now()->format('M d, Y') }}</strong></span>
-                </div>
-                <div class="cu-meta-row">
-                    <i class="bi bi-info-circle"></i>
-                    <span style="font-size:11px;line-height:1.5;">Choose a frequency, then pick the days of the week or days of the month it applies to.</span>
-                </div>
-            </div>
-        </div>
 
         {{-- Right Form --}}
         <form action="{{ route('routines.store') }}" method="POST" id="routineForm">
@@ -227,13 +198,10 @@
                     <div class="cu-section-body">
                         <div class="cu-field">
                             <label for="title" class="cu-label">Title <span style="color:#dc2626;">*</span></label>
-                            <div class="cu-input-wrap">
-                                <i class="bi bi-card-text"></i>
-                                <input type="text" name="title" id="title"
-                                       class="cu-input {{ $errors->has('title') ? 'is-invalid' : '' }}"
-                                       value="{{ old('title') }}"
-                                       placeholder="e.g. Morning workout" required>
-                            </div>
+                        <input type="text" name="title" id="title"
+                               class="cu-input {{ $errors->has('title') ? 'is-invalid' : '' }}"
+                               value="{{ old('title') }}"
+                               placeholder="e.g. Morning workout" required>
                             @error('title')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                         <div class="cu-field">

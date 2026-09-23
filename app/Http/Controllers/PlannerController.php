@@ -127,6 +127,8 @@ class PlannerController extends Controller
             'ok' => true,
             'completed' => $completed,
             'date' => $date->toDateString(),
+            /* accurate streak so the UI never inflates counts client-side */
+            'streak' => $routine->fresh()->streakStats($date)['current'],
         ]);
     }
 

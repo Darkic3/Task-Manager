@@ -4,378 +4,227 @@
 
 @push('styles')
 <style>
-    /* ── Page shell ───────────────────────────────────────── */
-    .main-content { padding: 14px 16px; background: #f7f8fa; min-height: 100vh; }
+/* ── Routines hub – minimal ──────────────────────────────── */
+.main-content { padding:20px 24px 48px; background:#fafafa; min-height:100vh; }
+.rh-wrap { max-width:860px; margin:0 auto; }
 
-    /* ── Gradient header ──────────────────────────────────── */
-    .cu-header {
-        background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
-        border-radius: 10px; padding: 12px 18px; color: white;
-        margin-bottom: 14px; position: relative; overflow: hidden;
-        border: 1px solid #6d28d9; box-shadow: 0 2px 8px rgba(124,58,237,.3);
-    }
-    .cu-header::before {
-        content: ''; position: absolute; top: 0; right: 0;
-        width: 80px; height: 80px; background: rgba(255,255,255,.08);
-        border-radius: 50%; transform: translate(20px,-20px);
-    }
-    .cu-header-title { font-weight: 700; font-size: 17px; margin: 0; position: relative; z-index: 1; }
-    .cu-header-sub   { font-size: 12px; opacity: .8; margin: 2px 0 0; position: relative; z-index: 1; }
-    .cu-btn-new {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 6px 14px; border-radius: 7px; background: rgba(255,255,255,.2);
-        color: white; border: 1px solid rgba(255,255,255,.3); font-size: 12px;
-        font-weight: 600; text-decoration: none;
-        transition: background .15s; position: relative; z-index: 1;
-    }
-    .cu-btn-new:hover { background: rgba(255,255,255,.3); color: white; }
+.rh-topbar { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+.rh-title { font-size:19px; font-weight:700; color:#1f2328; margin:0; flex:1; }
+.rh-count {
+    font-size:12px; color:#8b8d98; font-weight:600;
+}
+.rh-btn {
+    display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:6px;
+    border:1px solid #e5e7eb; background:white; color:#6b6f78; font-size:12px; font-weight:600;
+    text-decoration:none; transition:all .12s;
+}
+.rh-btn:hover { border-color:#7c3aed; color:#7c3aed; background:#f7f5ff; }
+.rh-btn.primary { background:#7c3aed; border-color:#7c3aed; color:white; }
+.rh-btn.primary:hover { background:#6d28d9; color:white; }
 
-    /* ── Stats row ────────────────────────────────────────── */
-    .cu-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 14px; }
-    @media(max-width:700px) { .cu-stats { grid-template-columns: repeat(2,1fr); } }
-    .cu-stat {
-        background: white; border: 1px solid #e3e4e8; border-radius: 8px;
-        padding: 12px 14px; display: flex; align-items: center; gap: 12px;
-    }
-    .cu-stat-icon {
-        width: 36px; height: 36px; border-radius: 8px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 15px; flex-shrink: 0;
-    }
-    .cu-stat-label { font-size: 11px; color: #8a8f98; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
-    .cu-stat-val   { font-size: 20px; font-weight: 800; color: #1a1d23; line-height: 1; }
+.rh-score {
+    display:flex; align-items:center; gap:14px;
+    background:white; border:1px solid #e5e7eb; border-radius:8px;
+    padding:14px 18px; margin-bottom:16px;
+}
+.rh-score-pct { font-size:26px; font-weight:800; color:#1f2328; line-height:1; }
+.rh-score-lbl { font-size:11px; color:#8b8d98; font-weight:600; text-transform:uppercase; letter-spacing:.4px; margin-top:3px; }
+.rh-score-bar { flex:1; height:5px; background:#eef0f2; border-radius:4px; overflow:hidden; }
+.rh-score-fill { height:100%; background:#30a46c; border-radius:4px; }
+.rh-score-cnt { font-size:12.5px; color:#6b6f78; font-weight:600; white-space:nowrap; }
 
-    /* ── Kanban grid ──────────────────────────────────────── */
-    .cu-kanban { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; align-items: start; }
-    @media(max-width:860px) { .cu-kanban { grid-template-columns: 1fr; } }
+.rh-filters { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+.rh-chip {
+    display:inline-flex; align-items:center; gap:5px; padding:4px 12px; border-radius:20px;
+    border:1px solid #e5e7eb; background:white; color:#6b6f78; font-size:11.5px; font-weight:600;
+    cursor:pointer; user-select:none; text-decoration:none; transition:all .12s;
+}
+.rh-chip:hover { border-color:#c4b5fd; color:#7c3aed; }
+.rh-chip.active { background:#7c3aed; border-color:#7c3aed; color:white; }
+.rh-chip small { opacity:.75; font-weight:700; }
 
-    .cu-col { background: #f3f4f6; border-radius: 10px; overflow: hidden; }
-    .cu-col-head {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 10px 12px; border-bottom: 1px solid #e3e4e8;
-    }
-    .cu-col-head-left { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: #1a1d23; }
-    .cu-col-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-    .cu-col-count {
-        background: white; border: 1px solid #e3e4e8; border-radius: 20px;
-        padding: 1px 7px; font-size: 11px; font-weight: 700; color: #8a8f98;
-    }
-    .cu-col-add {
-        width: 26px; height: 26px; border-radius: 6px; border: 1px solid #e3e4e8;
-        background: white; display: flex; align-items: center;
-        justify-content: center; color: #8a8f98; font-size: 14px;
-        transition: all .15s; text-decoration: none;
-    }
-    .cu-col-add:hover { background: #7c3aed; border-color: #7c3aed; color: white; }
-    .cu-col-body { padding: 8px; min-height: 80px; display: flex; flex-direction: column; gap: 7px; }
+.rh-list { display:flex; flex-direction:column; gap:8px; }
+.rh-card {
+    display:flex; align-items:center; gap:10px;
+    background:white; border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px;
+    transition:border-color .12s;
+}
+.rh-card:hover { border-color:#d3d7de; }
+.rh-card.hidden { display:none; }
+.rh-body { flex:1; min-width:0; }
+.rh-row-title { font-size:13.5px; font-weight:600; color:#1f2328; line-height:1.35; word-break:break-word; }
+.rh-card:hover .rh-row-title { color:#7c3aed; }
+.rh-row-meta { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; margin-top:4px; }
+.rh-pill {
+    display:inline-flex; align-items:center; gap:4px; padding:1px 8px; border-radius:20px;
+    font-size:10.5px; font-weight:600; background:#f2f3f5; color:#6b6f78;
+}
+.rh-pill i { font-size:10px; }
+.rh-flame {
+    font-size:11px; font-weight:700; color:#d97706; background:#fdf4de;
+    border-radius:20px; padding:1px 7px;
+}
+.rh-rate { font-size:11px; font-weight:700; color:#29774b; }
+.rh-rate.x { color:#c1c4cc; font-weight:600; }
+.last7{display:inline-flex;gap:3px;align-items:center;}
+.last7 .sq{width:7px;height:7px;border-radius:2.5px;display:inline-block;}
+.sq-done{background:#30a46c;}
+.sq-missed{background:#e3e5e9;}
+.sq-na{background:#f2f3f5;}
+.sq-future,.sq-today{background:transparent;box-shadow:inset 0 0 0 1px #e8eaef;}
 
-    /* ── Routine card ─────────────────────────────────────── */
-    .cu-routine-card {
-        background: white; border: 1px solid #e3e4e8; border-radius: 8px;
-        padding: 10px 12px; transition: all .15s;
-    }
-    .cu-routine-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); border-color: #c4b5fd; }
-    .cu-routine-title { font-size: 13px; font-weight: 600; color: #1a1d23; margin-bottom: 4px; line-height: 1.3; }
-    .cu-routine-desc  {
-        font-size: 11px; color: #8a8f98; margin-bottom: 7px; line-height: 1.4;
-        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    }
-    .cu-routine-meta  { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
-    .cu-meta-pill {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
-        background: #f3f4f6; color: #6b7385;
-    }
-    .cu-meta-pill i { font-size: 10px; }
-    .cu-routine-footer { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
-    .cu-card-btn {
-        display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px;
-        border-radius: 5px; font-size: 11px; font-weight: 600; text-decoration: none;
-        cursor: pointer; border: 1px solid transparent; transition: all .15s;
-    }
-    .cu-card-btn.edit   { background: #fffbeb; color: #d97706; border-color: #fde68a; }
-    .cu-card-btn.edit:hover   { background: #fef3c7; }
-    .cu-card-btn.delete { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
-    .cu-card-btn.delete:hover { background: #fee2e2; }
-    .cu-card-btn.stats  { background: #eef2ff; color: #4f46e5; border-color: #c7d2fe; }
-    .cu-card-btn.stats:hover { background: #e0e7ff; }
+.rh-actions { flex-shrink:0; display:flex; align-items:center; gap:4px; }
+.rh-link-btn {
+    width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+    color:#8b8d98;font-size:12.5px;text-decoration:none;border:1px solid transparent;
+}
+.rh-link-btn:hover { color:#7c3aed; background:#f7f5ff; }
+.rh-link-btn.text-danger:hover { color:#e5484d; background:#fef2f2; }
+.rh-menu .dropdown-menu { font-size:13px; border-radius:8px; --bs-dropdown-min-width:130px; }
+.rh-kebab {
+    width:26px;height:26px;border:none;background:transparent;color:#aeb2ba;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:5px;
+    font-size:13px;
+}
+.rh-kebab:hover { background:#f0f1f3; color:#1f2328; }
 
-    /* ── Empty state ──────────────────────────────────────── */
-    .cu-empty { text-align: center; padding: 20px 12px; color: #adb0b8; }
-    .cu-empty i { font-size: 24px; display: block; margin-bottom: 6px; opacity: .5; }
-    .cu-empty p { font-size: 12px; margin: 0; }
+.rh-empty {
+    text-align:center; padding:50px 20px; background:white; border:1px solid #e5e7eb; border-radius:8px;
+    color:#8b8d98;
+}
+.rh-empty i { font-size:32px; color:#c1c4cc; display:block; margin-bottom:10px; }
+.rh-empty h5 { font-weight:700; color:#1f2328; margin-bottom:5px; }
+.rh-empty p { font-size:13px; margin-bottom:14px; }
 
-    /* ── Column footer / view-all ─────────────────────────── */
-    .cu-col-footer { padding: 8px; border-top: 1px solid #e3e4e8; }
-    .cu-view-all {
-        display: flex; align-items: center; justify-content: center; gap: 5px;
-        width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #e3e4e8;
-        background: white; font-size: 12px; font-weight: 600; color: #6b7385;
-        text-decoration: none; transition: all .15s;
-    }
-    .cu-view-all:hover { border-color: #7c3aed; color: #7c3aed; background: #faf5ff; }
-
-    /* ── Responsive ───────────────────────────────────────── */
-    @media (max-width: 768px) {
-        /* Header */
-        .cu-header { padding: 10px 14px; }
-        .cu-header .d-flex { flex-direction: column; align-items: flex-start !important; gap: 10px; }
-        .cu-header-title { font-size: 15px; }
-        .cu-header-sub   { font-size: 11px; }
-        .cu-btn-new { width: 100%; justify-content: center; padding: 8px 14px; }
-    }
+@media(max-width:640px) {
+    .main-content { padding:14px 14px 40px; }
+    .rh-row-meta .rh-rate { display:none; }
+}
 </style>
 @endpush
 
 @section('content')
 <div class="main-content">
+<div class="rh-wrap">
 
-    {{-- ── Gradient Header ──────────────────────────────────── --}}
-    <div class="cu-header">
-        <div class="d-flex align-items-center justify-content-between" style="position:relative;z-index:1;">
-            <div>
-                <h1 class="cu-header-title"><i class="bi bi-arrow-repeat me-2"></i>Routines</h1>
-                <p class="cu-header-sub">Manage your daily, weekly, and monthly routines</p>
-            </div>
-            <a href="{{ route('routines.create') }}" class="cu-btn-new">
-                <i class="bi bi-plus-lg"></i> New Routine
-            </a>
-        </div>
+    <div class="rh-topbar">
+        <h1 class="rh-title">Routines</h1>
+        <span class="rh-count">{{ $routines->count() }}</span>
+        <a href="{{ route('routines.create') }}" class="rh-btn primary"><i class="bi bi-plus-lg"></i> New Routine</a>
     </div>
 
-    {{-- ── Stats Row ─────────────────────────────────────────── --}}
-    @php
-        $daily   = count($upcomingDailyRoutines);
-        $weekly  = count($upcomingWeeklyRoutines);
-        $monthly = count($upcomingMonthlyRoutines);
-        $total   = $daily + $weekly + $monthly;
-    @endphp
-    <div class="cu-stats">
-        <div class="cu-stat">
-            <div class="cu-stat-icon" style="background:#ede9fe;color:#7c3aed;">
-                <i class="bi bi-sun"></i>
-            </div>
-            <div>
-                <div class="cu-stat-val">{{ $daily }}</div>
-                <div class="cu-stat-label">Daily</div>
-            </div>
+    {{-- Weekly consistency score --}}
+    <div class="rh-score">
+        <div>
+            <div class="rh-score-pct">{{ $weekly['rate'] }}%</div>
+            <div class="rh-score-lbl">This week</div>
         </div>
-        <div class="cu-stat">
-            <div class="cu-stat-icon" style="background:#dbeafe;color:#2563eb;">
-                <i class="bi bi-calendar-week"></i>
-            </div>
-            <div>
-                <div class="cu-stat-val">{{ $weekly }}</div>
-                <div class="cu-stat-label">Weekly</div>
-            </div>
-        </div>
-        <div class="cu-stat">
-            <div class="cu-stat-icon" style="background:#fef3c7;color:#d97706;">
-                <i class="bi bi-calendar-month"></i>
-            </div>
-            <div>
-                <div class="cu-stat-val">{{ $monthly }}</div>
-                <div class="cu-stat-label">Monthly</div>
-            </div>
-        </div>
-        <div class="cu-stat">
-            <div class="cu-stat-icon" style="background:#dcfce7;color:#16a34a;">
-                <i class="bi bi-check2-circle"></i>
-            </div>
-            <div>
-                <div class="cu-stat-val">{{ $total }}</div>
-                <div class="cu-stat-label">Active Today</div>
-            </div>
-        </div>
+        <div class="rh-score-bar"><div class="rh-score-fill" style="width:{{ $weekly['rate'] }}%;"></div></div>
+        <div class="rh-score-cnt">{{ $weekly['done'] }}/{{ $weekly['total'] }} done</div>
     </div>
 
-    {{-- ── Kanban Columns ────────────────────────────────────── --}}
-    <div class="cu-kanban">
+    {{-- Frequency filter --}}
+    @php $counts = ['all' => $routines->count(), 'daily' => $routines->where('frequency','daily')->count(), 'weekly' => $routines->where('frequency','weekly')->count(), 'monthly' => $routines->where('frequency','monthly')->count()]; @endphp
+    <div class="rh-filters" id="rhFilters">
+        @foreach(['all' => 'All', 'daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'] as $key => $label)
+            <button class="rh-chip {{ ($key === 'all') ? 'active' : '' }}" data-filter="{{ $key }}">
+                {{ $label }} <small>{{ $counts[$key] }}</small>
+            </button>
+        @endforeach
+    </div>
 
-        {{-- Daily --}}
-        <div class="cu-col">
-            <div class="cu-col-head">
-                <div class="cu-col-head-left">
-                    <span class="cu-col-dot" style="background:#7c3aed;"></span>
-                    Daily Routines
-                    <span class="cu-col-count">{{ $daily }}</span>
-                </div>
-                <a href="{{ route('routines.create') }}" class="cu-col-add" title="Add routine">
-                    <i class="bi bi-plus"></i>
-                </a>
-            </div>
-            <div class="cu-col-body">
-                @forelse($upcomingDailyRoutines as $routine)
-                <div class="cu-routine-card">
-                    <div class="cu-routine-title">{{ $routine->title }}</div>
-                    @if($routine->description)
-                    <div class="cu-routine-desc">{{ Str::limit(strip_tags($routine->description), 90) }}</div>
-                    @endif
-                    <div class="cu-routine-meta">
-                        <span class="cu-meta-pill">
-                            <i class="bi bi-arrow-repeat"></i>
-                            {{ $routine->recurrenceLabel() }}
-                        </span>
-                        @if($routine->timeLabel())
-                        <span class="cu-meta-pill">
-                            <i class="bi bi-clock"></i>
-                            {{ $routine->timeLabel() }}
-                        </span>
-                        @endif
+    <div class="rh-list" id="rhList">
+        @forelse($routines as $routine)
+            <div class="rh-item" data-frequency="{{ $routine->frequency }}">
+                <div class="rh-card">
+                    <div class="rh-body">
+                        <div class="rh-row-title">{{ $routine->title }}</div>
+                        <div class="rh-row-meta">
+                            <span class="rh-pill"><i class="bi bi-arrow-repeat"></i> {{ $routine->recurrenceLabel() }}</span>
+                            @if($routine->timeLabel())
+                                <span class="rh-pill"><i class="bi bi-clock"></i> {{ $routine->timeLabel() }}</span>
+                            @endif
+                            @if(($routine->ringStreak ?? 0) > 0)
+                                <span class="rh-flame" title="Current streak">🔥{{ $routine->ringStreak }}</span>
+                            @endif
+                            @if($routine->ringLast7 !== null)
+                                <span class="last7" title="Last 7 days">
+                                    @foreach($routine->ringLast7 as $sq)
+                                        <i class="sq sq-{{ $sq['state'] }}"></i>
+                                    @endforeach
+                                </span>
+                            @endif
+                            <span class="rh-rate {{ ($routine->ringRate ?? 0) === 0 ? 'rh-rate-dim' : '' }}">
+                                {{ $routine->ringRate ?? 0 }}%
+                            </span>
+                        </div>
                     </div>
-                    <div class="cu-routine-footer">
-                        <a href="{{ route('routines.stats', $routine->id) }}" class="cu-card-btn stats">
-                            <i class="bi bi-bar-chart-line"></i> Stats
-                        </a>
-                        <a href="{{ route('routines.edit', $routine->id) }}" class="cu-card-btn edit">
-                            <i class="bi bi-pencil"></i> Edit
-                        </a>
-                        <form action="{{ route('routines.destroy', $routine->id) }}" method="POST" style="display:inline;"
-                              onsubmit="return confirm('Delete this routine?');">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="cu-card-btn delete">
-                                <i class="bi bi-trash"></i> Delete
+                    <div class="rh-actions">
+                        <a href="{{ route('routines.stats', $routine->id) }}" class="rh-link-btn" title="Stats"><i class="bi bi-graph-up"></i></a>
+                        <div class="dropdown rh-menu">
+                            <button class="rh-kebab" data-bs-toggle="dropdown" aria-expanded="false" title="More">
+                                <i class="bi bi-three-dots"></i>
                             </button>
-                        </form>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{{ route('routines.stats', $routine->id) }}"><i class="bi bi-graph-up me-2"></i>Stats</a></li>
+                                <li><a class="dropdown-item" href="{{ route('routines.edit', $routine->id) }}"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <button class="dropdown-item text-danger" onclick="archiveRoutine{{ md5($routine->id) }}()">
+                                        <i class="bi bi-archive me-2"></i>Archive
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
-                @empty
-                <div class="cu-empty">
-                    <i class="bi bi-sun"></i>
-                    <p>No daily routines active today</p>
-                </div>
-                @endforelse
-            </div>
-            <div class="cu-col-footer">
-                <a href="{{ route('routines.showDaily') }}" class="cu-view-all">
-                    <i class="bi bi-arrow-right-circle"></i> View all daily
-                </a>
-            </div>
-        </div>
 
-        {{-- Weekly --}}
-        <div class="cu-col">
-            <div class="cu-col-head">
-                <div class="cu-col-head-left">
-                    <span class="cu-col-dot" style="background:#2563eb;"></span>
-                    Weekly Routines
-                    <span class="cu-col-count">{{ $weekly }}</span>
-                </div>
-                <a href="{{ route('routines.create') }}" class="cu-col-add" title="Add routine">
-                    <i class="bi bi-plus"></i>
-                </a>
+                <form action="{{ route('routines.destroy', $routine->id) }}" method="POST" id="archiveForm{{ md5($routine->id) }}" style="display:none;">
+                    @csrf @method('DELETE')
+                </form>
             </div>
-            <div class="cu-col-body">
-                @forelse($upcomingWeeklyRoutines as $routine)
-                <div class="cu-routine-card">
-                    <div class="cu-routine-title">{{ $routine->title }}</div>
-                    @if($routine->description)
-                    <div class="cu-routine-desc">{{ Str::limit(strip_tags($routine->description), 90) }}</div>
-                    @endif
-                    <div class="cu-routine-meta">
-                        <span class="cu-meta-pill">
-                            <i class="bi bi-arrow-repeat"></i>
-                            {{ $routine->recurrenceLabel() }}
-                        </span>
-                        @if($routine->timeLabel())
-                        <span class="cu-meta-pill">
-                            <i class="bi bi-clock"></i>
-                            {{ $routine->timeLabel() }}
-                        </span>
-                        @endif
-                    </div>
-                    <div class="cu-routine-footer">
-                        <a href="{{ route('routines.stats', $routine->id) }}" class="cu-card-btn stats">
-                            <i class="bi bi-bar-chart-line"></i> Stats
-                        </a>
-                        <a href="{{ route('routines.edit', $routine->id) }}" class="cu-card-btn edit">
-                            <i class="bi bi-pencil"></i> Edit
-                        </a>
-                        <form action="{{ route('routines.destroy', $routine->id) }}" method="POST" style="display:inline;"
-                              onsubmit="return confirm('Delete this routine?');">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="cu-card-btn delete">
-                                <i class="bi bi-trash"></i> Delete
-                            </button>
-                        </form>
-                    </div>
-                </div>
-                @empty
-                <div class="cu-empty">
-                    <i class="bi bi-calendar-week"></i>
-                    <p>No weekly routines this week</p>
-                </div>
-                @endforelse
+        @empty
+            <div class="rh-empty">
+                <i class="bi bi-arrow-repeat"></i>
+                <h5>No routines yet</h5>
+                <p>Build your first daily or weekly routine to get started.</p>
+                <a href="{{ route('routines.create') }}" class="rh-btn primary" style="display:inline-flex;"><i class="bi bi-plus-lg"></i>Create Routine</a>
             </div>
-            <div class="cu-col-footer">
-                <a href="{{ route('routines.showWeekly') }}" class="cu-view-all">
-                    <i class="bi bi-arrow-right-circle"></i> View all weekly
-                </a>
-            </div>
-        </div>
-
-        {{-- Monthly --}}
-        <div class="cu-col">
-            <div class="cu-col-head">
-                <div class="cu-col-head-left">
-                    <span class="cu-col-dot" style="background:#d97706;"></span>
-                    Monthly Routines
-                    <span class="cu-col-count">{{ $monthly }}</span>
-                </div>
-                <a href="{{ route('routines.create') }}" class="cu-col-add" title="Add routine">
-                    <i class="bi bi-plus"></i>
-                </a>
-            </div>
-            <div class="cu-col-body">
-                @forelse($upcomingMonthlyRoutines as $routine)
-                <div class="cu-routine-card">
-                    <div class="cu-routine-title">{{ $routine->title }}</div>
-                    @if($routine->description)
-                    <div class="cu-routine-desc">{{ Str::limit(strip_tags($routine->description), 90) }}</div>
-                    @endif
-                    <div class="cu-routine-meta">
-                        <span class="cu-meta-pill">
-                            <i class="bi bi-arrow-repeat"></i>
-                            {{ $routine->recurrenceLabel() }}
-                        </span>
-                        @if($routine->timeLabel())
-                        <span class="cu-meta-pill">
-                            <i class="bi bi-clock"></i>
-                            {{ $routine->timeLabel() }}
-                        </span>
-                        @endif
-                    </div>
-                    <div class="cu-routine-footer">
-                        <a href="{{ route('routines.stats', $routine->id) }}" class="cu-card-btn stats">
-                            <i class="bi bi-bar-chart-line"></i> Stats
-                        </a>
-                        <a href="{{ route('routines.edit', $routine->id) }}" class="cu-card-btn edit">
-                            <i class="bi bi-pencil"></i> Edit
-                        </a>
-                        <form action="{{ route('routines.destroy', $routine->id) }}" method="POST" style="display:inline;"
-                              onsubmit="return confirm('Delete this routine?');">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="cu-card-btn delete">
-                                <i class="bi bi-trash"></i> Delete
-                            </button>
-                        </form>
-                    </div>
-                </div>
-                @empty
-                <div class="cu-empty">
-                    <i class="bi bi-calendar3"></i>
-                    <p>No monthly routines this month</p>
-                </div>
-                @endforelse
-            </div>
-            <div class="cu-col-footer">
-                <a href="{{ route('routines.showMonthly') }}" class="cu-view-all">
-                    <i class="bi bi-arrow-right-circle"></i> View all monthly
-                </a>
-            </div>
-        </div>
-
-    </div>{{-- end .cu-kanban --}}
+        @endforelse
+    </div>
 
 </div>
+</div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    /* Frequency filter chips */
+    const chips = document.querySelectorAll('#rhFilters .rh-chip');
+    const items = document.querySelectorAll('.rh-item');
+    chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            chips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            const f = chip.dataset.filter;
+            items.forEach(item => {
+                const show = f === 'all' || item.dataset.frequency === f;
+                item.style.display = show ? '' : 'none';
+            });
+        });
+    });
+
+    /* Archive (soft delete) — keeps completion history */
+    window.archiveRoutine = function(hmac) { };
+    @forelse($routines as $routine)
+    window['archiveRoutine{{ md5($routine->id) }}'] = function() {
+        if (confirm('Archive "{{ $routine->title }}"? Its history stays saved but it disappears from your lists.')) {
+            document.getElementById('archiveForm{{ md5($routine->id) }}').submit();
+        }
+    };
+    @empty
+    @endforelse
+});
+</script>
+@endpush

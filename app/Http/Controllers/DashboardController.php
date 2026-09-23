@@ -35,11 +35,15 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        // Today's routines (daily + weekly on this weekday + monthly on this day)
+        // Today's routines (with done counter for the quick-check widget)
         $todayRoutines = $user->routines()
             ->get()
             ->filter(fn ($routine) => $routine->occursOn(now()))
+            ->sortBy(fn ($r) => $r->sortKey())
             ->values();
+
+        $routineTotalCount = $todayRoutines->count();
+        $routineDoneCount  = $todayRoutines->filter(fn ($r) => $r->completedOn(now()))->count();
 
         // Upcoming reminders
         $upcomingReminders = $user->reminders()
@@ -98,6 +102,8 @@ class DashboardController extends Controller
             'projectsCount',
             'recentTasks',
             'todayRoutines',
+            'routineTotalCount',
+            'routineDoneCount',
             'recentNotes',
             'upcomingReminders',
             'completedTasksThisWeek',

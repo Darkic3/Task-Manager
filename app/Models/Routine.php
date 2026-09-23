@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Routine extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     public const WEEK_DAYS = [
         'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
@@ -263,6 +264,7 @@ class Routine extends Model
 
     /**
      * Toggle completion for the given date. Returns true when now completed.
+     * Idempotent: re-checking after an uncheck never creates duplicate rows.
      */
     public function toggleOn($date): bool
     {
@@ -271,10 +273,10 @@ class Routine extends Model
         $existing = $this->completions()
             ->where('user_id', $this->user_id)
             ->where('completed_date', $key)
-            ->first();
+            ->get();
 
-        if ($existing) {
-            $existing->delete();
+        if ($existing->isNotEmpty()) {
+            $existing->each->delete();
 
             return false;
         }

@@ -399,12 +399,13 @@
         try {
             const json = await routineToggleRequest(url, date);
             applyRoutineToggle(id, date, !!json.completed);
-            /* Package B: flame bump + minimal undo toast */
+            /* Package B: accurate flame from server + minimal undo toast */
             if (json.completed) {
-                bumpStreak(id);
+                setStreak(id, json.streak ?? null);
                 showRoutineToast(id, date);
                 maybeCelebrate();
             } else {
+                setStreak(id, json.streak ?? 0, true);
                 hideRoutineToast();
             }
             refreshRoutineCounters();
@@ -435,10 +436,14 @@
         });
     }
 
-    function bumpStreak(id) {
+    /* Flame reflects the server-computed streak (never inflated client-side) */
+    function setStreak(id, streak, hideIfZero) {
         document.querySelectorAll('[data-routine-item][data-id="' + id + '"] .flame').forEach(fl => {
-            const m = fl.textContent.match(/(\d+)/);
-            if (m) fl.textContent = '🔥' + (parseInt(m[1], 10) + 1);
+            if (!streak) {
+                if (hideIfZero) fl.remove();
+                return;
+            }
+            fl.textContent = '🔥' + streak;
         });
     }
 

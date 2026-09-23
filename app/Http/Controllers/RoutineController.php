@@ -16,12 +16,18 @@ class RoutineController extends Controller
     public function index()
     {
         $user = Auth::user();
+        $routines = $user->routines()->orderBy('title')->get();
 
-        $upcomingDailyRoutines = $user->routines()->where('frequency', 'daily')->latest()->get();
-        $upcomingWeeklyRoutines = $user->routines()->where('frequency', 'weekly')->latest()->get();
-        $upcomingMonthlyRoutines = $user->routines()->where('frequency', 'monthly')->latest()->get();
+        foreach ($routines as $routine) {
+            $m = $routine->habitMetrics(now()->startOfDay());
+            $routine->ringRate = $m['rate'];
+            $routine->ringStreak = $m['streak'];
+            $routine->ringLast7 = $m['last7'];
+        }
 
-        return view('routines.index', compact('upcomingDailyRoutines', 'upcomingWeeklyRoutines', 'upcomingMonthlyRoutines'));
+        $weekly = $this->weeklyConsistency($routines, now()->startOfDay());
+
+        return view('routines.index', compact('routines', 'weekly'));
     }
 
     public function create()
@@ -107,31 +113,45 @@ class RoutineController extends Controller
 
     public function showDaily()
     {
-        return $this->byFrequency('daily', 'routines.daily');
+        return redirect()->route('routines.index', ['filter' => 'daily']);
     }
 
     public function showWeekly()
     {
-        return $this->byFrequency('weekly', 'routines.weekly');
+        return redirect()->route('routines.index', ['filter' => 'weekly']);
     }
 
     public function showMonthly()
     {
-        return $this->byFrequency('monthly', 'routines.monthly');
+        return redirect()->route('routines.index', ['filter' => 'monthly']);
     }
 
-    private function byFrequency(string $frequency, string $view)
+    /**
+     * Weekly consistency: occurrences vs completions over the last 7 days
+     * across all routines (today's unchecked occurrences don't count as misses).
+     */
+    private function weeklyConsistency($routines, Carbon $today): array
     {
-        $routines = Auth::user()->routines()
-            ->when($frequency !== 'all', fn ($q) => $q->where('frequency', $frequency))
-            ->latest()
-            ->get();
+        $start = $today->copy()->subDays(6);
+        $occ = 0;
+        $done = 0;
 
-        $dailyRoutines = $routines->where('frequency', 'daily')->values();
-        $weeklyRoutines = $routines->where('frequency', 'weekly')->values();
-        $monthlyRoutines = $routines->where('frequency', 'monthly')->values();
+        foreach ($routines as $routine) {
+            $dates = $routine->occurrenceDates($start, $today);
 
-        return view($view, compact('dailyRoutines', 'weeklyRoutines', 'monthlyRoutines'));
+            if ($dates && end($dates) === $today->toDateString() && ! $routine->completedOn($today)) {
+                array_pop($dates);
+            }
+
+            $occ += count($dates);
+            $done += count(array_intersect($dates, $routine->completionDateKeys($start, $today)));
+        }
+
+        return [
+            'done' => $done,
+            'total' => $occ,
+            'rate' => $occ ? (int) round($done / $occ * 100) : 0,
+        ];
     }
 
     private function validated(Request $request): array

@@ -61,21 +61,89 @@ class RoutinesHabitTest extends TestCase
         $response->assertSee('sq-future', false);
     }
 
-    public function test_toggle_returns_completed_false_when_unchecked(): void
+    public function test_toggle_is_idempotent_after_recheck(): void
     {
         $user = User::factory()->create();
         $routine = Routine::factory()->create(['user_id' => $user->id, 'frequency' => 'daily']);
-        $date = now()->toDateString();
+        $date = now()->subDay()->toDateString();
 
-        $this->actingAs($user)->postJson("/planner/routines/{$routine->id}/toggle", ['date' => $date])
-            ->assertOk()->assertJson(['ok' => true, 'completed' => true]);
+        foreach ([true, false, true, false, true] as $shouldComplete) {
+            $result = $routine->toggleOn($date);
+            $this->assertSame($shouldComplete, $result);
+        }
 
-        $this->actingAs($user)->postJson("/planner/routines/{$routine->id}/toggle", ['date' => $date])
-            ->assertOk()->assertJson(['ok' => true, 'completed' => false]);
+        $this->assertSame(1, $routine->completions()->whereDate('completed_date', $date)->count());
+    }
 
-        $this->assertDatabaseMissing('routine_completions', [
-            'routine_id' => $routine->id,
-            'completed_date' => $date,
-        ]);
+    public function test_archiving_routine_keeps_history_but_hides_it(): void
+    {
+        $user = User::factory()->create();
+        $routine = Routine::factory()->create(['user_id' => $user->id, 'frequency' => 'daily', 'title' => 'Study review']);
+        $routine->toggleOn(now()->subDay());
+
+        $this->actingAs($user)->delete(route('routines.destroy', $routine))
+            ->assertRedirect();
+
+        /* History rows survive the delete (archive) */
+        $this->assertDatabaseHas('routine_completions', ['routine_id' => $routine->id]);
+        $this->assertSoftDeleted('routines', ['id' => $routine->id]);
+
+        /* Archived routine leaves the hub list */
+        $response = $this->actingAs($user)->get(route('routines.index'));
+        $response->assertOk();
+        $response->assertDontSee('Study review');
+        $response->assertSee('Weekly', false);
+    }
+
+    public function test_frequency_pages_redirect_to_hub_filter(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->get(route('routines.showDaily'))
+            ->assertRedirect(route('routines.index', ['filter' => 'daily']));
+        $this->actingAs($user)->get(route('routines.showWeekly'))
+            ->assertRedirect(route('routines.index', ['filter' => 'weekly']));
+        $this->actingAs($user)->get(route('routines.showMonthly'))
+            ->assertRedirect(route('routines.index', ['filter' => 'monthly']));
+    }
+
+    public function test_routine_hub_renders_minimal_with_score_and_filter(): void
+    {
+        $user = User::factory()->create();
+        $routine = Routine::factory()->create(['user_id' => $user->id, 'title' => 'Morning review']);
+        $routine->created_at = now()->subDays(3);
+        $routine->save();
+        $routine->toggleOn(now()->subDay());
+
+        $response = $this->actingAs($user)->get(route('routines.index'));
+
+        $response->assertOk();
+        $response->assertSee('Weekly', false);
+        $response->assertSee('rh-chip', false);
+        $response->assertSee('rh-score-bar', false);
+        $response->assertSee('Morning review');
+        $response->assertSee('🔥', false);
+        $response->assertSee('last7', false);
+        $response->assertDontSee('content-header', false);
+        $response->assertDontSee('cu-kanban', false);
+        $response->assertDontSee('Gradient', false);
+    }
+
+    public function test_dashboard_renders_today_routines_widget_with_counts(): void
+    {
+        $user = User::factory()->create();
+        $a = Routine::factory()->create(['user_id' => $user->id, 'title' => 'Routine Alpha']);
+        Routine::factory()->create(['user_id' => $user->id, 'title' => 'Routine Beta']);
+        $a->toggleOn(now());
+
+        $response = $this->actingAs($user)->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('id="dbRoutineCount"', false);
+        $response->assertSee('>1/2</span>', false);
+        $response->assertSee('Routine Alpha');
+        $response->assertSee('Routine Beta');
+        $response->assertSee('dbToggleRoutine', false);
+        $response->assertSee(route('planner.routines.toggle', $a), false);
     }
 }
