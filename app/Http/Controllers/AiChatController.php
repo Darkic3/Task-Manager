@@ -124,9 +124,16 @@ class AiChatController extends Controller
         $messages = $this->buildMessages($user, $context, $request->input('history', []), $request->message);
 
         try {
-            $reply = $this->callProviderSync($resolved, $messages);
+            $result = $this->callProviderSyncWithTools($resolved, $messages, $user);
             \Log::info('AI chat response', ['user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model']]);
-            return response()->json(['reply' => $reply, 'model' => $resolved['model'], 'provider' => $resolved['provider']]);
+            $payload = ['model' => $resolved['model'], 'provider' => $resolved['provider']];
+            if (isset($result['reply'])) {
+                $payload['reply'] = $result['reply'];
+            }
+            if (isset($result['proposal'])) {
+                $payload['proposal'] = $result['proposal'];
+            }
+            return response()->json($payload);
         } catch (\Exception $e) {
             \Log::error('AI chat failed', ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'error' => $e->getMessage()]);
             return response()->json(['reply' => 'AI error: ' . $e->getMessage()], 200);
@@ -255,7 +262,20 @@ class AiChatController extends Controller
 
     private function callOpenAiSync(string $key, string $baseUrl, array $messages, string $model): string
     {
-        $payload = $this->ai->openAiPayload($messages, $model, false, $baseUrl);
+        $result = $this->callOpenAiSyncRaw($key, $baseUrl, $messages, $model, null);
+        if ($result['text'] === '' && empty($result['tool_calls'])) {
+            throw new \Exception('Empty response from provider');
+        }
+        return $result['text'];
+    }
+
+    /**
+     * Raw OpenAI-compatible sync call with optional tools.
+     * Returns ['text'=>string,'tool_calls'=>array].
+     */
+    private function callOpenAiSyncRaw(string $key, string $baseUrl, array $messages, string $model, ?array $tools): array
+    {
+        $payload = $this->ai->openAiPayload($messages, $model, false, $baseUrl, $tools);
         $response = $this->ai->postJson($baseUrl, $payload, [
             'Authorization' => 'Bearer ' . $key,
         ], 60);
@@ -263,9 +283,100 @@ class AiChatController extends Controller
         if ($response->failed()) {
             throw new \Exception($this->ai->formatErrorResponse($response));
         }
-        $text = trim($response->json('choices.0.message.content') ?? '');
-        if ($text === '') throw new \Exception('Empty response from provider');
-        return $text;
+        $msg = $response->json('choices.0.message') ?? [];
+        $text = trim($msg['content'] ?? '');
+        $toolCalls = $msg['tool_calls'] ?? [];
+
+        return ['text' => $text, 'tool_calls' => is_array($toolCalls) ? $toolCalls : []];
+    }
+
+    /**
+     * Sync dispatch that also supports tool proposals for OpenAI-compatible providers.
+     * Returns ['reply'=>string] or ['reply'=>string,'proposal'=>array].
+     */
+    private function callProviderSyncWithTools(array $resolved, array $messages, $user): array
+    {
+        $type = $resolved['type'] ?? 'openai';
+        if ($type !== 'openai') {
+            return ['reply' => $this->callProviderSync($resolved, $messages)];
+        }
+
+        $tools = (new \App\Services\AiToolService)->definitions();
+        $raw = $this->callOpenAiSyncRaw($resolved['key'], $resolved['config']['base_url'], $messages, $resolved['model'], $tools);
+
+        if (empty($raw['tool_calls'])) {
+            if ($raw['text'] === '') {
+                throw new \Exception('Empty response from provider');
+            }
+            return ['reply' => $raw['text']];
+        }
+
+        $first = $raw['tool_calls'][0];
+        $proposal = $this->createPendingFromToolCall(
+            $user, null,
+            $first['function']['name'] ?? '',
+            $first['function']['arguments'] ?? '{}'
+        );
+
+        $out = [];
+        if ($raw['text'] !== '') {
+            $out['reply'] = $raw['text'];
+        }
+        $out['proposal'] = $proposal;
+
+        return $out;
+    }
+
+    /**
+     * Validate + store a tool call as a pending action (no execution).
+     * Returns proposal array for the frontend card, or ['error'=>...] on failure.
+     */
+    private function createPendingFromToolCall($user, $conversationId, string $tool, $argsJson): array
+    {
+        $service = new \App\Services\AiToolService;
+        $args = is_string($argsJson) ? (json_decode($argsJson, true) ?? []) : (array) $argsJson;
+
+        $open = \App\Models\AiPendingAction::where('user_id', $user->id)
+            ->where('status', \App\Models\AiPendingAction::STATUS_PENDING)
+            ->where('expires_at', '>', now())
+            ->count();
+        if ($open >= 5) {
+            return ['error' => 'Too many pending confirmations. Confirm or cancel one first.'];
+        }
+
+        $check = $service->validateCall($tool, $args, $user);
+        if (! ($check['ok'] ?? false)) {
+            return ['error' => $check['error'] ?? 'Invalid action.'];
+        }
+
+        $action = \App\Models\AiPendingAction::create([
+            'user_id' => $user->id,
+            'conversation_id' => $conversationId,
+            'tool' => $tool,
+            'args' => $check['resolved'],
+            'preview' => $service->preview($tool, $check['resolved'], $user),
+            'status' => \App\Models\AiPendingAction::STATUS_PENDING,
+            'expires_at' => now()->addMinutes(\App\Models\AiPendingAction::EXPIRY_MINUTES),
+            'idempotency_key' => bin2hex(random_bytes(32)),
+        ]);
+
+        \Log::info('ai.tool.proposed', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $action->id]);
+
+        return [
+            'action_id' => $action->id,
+            'tool' => $tool,
+            'preview' => $action->preview,
+            'expires_at' => $action->expires_at->toIso8601String(),
+        ];
+    }
+
+    private function toolsForResolved(array $resolved): ?array
+    {
+        if (($resolved['type'] ?? 'openai') !== 'openai') {
+            return null;
+        }
+
+        return (new \App\Services\AiToolService)->definitions();
     }
 
     private function callGeminiSync(string $key, string $baseUrl, array $messages, string $model): string
@@ -346,7 +457,7 @@ class AiChatController extends Controller
                     'HTTP-Referer'  => (string) config('app.url'),
                     'X-Title'       => (string) config('app.name', 'Task Manager'),
                 ],
-                'json' => $this->ai->openAiPayload($messages, $model, true, $cfg['base_url']),
+                'json' => $this->ai->openAiPayload($messages, $model, true, $cfg['base_url'], $this->toolsForResolved($resolved)),
                 'stream' => true,
             ]);
             $status = $response->getStatusCode();
@@ -395,6 +506,8 @@ class AiChatController extends Controller
             $sseFlush();
             $buffer = '';
             $accumulatedText = '';
+            $toolAccum = [];
+            $controller = $this;
             try {
                 while (!$body->eof()) {
                     $chunk = $body->read(256);
@@ -411,6 +524,7 @@ class AiChatController extends Controller
                                 AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => $accumulatedText, 'model' => $model]);
                                 AiConversation::where('id', $conversationId)->touch();
                             }
+                            $controller->emitToolProposals($toolAccum, $userId, $conversationId, $sseFlush);
                             echo "data: [DONE]\n\n";
                             $sseFlush();
                             return;
@@ -427,8 +541,15 @@ class AiChatController extends Controller
                             $sseFlush();
                             return;
                         }
-                        $token = $decoded['choices'][0]['delta']['content'] ?? '';
+                        $delta = $decoded['choices'][0]['delta'] ?? [];
+                        $token = $delta['content'] ?? '';
                         if ($token) $accumulatedText .= $token;
+                        foreach (($delta['tool_calls'] ?? []) as $tc) {
+                            $idx = (int) ($tc['index'] ?? 0);
+                            $toolAccum[$idx]['id'] = $tc['id'] ?? ($toolAccum[$idx]['id'] ?? null);
+                            $toolAccum[$idx]['name'] = $tc['function']['name'] ?? ($toolAccum[$idx]['name'] ?? null);
+                            $toolAccum[$idx]['arguments'] = ($toolAccum[$idx]['arguments'] ?? '') . ($tc['function']['arguments'] ?? '');
+                        }
                         echo "data: {$data}\n\n";
                         $sseFlush();
                     }
@@ -448,9 +569,33 @@ class AiChatController extends Controller
                     }
                 } catch (\Exception $e) {}
             }
+            $controller->emitToolProposals($toolAccum, $userId, $conversationId, $sseFlush);
             echo "data: [DONE]\n\n";
             $sseFlush();
         }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
+    }
+
+    /**
+     * Turn accumulated tool_calls into pending actions and emit SSE proposals.
+     */
+    public function emitToolProposals(array $toolAccum, int $userId, int $conversationId, callable $sseFlush): void
+    {
+        if (empty($toolAccum)) {
+            return;
+        }
+        $user = \App\Models\User::find($userId);
+        if (! $user) {
+            return;
+        }
+        foreach (array_values($toolAccum) as $tc) {
+            $name = $tc['name'] ?? null;
+            if (! $name) {
+                continue;
+            }
+            $proposal = $this->createPendingFromToolCall($user, $conversationId, $name, $tc['arguments'] ?? '{}');
+            echo 'data: ' . json_encode(['type' => 'tool_proposal'] + $proposal) . "\n\n";
+            $sseFlush();
+        }
     }
 
     /* ── Helpers ── */
@@ -473,6 +618,7 @@ Guidelines:
 - For code, always use fenced code blocks with the language specified
 - For workspace data, only refer to what is in the context below — do not invent data
 - Be concise and practical
+- When the user asks to create, edit, complete or delete a task, reminder, note, project or checklist item, call the matching tool instead of just describing it. One tool call per user request; destructive deletes need no extra warning text because the app shows a confirmation card.
 
 --- USER WORKSPACE DATA ---
 {$context}

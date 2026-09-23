@@ -354,7 +354,7 @@ class AiProviderService
         return 'HTTP ' . $response->status() . ': ' . $detail;
     }
 
-    public function openAiPayload(array $messages, string $model, bool $stream = false, ?string $baseUrl = null): array
+    public function openAiPayload(array $messages, string $model, bool $stream = false, ?string $baseUrl = null, ?array $tools = null): array
     {
         $payload = [
             'messages'    => $messages,
@@ -362,6 +362,10 @@ class AiProviderService
             'temperature' => 0.7,
         ];
         if ($stream) $payload['stream'] = true;
+        if (! empty($tools)) {
+            $payload['tools'] = $tools;
+            $payload['tool_choice'] = 'auto';
+        }
 
         // OpenRouter supports a fallback list via the `models` array.
         // A comma-separated model field (e.g. "free-model:free, openai/gpt-4o-mini")
