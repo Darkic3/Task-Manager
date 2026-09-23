@@ -16,16 +16,28 @@ class RoutineController extends Controller
     public function index()
     {
         $user = Auth::user();
+        $today = now()->startOfDay();
         $routines = $user->routines()->orderBy('title')->get();
 
+        // Batch: one completions query for [today-1y .. today]; ring math is pure PHP.
+        $from = $today->copy()->subYear()->startOfDay();
+        $rows = $routines->isNotEmpty()
+            ? \App\Models\RoutineCompletion::where('user_id', $user->id)
+                ->whereIn('routine_id', $routines->pluck('id'))
+                ->whereBetween('completed_date', [$from->toDateString(), $today->toDateString()])
+                ->get()
+                ->groupBy('routine_id')
+            : collect();
+
         foreach ($routines as $routine) {
-            $m = $routine->habitMetrics(now()->startOfDay());
+            $routine->setRelation('completions', $rows->get($routine->id, collect()));
+            $m = $this->habitMetricsFromLoaded($routine, $today);
             $routine->ringRate = $m['rate'];
             $routine->ringStreak = $m['streak'];
             $routine->ringLast7 = $m['last7'];
         }
 
-        $weekly = $this->weeklyConsistency($routines, now()->startOfDay());
+        $weekly = $this->weeklyConsistencyFromLoaded($routines, $today);
 
         return view('routines.index', compact('routines', 'weekly'));
     }
@@ -134,7 +146,79 @@ class RoutineController extends Controller
     /**
      * Weekly consistency: occurrences vs completions over the last 7 days
      * across all routines (today's unchecked occurrences don't count as misses).
+     * Pure PHP over already-loaded `completions` relations (no queries).
      */
+    private function weeklyConsistencyFromLoaded($routines, Carbon $today): array
+    {
+        $start = $today->copy()->subDays(6);
+        $occ = 0;
+        $done = 0;
+
+        foreach ($routines as $routine) {
+            $dates = $routine->occurrenceDates($start, $today);
+
+            if ($dates && end($dates) === $today->toDateString() && ! $routine->completedOn($today)) {
+                array_pop($dates);
+            }
+
+            $occ += count($dates);
+            $done += count(array_intersect($dates, $routine->completionDateKeys($start, $today)));
+        }
+
+        return [
+            'done' => $done,
+            'total' => $occ,
+            'rate' => $occ ? (int) round($done / $occ * 100) : 0,
+        ];
+    }
+
+    /**
+     * Pure-PHP habit metrics from the preloaded `completions` relation.
+     */
+    private function habitMetricsFromLoaded(Routine $routine, Carbon $date): array
+    {
+        $date = $date->copy()->startOfDay();
+        $todayKey = $date->toDateString();
+        $completedKeys = array_flip($routine->completionDateKeys($date->copy()->subYear(), $date));
+
+        $rate = $routine->adherence(30, $date)['rate'];
+
+        // Current streak without extra queries (uses the preloaded keys above).
+        $occurrences = $routine->occurrenceDates($date->copy()->subYear(), $date);
+        if ($occurrences && end($occurrences) === $todayKey && ! isset($completedKeys[$todayKey])) {
+            array_pop($occurrences);
+        }
+        $streak = 0;
+        for ($i = count($occurrences) - 1; $i >= 0; $i--) {
+            if (! isset($completedKeys[$occurrences[$i]])) {
+                break;
+            }
+            $streak++;
+        }
+
+        $from = $date->copy()->subDays(6);
+        $last7Keys = array_flip($routine->completionDateKeys($from, $date));
+        $now = now()->startOfDay();
+        $last7 = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $day = $date->copy()->subDays($i);
+            $key = $day->toDateString();
+            $occurs = (! $routine->created_at || ! $day->lt($routine->created_at->copy()->startOfDay()))
+                && $routine->occursOn($day);
+
+            $state = 'na';
+            if ($day->isFuture() || $day->isSameDay($now)) {
+                $state = $day->isSameDay($now) ? 'today' : 'future';
+            } elseif ($occurs) {
+                $state = isset($last7Keys[$key]) ? 'done' : 'missed';
+            }
+
+            $last7[] = ['date' => $key, 'state' => $state];
+        }
+
+        return ['rate' => $rate, 'streak' => $streak, 'last7' => $last7];
+    }
+
     private function weeklyConsistency($routines, Carbon $today): array
     {
         $start = $today->copy()->subDays(6);

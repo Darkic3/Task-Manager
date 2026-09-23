@@ -35,8 +35,24 @@ class RoutineChecklistItem extends Model
 
     public function completedOn($date): bool
     {
+        $key = RoutineCheckitemCompletion::dateKey($date);
+
+        if ($this->relationLoaded('completions')) {
+            return $this->completions->contains(function ($c) use ($key) {
+                $value = $c->completed_date ?? null;
+                if ($value instanceof \Carbon\Carbon) {
+                    return $value->toDateString() === $key;
+                }
+                if (is_string($value) && strlen($value) >= 10) {
+                    return substr($value, 0, 10) === $key;
+                }
+
+                return false;
+            });
+        }
+
         return $this->completions()
-            ->where('completed_date', RoutineCheckitemCompletion::dateKey($date))
+            ->where('completed_date', $key)
             ->exists();
     }
 

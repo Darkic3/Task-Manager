@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Routine;
 use App\Models\RoutineCheckitemCompletion;
 use App\Models\RoutineChecklistItem;
+use App\Models\RoutineCompletion;
 use App\Models\Task;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -45,8 +46,14 @@ class PlannerController extends Controller
                 ->get()
         );
 
-        $routinesData = $this->routinesForDate($user, $selected);
-        $this->decorateHabitMetrics($routinesData['today'], $selected);
+        // Single fetch for all routines + one batched completion/step fetch (no N+1).
+        $routines = $this->fetchRoutines($user);
+        $rangeStart = $selected->copy()->subYear()->startOfDay();
+        $this->preloadRoutineCompletions($user->id, $routines, $rangeStart, $selected);
+        $stepMap = $this->preloadStepCompletions($routines, $selected, $selected);
+
+        $routinesData = $this->splitRoutines($routines, $selected);
+        $this->decorateHabitMetricsBulk($routinesData['today'], $selected, $stepMap);
 
         return view('planner.index', [
             'view' => 'day',
@@ -73,15 +80,20 @@ class PlannerController extends Controller
             ->with('project:id,name')
             ->get();
 
+        // Fetch routines once for the whole week; ring stays enabled via bulk maps.
+        $routines = $this->fetchRoutines($user);
+        $rangeStart = $start->copy()->subYear()->startOfDay();
+        $this->preloadRoutineCompletions($user->id, $routines, $rangeStart, $end);
+        $stepMap = $this->preloadStepCompletions($routines, $start, $end);
+
         $days = [];
         for ($i = 0; $i < 7; $i++) {
-            $day = $start->copy()->addDays($i);
             $day = $start->copy()->addDays($i);
             $dayTasks = $tasks->filter(
                 fn ($t) => $t->due_date && Carbon::parse($t->due_date)->isSameDay($day)
             );
-            $dayRoutines = $this->routinesForDate($user, $day);
-            $this->decorateHabitMetrics($dayRoutines['today'], $day);
+            $dayRoutines = $this->splitRoutines($routines, $day);
+            $this->decorateHabitMetricsBulk($dayRoutines['today'], $day, $stepMap);
             $days[] = [
                 'date' => $day,
                 'tasks' => $this->sortByPriority($dayTasks->values()),
@@ -125,11 +137,21 @@ class PlannerController extends Controller
         $date = $this->parseDate($request->input('date'));
         $completed = $routine->toggleOn($date);
 
-        /* Keep per-step completions in sync with the whole-routine toggle */
-        $items = $routine->checklistItems()->get();
-        foreach ($items as $item) {
-            if ($item->completedOn($date) !== $completed) {
-                $item->toggleOn($date);
+        /* Keep per-step completions in sync with the whole-routine toggle (batched). */
+        $items = $routine->checklistItems()->orderBy('sort_order')->orderBy('id')->get();
+        if ($items->isNotEmpty()) {
+            $key = RoutineCheckitemCompletion::dateKey($date);
+            $doneIds = RoutineCheckitemCompletion::whereIn('checklist_item_id', $items->pluck('id'))
+                ->where('completed_date', $key)
+                ->pluck('checklist_item_id')
+                ->map(fn ($id) => (int) $id)
+                ->flip();
+
+            foreach ($items as $item) {
+                $isDone = isset($doneIds[(int) $item->id]);
+                if ($isDone !== $completed) {
+                    $item->toggleOn($date);
+                }
             }
         }
 
@@ -155,8 +177,16 @@ class PlannerController extends Controller
         $itemCompleted = $item->toggleOn($date);
 
         $routine = $item->routine;
-        $items = $routine->checklistItems()->get();
-        $done = $items->filter(fn ($it) => $it->completedOn($date))->count();
+        $items = $routine->checklistItems()->orderBy('sort_order')->orderBy('id')->get();
+        $key = RoutineCheckitemCompletion::dateKey($date);
+        $doneIds = $items->isNotEmpty()
+            ? RoutineCheckitemCompletion::whereIn('checklist_item_id', $items->pluck('id'))
+                ->where('completed_date', $key)
+                ->pluck('checklist_item_id')
+                ->map(fn ($id) => (int) $id)
+                ->flip()
+            : collect();
+        $done = $items->filter(fn ($it) => isset($doneIds[(int) $it->id]))->count();
         $total = $items->count();
         $allDone = $total > 0 && $done === $total;
 
@@ -182,13 +212,83 @@ class PlannerController extends Controller
     }
 
     /**
-     * Split routines into: occurring today, later-this-week, later-this-month,
-     * plus completion counts for the selected date.
+     * Fetch all user routines with steps eager-loaded (single query + 1 for steps).
      */
-    private function routinesForDate($user, Carbon $date): array
+    private function fetchRoutines($user)
     {
-        $routines = $user->routines()->get();
+        return $user->routines()->with(['checklistItems' => function ($q) {
+            $q->orderBy('sort_order')->orderBy('id');
+        }])->get();
+    }
 
+    /**
+     * Preload routine completions for [from..to] in ONE query and attach them
+     * as the loaded `completions` relation, so completedOn()/completionRecord()
+     * never query again. Returns date-key map per routine for ring math.
+     */
+    private function preloadRoutineCompletions(int $userId, $routines, Carbon $from, Carbon $to): array
+    {
+        if ($routines->isEmpty()) {
+            return [];
+        }
+
+        $rows = RoutineCompletion::where('user_id', $userId)
+            ->whereIn('routine_id', $routines->pluck('id'))
+            ->whereBetween('completed_date', [$from->toDateString(), $to->toDateString()])
+            ->get()
+            ->groupBy('routine_id');
+
+        $keysByRoutine = [];
+        foreach ($routines as $routine) {
+            $list = $rows->get($routine->id, collect());
+            $routine->setRelation('completions', $list);
+            $keysByRoutine[$routine->id] = $list
+                ->map(fn ($c) => $c->completed_date instanceof Carbon
+                    ? $c->completed_date->toDateString()
+                    : Carbon::parse($c->completed_date)->toDateString())
+                ->flip();
+        }
+
+        return $keysByRoutine;
+    }
+
+    /**
+     * Preload step completions for [from..to] in ONE query, attach per-step
+     * loaded relations, and return lookup [item_id][date] => true.
+     */
+    private function preloadStepCompletions($routines, Carbon $from, Carbon $to): array
+    {
+        $steps = $routines->flatMap(fn ($r) => $r->getRelation('checklistItems'));
+        if ($steps->isEmpty()) {
+            return [];
+        }
+
+        $rows = RoutineCheckitemCompletion::whereIn('checklist_item_id', $steps->pluck('id'))
+            ->whereBetween('completed_date', [$from->toDateString(), $to->toDateString()])
+            ->get()
+            ->groupBy('checklist_item_id');
+
+        $map = [];
+        foreach ($steps as $step) {
+            $list = $rows->get($step->id, collect());
+            $step->setRelation('completions', $list);
+            foreach ($list as $row) {
+                $key = $row->completed_date instanceof Carbon
+                    ? $row->completed_date->toDateString()
+                    : Carbon::parse($row->completed_date)->toDateString();
+                $map[(int) $step->id][$key] = true;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Split routines into: occurring today, later-this-week, later-this-month,
+     * plus completion counts for the selected date (pure PHP, no queries).
+     */
+    private function splitRoutines($routines, Carbon $date): array
+    {
         $today = $routines
             ->filter(fn ($r) => $r->occursOn($date))
             ->sortBy(fn ($r) => $r->sortKey())
@@ -255,31 +355,89 @@ class PlannerController extends Controller
     }
 
     /**
-     * Attach habit-ring data (adherence %, streak, last-7 squares) to each
-     * routine so _routine-row can render the ring without extra queries there.
+     * Attach habit-ring data from already-loaded relations (no queries):
+     * adherence %, streak, last-7 squares + per-day step states.
      */
-    private function decorateHabitMetrics($routines, Carbon $date): void
+    private function decorateHabitMetricsBulk($routines, Carbon $date, array $stepMap): void
     {
-        $items = RoutineChecklistItem::whereIn('routine_id', $routines->pluck('id'))
-            ->orderBy('sort_order')->orderBy('id')->get()->groupBy('routine_id');
-
         foreach ($routines as $routine) {
-            $m = $routine->habitMetrics($date);
+            $completedSet = $routine->relationLoaded('completions')
+                ? $routine->completions
+                    ->map(fn ($c) => $c->completed_date instanceof Carbon
+                        ? $c->completed_date->toDateString()
+                        : Carbon::parse($c->completed_date)->toDateString())
+                    ->flip()
+                : [];
+
+            $m = $this->habitMetricsFromSet($routine, $completedSet, $date);
             $routine->ringRate = $m['rate'];
             $routine->ringStreak = $m['streak'];
             $routine->ringLast7 = $m['last7'];
 
-            $steps = $items->get($routine->id, collect());
-            $doneIds = array_map('intval', RoutineCheckitemCompletion::whereIn('checklist_item_id', $steps->pluck('id'))
-                ->where('completed_date', $date->toDateString())
-                ->pluck('checklist_item_id')->all());
+            $dayKey = $date->toDateString();
+            $steps = $routine->relationLoaded('checklistItems')
+                ? $routine->checklistItems
+                : collect();
 
             $routine->ringSteps = $steps->map(fn ($s) => [
                 'id' => $s->id,
                 'name' => $s->name,
-                'completed' => in_array((int) $s->id, $doneIds, true),
+                'completed' => isset($stepMap[(int) $s->id][$dayKey]),
             ])->values();
         }
+    }
+
+    /**
+     * Pure-PHP version of Routine::habitMetrics() using a preloaded completed set.
+     */
+    private function habitMetricsFromSet(Routine $routine, $completedSet, Carbon $date): array
+    {
+        $date = $date->copy()->startOfDay();
+        $todayKey = $date->toDateString();
+
+        // 30-day adherence (excluding today when still open).
+        $from30 = $date->copy()->subDays(29);
+        $occ30 = $routine->occurrenceDates($from30, $date);
+        if ($occ30 && end($occ30) === $todayKey && ! isset($completedSet[$todayKey])) {
+            array_pop($occ30);
+        }
+        $done30 = count(array_intersect($occ30, array_keys(is_array($completedSet) ? $completedSet : $completedSet->toArray())));
+        $rate = count($occ30) ? (int) round($done30 / count($occ30) * 100) : 0;
+
+        // Current streak over the trailing year.
+        $fromYear = $date->copy()->subYear();
+        $occYear = $routine->occurrenceDates($fromYear, $date);
+        if ($occYear && end($occYear) === $todayKey && ! isset($completedSet[$todayKey])) {
+            array_pop($occYear);
+        }
+        $streak = 0;
+        for ($i = count($occYear) - 1; $i >= 0; $i--) {
+            if (! isset($completedSet[$occYear[$i]])) {
+                break;
+            }
+            $streak++;
+        }
+
+        // Last-7 squares.
+        $now = now()->startOfDay();
+        $last7 = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $day = $date->copy()->subDays($i);
+            $key = $day->toDateString();
+            $occurs = (! $routine->created_at || ! $day->lt($routine->created_at->copy()->startOfDay()))
+                && $routine->occursOn($day);
+
+            $state = 'na';
+            if ($day->isFuture() || $day->isSameDay($now)) {
+                $state = $day->isSameDay($now) ? 'today' : 'future';
+            } elseif ($occurs) {
+                $state = isset($completedSet[$key]) ? 'done' : 'missed';
+            }
+
+            $last7[] = ['date' => $key, 'state' => $state];
+        }
+
+        return ['rate' => $rate, 'streak' => $streak, 'last7' => $last7];
     }
 
     private function sortByPriority($tasks)

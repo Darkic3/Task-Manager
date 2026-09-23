@@ -66,9 +66,16 @@ class ProjectController extends Controller
 
     public function show(Project $project)
     {
-        $project->load(['parent', 'children.tasks', 'children.children', 'tasks']);
-        $teamMembers = $project->users()->get();
-        $users = User::all();
+        $project->load([
+            'parent.parent.parent',
+            'childrenRecursive.tasks.childrenRecursive',
+            'childrenRecursive.tasks.timeEntries',
+            'tasks.childrenRecursive',
+            'tasks.timeEntries',
+            'tasks.checklistItems',
+        ]);
+        $teamMembers = $project->users()->get(['users.id', 'users.name', 'users.email']);
+        $users = User::query()->get(['id', 'name', 'email']);
 
         return view('projects.show', compact('project', 'teamMembers', 'users'));
     }

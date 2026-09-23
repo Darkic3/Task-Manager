@@ -105,15 +105,16 @@ class Project extends Model
 
     /**
      * Chain of ancestors from the root down to (excluding) this project.
+     * Uses the loaded `parent` relation when available (no queries).
      */
     public function breadcrumb(): array
     {
         $chain = [];
-        $current = $this->parent;
+        $current = $this->relationLoaded('parent') ? $this->parent : $this->parent()->first();
         $guard = 0;
         while ($current && $guard++ < 50) {
             array_unshift($chain, $current);
-            $current = $current->parent;
+            $current = $current->relationLoaded('parent') ? $current->parent : $current->parent()->first();
         }
 
         return $chain;

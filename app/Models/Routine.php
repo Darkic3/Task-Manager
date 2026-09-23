@@ -270,13 +270,25 @@ class Routine extends Model
 
     public function completedOn($date): bool
     {
+        if ($this->relationLoaded('completions')) {
+            $key = RoutineCompletion::dateKey($date);
+
+            return $this->completions->contains(fn ($c) => $this->completionDateEquals($c, $key));
+        }
+
         return $this->completionRecord($date) !== null;
     }
 
     public function completionRecord($date): ?RoutineCompletion
     {
+        $key = RoutineCompletion::dateKey($date);
+
+        if ($this->relationLoaded('completions')) {
+            return $this->completions->first(fn ($c) => $this->completionDateEquals($c, $key));
+        }
+
         return $this->completions()
-            ->where('completed_date', RoutineCompletion::dateKey($date))
+            ->where('completed_date', $key)
             ->first();
     }
 
@@ -330,12 +342,26 @@ class Routine extends Model
     }
 
     /**
-     * Completion date keys (Y-m-d) within the range.
-     */
+      * Completion date keys (Y-m-d) within the range.
+      * Uses the eager-loaded `completions` relation when available (no query).
+      */
     public function completionDateKeys(Carbon $start, Carbon $end): array
     {
+        $from = $start->toDateString();
+        $to = $end->toDateString();
+
+        if ($this->relationLoaded('completions')) {
+            return $this->completions
+                ->map(fn ($c) => $c->completed_date instanceof Carbon
+                    ? $c->completed_date->toDateString()
+                    : Carbon::parse($c->completed_date)->toDateString())
+                ->filter(fn ($key) => $key >= $from && $key <= $to)
+                ->values()
+                ->all();
+        }
+
         return $this->completions()
-            ->whereBetween('completed_date', [$start->toDateString(), $end->toDateString()])
+            ->whereBetween('completed_date', [$from, $to])
             ->pluck('completed_date')
             ->map(fn ($date) => Carbon::parse($date)->toDateString())
             ->all();
@@ -483,6 +509,21 @@ class Routine extends Model
         }
 
         return $this->occursOn($date);
+    }
+
+    private function completionDateEquals($completion, string $key): bool
+    {
+        $value = $completion->completed_date ?? null;
+
+        if ($value instanceof Carbon) {
+            return $value->toDateString() === $key;
+        }
+
+        if (is_string($value) && strlen($value) >= 10) {
+            return substr($value, 0, 10) === $key;
+        }
+
+        return $completion->getAttribute('completed_date') == $key;
     }
 
     private function decode($value): array

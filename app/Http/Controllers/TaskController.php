@@ -19,7 +19,8 @@ class TaskController extends Controller
             // Show tasks for a specific project (closed projects still accessible directly)
             $tasks = Task::where('user_id', $user->id)
                 ->where('project_id', $project->id)
-                ->with(['project', 'children'])
+                ->with(['project:id,name,slug', 'childrenRecursive', 'checklistItems', 'timeEntries'])
+                ->withCount('children')
                 ->get()
                 ->groupBy('status');
         } else {
@@ -28,7 +29,8 @@ class TaskController extends Controller
                 ->whereHas('project', function ($query) {
                     $query->whereNotIn('status', ['completed', 'closed']);
                 })
-                ->with(['project', 'children'])
+                ->with(['project:id,name,slug', 'childrenRecursive', 'checklistItems', 'timeEntries'])
+                ->withCount('children')
                 ->get()
                 ->groupBy('status');
         }
@@ -37,8 +39,8 @@ class TaskController extends Controller
         $taskRoots = $allTasks->filter(fn ($t) => $t->parent_id === null)->values();
 
         // Only show projects whose tasks are actually loaded (exclude completed & closed)
-        $projects = Project::whereNotIn('status', ['completed', 'closed'])->get();
-        $users = User::all();
+        $projects = Project::where('user_id', $user->id)->whereNotIn('status', ['completed', 'closed'])->get(['id', 'name', 'slug', 'status']);
+        $users = User::query()->get(['id', 'name', 'email']);
 
         return view('tasks.index', compact('tasks', 'taskRoots', 'projects', 'users', 'project'));
     }
@@ -87,7 +89,7 @@ class TaskController extends Controller
 
     public function show(Task $task)
     {
-        $task->load('user', 'project', 'checklistItems', 'parent', 'children');
+        $task->load(['user:id,name', 'project:id,name,slug', 'checklistItems', 'parent:id,title', 'childrenRecursive', 'timeEntries']);
 
         return view('tasks.show', compact('task'));
     }

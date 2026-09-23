@@ -148,6 +148,15 @@ class Task extends Model
 
     public function ownTimeSeconds(): int
     {
+        if ($this->relationLoaded('timeEntries')) {
+            $done = (int) $this->timeEntries->where('status', TimeEntry::STATUS_STOPPED)->sum('duration_seconds');
+            $active = $this->timeEntries
+                ->whereIn('status', [TimeEntry::STATUS_RUNNING, TimeEntry::STATUS_PAUSED])
+                ->sum(fn ($e) => $e->elapsedSeconds());
+
+            return $done + $active;
+        }
+
         $done = (int) $this->timeEntries()
             ->where('status', TimeEntry::STATUS_STOPPED)
             ->sum('duration_seconds');
@@ -162,6 +171,10 @@ class Task extends Model
     {
         $ids = array_merge([$this->id], $this->descendantTaskIds());
 
+        if (count($ids) === 1 && $this->relationLoaded('timeEntries')) {
+            return $this->ownTimeSeconds();
+        }
+
         $done = (int) TimeEntry::whereIn('task_id', $ids)
             ->where('status', TimeEntry::STATUS_STOPPED)
             ->sum('duration_seconds');
@@ -174,6 +187,14 @@ class Task extends Model
 
     private function descendantTaskIds(): array
     {
+        // Prefer already-loaded recursive relations (no queries).
+        if ($this->relationLoaded('childrenRecursive')) {
+            return $this->collectDescendantIds($this->childrenRecursive);
+        }
+        if ($this->relationLoaded('children')) {
+            return $this->collectDescendantIds($this->children);
+        }
+
         $ids = [];
         $stack = $this->children()->pluck('id')->all();
         $guard = 0;
@@ -182,6 +203,23 @@ class Task extends Model
             $ids[] = $id;
             foreach (Task::where('parent_id', $id)->pluck('id')->all() as $childId) {
                 $stack[] = $childId;
+            }
+        }
+
+        return $ids;
+    }
+
+    private function collectDescendantIds($children): array
+    {
+        $ids = [];
+        foreach ($children as $child) {
+            $ids[] = $child->id;
+            if ($child instanceof self) {
+                if ($child->relationLoaded('childrenRecursive')) {
+                    $ids = array_merge($ids, $this->collectDescendantIds($child->childrenRecursive));
+                } elseif ($child->relationLoaded('children')) {
+                    $ids = array_merge($ids, $this->collectDescendantIds($child->children));
+                }
             }
         }
 

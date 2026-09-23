@@ -36,8 +36,24 @@ class DashboardController extends Controller
             ->get();
 
         // Today's routines (with done counter for the quick-check widget)
-        $todayRoutines = $user->routines()
-            ->get()
+        // Batched: one routines query + one completions query, no per-row completedOn().
+        $todayKey = now()->toDateString();
+        $todayRoutines = $user->routines()->get();
+        $todayCompletionIds = $todayRoutines->isNotEmpty()
+            ? \App\Models\RoutineCompletion::where('user_id', $user->id)
+                ->whereIn('routine_id', $todayRoutines->pluck('id'))
+                ->where('completed_date', $todayKey)
+                ->pluck('routine_id')
+                ->map(fn ($id) => (int) $id)
+                ->flip()
+            : collect();
+        foreach ($todayRoutines as $routine) {
+            $record = isset($todayCompletionIds[(int) $routine->id])
+                ? new \App\Models\RoutineCompletion(['routine_id' => $routine->id, 'completed_date' => $todayKey])
+                : null;
+            $routine->setRelation('completions', collect($record ? [$record] : []));
+        }
+        $todayRoutines = $todayRoutines
             ->filter(fn ($routine) => $routine->occursOn(now()))
             ->sortBy(fn ($r) => $r->sortKey())
             ->values();
@@ -52,14 +68,18 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        // Additional statistics for analytics
+        // Additional statistics for analytics (aggregated: 2 group-by queries + 3 counts)
+        $statusCounts = $user->tasks()->selectRaw('status, COUNT(*) as c')->groupBy('status')->pluck('c', 'status');
+        $priorityCounts = $user->tasks()->where('status', '!=', 'completed')
+            ->selectRaw('priority, COUNT(*) as c')->groupBy('priority')->pluck('c', 'priority');
+
         $completedTasksThisWeek = $user->tasks()
             ->where('status', 'completed')
             ->whereDate('updated_at', '>=', now()->startOfWeek())
             ->count();
 
-        $totalTasks = max($user->tasks()->count(), 1);
-        $completedTasks = $user->tasks()->where('status', 'completed')->count();
+        $totalTasks = max(array_sum($statusCounts->toArray()), 1);
+        $completedTasks = (int) ($statusCounts['completed'] ?? 0);
         $completionRate = round(($completedTasks / $totalTasks) * 100);
 
         $activeProjects = $user->projects()
@@ -73,20 +93,20 @@ class DashboardController extends Controller
 
         // Task status distribution
         $taskStatusDistribution = [
-            'to_do' => $user->tasks()->where('status', 'to_do')->count(),
-            'in_progress' => $user->tasks()->where('status', 'in_progress')->count(),
-            'completed' => $user->tasks()->where('status', 'completed')->count(),
+            'to_do' => (int) ($statusCounts['to_do'] ?? 0),
+            'in_progress' => (int) ($statusCounts['in_progress'] ?? 0),
+            'completed' => (int) ($statusCounts['completed'] ?? 0),
         ];
 
         // Priority distribution (only non-completed tasks)
         $priorityDistribution = [
-            'high' => $user->tasks()->where('priority', 'high')->where('status', '!=', 'completed')->count(),
-            'medium' => $user->tasks()->where('priority', 'medium')->where('status', '!=', 'completed')->count(),
-            'low' => $user->tasks()->where('priority', 'low')->where('status', '!=', 'completed')->count(),
+            'high' => (int) ($priorityCounts['high'] ?? 0),
+            'medium' => (int) ($priorityCounts['medium'] ?? 0),
+            'low' => (int) ($priorityCounts['low'] ?? 0),
         ];
 
         // Calculate priority percentages for progress bars
-        $totalNonCompletedTasks = max($user->tasks()->where('status', '!=', 'completed')->count(), 1);
+        $totalNonCompletedTasks = max($totalTasks - $completedTasks, 1);
         $priorityPercentages = [
             'high' => round(($priorityDistribution['high'] / $totalNonCompletedTasks) * 100),
             'medium' => round(($priorityDistribution['medium'] / $totalNonCompletedTasks) * 100),
@@ -130,38 +150,46 @@ class DashboardController extends Controller
         switch ($period) {
             case 'week':
                 $startDate = now()->startOfWeek();
+                $rows = $user->tasks()
+                    ->where('status', 'completed')
+                    ->whereDate('updated_at', '>=', $startDate->toDateString())
+                    ->selectRaw('DATE(updated_at) as d, COUNT(*) as c')
+                    ->groupBy('d')
+                    ->pluck('c', 'd');
                 for ($i = 0; $i < 7; $i++) {
                     $date = $startDate->copy()->addDays($i);
                     $labels[] = $date->format('M j');
-                    $data[] = $user->tasks()
-                        ->where('status', 'completed')
-                        ->whereDate('updated_at', $date)
-                        ->count();
+                    $data[] = (int) ($rows[$date->toDateString()] ?? 0);
                 }
                 break;
 
             case 'month':
                 $startDate = now()->startOfMonth();
                 $daysInMonth = now()->daysInMonth;
+                $rows = $user->tasks()
+                    ->where('status', 'completed')
+                    ->whereDate('updated_at', '>=', $startDate->toDateString())
+                    ->selectRaw('DATE(updated_at) as d, COUNT(*) as c')
+                    ->groupBy('d')
+                    ->pluck('c', 'd');
                 for ($i = 0; $i < $daysInMonth; $i++) {
                     $date = $startDate->copy()->addDays($i);
                     $labels[] = $date->format('j');
-                    $data[] = $user->tasks()
-                        ->where('status', 'completed')
-                        ->whereDate('updated_at', $date)
-                        ->count();
+                    $data[] = (int) ($rows[$date->toDateString()] ?? 0);
                 }
                 break;
 
             case 'year':
+                $rows = $user->tasks()
+                    ->where('status', 'completed')
+                    ->whereYear('updated_at', now()->year)
+                    ->selectRaw('MONTH(updated_at) as m, COUNT(*) as c')
+                    ->groupBy('m')
+                    ->pluck('c', 'm');
                 for ($i = 0; $i < 12; $i++) {
                     $date = now()->startOfYear()->addMonths($i);
                     $labels[] = $date->format('M');
-                    $data[] = $user->tasks()
-                        ->where('status', 'completed')
-                        ->whereYear('updated_at', now()->year)
-                        ->whereMonth('updated_at', $date->month)
-                        ->count();
+                    $data[] = (int) ($rows[$date->month] ?? 0);
                 }
                 break;
         }
