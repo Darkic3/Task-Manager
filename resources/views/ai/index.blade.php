@@ -392,6 +392,12 @@ footer { display: none !important; }
 .lina-mob-menu-btn { display: none; }
 .lina-sidebar-close { display: none; }
 .lina-mob-backdrop { display: none; }
+
+/* ── Keep the global time-tracker FAB clear of the chat input ── */
+#tt-root { bottom: 120px !important; }
+@media (max-width: 768px) {
+    #tt-root { bottom: 104px !important; right: 12px !important; }
+}
 </style>
 @endpush
 
