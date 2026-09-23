@@ -393,6 +393,25 @@ footer { display: none !important; }
 .lina-sidebar-close { display: none; }
 .lina-mob-backdrop { display: none; }
 
+/* ── Mode toggle ── */
+.lina-mode-toggle {
+    display: flex; background: var(--gray-100); border-radius: 10px; padding: 3px; gap: 2px;
+}
+.lina-mode-btn {
+    border: none; background: transparent; border-radius: 7px;
+    padding: 5px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    color: var(--gray-500); transition: all .15s; white-space: nowrap;
+}
+.lina-mode-btn.active { background: #fff; color: var(--gray-900); box-shadow: var(--shadow-sm); }
+.lina-agent-banner {
+    flex-shrink: 0; padding: 8px 24px; font-size: 12.5px; font-weight: 600;
+    background: #faf5ff; color: #6d28d9; border-bottom: 1px solid #ede9fe;
+}
+@media (max-width: 768px) {
+    .lina-mode-btn { padding: 5px 8px; font-size: 11.5px; }
+    .lina-agent-banner { padding: 7px 14px; font-size: 11.5px; }
+}
+
 /* ── Keep the global time-tracker FAB clear of the chat input ── */
 #tt-root { bottom: 120px !important; }
 @media (max-width: 768px) {
@@ -441,11 +460,20 @@ footer { display: none !important; }
                 </div>
             </div>
             <div class="lina-head-right">
+                <div class="lina-mode-toggle" role="group" aria-label="Chat mode">
+                    <button type="button" id="linaModeChat" class="lina-mode-btn" onclick="setMode('chat')" title="Chat: talk about your workspace, no changes">💬 Chat</button>
+                    <button type="button" id="linaModeAgent" class="lina-mode-btn" onclick="setMode('agent')" title="Agent: create, edit and complete things with your confirmation">🛠 Agent</button>
+                </div>
                 {{-- Mobile: back to app button --}}
                 <a href="{{ url()->previous() == url()->current() ? route('dashboard') : url()->previous() }}" class="lina-icon-btn" title="Back" style="text-decoration:none;">
                     <i class="bi bi-arrow-left"></i>
                 </a>
             </div>
+        </div>
+
+        {{-- Agent-mode banner --}}
+        <div class="lina-agent-banner" id="linaAgentBanner" style="display:none;">
+            🛠 Agent mode — I can create, edit and complete tasks, routines, reminders, notes and projects. Every action needs your confirmation first.
         </div>
 
         {{-- Messages --}}
@@ -504,6 +532,26 @@ footer { display: none !important; }
     let activeConvId  = null;
     let activeMessages= [];   // [{ role, content, model, created_at }]
     let isBusy        = false;
+    // Chat is the safe default; agent mode acts on the workspace (with confirm cards).
+    let chatMode = (function () {
+        try { return localStorage.getItem('linaMode') === 'agent' ? 'agent' : 'chat'; }
+        catch { return 'chat'; }
+    })();
+
+    window.setMode = function (mode) {
+        chatMode = mode === 'agent' ? 'agent' : 'chat';
+        try { localStorage.setItem('linaMode', chatMode); } catch {}
+        paintMode();
+    };
+
+    function paintMode() {
+        const c = document.getElementById('linaModeChat');
+        const a = document.getElementById('linaModeAgent');
+        const b = document.getElementById('linaAgentBanner');
+        if (c) c.classList.toggle('active', chatMode === 'chat');
+        if (a) a.classList.toggle('active', chatMode === 'agent');
+        if (b) b.style.display = chatMode === 'agent' ? '' : 'none';
+    }
 
     /* ── DOM ── */
     const msgsEl    = document.getElementById('linaMessages');
@@ -722,7 +770,7 @@ footer { display: none !important; }
             const res = await fetch(STREAM_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-                body: JSON.stringify({ message: text, conversation_id: activeConvId, history: historyPayload }),
+                body: JSON.stringify({ message: text, conversation_id: activeConvId, history: historyPayload, mode: chatMode }),
             });
 
             typingEl.remove();
@@ -775,7 +823,9 @@ footer { display: none !important; }
                     try {
                         const json = JSON.parse(data);
                         if (json.type === 'tool_proposal' && json.action_id) {
-                            renderProposalCard(json);
+                            // Server is authoritative, but never render action cards in chat mode.
+                            if (chatMode === 'agent') renderProposalCard(json);
+                            else console.warn('[Lina] proposal ignored in chat mode');
                         } else if (json.type === 'tool_proposal' && json.error) {
                             appendError(json.error);
                         } else if (json.conversation_id !== undefined && json.choices === undefined) {
@@ -1049,6 +1099,7 @@ footer { display: none !important; }
     });
 
     /* ── Boot ── */
+    paintMode();
     loadConversations();
     autoResize();
 })();

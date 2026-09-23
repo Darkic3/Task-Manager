@@ -105,10 +105,13 @@ class AiChatController extends Controller
             'history' => 'nullable|array|max:40',
             'history.*.role'    => 'required|in:user,assistant',
             'history.*.content' => 'required|string|max:8000',
+            'mode' => 'nullable|in:chat,agent',
         ]);
 
         $user = Auth::user();
         $resolved = $this->ai->resolve($user);
+        // Server is the only authority: tools only in agent mode.
+        $agentMode = $request->input('mode', 'chat') === 'agent';
 
         if (!$resolved) {
             return response()->json(['reply' => 'No AI provider is configured. Go to AI Settings and add an API key for OpenAI, Gemini, Claude, DeepSeek or Meta.'], 200);
@@ -121,17 +124,20 @@ class AiChatController extends Controller
             $context = '(Could not load user data)';
         }
 
-        $messages = $this->buildMessages($user, $context, $request->input('history', []), $request->message);
+        $messages = $this->buildMessages($user, $context, $request->input('history', []), $request->message, $agentMode ? 'agent' : 'chat');
 
         try {
-            $result = $this->callProviderSyncWithTools($resolved, $messages, $user);
-            \Log::info('AI chat response', ['user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model']]);
+            $result = $this->callProviderSyncWithTools($resolved, $messages, $user, $agentMode);
+            \Log::info('AI chat response', ['user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'mode' => $agentMode ? 'agent' : 'chat']);
             $payload = ['model' => $resolved['model'], 'provider' => $resolved['provider']];
             if (isset($result['reply'])) {
                 $payload['reply'] = $result['reply'];
             }
             if (isset($result['proposal'])) {
                 $payload['proposal'] = $result['proposal'];
+            }
+            if (isset($result['proposals'])) {
+                $payload['proposals'] = $result['proposals'];
             }
             return response()->json($payload);
         } catch (\Exception $e) {
@@ -149,10 +155,12 @@ class AiChatController extends Controller
             'history'         => 'nullable|array|max:40',
             'history.*.role'    => 'required|in:user,assistant',
             'history.*.content' => 'required|string|max:8000',
+            'mode' => 'nullable|in:chat,agent',
         ]);
 
         $user = Auth::user();
         $resolved = $this->ai->resolve($user);
+        $agentMode = $request->input('mode', 'chat') === 'agent';
 
         // Resolve or create conversation
         $convId = $request->input('conversation_id');
@@ -202,11 +210,32 @@ class AiChatController extends Controller
             $context = '(Could not load user data)';
         }
 
-        $messages = $this->buildMessages($user, $context, $request->input('history', []), $request->message);
+        $messages = $this->buildMessages($user, $context, $request->input('history', []), $request->message, $agentMode ? 'agent' : 'chat');
+
+        // Agent mode needs function-calling: only OpenAI-compatible providers.
+        if ($agentMode && ($resolved['type'] ?? 'openai') !== 'openai') {
+            $msg = 'Agent mode needs an OpenAI-compatible provider (e.g. OpenRouter custom provider). Switch to chat mode, or pick an OpenAI-compatible model in AI Settings — nothing was changed.';
+            $conversationId = $conversation->id;
+            $model = $resolved['model'];
+            $provider = $resolved['provider'];
+            $sseFlush = $this->sseFlushClosure();
+            return response()->stream(function () use ($sseFlush, $conversationId, $msg, $model, $provider) {
+                echo "data: " . json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId]) . "\n\n";
+                $sseFlush();
+                echo "data: " . json_encode(['choices' => [['delta' => ['content' => $msg]]]]) . "\n\n";
+                $sseFlush();
+                try {
+                    AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => $msg, 'model' => $model]);
+                    AiConversation::where('id', $conversationId)->touch();
+                } catch (\Exception $e) {}
+                echo "data: [DONE]\n\n";
+                $sseFlush();
+            }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
+        }
 
         // For OpenAI-compatible providers, do true streaming. For Gemini/Anthropic, do sync then chunk.
         if (($resolved['type'] ?? 'openai') === 'openai') {
-            return $this->streamOpenAi($resolved, $messages, $conversation);
+            return $this->streamOpenAi($resolved, $messages, $conversation, $agentMode);
         }
 
         // Non-OpenAI: sync call then simulate streaming
@@ -294,10 +323,10 @@ class AiChatController extends Controller
      * Sync dispatch that also supports tool proposals for OpenAI-compatible providers.
      * Returns ['reply'=>string] or ['reply'=>string,'proposal'=>array].
      */
-    private function callProviderSyncWithTools(array $resolved, array $messages, $user): array
+    private function callProviderSyncWithTools(array $resolved, array $messages, $user, bool $withTools = true): array
     {
         $type = $resolved['type'] ?? 'openai';
-        if ($type !== 'openai') {
+        if ($type !== 'openai' || ! $withTools) {
             return ['reply' => $this->callProviderSync($resolved, $messages)];
         }
 
@@ -452,12 +481,13 @@ class AiChatController extends Controller
     }
 
     /* ── OpenAI streaming ── */
-    private function streamOpenAi(array $resolved, array $messages, AiConversation $conversation)
+    private function streamOpenAi(array $resolved, array $messages, AiConversation $conversation, bool $agentMode = true)
     {
         $key = $resolved['key'];
         $cfg = $resolved['config'];
         $model = $resolved['model'];
         $provider = $resolved['provider'];
+        $tools = $agentMode ? $this->toolsForResolved($resolved) : null;
 
         $client = new \GuzzleHttp\Client(['verify' => false, 'timeout' => 60]);
         $response = null;
@@ -471,7 +501,7 @@ class AiChatController extends Controller
                     'HTTP-Referer'  => (string) config('app.url'),
                     'X-Title'       => (string) config('app.name', 'Task Manager'),
                 ],
-                'json' => $this->ai->openAiPayload($messages, $model, true, $cfg['base_url'], $this->toolsForResolved($resolved)),
+                'json' => $this->ai->openAiPayload($messages, $model, true, $cfg['base_url'], $tools),
                 'stream' => true,
             ]);
             $status = $response->getStatusCode();
@@ -484,16 +514,21 @@ class AiChatController extends Controller
                 throw new \Exception("HTTP {$status}: {$detail}");
             }
         } catch (\Exception $e) {
-            // Fall back to sync + chunk
+            // Fall back to sync + chunk (keeps tool calls via the Raw variant).
             \Log::warning('AI stream openai failed, falling back to sync', ['provider' => $provider, 'error' => $e->getMessage()]);
+            $conversationId = $conversation->id;
+            $userId = Auth::id();
+            $sseFlush = $this->sseFlushClosure();
+            $controller = $this;
             try {
-                $fullText = $this->callOpenAiSync($key, $cfg['base_url'], $messages, $model);
+                $raw = $this->callOpenAiSyncRaw($key, $cfg['base_url'], $messages, $model, $tools);
+                $fullText = $raw['text'] !== '' ? $raw['text'] : 'AI error: Empty response from provider';
+                $fallbackTools = $raw['tool_calls'];
             } catch (\Exception $e2) {
                 $fullText = "AI error: " . $e2->getMessage();
+                $fallbackTools = [];
             }
-            $conversationId = $conversation->id;
-            $sseFlush = $this->sseFlushClosure();
-            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $model, $provider) {
+            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode) {
                 echo "data: " . json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId]) . "\n\n";
                 $sseFlush();
                 foreach (str_split($fullText, 5) as $chunk) {
@@ -505,6 +540,20 @@ class AiChatController extends Controller
                     AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => $fullText, 'model' => $model]);
                     AiConversation::where('id', $conversationId)->touch();
                 } catch (\Exception $e) {}
+                if ($agentMode) {
+                    $accum = [];
+                    foreach (array_values($fallbackTools) as $i => $tc) {
+                        $accum[$i] = [
+                            'id' => $tc['id'] ?? null,
+                            'name' => $tc['function']['name'] ?? null,
+                            'arguments' => is_string($tc['function']['arguments'] ?? null)
+                                ? $tc['function']['arguments']
+                                : json_encode($tc['function']['arguments'] ?? []),
+                        ];
+                    }
+                    $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
+                    $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
+                }
                 echo "data: [DONE]\n\n";
                 $sseFlush();
             }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
@@ -515,7 +564,7 @@ class AiChatController extends Controller
         $userId = Auth::id();
         $sseFlush = $this->sseFlushClosure();
 
-        return response()->stream(function () use ($body, $model, $provider, $userId, $conversationId, $sseFlush) {
+        return response()->stream(function () use ($body, $model, $provider, $userId, $conversationId, $sseFlush, $agentMode) {
             echo "data: " . json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId]) . "\n\n";
             $sseFlush();
             $buffer = '';
@@ -538,7 +587,10 @@ class AiChatController extends Controller
                                 AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => $accumulatedText, 'model' => $model]);
                                 AiConversation::where('id', $conversationId)->touch();
                             }
-                            $controller->emitToolProposals($toolAccum, $userId, $conversationId, $sseFlush);
+                            if ($agentMode) {
+                                $controller->emitToolProposals($toolAccum, $userId, $conversationId, $sseFlush);
+                                $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush);
+                            }
                             echo "data: [DONE]\n\n";
                             $sseFlush();
                             return;
@@ -583,7 +635,10 @@ class AiChatController extends Controller
                     }
                 } catch (\Exception $e) {}
             }
-            $controller->emitToolProposals($toolAccum, $userId, $conversationId, $sseFlush);
+            $controller->emitToolProposals($agentMode ? $toolAccum : [], $userId, $conversationId, $sseFlush);
+            if ($agentMode) {
+                $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush);
+            }
             echo "data: [DONE]\n\n";
             $sseFlush();
         }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
@@ -612,11 +667,45 @@ class AiChatController extends Controller
         }
     }
 
+    /**
+     * Agent mode but the model answered with plain text that looks like
+     * tool JSON (no real function call): tell the user nothing was created
+     * instead of leaving raw JSON on screen. No pending action is stored.
+     */
+    public function emitToolMissedNotice(string $text, array $toolAccum, callable $sseFlush): void
+    {
+        if (! empty($toolAccum) || trim($text) === '') {
+            return;
+        }
+        // At least two tool-shaped keys -> likely a pasted tool call, not a code example.
+        $hits = preg_match_all('/"(title|description|due_date|project_id|projectId|dueDate)"\s*:/', $text);
+        if ($hits < 2 || ! str_contains($text, '{')) {
+            return;
+        }
+        $notice = '⚠️ I answered in text instead of creating anything — nothing was saved. Please send the request again (or pick a model with function-calling support).';
+        echo 'data: ' . json_encode(['choices' => [['delta' => ['content' => "\n\n" . $notice]]]]) . "\n\n";
+        $sseFlush();
+    }
+
     /* ── Helpers ── */
-    private function buildMessages($user, string $context, array $history, string $newMessage): array
+    private function buildMessages($user, string $context, array $history, string $newMessage, string $mode = 'chat'): array
     {
         $today = now()->format('l, F j, Y');
         $creatorName = $user->name;
+        $modeBlock = $mode === 'agent'
+            ? <<<AGENT
+            MODE: AGENT — you can act on the workspace via tools.
+            - When the user asks to create, edit, complete or delete a task, reminder, note, project, routine or checklist item, call the matching tool instead of just describing it. Destructive deletes need no extra warning text because the app shows a confirmation card.
+            - Keep every single tool argument SHORT: title under 80 chars, description under 500 chars. Never paste a whole program, list or long text into one argument — it gets cut off and garbled.
+            - For a multi-day plan, make MULTIPLE tool calls instead of one giant call: one call per day with its own due_date (YYYY-MM-DD) and a 1-2 line description. Max 5 calls per message; if more days are needed, create the first 5 and tell the user to say "continue" for the rest.
+            - For a recurring weekly program, prefer routine.create (frequency weekly + days) over N separate tasks, unless the user explicitly asked for tasks.
+            - Use exact snake_case argument names from the schema (project_id, due_date, task_id). Omit project_id when unsure — the server picks the user's first project.
+            AGENT
+            : <<<CHAT
+            MODE: CHAT — read-only discussion. You cannot create, edit or delete anything; there are no tools in this mode.
+            - Talk about the user's projects, tasks, notes, reminders and routines, explain, summarize and advise.
+            - If the user asks you to create or change something, explain briefly what you would do and ask them to switch to Agent mode (🛠 اجرا) so you can do it with their confirmation.
+            CHAT;
         $systemPrompt = <<<PROMPT
 You are Lina, a smart personal AI assistant built into this Task Manager app by {$creatorName}.
 If asked your name, say your name is Lina. If asked who created or built you, say you were created by {$creatorName}.
@@ -632,10 +721,7 @@ Guidelines:
 - For code, always use fenced code blocks with the language specified
 - For workspace data, only refer to what is in the context below — do not invent data
 - Be concise and practical
-- When the user asks to create, edit, complete or delete a task, reminder, note, project or checklist item, call the matching tool instead of just describing it. One tool call per user request; destructive deletes need no extra warning text because the app shows a confirmation card.
-- Keep every single tool argument SHORT: title under 80 chars, description under 500 chars. Never paste a whole program, list or long text into one argument — it gets cut off and garbled.
-- For a multi-day plan, make MULTIPLE tool calls instead of one giant call: one task.create per day with its own due_date (YYYY-MM-DD) and a 1-2 line description. Max 5 calls per message; if more days are needed, create the first 5 and tell the user to say "continue" for the rest.
-- Use exact snake_case argument names from the schema (project_id, due_date, task_id). Omit project_id when unsure — the server picks the user's first project.
+{$modeBlock}
 
 --- USER WORKSPACE DATA ---
 {$context}

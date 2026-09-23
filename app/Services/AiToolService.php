@@ -6,6 +6,8 @@ use App\Models\ChecklistItem;
 use App\Models\Note;
 use App\Models\Project;
 use App\Models\Reminder;
+use App\Models\Routine;
+use App\Models\RoutineCompletion;
 use App\Models\Task;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +21,10 @@ class AiToolService
         'note.create', 'note.update', 'note.delete',
         'project.create',
         'checklist.add', 'checklist.toggle',
+        'routine.create', 'routine.complete', 'routine.delete',
     ];
+
+    public const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
     /**
      * OpenAI-compatible function definitions for OpenRouter/custom providers.
@@ -91,6 +96,22 @@ class AiToolService
             $this->fn('checklist.toggle', 'Toggle a checklist item completed state', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
+            $this->fn('routine.create', 'Create a recurring routine (e.g. weekly workout). Prefer this over N tasks for repeating programs', [
+                'title' => ['type' => 'string', 'description' => 'Routine title'],
+                'frequency' => ['type' => 'string', 'enum' => ['daily', 'weekly', 'monthly', 'every_n_days']],
+                'days' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => self::WEEK_DAYS], 'description' => 'Weekdays for weekly frequency'],
+                'month_days' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Days of month (1-31) for monthly frequency'],
+                'every_n_days' => ['type' => 'integer', 'description' => 'Interval 2-60 for every_n_days frequency'],
+                'time_period' => ['type' => 'string', 'description' => 'Time-of-day period key (morning, afternoon, evening, night) if known'],
+                'description' => ['type' => 'string', 'description' => 'Short plan summary, under 500 chars'],
+            ], ['title', 'frequency']),
+            $this->fn('routine.complete', 'Mark a routine done for a date (defaults to today). Never un-completes', [
+                'id' => ['type' => 'integer'],
+                'date' => $date(),
+            ], ['id']),
+            $this->fn('routine.delete', 'Delete a routine by ID (shows recorded-history impact before confirm)', [
+                'id' => ['type' => 'integer'],
+            ], ['id']),
         ];
     }
 
@@ -137,6 +158,9 @@ class AiToolService
             'project.create' => $this->validateProjectCreate($args),
             'checklist.add' => $this->validateChecklistAdd($args, $user),
             'checklist.toggle' => $this->validateChecklistToggle($args, $user),
+            'routine.create' => $this->validateRoutineCreate($args),
+            'routine.complete' => $this->validateRoutineComplete($args, $user),
+            'routine.delete' => $this->validateOwned($args, $user, Routine::class, 'id'),
             default => $this->fail('Unsupported tool'),
         };
     }
@@ -152,6 +176,8 @@ class AiToolService
             'task.create' => ['title' => 'Create task', 'rows' => $this->rows($resolved, ['title', 'project_name', 'due_date', 'priority', 'status'])],
             'reminder.create' => ['title' => 'Create reminder', 'rows' => $this->rows($resolved, ['title', 'date', 'time', 'priority'])],
             'note.create' => ['title' => 'Create note', 'rows' => $this->rows($resolved, ['title', 'category'])],
+            'routine.create' => ['title' => 'Create routine', 'rows' => $this->rows($resolved, ['title', 'frequency', 'days_label', 'time_period', 'description'])],
+            'routine.delete' => $this->previewRoutineDelete($resolved),
             default => ['title' => $tool, 'rows' => $this->rows($resolved, array_keys($resolved))],
         };
     }
@@ -177,6 +203,9 @@ class AiToolService
                 'project.create' => $this->execProjectCreate($resolved, $user),
                 'checklist.add' => $this->execChecklistAdd($resolved, $user),
                 'checklist.toggle' => $this->execChecklistToggle($resolved, $user),
+                'routine.create' => $this->execRoutineCreate($resolved, $user),
+                'routine.complete' => $this->execRoutineComplete($resolved, $user),
+                'routine.delete' => $this->execRoutineDelete($resolved, $user),
                 default => ['ok' => false, 'message' => 'Unsupported tool', 'id' => null],
             };
         });
@@ -385,6 +414,90 @@ class AiToolService
         return ['ok' => true, 'error' => null, 'resolved' => ['id' => $item->id, 'name' => $item->name]];
     }
 
+    private function validateRoutineCreate(array $args): array
+    {
+        // Accept a single weekday string as well as an array.
+        if (isset($args['days']) && is_string($args['days'])) {
+            $args['days'] = [$args['days']];
+        }
+        if (isset($args['days']) && is_array($args['days'])) {
+            $args['days'] = array_values(array_unique(array_map(fn ($d) => strtolower(trim((string) $d)), $args['days'])));
+        }
+        if (isset($args['month_days']) && is_array($args['month_days'])) {
+            $args['month_days'] = array_values(array_unique(array_map('intval', $args['month_days'])));
+            sort($args['month_days']);
+        }
+
+        $v = Validator::make($args, [
+            'title' => 'required|string|max:255',
+            'frequency' => 'required|in:daily,weekly,monthly,every_n_days',
+            'days' => 'nullable|array|min:1',
+            'days.*' => 'string|in:' . implode(',', self::WEEK_DAYS),
+            'month_days' => 'nullable|array|min:1',
+            'month_days.*' => 'integer|between:1,31',
+            'every_n_days' => 'nullable|integer|min:2|max:60',
+            'time_period' => 'nullable|string|max:50',
+            'description' => 'nullable|string|max:2000',
+        ]);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+
+        $frequency = $args['frequency'];
+        if ($frequency === 'weekly' && empty($args['days'])) {
+            return $this->fail('Weekly routines need at least one weekday.');
+        }
+        if ($frequency === 'monthly' && empty($args['month_days'])) {
+            return $this->fail('Monthly routines need at least one day of month.');
+        }
+        if ($frequency === 'every_n_days' && empty($args['every_n_days'])) {
+            return $this->fail('Every-N-days routines need the interval (2-60).');
+        }
+
+        $daysLabel = null;
+        if ($frequency === 'weekly') {
+            $daysLabel = collect($args['days'])->map(fn ($d) => ucfirst(substr($d, 0, 3)))->implode(', ');
+        } elseif ($frequency === 'monthly') {
+            $daysLabel = 'Day ' . implode(', ', $args['month_days']);
+        } elseif ($frequency === 'every_n_days') {
+            $n = (int) $args['every_n_days'];
+            $daysLabel = $n === 2 ? 'Every other day' : "Every {$n} days";
+        } else {
+            $daysLabel = 'Every day';
+        }
+
+        return ['ok' => true, 'error' => null, 'resolved' => [
+            'title' => $args['title'],
+            'frequency' => $frequency,
+            'days' => $frequency === 'weekly' ? $args['days'] : null,
+            'month_days' => $frequency === 'monthly' ? $args['month_days'] : null,
+            'every_n_days' => $frequency === 'every_n_days' ? max(2, (int) $args['every_n_days']) : null,
+            'time_period' => $args['time_period'] ?? null,
+            'description' => $args['description'] ?? null,
+            'days_label' => $daysLabel,
+        ]];
+    }
+
+    private function validateRoutineComplete(array $args, $user): array
+    {
+        $v = Validator::make($args, [
+            'id' => 'required|integer',
+            'date' => 'nullable|date',
+        ]);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+        $routine = Routine::where('id', $args['id'])->where('user_id', $user->id)->first();
+        if (! $routine) {
+            return $this->fail('Routine not found or not yours.');
+        }
+        $date = isset($args['date']) ? Carbon::parse($args['date'])->toDateString() : now()->toDateString();
+
+        return ['ok' => true, 'error' => null, 'resolved' => [
+            'id' => $routine->id, 'title' => $routine->title, 'date' => $date,
+        ]];
+    }
+
     // ── previews ──
 
     private function previewTaskDelete(array $resolved): array
@@ -397,6 +510,19 @@ class AiToolService
             'danger' => true,
             'rows' => [['k' => 'Task', 'v' => $resolved['title'] ?? "#{$resolved['id']}"]],
             'impact' => $subs > 0 ? "{$subs} subtask(s) will also be deleted." : null,
+        ];
+    }
+
+    private function previewRoutineDelete(array $resolved): array
+    {
+        $routine = Routine::find($resolved['id']);
+        $count = $routine ? $routine->completions()->count() : 0;
+
+        return [
+            'title' => 'Delete routine',
+            'danger' => true,
+            'rows' => [['k' => 'Routine', 'v' => $resolved['title'] ?? "#{$resolved['id']}"]],
+            'impact' => $count > 0 ? "Hides the routine; {$count} recorded completion(s) are kept as history." : 'Hides the routine.',
         ];
     }
 
@@ -510,6 +636,49 @@ class AiToolService
         return ['ok' => true, 'message' => "Checklist '{$item->name}' " . ($item->completed ? 'done.' : 'reopened.'), 'id' => $item->id];
     }
 
+    private function execRoutineCreate(array $r, $user): array
+    {
+        $periodKeys = array_keys(config('routines.periods', []));
+        $routine = $user->routines()->create([
+            'title' => $r['title'],
+            'description' => $r['description'] ?? null,
+            'frequency' => $r['frequency'],
+            'days' => $r['days'],
+            'month_days' => $r['month_days'],
+            'every_n_days' => $r['every_n_days'],
+            'weeks' => null,
+            'months' => null,
+            'time_period' => ($r['time_period'] && in_array($r['time_period'], $periodKeys, true)) ? $r['time_period'] : null,
+        ]);
+
+        return ['ok' => true, 'message' => "Routine '{$routine->title}' created ({$routine->recurrenceLabel()}).", 'id' => $routine->id];
+    }
+
+    private function execRoutineComplete(array $r, $user): array
+    {
+        $routine = Routine::where('id', $r['id'])->where('user_id', $user->id)->firstOrFail();
+        if ($routine->completedOn($r['date'])) {
+            return ['ok' => true, 'message' => "Routine '{$routine->title}' is already done for {$r['date']}.", 'id' => $routine->id];
+        }
+        RoutineCompletion::create([
+            'user_id' => $user->id,
+            'routine_id' => $routine->id,
+            'completed_date' => $r['date'],
+            'completed_at' => now(),
+        ]);
+
+        return ['ok' => true, 'message' => "Routine '{$routine->title}' marked done for {$r['date']}.", 'id' => $routine->id];
+    }
+
+    private function execRoutineDelete(array $r, $user): array
+    {
+        $routine = Routine::where('id', $r['id'])->where('user_id', $user->id)->firstOrFail();
+        $title = $routine->title;
+        $routine->delete();
+
+        return ['ok' => true, 'message' => "Routine '{$title}' deleted.", 'id' => null];
+    }
+
     // ── helpers ──
 
     private function normalize(array $args): array
@@ -529,6 +698,11 @@ class AiToolService
             'recurrenceInterval' => 'recurrence_interval',
             'isCompleted' => 'is_completed',
             'isFavorite' => 'is_favorite',
+            'monthDays' => 'month_days',
+            'month_day' => 'month_days',
+            'everyNDays' => 'every_n_days',
+            'every_n_day' => 'every_n_days',
+            'timePeriod' => 'time_period',
         ];
         foreach ($aliases as $from => $to) {
             if (array_key_exists($from, $args) && ! array_key_exists($to, $args)) {
