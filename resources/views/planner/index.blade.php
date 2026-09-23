@@ -105,6 +105,56 @@
         align-items:center;justify-content:center;color:#c4c9d4;font-size:12px;
     }
 
+    /* ── Habit Ring (package A) ── */
+    .pl-habit{position:relative;flex-shrink:0;margin-top:1px;cursor:pointer;display:inline-flex;}
+    .pl-habit input{position:absolute;opacity:0;width:0;height:0;}
+    .routine-check-box{
+        width:19px;height:19px;border:2px solid #c4c9d4;border-radius:50%;
+        display:flex;align-items:center;justify-content:center;color:transparent;
+        font-size:10px;transition:all .15s;background:white;position:absolute;
+        top:50%;left:50%;transform:translate(-50%,-50%);
+    }
+    .pl-habit:hover .routine-check-box{border-color:#7c3aed;}
+    .pl-habit input:checked + .habit-ring .routine-check-box,
+    .pl-habit input:checked + .routine-check-box{background:#16a34a;border-color:#16a34a;color:white;}
+    .habit-ring{position:relative;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;}
+    .habit-ring svg{width:30px;height:30px;transform:rotate(-90deg);}
+    .habit-ring .ring-bg{fill:none;stroke:#eef0f2;stroke-width:3.5;}
+    .habit-ring .ring-fg{fill:none;stroke:#b9a5f5;stroke-width:3.5;stroke-linecap:round;transition:stroke-dashoffset .4s;}
+    .pl-task.is-done .habit-ring .ring-fg{stroke:#16a34a;}
+    .pl-habit input:checked + .habit-ring .ring-fg{stroke:#16a34a;}
+    .flame{
+        font-size:11px;font-weight:700;color:#d97706;background:#fdf4de;
+        border-radius:20px;padding:0 7px;margin-left:6px;white-space:nowrap;
+        vertical-align:1px;
+    }
+    .last7{display:inline-flex;gap:3px;align-items:center;}
+    .last7 .sq{width:7px;height:7px;border-radius:2.5px;display:inline-block;}
+    .sq-done{background:#30a46c;}
+    .sq-missed{background:#e3e5e9;}
+    .sq-na{background:#f2f3f5;}
+    .sq-future,.sq-today{background:transparent;box-shadow:inset 0 0 0 1px #e8eaef;}
+
+    /* ── Package B: confetti + toast ── */
+    #plConfetti{position:fixed;inset:0;pointer-events:none;z-index:1080;overflow:hidden;}
+    #plConfetti i{position:absolute;top:-12px;width:8px;height:14px;border-radius:2px;opacity:0;animation:plFall 1.4s ease-in forwards;}
+    @keyframes plFall{
+        0%{opacity:1;transform:translateY(0) rotate(0);}
+        100%{opacity:0;transform:translateY(70vh) rotate(540deg);}
+    }
+    #plToast{
+        position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:1070;
+        background:#1f2328;color:white;font-size:13px;padding:9px 14px 9px 18px;border-radius:8px;
+        display:none;align-items:center;gap:12px;white-space:nowrap;
+        box-shadow:0 6px 20px rgba(0,0,0,.22);
+    }
+    #plToast.show{display:flex;}
+    #plToast button{
+        background:none;border:none;color:#a78bfa;font-size:12.5px;font-weight:700;
+        cursor:pointer;padding:2px 4px;
+    }
+    #plToast button:hover{color:white;}
+
     /* Week grid */
     .pl-week{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px;}
     @media(max-width:1100px){ .pl-week{grid-template-columns:repeat(7,minmax(160px,1fr));} }
@@ -294,7 +344,10 @@
         </div>
     @endif
 
-</div>
+    </div>
+
+    <div id="plConfetti" aria-hidden="true"></div>
+    <div id="plToast" role="status"></div>
 @endsection
 
 @push('scripts')
@@ -341,18 +394,19 @@
     async function toggleRoutine(cb) {
         const url = cb.dataset.url;
         const id  = cb.dataset.id;
+        const date = cb.dataset.date;
         cb.disabled = true;
         try {
-            const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'date=' + encodeURIComponent(cb.dataset.date), {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
-            });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            const json = await res.json();
-            document.querySelectorAll('[data-routine-item][data-id="' + id + '"][data-date="' + cb.dataset.date + '"]').forEach(row => {
-                row.classList.toggle('is-done', !!json.completed);
-                row.dataset.completed = json.completed ? '1' : '0';
-            });
+            const json = await routineToggleRequest(url, date);
+            applyRoutineToggle(id, date, !!json.completed);
+            /* Package B: flame bump + minimal undo toast */
+            if (json.completed) {
+                bumpStreak(id);
+                showRoutineToast(id, date);
+                maybeCelebrate();
+            } else {
+                hideRoutineToast();
+            }
             refreshRoutineCounters();
         } catch (e) {
             cb.checked = !cb.checked;
@@ -360,6 +414,85 @@
         } finally {
             cb.disabled = false;
         }
+    }
+
+    function routineToggleRequest(url, date) {
+        return fetch(url + (url.includes('?') ? '&' : '?') + 'date=' + encodeURIComponent(date), {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
+        }).then(res => {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        });
+    }
+
+    function applyRoutineToggle(id, date, completed) {
+        document.querySelectorAll('[data-routine-item][data-id="' + id + '"][data-date="' + date + '"]').forEach(row => {
+            row.classList.toggle('is-done', completed);
+            row.dataset.completed = completed ? '1' : '0';
+            const box = row.querySelector('input[type="checkbox"]');
+            if (box) box.checked = completed;
+        });
+    }
+
+    function bumpStreak(id) {
+        document.querySelectorAll('[data-routine-item][data-id="' + id + '"] .flame').forEach(fl => {
+            const m = fl.textContent.match(/(\d+)/);
+            if (m) fl.textContent = '🔥' + (parseInt(m[1], 10) + 1);
+        });
+    }
+
+    /* Minimal toast with undo (package B) */
+    let plToastTimer = null;
+    function showRoutineToast(id, date) {
+        const toast = document.getElementById('plToast');
+        if (!toast) return;
+        const row = document.querySelector('[data-routine-item][data-id="' + id + '"][data-date="' + date + '"]');
+        const title = row ? (row.querySelector('.pl-task-title')?.textContent || '').trim() : 'Routine';
+        toast.replaceChildren();
+        const span = document.createElement('span');
+        span.textContent = title + ' done ✓';
+        toast.appendChild(span);
+        const undo = document.createElement('button');
+        undo.type = 'button';
+        undo.textContent = 'Undo';
+        undo.onclick = () => {
+            hideRoutineToast();
+            try {
+                routineToggleRequest(document.querySelector('[data-routine-item][data-id="' + id + '"][data-date="' + date + '"] input[type="checkbox"]')?.dataset.url || '', date)
+                    .then(() => { applyRoutineToggle(id, date, false); refreshRoutineCounters(); });
+            } catch (e) { /* keep UI state */ }
+        };
+        toast.appendChild(undo);
+        toast.classList.add('show');
+        clearTimeout(plToastTimer);
+        plToastTimer = setTimeout(hideRoutineToast, 4500);
+    }
+    function hideRoutineToast() {
+        const t = document.getElementById('plToast');
+        if (t) { t.classList.remove('show'); t.replaceChildren(); }
+        clearTimeout(plToastTimer);
+    }
+
+    /* One small confetti burst when ALL today's (counted) routines are done */
+    function maybeCelebrate() {
+        const items = document.querySelectorAll('[data-routine-item][data-count="1"]');
+        if (!items.length) return;
+        let done = 0;
+        items.forEach(el => { if (el.dataset.completed === '1') done++; });
+        if (done !== items.length) return;
+        const host = document.getElementById('plConfetti');
+        if (!host || host.childElementCount) return;
+        const colors = ['#7c3aed','#a78bfa','#30a46c','#f59e0b','#e5484d','#0b6bcb'];
+        for (let i = 0; i < 16; i++) {
+            const p = document.createElement('i');
+            p.style.left = (5 + Math.random() * 90) + '%';
+            p.style.background = colors[i % colors.length];
+            p.style.animationDelay = (Math.random() * .25) + 's';
+            p.style.animationDuration = (1.1 + Math.random() * .7) + 's';
+            host.appendChild(p);
+        }
+        setTimeout(() => host.replaceChildren(), 2400);
     }
 
     function refreshRoutineCounters() {

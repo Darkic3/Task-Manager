@@ -44,6 +44,7 @@ class PlannerController extends Controller
         );
 
         $routinesData = $this->routinesForDate($user, $selected);
+        $this->decorateHabitMetrics($routinesData['today'], $selected);
 
         return view('planner.index', [
             'view' => 'day',
@@ -73,10 +74,12 @@ class PlannerController extends Controller
         $days = [];
         for ($i = 0; $i < 7; $i++) {
             $day = $start->copy()->addDays($i);
+            $day = $start->copy()->addDays($i);
             $dayTasks = $tasks->filter(
                 fn ($t) => $t->due_date && Carbon::parse($t->due_date)->isSameDay($day)
             );
             $dayRoutines = $this->routinesForDate($user, $day);
+            $this->decorateHabitMetrics($dayRoutines['today'], $day);
             $days[] = [
                 'date' => $day,
                 'tasks' => $this->sortByPriority($dayTasks->values()),
@@ -198,6 +201,20 @@ class PlannerController extends Controller
             'done' => $done,
             'total' => $today->count(),
         ];
+    }
+
+    /**
+     * Attach habit-ring data (adherence %, streak, last-7 squares) to each
+     * routine so _routine-row can render the ring without extra queries there.
+     */
+    private function decorateHabitMetrics($routines, Carbon $date): void
+    {
+        foreach ($routines as $routine) {
+            $m = $routine->habitMetrics($date);
+            $routine->ringRate = $m['rate'];
+            $routine->ringStreak = $m['streak'];
+            $routine->ringLast7 = $m['last7'];
+        }
     }
 
     private function sortByPriority($tasks)

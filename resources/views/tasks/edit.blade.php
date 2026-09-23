@@ -5,640 +5,332 @@
 @push('styles')
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <style>
-    /* ─── Page Shell ─────────────────────────────────────────── */
-    .main-content {
-        padding: 14px 16px;
-        background: #f7f8fa;
-        min-height: 100vh;
-    }
+/* ── Task Edit – minimal ─────────────────────────────────── */
+.main-content { padding:20px 24px 48px; background:#fafafa; min-height:100vh; }
+.te-wrap { max-width:720px; margin:0 auto; }
 
-    /* ─── Gradient Page Header ───────────────────────────────── */
-    .content-header {
-        background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
-        border-radius: 10px;
-        padding: 12px 18px;
-        color: white;
-        margin-bottom: 14px;
-        position: relative;
-        overflow: hidden;
-        border: 1px solid #6d28d9;
-        box-shadow: 0 2px 8px rgba(124,58,237,.3);
-    }
-    .content-header::before {
-        content: '';
-        position: absolute;
-        top: 0; right: 0;
-        width: 90px; height: 90px;
-        background: rgba(255,255,255,.08);
-        border-radius: 50%;
-        transform: translate(22px,-22px);
-    }
-    .content-title {
-        color: white; font-weight: 700; font-size: 17px;
-        margin-bottom: 2px; position: relative; z-index: 1;
-    }
-    .content-subtitle {
-        color: rgba(255,255,255,.8); font-size: 12px;
-        margin: 0; font-weight: 400; position: relative; z-index: 1;
-    }
+.te-topbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+.te-back {
+    display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:500;
+    color:#8b8d98; text-decoration:none; min-width:0;
+}
+.te-back:hover { color:#7c3aed; }
+.te-back span { color:#1f2328; font-weight:600; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.te-actions { margin-left:auto; display:flex; gap:6px; align-items:center; }
+.te-btn {
+    display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:6px;
+    border:1px solid #e5e7eb; background:white; color:#6b6f78; font-size:12px; font-weight:600;
+    text-decoration:none; cursor:pointer; transition:all .12s;
+}
+.te-btn:hover { border-color:#7c3aed; color:#7c3aed; background:#f7f5ff; }
 
-    /* ─── Two-Panel Grid ─────────────────────────────────────── */
-    .cu-layout {
-        display: grid;
-        grid-template-columns: 220px 1fr;
-        gap: 14px;
-        align-items: start;
-    }
+.te-form {
+    background:white; border:1px solid #e5e7eb; border-radius:8px; padding:22px;
+}
+.te-title-input {
+    width:100%; font-size:18px; font-weight:700; color:#1f2328; line-height:1.4;
+    padding:8px 10px; margin:14px 0 4px; border:none; border-radius:6px; outline:none;
+    background:transparent; word-break:break-word;
+}
+.te-title-input:focus { background:#f7f8fa; box-shadow:inset 0 0 0 1.5px #7c3aed; }
 
-    /* ─── Left Info Panel ────────────────────────────────────── */
-    .cu-info-panel {
-        background: white;
-        border: 1px solid #e3e4e8;
-        border-radius: 8px;
-        overflow: hidden;
-        position: sticky;
-        top: 14px;
-    }
-    .cu-info-panel-header {
-        background: #f7f8fa;
-        border-bottom: 1px solid #e3e4e8;
-        padding: 10px 14px;
-    }
-    .cu-info-panel-header span {
-        font-size: 11px; font-weight: 700;
-        text-transform: uppercase; letter-spacing: .8px; color: #8a8f98;
-    }
-    .cu-info-body { padding: 14px; }
+.te-chip-row { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:12px; padding-top:12px; border-top:1px solid #f0f1f3; }
+.te-sep { color:#dfe1e6; }
+.te-inline-lbl { font-size:10.5px; font-weight:700; color:#aeb2ba; text-transform:uppercase; letter-spacing:.4px; margin-right:2px; }
 
-    .cu-task-avatar {
-        width: 48px; height: 48px; border-radius: 10px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 22px; color: white; margin: 0 auto 10px;
-    }
-    .cu-task-name {
-        text-align: center; font-size: 13px; font-weight: 700;
-        color: #1a1d23; margin-bottom: 4px; word-break: break-word; line-height: 1.3;
-    }
-    .cu-task-id {
-        text-align: center; font-size: 10px; font-weight: 700;
-        letter-spacing: .08em; color: #adb0b8; text-transform: uppercase; margin-bottom: 10px;
-    }
+.te-chip-opt { position:relative; }
+.te-chip-opt input { position:absolute; opacity:0; width:0; height:0; }
+.te-chip {
+    display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:20px;
+    border:1px solid #e5e7eb; font-size:11.5px; font-weight:600; color:#6b6f78;
+    cursor:pointer; user-select:none; transition:all .12s; background:white;
+}
+.te-chip:hover { border-color:#c4b5fd; color:#7c3aed; }
+.te-dot { width:7px; height:7px; border-radius:50%; background:currentColor; flex-shrink:0; }
+.chip-to-do       .te-chip-dot { background:#9ca3af; }
+.chip-in-progress .te-chip-dot { background:#7c3aed; }
+.chip-on-hold     .te-chip-dot { background:#ad6800; }
+.chip-in-review   .te-chip-dot { background:#0b6bcb; }
+.chip-completed   .te-chip-dot { background:#29774b; }
+.chip-to-do       input:checked + .te-chip { color:#6b6f78; border-color:#9ca3af; background:#eef0f2; }
+.chip-in-progress input:checked + .te-chip { color:#7c3aed; border-color:#7c3aed; background:#ece9fd; }
+.chip-on-hold     input:checked + .te-chip { color:#ad6800; border-color:#ad6800; background:#fdf4de; }
+.chip-in-review   input:checked + .te-chip { color:#0b6bcb; border-color:#0b6bcb; background:#e2f0fd; }
+.chip-completed   input:checked + .te-chip { color:#29774b; border-color:#29774b; background:#e3f5ec; }
+.chip-low    .te-chip-dot { background:#29774b; }
+.chip-medium .te-chip-dot { background:#ad6800; }
+.chip-high   .te-chip-dot { background:#e5484d; }
+.chip-low    input:checked + .te-chip { color:#29774b; border-color:#29774b; background:#e3f5ec; }
+.chip-medium input:checked + .te-chip { color:#ad6800; border-color:#ad6800; background:#fdf4de; }
+.chip-high   input:checked + .te-chip { color:#e5484d; border-color:#e5484d; background:#fdebec; }
 
-    .cu-status-badge {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
-        margin: 0 auto 10px;
-    }
-    .cu-status-badge.to-do       { background:#f3f4f6; color:#374151; }
-    .cu-status-badge.in-progress { background:#ede9fe; color:#5b21b6; }
-    .cu-status-badge.on-hold     { background:#fef3c7; color:#b45309; }
-    .cu-status-badge.in-review   { background:#dbeafe; color:#1d4ed8; }
-    .cu-status-badge.completed   { background:#dcfce7; color:#15803d; }
+.te-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
+.te-grid-3 { grid-template-columns:1fr 1fr 1fr; }
+.te-field label {
+    display:block; font-size:11px; font-weight:600; color:#8b8d98; margin-bottom:5px;
+}
+.te-input {
+    width:100%; border:1px solid #e5e7eb; border-radius:6px; padding:8px 10px;
+    font-size:13px; color:#1f2328; background:white; outline:none; box-sizing:border-box;
+}
+.te-input:focus { border-color:#7c3aed; box-shadow:0 0 0 3px rgba(124,58,237,.08); }
+.te-input.is-invalid { border-color:#e5484d; }
+.invalid-feedback { display:block; margin-top:4px; font-size:11px; color:#e5484d; font-weight:500; }
 
-    .cu-priority-badge {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
-        margin: 0 auto 12px;
-    }
-    .cu-priority-badge.high   { background:#fef2f2; color:#dc2626; }
-    .cu-priority-badge.medium { background:#fffbeb; color:#d97706; }
-    .cu-priority-badge.low    { background:#f0fdf4; color:#16a34a; }
+.te-editor-wrap {
+    border:1px solid #e5e7eb; border-radius:6px; overflow:hidden; margin-top:16px; transition:border-color .12s;
+}
+.te-editor-wrap:focus-within { border-color:#7c3aed; }
+.te-editor-wrap .ql-toolbar { border:none; border-bottom:1px solid #eef0f2; background:#fafbfc; padding:6px 10px; }
+.te-editor-wrap .ql-container { border:none; font-family:inherit; font-size:13.5px; }
+.te-editor-wrap .ql-editor { min-height:120px; padding:10px 12px; color:#3d4149; line-height:1.7; }
+.te-editor-wrap .ql-editor.ql-blank::before { color:#aeb2ba; font-style:normal; left:12px; }
 
-    .cu-meta-row {
-        display: flex; align-items: center; gap: 8px;
-        padding: 7px 0; border-top: 1px solid #f0f1f3;
-        font-size: 12px; color: #6b7385;
-    }
-    .cu-meta-row i { font-size: 13px; color: #adb0b8; flex-shrink: 0; }
-    .cu-meta-row strong { color: #1a1d23; font-weight: 600; }
+.te-more { margin:16px 0 0; border:1px solid #eef0f2; border-radius:6px; padding:10px 12px; }
+.te-more summary {
+    font-size:12px; font-weight:600; color:#7c3aed; cursor:pointer; list-style:none;
+    display:flex; align-items:center; gap:5px; user-select:none;
+}
+.te-more summary::-webkit-details-marker { display:none; }
+.te-more summary::before { content:'\f282'; font-family:'bootstrap-icons'; font-size:10px; transition:transform .15s; }
+.te-more[open] summary::before { transform:rotate(90deg); }
 
-    /* ─── Right — Form Sections ──────────────────────────────── */
-    .cu-sections { display: flex; flex-direction: column; gap: 10px; }
+.te-hint { font-size:11px; color:#8b8d98; margin-top:4px; }
+.te-hint strong { color:#7c3aed; font-weight:600; }
 
-    .cu-section {
-        background: white; border: 1px solid #e3e4e8; border-radius: 8px; overflow: hidden;
-    }
-    .cu-section-header {
-        display: flex; align-items: center; gap: 8px;
-        padding: 10px 16px; background: #fafbfc; border-bottom: 1px solid #e3e4e8;
-    }
-    .cu-section-icon {
-        width: 26px; height: 26px; border-radius: 6px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 13px; flex-shrink: 0;
-    }
-    .cu-section-icon.purple { background: #ede9fe; color: #7c3aed; }
-    .cu-section-icon.blue   { background: #dbeafe; color: #2563eb; }
-    .cu-section-icon.green  { background: #dcfce7; color: #16a34a; }
-    .cu-section-icon.amber  { background: #fef3c7; color: #d97706; }
-    .cu-section-icon.red    { background: #fee2e2; color: #dc2626; }
+.te-actions-bar {
+    display:flex; align-items:center; justify-content:flex-end; gap:8px;
+    margin-top:18px; padding-top:14px; border-top:1px solid #eef0f2;
+}
+.te-cancel {
+    padding:7px 16px; border-radius:6px; border:1px solid #e5e7eb; background:white;
+    color:#3d4149; font-size:13px; font-weight:600; text-decoration:none;
+}
+.te-cancel:hover, .te-cancel:hover { border-color:#c4b5fd; color:#7c3aed; }
+.te-save {
+    padding:7px 20px; border-radius:6px; border:none; background:#7c3aed; color:white;
+    font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+}
+.te-save:hover { background:#6d28d9; }
 
-    .cu-section-title { font-size: 13px; font-weight: 700; color: #1a1d23; margin: 0; }
-    .cu-section-subtitle { font-size: 11px; color: #8a8f98; margin: 0 0 0 auto; }
-    .cu-section-body { padding: 16px; }
+.te-danger {
+    margin-top:14px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    border:1px solid #fdebec; border-radius:6px; padding:12px 16px; background:white;
+}
+.te-danger-text h6 { font-size:13px; font-weight:600; color:#1f2328; margin:0 0 2px; }
+.te-danger-text p  { font-size:12px; color:#8b8d98; margin:0; }
+.te-btn-danger {
+    padding:6px 16px; border-radius:6px; border:1px solid #fca5a5; background:white;
+    color:#e5484d; font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap;
+    display:inline-flex; align-items:center; gap:6px;
+}
+.te-btn-danger:hover { background:#e5484d; border-color:#e5484d; color:white; }
 
-    /* ─── Fields ─────────────────────────────────────────────── */
-    .cu-field { margin-bottom: 14px; }
-    .cu-field:last-child { margin-bottom: 0; }
-    .cu-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-    .cu-label {
-        display: block; font-size: 11px; font-weight: 700;
-        text-transform: uppercase; letter-spacing: .7px; color: #8a8f98; margin-bottom: 5px;
-    }
-    .cu-input {
-        width: 100%; height: 34px; padding: 0 10px 0 34px;
-        border: 1px solid #d3d5db; border-radius: 6px; background: white;
-        font-size: 13px; color: #1a1d23; outline: none;
-        transition: border-color .15s, box-shadow .15s; box-sizing: border-box;
-    }
-    .cu-input.no-icon { padding-left: 10px; }
-    .cu-input:focus { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,.15); }
-    .cu-input.is-invalid { border-color: #dc2626; }
-    select.cu-input { padding-left: 34px; cursor: pointer; }
-
-    .cu-input-wrap { position: relative; }
-    .cu-input-wrap > i {
-        position: absolute; left: 10px; top: 50%;
-        transform: translateY(-50%); font-size: 13px; color: #adb0b8; pointer-events: none;
-    }
-    .invalid-feedback { display: block; margin-top: 4px; font-size: 11px; color: #dc2626; font-weight: 500; }
-
-    /* ─── Quill ──────────────────────────────────────────────── */
-    .cu-editor-wrap {
-        border: 1px solid #d3d5db; border-radius: 6px; overflow: hidden;
-        transition: border-color .15s, box-shadow .15s;
-    }
-    .cu-editor-wrap:focus-within { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,.15); }
-    .cu-editor-wrap .ql-toolbar { border: none; border-bottom: 1px solid #e3e4e8; background: #fafbfc; padding: 6px 10px; }
-    .cu-editor-wrap .ql-toolbar .ql-formats { margin-right: 8px; }
-    .cu-editor-wrap .ql-container { border: none; font-family: inherit; font-size: 13px; }
-    .cu-editor-wrap .ql-editor { min-height: 130px; padding: 10px 12px; color: #1a1d23; line-height: 1.6; }
-    .cu-editor-wrap .ql-editor.ql-blank::before { color: #b0b4be; font-style: normal; left: 12px; }
-
-    /* ─── Chip Options ───────────────────────────────────────── */
-    .cu-status-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-    .cu-chip-option { position: relative; }
-    .cu-chip-option input { position: absolute; opacity: 0; width: 0; height: 0; }
-    .cu-chip-label {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 5px 12px; border: 1px solid #d3d5db; border-radius: 20px;
-        cursor: pointer; font-size: 12px; font-weight: 600;
-        color: #6b7385; background: white; transition: all .15s; user-select: none;
-    }
-    .cu-chip-label:hover { border-color: #7c3aed; color: #7c3aed; background: #faf5ff; }
-    .cu-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-
-    /* Status chips */
-    .chip-to-do       .cu-chip-dot { background: #9ca3af; }
-    .chip-in-progress .cu-chip-dot { background: #7c3aed; }
-    .chip-on-hold     .cu-chip-dot { background: #b45309; }
-    .chip-in-review   .cu-chip-dot { background: #1d4ed8; }
-    .chip-completed   .cu-chip-dot { background: #16a34a; }
-    .chip-to-do       input:checked + .cu-chip-label { color:#374151; border-color:#9ca3af; background:#f3f4f6; }
-    .chip-in-progress input:checked + .cu-chip-label { color:#5b21b6; border-color:#7c3aed; background:#ede9fe; }
-    .chip-on-hold     input:checked + .cu-chip-label { color:#b45309; border-color:#b45309; background:#fef3c7; }
-    .chip-in-review   input:checked + .cu-chip-label { color:#1d4ed8; border-color:#1d4ed8; background:#dbeafe; }
-    .chip-completed   input:checked + .cu-chip-label { color:#15803d; border-color:#16a34a; background:#dcfce7; }
-
-    /* Priority chips */
-    .chip-low    .cu-chip-dot { background: #16a34a; }
-    .chip-medium .cu-chip-dot { background: #f59e0b; }
-    .chip-high   .cu-chip-dot { background: #dc2626; }
-    .chip-low    input:checked + .cu-chip-label { color:#16a34a; border-color:#16a34a; background:#f0fdf4; }
-    .chip-medium input:checked + .cu-chip-label { color:#d97706; border-color:#f59e0b; background:#fffbeb; }
-    .chip-high   input:checked + .cu-chip-label { color:#dc2626; border-color:#dc2626; background:#fef2f2; }
-
-    /* ─── Action Bar ─────────────────────────────────────────── */
-    .cu-action-bar {
-        display: flex; align-items: center; justify-content: flex-end;
-        gap: 8px; padding: 12px 16px; background: #fafbfc; border-top: 1px solid #e3e4e8;
-    }
-    .cu-btn-cancel {
-        padding: 6px 16px; border: 1px solid #d3d5db; background: white; color: #6b7385;
-        border-radius: 6px; font-size: 13px; font-weight: 600;
-        text-decoration: none; transition: all .15s; line-height: 1.4;
-    }
-    .cu-btn-cancel:hover { border-color: #adb0b8; color: #1a1d23; background: #f7f8fa; }
-    .cu-btn-save {
-        padding: 6px 18px; background: #7c3aed; border: 1px solid #7c3aed;
-        color: white; border-radius: 6px; font-size: 13px; font-weight: 600;
-        cursor: pointer; transition: all .15s; line-height: 1.4;
-    }
-    .cu-btn-save:hover { background: #6d28d9; border-color: #6d28d9; box-shadow: 0 2px 6px rgba(109,40,217,.35); }
-
-    /* ─── Danger Zone ────────────────────────────────────────── */
-    .cu-danger-section .cu-section-body {
-        display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-    }
-    .cu-danger-text h6 { font-size: 13px; font-weight: 700; color: #1a1d23; margin: 0 0 2px; }
-    .cu-danger-text p  { font-size: 12px; color: #6b7385; margin: 0; }
-    .cu-btn-danger {
-        padding: 6px 16px; background: white; border: 1px solid #dc2626; color: #dc2626;
-        border-radius: 6px; font-size: 13px; font-weight: 600;
-        cursor: pointer; transition: all .15s; white-space: nowrap; flex-shrink: 0;
-    }
-    .cu-btn-danger:hover { background: #dc2626; color: white; }
-
-    /* ─── Responsive ─────────────────────────────────────────── */
-    @media (max-width: 768px) {
-        .content-header  { padding: 10px 14px; }
-        .content-title   { font-size: 15px; }
-        .content-subtitle { font-size: 11px; }
-        .cu-layout { grid-template-columns: 1fr; }
-        .cu-info-panel { position: static; }
-        .cu-field-row { grid-template-columns: 1fr; }
-        .cu-action-bar { flex-direction: column-reverse; gap: 6px; }
-        .cu-btn-cancel, .cu-btn-save { width: 100%; text-align: center; }
-        .cu-danger-section .cu-section-body { flex-direction: column; align-items: flex-start; }
-        .cu-btn-danger { width: 100%; text-align: center; }
-    }
+@media(max-width:640px) {
+    .main-content { padding:14px 14px 40px; }
+    .te-form { padding:16px; }
+    .te-grid, .te-grid-3 { grid-template-columns:1fr; }
+    .te-back span { max-width:120px; }
+}
 </style>
 @endpush
 
 @section('content')
 <div class="main-content">
+<div class="te-wrap">
 
-    {{-- ── Gradient Header ──────────────────────────────────── --}}
-    <div class="content-header">
-        <div class="d-flex align-items-center" style="position:relative;z-index:1;">
-            <a href="{{ route('tasks.show', $task->id) }}" class="me-3 text-decoration-none">
-                <i class="bi bi-arrow-left fs-5" style="color:rgba(255,255,255,.8);"></i>
-            </a>
-            <div>
-                <h1 class="content-title mb-1">Edit Task</h1>
-                <p class="content-subtitle">Update task details and requirements</p>
-            </div>
+    <div class="te-topbar">
+        <a href="{{ route('tasks.show', $task->id) }}" class="te-back">
+            <i class="bi bi-arrow-left"></i> Back to <span>{{ $task->title }}</span>
+        </a>
+        <div class="te-actions">
+            <span class="te-hint">TASK-{{ str_pad($task->id, 4, '0', STR_PAD_LEFT) }}</span>
         </div>
     </div>
 
-    {{-- ── Two-Panel Layout ──────────────────────────────────── --}}
     @php
         $statusMap = [
-            'to_do'       => ['label'=>'To Do',       'class'=>'to-do'],
-            'in_progress' => ['label'=>'In Progress', 'class'=>'in-progress'],
-            'on_hold'     => ['label'=>'On Hold',     'class'=>'on-hold'],
-            'in_review'   => ['label'=>'In Review',   'class'=>'in-review'],
-            'completed'   => ['label'=>'Completed',   'class'=>'completed'],
+            'to_do'       => ['label'=>'To Do',       'class'=>'to-do',       'ini'=>'to_do'],
+            'in_progress' => ['label'=>'In Progress', 'class'=>'in-progress', 'ini'=>'in_progress'],
+            'on_hold'     => ['label'=>'On Hold',     'class'=>'on-hold',     'ini'=>'on_hold'],
+            'in_review'   => ['label'=>'In Review',   'class'=>'in-review',   'ini'=>'in_review'],
+            'completed'   => ['label'=>'Completed',   'class'=>'completed',   'ini'=>'completed'],
         ];
-        $priorityMap = [
-            'low'    => ['label'=>'Low',    'class'=>'low'],
-            'medium' => ['label'=>'Medium', 'class'=>'medium'],
-            'high'   => ['label'=>'High',   'class'=>'high'],
-        ];
-        $priorityColors  = ['high'=>'#dc2626','medium'=>'#f59e0b','low'=>'#16a34a'];
-        $avatarColor     = $priorityColors[$task->priority] ?? '#7c3aed';
-        $statusInfo      = $statusMap[$task->status]     ?? $statusMap['to_do'];
-        $priorityInfo    = $priorityMap[$task->priority] ?? $priorityMap['medium'];
+        $priorityMap = ['low','medium','high'];
+        [$estH, $estM] = \App\Models\Task::splitHours(old('estimated_hours', $task->estimated_hours));
+        $estH = old('est_hours', $estH);
+        $estM = old('est_minutes', $estM);
+        $wEffNow = $task->effectiveWeight();
+        $wFmtNow = rtrim(rtrim(number_format($wEffNow, 2), '0'), '.');
     @endphp
 
-    <div class="cu-layout">
+    <form action="{{ route('tasks.update', $task->id) }}" method="POST" id="editTaskForm"
+          class="te-form {{ $errors->has('title') ? 'has-errors' : '' }}">
 
-        {{-- ── Left Panel ───────────────────────────────────── --}}
-        <div class="cu-info-panel">
-            <div class="cu-info-panel-header"><span>Task</span></div>
-            <div class="cu-info-body">
+        @csrf
+        @method('PUT')
 
-                <div class="cu-task-avatar" style="background:{{ $avatarColor }};">
-                    <i class="bi bi-check2-square"></i>
+        {{-- Title --}}
+        <label for="title" class="te-inline-lbl">Task title</label>
+        <input type="text" name="title" id="title"
+               class="te-title-input {{ $errors->has('title') ? 'is-invalid' : '' }}"
+               value="{{ old('title', $task->title) }}" placeholder="Task title" required>
+        @error('title')<div class="invalid-feedback">{{ $message }}</div>@enderror
+
+        {{-- Status + Priority chips --}}
+        <div class="te-chip-row">
+            <span class="te-inline-lbl">Status</span>
+            @foreach($statusMap as $key => $info)
+                <span class="te-chip-opt chip-{{ $info['class'] }}">
+                    <input type="radio" name="status" id="status_{{ $key }}" value="{{ $key }}"
+                        {{ old('status', $task->status) == $key ? 'checked' : '' }}>
+                    <label for="status_{{ $key }}" class="te-chip">
+                        <span class="te-dot"></span> {{ $info['label'] }}
+                    </label>
+                </span>
+            @endforeach
+            @error('status')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        </div>
+        <div class="te-chip-row">
+            <span class="te-inline-lbl">Priority</span>
+            @foreach($priorityMap as $key)
+                <span class="te-chip-opt chip-{{ $key }}">
+                    <input type="radio" name="priority" id="priority_{{ $key }}" value="{{ $key }}"
+                        {{ old('priority', $task->priority) == $key ? 'checked' : '' }}>
+                    <label for="priority_{{ $key }}" class="te-chip">
+                        <span class="te-dot"></span> {{ ucfirst($key) }}
+                    </label>
+                </span>
+            @endforeach
+            @error('priority')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        </div>
+
+        {{-- Description --}}
+        @error('description')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        <div class="te-editor-wrap">
+            <div id="quill-editor"></div>
+            <textarea name="description" id="description" style="display:none;">{{ old('description', $task->description) }}</textarea>
+        </div>
+
+        {{-- Schedule / Assignment grid --}}
+        <div class="te-grid">
+            <div class="te-field">
+                <label for="due_date">Due date</label>
+                <input type="date" name="due_date" id="due_date"
+                       class="te-input {{ $errors->has('due_date') ? 'is-invalid' : '' }}"
+                       value="{{ old('due_date', $task->due_date ? $task->due_date->format('Y-m-d') : '') }}">
+                @error('due_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="te-field">
+                <label>Estimated time</label>
+                <div style="display:flex; gap:6px;">
+                    <input type="number" name="est_hours" id="est_hours"
+                           class="te-input {{ $errors->has('est_hours') ? 'is-invalid' : '' }}"
+                           value="{{ $estH }}" min="0" max="999" step="1" placeholder="Hrs" title="Hours">
+                    <input type="number" name="est_minutes" id="est_minutes"
+                           class="te-input {{ $errors->has('est_minutes') ? 'is-invalid' : '' }}"
+                           value="{{ $estM }}" min="0" max="59" step="1" placeholder="Min" title="Minutes">
                 </div>
-                <div class="cu-task-id">TASK-{{ str_pad($task->id, 4, '0', STR_PAD_LEFT) }}</div>
-                <div class="cu-task-name">{{ $task->title }}</div>
-
-                <div class="text-center mb-1">
-                    <span class="cu-status-badge {{ $statusInfo['class'] }}">
-                        <i class="bi bi-circle-fill" style="font-size:7px;"></i>
-                        {{ $statusInfo['label'] }}
-                    </span>
-                </div>
-                <div class="text-center mb-2">
-                    <span class="cu-priority-badge {{ $priorityInfo['class'] }}">
-                        <i class="bi bi-flag-fill" style="font-size:9px;"></i>
-                        {{ $priorityInfo['label'] }} Priority
-                    </span>
-                </div>
-
-                @if($task->project)
-                <div class="cu-meta-row">
-                    <i class="bi bi-folder"></i>
-                    <span>Project&nbsp;<strong>{{ $task->project->name }}</strong></span>
-                </div>
-                @endif
-
-                @if($task->due_date)
-                <div class="cu-meta-row">
-                    <i class="bi bi-calendar-event"></i>
-                    <span>Due&nbsp;<strong>{{ \Carbon\Carbon::parse($task->due_date)->format('M d, Y') }}</strong></span>
-                </div>
-                @endif
-
-                @if($task->estimated_hours)
-                <div class="cu-meta-row">
-                    <i class="bi bi-clock"></i>
-                    <span>Est.&nbsp;<strong>{{ $task->estimatedLabel() ?? '—' }}</strong></span>
-                </div>
-                @endif
-
-                <div class="cu-meta-row">
-                    <i class="bi bi-person"></i>
-                    <span>Assigned&nbsp;<strong>{{ $task->user->name }}</strong></span>
-                </div>
-
-                <div class="cu-meta-row">
-                    <i class="bi bi-clock-history"></i>
-                    <span>Updated&nbsp;<strong>{{ $task->updated_at->diffForHumans() }}</strong></span>
-                </div>
-
+                @error('est_hours')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                @error('est_minutes')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="te-field">
+                <label for="project_id">Project</label>
+                <select name="project_id" id="project_id"
+                        class="te-input {{ $errors->has('project_id') ? 'is-invalid' : '' }}">
+                    @foreach($projects as $project)
+                        <option value="{{ $project->id }}"
+                            {{ old('project_id', $task->project_id) == $project->id ? 'selected' : '' }}>
+                            {{ $project->name }}
+                        </option>
+                    @endforeach
+                </select>
+                @error('project_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="te-field">
+                <label for="user_id">Assigned to</label>
+                <select name="user_id" id="user_id"
+                        class="te-input {{ $errors->has('user_id') ? 'is-invalid' : '' }}">
+                    @foreach($users as $user)
+                        <option value="{{ $user->id }}"
+                            {{ old('user_id', $task->user_id) == $user->id ? 'selected' : '' }}>
+                            {{ $user->name }}
+                        </option>
+                    @endforeach
+                </select>
+                @error('user_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
         </div>
 
-        {{-- ── Right Form Sections ───────────────────────────── --}}
-        <form action="{{ route('tasks.update', $task->id) }}" method="POST" id="editTaskForm">
-            @csrf
-            @method('PUT')
-
-            <div class="cu-sections">
-
-                {{-- General Info --}}
-                <div class="cu-section">
-                    <div class="cu-section-header">
-                        <span class="cu-section-icon purple"><i class="bi bi-card-text"></i></span>
-                        <span class="cu-section-title">General Info</span>
-                    </div>
-                    <div class="cu-section-body">
-                        <div class="cu-field">
-                            <label for="title" class="cu-label">Task Title <span style="color:#dc2626;">*</span></label>
-                            <div class="cu-input-wrap">
-                                <i class="bi bi-card-text"></i>
-                                <input type="text" name="title" id="title"
-                                       class="cu-input {{ $errors->has('title') ? 'is-invalid' : '' }}"
-                                       value="{{ old('title', $task->title) }}"
-                                       placeholder="Enter task title" required>
-                            </div>
-                            @error('title')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        </div>
-
-                        <div class="cu-field">
-                            <label class="cu-label">Description</label>
-                            <div class="cu-editor-wrap">
-                                <div id="quill-editor"></div>
-                                <textarea name="description" id="description" style="display:none;">{{ old('description', $task->description) }}</textarea>
-                            </div>
-                            @error('description')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        </div>
+        {{-- Advanced options (collapsed) --}}
+        <details class="te-more">
+            <summary>More options</summary>
+            <div class="te-grid te-grid-3" style="margin-top:12px;">
+                <div class="te-field">
+                    <label for="parent_id">Parent task</label>
+                    <select name="parent_id" id="parent_id"
+                            class="te-input {{ $errors->has('parent_id') ? 'is-invalid' : '' }}">
+                        <option value="">None (top-level)</option>
+                        @foreach($parentOptions as $opt)
+                            <option value="{{ $opt->id }}"
+                                {{ (string) old('parent_id', $task->parent_id ?? '') === (string) $opt->id ? 'selected' : '' }}>
+                                {{ $opt->title }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('parent_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="te-field">
+                    <label for="weight">Weight</label>
+                    <input type="number" name="weight" id="weight"
+                           class="te-input {{ $errors->has('weight') ? 'is-invalid' : '' }}"
+                           value="{{ old('weight', $task->weight ?? 1) }}" min="0" max="99" step="0.25">
+                    @error('weight')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <div class="te-hint">Effective now: <strong>×{{ $wFmtNow }}</strong>
+                        @if($task->auto_weight && $task->ownTimeSeconds() > 0)
+                            (auto-boosted by tracked time)
+                        @endif
                     </div>
                 </div>
-
-                {{-- Schedule & Assignment --}}
-                <div class="cu-section">
-                    <div class="cu-section-header">
-                        <span class="cu-section-icon blue"><i class="bi bi-calendar3"></i></span>
-                        <span class="cu-section-title">Schedule &amp; Assignment</span>
-                    </div>
-                    <div class="cu-section-body">
-                        <div class="cu-field-row cu-field">
-                            <div class="cu-field" style="margin-bottom:0;">
-                                <label for="due_date" class="cu-label">Due Date</label>
-                                <div class="cu-input-wrap">
-                                    <i class="bi bi-calendar-event"></i>
-                                    <input type="date" name="due_date" id="due_date"
-                                           class="cu-input {{ $errors->has('due_date') ? 'is-invalid' : '' }}"
-                                           value="{{ old('due_date', $task->due_date) }}">
-                                </div>
-                                @error('due_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            </div>
-                            <div class="cu-field" style="margin-bottom:0;">
-                                <label class="cu-label">Estimated Time</label>
-                                @php
-                                    [$estH, $estM] = \App\Models\Task::splitHours(old('estimated_hours', $task->estimated_hours));
-                                    $estH = old('est_hours', $estH);
-                                    $estM = old('est_minutes', $estM);
-                                @endphp
-                                <div style="display:flex; gap:8px;">
-                                    <div class="cu-input-wrap" style="flex:1;">
-                                        <i class="bi bi-clock"></i>
-                                        <input type="number" name="est_hours" id="est_hours"
-                                               class="cu-input {{ $errors->has('est_hours') ? 'is-invalid' : '' }}"
-                                               value="{{ $estH }}"
-                                               min="0" max="999" step="1" placeholder="Hrs" title="Hours">
-                                    </div>
-                                    <div class="cu-input-wrap" style="flex:1;">
-                                        <i class="bi bi-stopwatch"></i>
-                                        <input type="number" name="est_minutes" id="est_minutes"
-                                               class="cu-input {{ $errors->has('est_minutes') ? 'is-invalid' : '' }}"
-                                               value="{{ $estM }}"
-                                               min="0" max="59" step="1" placeholder="Min" title="Minutes">
-                                    </div>
-                                </div>
-                                @error('est_hours')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                @error('est_minutes')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            </div>
-                        </div>
-
-                        <div class="cu-field-row" style="margin-top:12px;">
-                            <div class="cu-field" style="margin-bottom:0;">
-                                <label for="project_id" class="cu-label">Project</label>
-                                <div class="cu-input-wrap">
-                                    <i class="bi bi-folder"></i>
-                                    <select name="project_id" id="project_id"
-                                            class="cu-input {{ $errors->has('project_id') ? 'is-invalid' : '' }}">
-                                        @foreach($projects as $project)
-                                            <option value="{{ $project->id }}"
-                                                {{ old('project_id', $task->project_id) == $project->id ? 'selected' : '' }}>
-                                                {{ $project->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                @error('project_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            </div>
-                            <div class="cu-field" style="margin-bottom:0;">
-                                <label for="user_id" class="cu-label">Assigned To</label>
-                                <div class="cu-input-wrap">
-                                    <i class="bi bi-person"></i>
-                                    <select name="user_id" id="user_id"
-                                            class="cu-input {{ $errors->has('user_id') ? 'is-invalid' : '' }}">
-                                        @foreach($users as $user)
-                                            <option value="{{ $user->id }}"
-                                                {{ old('user_id', $task->user_id) == $user->id ? 'selected' : '' }}>
-                                                {{ $user->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                @error('user_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            </div>
-                        </div>
-
-                        <div class="cu-field-row" style="margin-top:12px;">
-                            <div class="cu-field" style="margin-bottom:0;">
-                                <label for="parent_id" class="cu-label">Parent Task</label>
-                                <div class="cu-input-wrap">
-                                    <i class="bi bi-diagram-3"></i>
-                                    <select name="parent_id" id="parent_id"
-                                            class="cu-input {{ $errors->has('parent_id') ? 'is-invalid' : '' }}">
-                                        <option value="">None (top-level)</option>
-                                        @foreach($parentOptions as $opt)
-                                            <option value="{{ $opt->id }}"
-                                                {{ (string) old('parent_id', $task->parent_id ?? '') === (string) $opt->id ? 'selected' : '' }}>
-                                                {{ $opt->title }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                @error('parent_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            </div>
-                            <div class="cu-field" style="margin-bottom:0;">
-                                <label for="weight" class="cu-label">Weight</label>
-                                <div class="cu-input-wrap">
-                                    <i class="bi bi-award"></i>
-                                    <input type="number" name="weight" id="weight"
-                                           class="cu-input {{ $errors->has('weight') ? 'is-invalid' : '' }}"
-                                           value="{{ old('weight', $task->weight ?? 1) }}"
-                                           min="0" max="99" step="0.25">
-                                </div>
-                                @error('weight')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                @php
-                                    $wEffNow = $task->effectiveWeight();
-                                    $wFmtNow = rtrim(rtrim(number_format($wEffNow, 2), '0'), '.');
-                                @endphp
-                                <div style="font-size:11px; color:#8a8f98; margin-top:4px;">
-                                    Effective now: <strong style="color:#7c3aed;">×{{ $wFmtNow }}</strong>
-                                    @if($task->auto_weight && $task->ownTimeSeconds() > 0)
-                                        (auto-boosted by tracked time)
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="cu-field" style="margin-top:12px; margin-bottom:0;">
-                            <input type="hidden" name="auto_weight" value="0">
-                            <div class="form-check">
-                                <input type="checkbox" name="auto_weight" value="1" class="form-check-input" id="autoWeight"
-                                    {{ old('auto_weight', $task->auto_weight ?? true) ? 'checked' : '' }}>
-                                <label class="form-check-label" for="autoWeight" style="font-size:12px; color:#3d4149;">
-                                    Auto weight <span style="color:#8a8f98;">(increases with time spent)</span>
-                                </label>
-                            </div>
-                        </div>
+                <div class="te-field">
+                    <label>Auto weight</label>
+                    <div class="form-check" style="padding-top:6px;">
+                        <input type="hidden" name="auto_weight" value="0">
+                        <input type="checkbox" name="auto_weight" value="1" class="form-check-input" id="autoWeight"
+                            {{ old('auto_weight', $task->auto_weight ?? true) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="autoWeight" style="font-size:12px;color:#3d4149;">
+                            Increases with time spent
+                        </label>
                     </div>
                 </div>
-
-                {{-- Status --}}
-                <div class="cu-section">
-                    <div class="cu-section-header">
-                        <span class="cu-section-icon green"><i class="bi bi-ui-checks"></i></span>
-                        <span class="cu-section-title">Status</span>
-                        <span class="cu-section-subtitle">Current task state</span>
-                    </div>
-                    <div class="cu-section-body">
-                        <div class="cu-status-chips">
-                            <div class="cu-chip-option chip-to-do">
-                                <input type="radio" name="status" id="status_to_do" value="to_do"
-                                    {{ old('status', $task->status) == 'to_do' ? 'checked' : '' }}>
-                                <label for="status_to_do" class="cu-chip-label">
-                                    <span class="cu-chip-dot"></span> To Do
-                                </label>
-                            </div>
-                            <div class="cu-chip-option chip-in-progress">
-                                <input type="radio" name="status" id="status_in_progress" value="in_progress"
-                                    {{ old('status', $task->status) == 'in_progress' ? 'checked' : '' }}>
-                                <label for="status_in_progress" class="cu-chip-label">
-                                    <span class="cu-chip-dot"></span> In Progress
-                                </label>
-                            </div>
-                            <div class="cu-chip-option chip-on-hold">
-                                <input type="radio" name="status" id="status_on_hold" value="on_hold"
-                                    {{ old('status', $task->status) == 'on_hold' ? 'checked' : '' }}>
-                                <label for="status_on_hold" class="cu-chip-label">
-                                    <span class="cu-chip-dot"></span> On Hold
-                                </label>
-                            </div>
-                            <div class="cu-chip-option chip-in-review">
-                                <input type="radio" name="status" id="status_in_review" value="in_review"
-                                    {{ old('status', $task->status) == 'in_review' ? 'checked' : '' }}>
-                                <label for="status_in_review" class="cu-chip-label">
-                                    <span class="cu-chip-dot"></span> In Review
-                                </label>
-                            </div>
-                            <div class="cu-chip-option chip-completed">
-                                <input type="radio" name="status" id="status_completed" value="completed"
-                                    {{ old('status', $task->status) == 'completed' ? 'checked' : '' }}>
-                                <label for="status_completed" class="cu-chip-label">
-                                    <span class="cu-chip-dot"></span> Completed
-                                </label>
-                            </div>
-                        </div>
-                        @error('status')<div class="invalid-feedback mt-2">{{ $message }}</div>@enderror
-                    </div>
-                </div>
-
-                {{-- Priority --}}
-                <div class="cu-section">
-                    <div class="cu-section-header">
-                        <span class="cu-section-icon amber"><i class="bi bi-flag"></i></span>
-                        <span class="cu-section-title">Priority</span>
-                        <span class="cu-section-subtitle">Task urgency level</span>
-                    </div>
-                    <div class="cu-section-body">
-                        <div class="cu-status-chips">
-                            <div class="cu-chip-option chip-low">
-                                <input type="radio" name="priority" id="priority_low" value="low"
-                                    {{ old('priority', $task->priority) == 'low' ? 'checked' : '' }}>
-                                <label for="priority_low" class="cu-chip-label">
-                                    <span class="cu-chip-dot"></span> Low
-                                </label>
-                            </div>
-                            <div class="cu-chip-option chip-medium">
-                                <input type="radio" name="priority" id="priority_medium" value="medium"
-                                    {{ old('priority', $task->priority) == 'medium' ? 'checked' : '' }}>
-                                <label for="priority_medium" class="cu-chip-label">
-                                    <span class="cu-chip-dot"></span> Medium
-                                </label>
-                            </div>
-                            <div class="cu-chip-option chip-high">
-                                <input type="radio" name="priority" id="priority_high" value="high"
-                                    {{ old('priority', $task->priority) == 'high' ? 'checked' : '' }}>
-                                <label for="priority_high" class="cu-chip-label">
-                                    <span class="cu-chip-dot"></span> High
-                                </label>
-                            </div>
-                        </div>
-                        @error('priority')<div class="invalid-feedback mt-2">{{ $message }}</div>@enderror
-                    </div>
-                    <div class="cu-action-bar">
-                        <a href="{{ route('tasks.show', $task->id) }}" class="cu-btn-cancel">Cancel</a>
-                        <button type="submit" class="cu-btn-save">
-                            <i class="bi bi-check-lg me-1"></i>Save Changes
-                        </button>
-                    </div>
-                </div>
-
             </div>
+        </details>
+
+        {{-- Action bar --}}
+        <div class="te-actions-bar">
+            <a href="{{ route('tasks.show', $task->id) }}" class="te-cancel">Cancel</a>
+            <button type="submit" class="te-save">
+                <i class="bi bi-check-lg"></i>Save changes
+            </button>
+        </div>
+    </form>
+
+    {{-- Danger Zone — minimal red row (kept per user choice) --}}
+    <div class="te-danger">
+        <div class="te-danger-text">
+            <h6>Delete this task</h6>
+            <p>Permanently removes this task and its checklist items. This cannot be undone.</p>
+        </div>
+        <form action="{{ route('tasks.destroy', $task->id) }}" method="POST" id="deleteForm">
+            @csrf
+            @method('DELETE')
+            <button type="button" class="te-btn-danger" onclick="confirmDelete()">
+                <i class="bi bi-trash"></i>Delete task
+            </button>
         </form>
     </div>
 
-    {{-- ── Danger Zone ───────────────────────────────────────── --}}
-    <div class="cu-section cu-danger-section" style="margin-top:10px; border-color:#fecaca;">
-        <div class="cu-section-header" style="background:#fff5f5; border-bottom-color:#fecaca;">
-            <span class="cu-section-icon red"><i class="bi bi-exclamation-triangle"></i></span>
-            <span class="cu-section-title" style="color:#dc2626;">Danger Zone</span>
-        </div>
-        <div class="cu-section-body">
-            <div class="cu-danger-text">
-                <h6>Delete this task</h6>
-                <p>Permanently removes this task and its checklist items. This cannot be undone.</p>
-            </div>
-            <form action="{{ route('tasks.destroy', $task->id) }}" method="POST" id="deleteForm">
-                @csrf
-                @method('DELETE')
-                <button type="button" class="cu-btn-danger" onclick="confirmDelete()">
-                    <i class="bi bi-trash me-1"></i>Delete Task
-                </button>
-            </form>
-        </div>
-    </div>
-
+</div>
 </div>
 @endsection
 
@@ -648,7 +340,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     var quill = new Quill('#quill-editor', {
         theme: 'snow',
-        placeholder: 'Describe the task requirements, goals, and any specific instructions...',
+        placeholder: 'Describe the task requirements, goals, and any specific instructions…',
         modules: {
             toolbar: [
                 ['bold', 'italic', 'underline', 'strike'],
@@ -656,7 +348,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 [{ 'header': 1 }, { 'header': 2 }],
                 [{ 'list': 'ordered'}, { 'list': 'bullet' }],
                 ['link'],
-                [{ 'color': [] }, { 'background': [] }],
                 ['clean']
             ]
         }

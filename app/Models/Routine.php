@@ -368,6 +368,42 @@ class Routine extends Model
     }
 
     /**
+     * Compact habit metrics for the Day-page Habit Ring:
+     * 30-day adherence rate, current streak and the last 7 squares.
+     */
+    public function habitMetrics(Carbon $date, int $ringDays = 30): array
+    {
+        $date = $date->copy()->startOfDay();
+
+        $rate = $this->adherence($ringDays, $date)['rate'];
+        $streak = $this->streakStats($date)['current'];
+
+        $from = $date->copy()->subDays(6);
+        $completedKeys = array_flip($this->completionDateKeys($from, $date));
+
+        $last7 = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $day = $date->copy()->subDays($i);
+            $key = $day->toDateString();
+            $occurs = $this->occursForStats($day);
+
+            $state = 'na';
+            if ($day->isFuture() || $day->isSameDay(now())) {
+                $state = $day->isSameDay(now()) ? 'today' : 'future';
+            } elseif ($occurs) {
+                $state = isset($completedKeys[$key]) ? 'done' : 'missed';
+            }
+
+            $last7[] = [
+                'date' => $key,
+                'state' => $state,
+            ];
+        }
+
+        return ['rate' => $rate, 'streak' => $streak, 'last7' => $last7];
+    }
+
+    /**
      * Adherence over the trailing number of days.
      */
     public function adherence(int $days = 30, ?Carbon $today = null): array
