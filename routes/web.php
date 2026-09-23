@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AiActionController;
 use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\AiProviderController;
 use App\Http\Controllers\AiSettingsController;
@@ -100,6 +101,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/ai/providers/{provider}/test', [AiProviderController::class, 'test'])->name('ai.providers.test');
     Route::post('/ai/chat', [AiChatController::class, 'chat'])->name('ai.chat');
     Route::post('/ai/stream', [AiChatController::class, 'stream'])->name('ai.stream');
+    // AI tool actions (confirm/reject with ownership + expiry checks)
+    Route::post('/ai/actions/{action}/confirm', [AiActionController::class, 'confirm'])
+        ->middleware('throttle:30,1')->name('ai.actions.confirm');
+    Route::post('/ai/actions/{action}/reject', [AiActionController::class, 'reject'])
+        ->middleware('throttle:30,1')->name('ai.actions.reject');
     // AI Conversations (DB-backed)
     Route::get('/ai/conversations', [AiChatController::class, 'conversations'])->name('ai.conversations.index');
     Route::post('/ai/conversations', [AiChatController::class, 'createConversation'])->name('ai.conversations.create');
