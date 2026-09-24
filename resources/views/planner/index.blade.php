@@ -98,6 +98,32 @@
     /* Clicking the routine row expands its details */
     .pl-routine[data-routine-item] .pl-task-title,
     .pl-routine[data-routine-item] .pl-task-meta{cursor:pointer;}
+
+    /* ── Routine detail modal (big / tracked routines) ── */
+    .pl-modal{position:fixed;inset:0;z-index:1090;display:flex;align-items:center;justify-content:center;padding:16px;}
+    .pl-modal[hidden]{display:none;}
+    .pl-modal-backdrop{position:absolute;inset:0;background:rgba(17,20,26,.5);}
+    .pl-modal-dialog{
+        position:relative;background:#fff;border-radius:14px;width:min(560px,96vw);max-height:88vh;
+        display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;
+    }
+    .pl-modal-head{display:flex;align-items:flex-start;gap:10px;padding:16px 18px 12px;border-bottom:1px solid #eef0f3;}
+    .pl-modal-title{font-size:15px;font-weight:800;color:#1a1d23;}
+    .pl-modal-sub{font-size:12px;color:#8a8f98;margin-top:2px;}
+    .pl-modal-x{
+        margin-left:auto;border:none;background:#f2f3f5;color:#6b7385;width:30px;height:30px;
+        border-radius:8px;font-size:17px;line-height:1;cursor:pointer;flex-shrink:0;
+    }
+    .pl-modal-x:hover{background:#e6e8ec;color:#1a1d23;}
+    .pl-modal-body{padding:14px 18px;overflow-y:auto;}
+    .pl-modal-body .pl-details{display:block;}
+    .pl-modal-body .pl-logsets{gap:9px;}
+    .pl-modal-body .pl-logset{padding:9px 11px;}
+    .pl-modal-body .pl-logset-name{font-size:12.5px;}
+    .pl-modal-body .pl-logset input{width:76px;padding:5px 9px;font-size:12.5px;}
+    .pl-modal-body .pl-steps{gap:7px;}
+    .pl-modal-body .pl-step{font-size:12px;padding:4px 12px;}
+    body.pl-modal-open{overflow:hidden;}
     .pl-details{display:none;}
     .pl-details.open{display:block;}
     .pl-task-title{display:flex;align-items:center;gap:4px;}
@@ -398,6 +424,21 @@
 
     <div id="plConfetti" aria-hidden="true"></div>
     <div id="plToast" role="status"></div>
+
+    {{-- Routine detail modal: opened for big or tracked routines --}}
+    <div class="pl-modal" id="plRoutineModal" hidden>
+        <div class="pl-modal-backdrop" data-modal-close></div>
+        <div class="pl-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="plModalTitle">
+            <div class="pl-modal-head">
+                <div>
+                    <div class="pl-modal-title" id="plModalTitle" data-modal-title></div>
+                    <div class="pl-modal-sub" data-modal-sub></div>
+                </div>
+                <button type="button" class="pl-modal-x" data-modal-close aria-label="Close">&times;</button>
+            </div>
+            <div class="pl-modal-body" data-modal-body></div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -645,14 +686,62 @@
         }
     }
 
-    /* Clicking anywhere on a routine row (that has steps/logs) opens its panel.
-       Interactive controls and the open panel keep handling their own clicks. */
+    /* Clicking anywhere on a routine row opens its panel. Big/tracked routines
+       open the modal; the rest expand inline. Interactive controls and the open
+       panel keep handling their own clicks. */
     document.addEventListener('click', function (e) {
         const row = e.target.closest('[data-routine-item]');
         if (!row) return;
         if (e.target.closest('button, input, select, textarea, a, label, [data-details]')) return;
+        if (row.dataset.modal === '1') { openRoutineModal(row); return; }
         toggleRoutineDetailsRow(row);
     });
+
+    /* ── Routine detail modal ── */
+    const plModal = document.getElementById('plRoutineModal');
+    const plModalBody = plModal ? plModal.querySelector('[data-modal-body]') : null;
+    let plModalState = null;
+
+    function openRoutineModal(el) {
+        const row = el.closest && el.closest('[data-routine-item]') ? el.closest('[data-routine-item]') : el;
+        const details = row.querySelector('[data-details]');
+        if (!details || !plModal) return;
+        if (plModalState) closeRoutineModal();
+
+        /* Move the row's details panel into the modal, leaving a marker behind. */
+        const placeholder = document.createComment('pl-details');
+        details.parentNode.insertBefore(placeholder, details);
+        details.classList.add('open');
+        plModalBody.appendChild(details);
+
+        plModal.querySelector('[data-modal-title]').textContent = row.dataset.modalTitle || '';
+        plModal.querySelector('[data-modal-sub]').textContent = row.dataset.modalSub || '';
+        plModal.hidden = false;
+        document.body.classList.add('pl-modal-open');
+        plModalState = { details, placeholder };
+
+        const firstInput = plModalBody.querySelector('input');
+        if (firstInput) setTimeout(() => firstInput.focus(), 60);
+    }
+
+    function closeRoutineModal() {
+        if (!plModalState) return;
+        const { details, placeholder } = plModalState;
+        details.classList.remove('open');
+        if (placeholder.parentNode) placeholder.parentNode.insertBefore(details, placeholder);
+        placeholder.remove();
+        plModal.hidden = true;
+        document.body.classList.remove('pl-modal-open');
+        plModalState = null;
+        refreshStepCounts();
+    }
+
+    if (plModal) {
+        plModal.querySelectorAll('[data-modal-close]').forEach(b => b.addEventListener('click', closeRoutineModal));
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeRoutineModal();
+        });
+    }
 
     function expandRoutineDetails(el) {
         const row = el.closest('[data-routine-item]');
@@ -665,9 +754,10 @@
     }
 
     function findFirstEmptySetInput(stepBtn) {
-        const row = stepBtn.closest('[data-routine-item]');
-        if (!row) return null;
-        const box = row.querySelector('[data-log-sets][data-item="' + stepBtn.dataset.id + '"]');
+        /* Works whether the steps live in the row (accordion) or the modal. */
+        const scope = stepBtn.closest('[data-routine-item], [data-modal-body]');
+        if (!scope) return null;
+        const box = scope.querySelector('[data-log-sets][data-item="' + stepBtn.dataset.id + '"]');
         if (!box) return null;
         return box.querySelector('input[data-set]:not(.has-val)') || box.querySelector('input[data-set]');
     }

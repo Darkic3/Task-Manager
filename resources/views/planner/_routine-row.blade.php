@@ -25,6 +25,14 @@
     /* Details (steps + logging) start collapsed to keep the day view tidy */
     $hasSteps    = $toggleable && ! empty($routine->ringSteps) && count($routine->ringSteps) > 0;
     $hasDetails  = $toggleable && ($hasSteps || $logUrl);
+
+    /* Big or tracked routines are easier to fill in a modal than an accordion. */
+    $stepCount   = ! empty($routine->ringSteps) ? count($routine->ringSteps) : 0;
+    $useModal    = $hasDetails && ($stepCount > 5 || $trackMode !== 'none');
+    $modalSub    = ($toggleable ? ucfirst($routine->frequency) : $routine->recurrenceLabel());
+    if ($stepCount > 0) {
+        $modalSub .= ' · ' . $stepCount . ' steps';
+    }
 @endphp
 <div class="pl-task pl-routine {{ $isDone ? 'is-done' : '' }}"
      @if($toggleable)
@@ -33,6 +41,11 @@
      data-date="{{ $routineDate->toDateString() }}"
      data-completed="{{ $isDone ? 1 : 0 }}"
      data-count="{{ !empty($count) ? 1 : 0 }}"
+     @if($useModal)
+     data-modal="1"
+     data-modal-title="{{ $routine->title }}"
+     data-modal-sub="{{ $modalSub }}"
+     @endif
      @endif
      style="border-left:3px solid {{ $accent }};">
 
@@ -76,9 +89,15 @@
                 </span>
             @endif
             @if($hasDetails)
-                <button type="button" class="pl-expand" onclick="toggleRoutineDetails(this)" title="Show details">
-                    <i class="bi bi-chevron-down"></i>
-                </button>
+                @if($useModal)
+                    <button type="button" class="pl-expand pl-expand-modal" onclick="openRoutineModal(this)" title="Open details">
+                        <i class="bi bi-arrows-angle-expand"></i>
+                    </button>
+                @else
+                    <button type="button" class="pl-expand" onclick="toggleRoutineDetails(this)" title="Show details">
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                @endif
             @endif
         </div>
         <div class="pl-task-meta">

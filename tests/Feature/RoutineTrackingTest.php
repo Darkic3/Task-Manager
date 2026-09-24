@@ -190,4 +190,29 @@ class RoutineTrackingTest extends TestCase
             ->assertSee('data-details', false)
             ->assertSee('pl-expand', false);
     }
+
+    public function test_big_and_tracked_routines_use_modal(): void
+    {
+        $user = User::factory()->create();
+        $this->valueRoutine($user); // tracked (value) → modal
+
+        $big = Routine::factory()->create(['user_id' => $user->id, 'frequency' => 'daily', 'title' => 'Big']);
+        for ($i = 0; $i < 6; $i++) {
+            $big->checklistItems()->create(['user_id' => $user->id, 'name' => 'Step '.$i, 'sort_order' => $i]);
+        }
+
+        $small = Routine::factory()->create(['user_id' => $user->id, 'frequency' => 'daily', 'title' => 'Small']);
+        for ($i = 0; $i < 3; $i++) {
+            $small->checklistItems()->create(['user_id' => $user->id, 'name' => 'S'.$i, 'sort_order' => $i]);
+        }
+
+        $html = $this->actingAs($user)->get(route('planner.index', ['view' => 'day']))
+            ->assertOk()
+            ->assertSee('id="plRoutineModal"', false)
+            ->getContent();
+
+        // Tracked value routine + 6-step routine → modal; 3-step plain → accordion.
+        $this->assertSame(2, substr_count($html, 'data-modal="1"'));
+        $this->assertStringContainsString('pl-expand-modal', $html);
+    }
 }
