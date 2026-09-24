@@ -230,6 +230,37 @@ class AiProviderService
     }
 
     /**
+     * Resolve the real HTTP endpoint for a custom/built-in provider.
+     *
+     * OpenAI-compatible APIs expect POST {base}/chat/completions, but users
+     * often paste only the base prefix (e.g. https://router.bynara.id/v1
+     * instead of https://router.bynara.id/v1/chat/completions). Normalize
+     * both forms so Test + Chat work either way.
+     */
+    public function endpointFor(string $baseUrl, string $type): string
+    {
+        $trimmed = rtrim(trim($baseUrl), '/');
+
+        if ($type !== 'openai') {
+            return $trimmed;
+        }
+
+        if (str_ends_with($trimmed, '/chat/completions')) {
+            return $trimmed;
+        }
+        if (str_ends_with($trimmed, '/chat')) {
+            return $trimmed . '/completions';
+        }
+        // Legacy completions endpoint pasted by mistake: .../v1/completions
+        // -> .../v1/chat/completions
+        if (str_ends_with($trimmed, '/completions')) {
+            return substr($trimmed, 0, -strlen('/completions')) . '/chat/completions';
+        }
+
+        return $trimmed . '/chat/completions';
+    }
+
+    /**
      * Lightweight connectivity test for a custom provider.
      * Returns ['ok' => bool, 'message' => string].
      */
@@ -270,14 +301,15 @@ class AiProviderService
             }
 
             // Default: OpenAI-compatible
+            $endpoint = $this->endpointFor($provider->base_url, 'openai');
             $payload = $this->openAiPayload(
                 [['role' => 'user', 'content' => 'ping']],
                 $model,
                 false,
-                $provider->base_url
+                $endpoint
             );
             $payload['max_tokens'] = 5;
-            $res = $this->postJson($provider->base_url, $payload, ['Authorization' => 'Bearer ' . $key], 30);
+            $res = $this->postJson($endpoint, $payload, ['Authorization' => 'Bearer ' . $key], 30);
             if ($res->failed()) {
                 return ['ok' => false, 'message' => $this->formatErrorResponse($res)];
             }

@@ -73,7 +73,7 @@ class AiProviderController extends Controller
 
     private function validated(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'label'    => 'required|string|max:80',
             'type'     => 'required|in:openai,gemini,anthropic',
             'base_url' => 'required|url|max:500',
@@ -81,6 +81,12 @@ class AiProviderController extends Controller
             'api_key'  => 'nullable|string|max:500',
             'enabled'  => 'nullable|boolean',
         ]);
+
+        // Normalize OpenAI-compatible endpoints so both
+        // "https://router.bynara.id/v1" and ".../v1/chat/completions" work.
+        $data['base_url'] = $this->ai->endpointFor($data['base_url'], $data['type']);
+
+        return $data;
     }
 
     private function authorizeOwner(AiProvider $provider): void

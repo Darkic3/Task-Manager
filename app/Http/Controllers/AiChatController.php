@@ -304,8 +304,9 @@ class AiChatController extends Controller
      */
     private function callOpenAiSyncRaw(string $key, string $baseUrl, array $messages, string $model, ?array $tools): array
     {
-        $payload = $this->ai->openAiPayload($messages, $model, false, $baseUrl, $tools);
-        $response = $this->ai->postJson($baseUrl, $payload, [
+        $endpoint = $this->ai->endpointFor($baseUrl, 'openai');
+        $payload = $this->ai->openAiPayload($messages, $model, false, $endpoint, $tools);
+        $response = $this->ai->postJson($endpoint, $payload, [
             'Authorization' => 'Bearer ' . $key,
         ], 60);
 
@@ -541,9 +542,10 @@ class AiChatController extends Controller
 
         $client = new \GuzzleHttp\Client(['verify' => false, 'timeout' => 60]);
         $response = null;
+        $endpoint = $this->ai->endpointFor($cfg['base_url'], 'openai');
 
         try {
-            $response = $client->post($cfg['base_url'], [
+            $response = $client->post($endpoint, [
                 'http_errors' => false,
                 'headers' => [
                     'Authorization' => 'Bearer ' . $key,
@@ -551,7 +553,7 @@ class AiChatController extends Controller
                     'HTTP-Referer'  => (string) config('app.url'),
                     'X-Title'       => (string) config('app.name', 'Task Manager'),
                 ],
-                'json' => $this->ai->openAiPayload($messages, $model, true, $cfg['base_url'], $tools),
+                'json' => $this->ai->openAiPayload($messages, $model, true, $endpoint, $tools),
                 'stream' => true,
             ]);
             $status = $response->getStatusCode();
