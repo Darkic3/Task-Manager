@@ -107,7 +107,7 @@ class AiToolService
             $this->fn('routine_create', 'Create a recurring routine. Ask the user first when tracking is wanted but the unit kind is unknown', [
                 'title' => ['type' => 'string', 'description' => 'Routine title'],
                 'frequency' => ['type' => 'string', 'enum' => ['daily', 'weekly', 'monthly', 'every_n_days']],
-                'days' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => self::WEEK_DAYS], 'description' => 'Weekdays for weekly frequency'],
+                'days' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => self::WEEK_DAYS], 'description' => 'REQUIRED when frequency is weekly. Lowercase weekday names, e.g. ["thursday"] or ["friday","saturday"]. One routine per weekday when workouts differ.'],
                 'month_days' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Days of month (1-31) for monthly frequency'],
                 'every_n_days' => ['type' => 'integer', 'description' => 'Interval 2-60 for every_n_days frequency'],
                 'time_period' => ['type' => 'string', 'description' => 'Time-of-day period key (morning, afternoon, evening, night) if known'],
@@ -684,7 +684,7 @@ class AiToolService
 
         $frequency = $args['frequency'];
         if ($frequency === 'weekly' && empty($args['days'])) {
-            return $this->fail('Weekly routines need at least one weekday.');
+            return $this->fail('Weekly routines need days, e.g. {"frequency":"weekly","days":["thursday"]}. Send one weekday per routine when workouts differ.');
         }
         if ($frequency === 'monthly' && empty($args['month_days'])) {
             return $this->fail('Monthly routines need at least one day of month.');
@@ -1518,6 +1518,7 @@ class AiToolService
             'isFavorite' => 'is_favorite',
             'monthDays' => 'month_days',
             'month_day' => 'month_days',
+            'day' => 'days',
             'everyNDays' => 'every_n_days',
             'every_n_day' => 'every_n_days',
             'timePeriod' => 'time_period',
