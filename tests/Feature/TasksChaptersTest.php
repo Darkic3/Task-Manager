@@ -182,6 +182,22 @@ class TasksChaptersTest extends TestCase
         $response->assertSee('2/4', false);
     }
 
+    public function test_destroy_returns_json_for_ajax_requests(): void
+    {
+        $user = User::factory()->create();
+        $task = Task::factory()->create(['user_id' => $user->id]);
+
+        // AJAX deletes must answer with 200 JSON, not a 302: fetch() re-issues
+        // DELETE against the redirect target (405), and the old form fallback
+        // then posted to the deleted task's URL, landing the user on a 404.
+        $this->actingAs($user)
+            ->deleteJson("/tasks/{$task->id}")
+            ->assertOk()
+            ->assertJson(['ok' => true]);
+
+        $this->assertDatabaseMissing('tasks', ['id' => $task->id]);
+    }
+
     public function test_global_tasks_page_also_renders_chapters(): void
     {
         $user = User::factory()->create();

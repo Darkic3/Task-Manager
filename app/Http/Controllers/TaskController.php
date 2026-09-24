@@ -137,9 +137,13 @@ class TaskController extends Controller
         return redirect()->route('tasks.show', $task->id)->with('success', 'Task updated successfully.');
     }
 
-    public function destroy(Task $task)
+    public function destroy(Request $request, Task $task)
     {
         $task->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'message' => 'Task deleted successfully.']);
+        }
 
         return redirect()->route('tasks.index')->with('success', 'Task deleted successfully.');
     }

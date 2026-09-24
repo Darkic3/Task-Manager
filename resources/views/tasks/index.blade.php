@@ -1181,18 +1181,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
             }).then(r => {
                 if (!r.ok) throw new Error();
-                removeTaskNodes(id);
-                updateCounts();
-                applyFilters();
-                toast('Task deleted');
+                /* Stay on this page and refresh it in place. Never submit a
+                   form to /tasks/{id} — the task no longer exists there and
+                   that lands the user on a 404 "detail" page. */
+                window.location.reload();
             }).catch(() => {
-                /* Fallback: regular form submit (handles subtasks / full page delete) */
-                const f = document.createElement('form');
-                f.method = 'POST';
-                f.action = `/tasks/${id}`;
-                f.innerHTML = `<input type="hidden" name="_token" value="${csrf}"><input type="hidden" name="_method" value="DELETE">`;
-                document.body.appendChild(f);
-                f.submit();
+                window.location.reload();
             });
         }
     });
