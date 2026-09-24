@@ -443,14 +443,54 @@
 
 @push('scripts')
 <script>
-    const PL_CSRF = '{{ csrf_token() }}';
+    let PL_CSRF = '{{ csrf_token() }}';
+    const plRawFetch = window.fetch.bind(window);
+
+    /* One POST wrapper for the whole page: sends the live CSRF token and, when
+       the server answers 419 (token rotated / session expired since the page
+       was rendered), refreshes the token and retries once — only reloading
+       when the session is truly gone so the user lands back on the toggle. */
+    async function plFetch(url, init = {}) {
+        init.headers = Object.assign({ 'X-CSRF-TOKEN': PL_CSRF }, init.headers || {});
+        let res = await plRawFetch(url, init);
+        if (res.status === 419) {
+            const fresh = await plRefreshCsrf();
+            if (fresh) {
+                init.headers['X-CSRF-TOKEN'] = fresh;
+                res = await plRawFetch(url, init);
+            }
+            if (res.status === 419 || res.status === 401) {
+                window.location.reload();
+                return new Response(null, { status: 419 });
+            }
+        }
+        return res;
+    }
+
+    async function plRefreshCsrf() {
+        try {
+            const page = await plRawFetch(window.location.href, {
+                headers: { 'Accept': 'text/html' },
+                credentials: 'same-origin',
+                cache: 'no-store',
+            });
+            const m = (await page.text()).match(/<meta\s+name=["']csrf-token["']\s+content=["']([^"']+)["']/i);
+            if (m) {
+                PL_CSRF = m[1];
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) meta.content = m[1];
+                return m[1];
+            }
+        } catch (e) { /* network error — caller reloads below */ }
+        return null;
+    }
 
     async function toggleTask(cb) {
         const url = cb.dataset.url;
         const id  = cb.dataset.id;
         cb.disabled = true;
         try {
-            const res = await fetch(url, {
+            const res = await plFetch(url, {
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
             });
@@ -510,7 +550,7 @@
     }
 
     function routineToggleRequest(url, date) {
-        return fetch(url + (url.includes('?') ? '&' : '?') + 'date=' + encodeURIComponent(date), {
+        return plFetch(url + (url.includes('?') ? '&' : '?') + 'date=' + encodeURIComponent(date), {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
         }).then(res => {
@@ -566,7 +606,7 @@
         }
         btn.disabled = true;
         try {
-            const res = await fetch(btn.dataset.url + '?date=' + encodeURIComponent(btn.dataset.date), {
+            const res = await plFetch(btn.dataset.url + '?date=' + encodeURIComponent(btn.dataset.date), {
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
             });
@@ -612,7 +652,7 @@
         if (isNaN(value)) { input.focus(); return; }
         btn.disabled = true;
         try {
-            const res = await fetch(box.dataset.url + '?date=' + encodeURIComponent(box.dataset.date), {
+            const res = await plFetch(box.dataset.url + '?date=' + encodeURIComponent(box.dataset.date), {
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
                 body: JSON.stringify({ value }),
@@ -638,7 +678,7 @@
         if (!Object.keys(sets).length) { box.querySelector('input[data-set]')?.focus(); return; }
         btn.disabled = true;
         try {
-            const res = await fetch(box.dataset.url + '?date=' + encodeURIComponent(box.dataset.date), {
+            const res = await plFetch(box.dataset.url + '?date=' + encodeURIComponent(box.dataset.date), {
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
                 body: JSON.stringify({ item_id: box.dataset.item, sets }),
