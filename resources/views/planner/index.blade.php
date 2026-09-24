@@ -95,6 +95,9 @@
     .pl-expand:hover{color:#7c3aed;background:#faf5ff;}
     .pl-expand i{transition:transform .15s;}
     .pl-expand.open i{transform:rotate(180deg);}
+    /* Clicking the routine row expands its details */
+    .pl-routine[data-routine-item] .pl-task-title,
+    .pl-routine[data-routine-item] .pl-task-meta{cursor:pointer;}
     .pl-details{display:none;}
     .pl-details.open{display:block;}
     .pl-task-title{display:flex;align-items:center;gap:4px;}
@@ -628,12 +631,28 @@
     /* ── Routine details accordion (collapsed by default) ── */
     function toggleRoutineDetails(btn) {
         const row = btn.closest('[data-routine-item]');
-        const details = row ? row.querySelector('[data-details]') : null;
+        if (row) toggleRoutineDetailsRow(row);
+    }
+
+    function toggleRoutineDetailsRow(row) {
+        const details = row.querySelector('[data-details]');
         if (!details) return;
         const open = details.classList.toggle('open');
-        btn.classList.toggle('open', open);
-        btn.title = open ? 'Hide details' : 'Show details';
+        const chev = row.querySelector('.pl-expand');
+        if (chev) {
+            chev.classList.toggle('open', open);
+            chev.title = open ? 'Hide details' : 'Show details';
+        }
     }
+
+    /* Clicking anywhere on a routine row (that has steps/logs) opens its panel.
+       Interactive controls and the open panel keep handling their own clicks. */
+    document.addEventListener('click', function (e) {
+        const row = e.target.closest('[data-routine-item]');
+        if (!row) return;
+        if (e.target.closest('button, input, select, textarea, a, label, [data-details]')) return;
+        toggleRoutineDetailsRow(row);
+    });
 
     function expandRoutineDetails(el) {
         const row = el.closest('[data-routine-item]');
