@@ -73,8 +73,7 @@ class RoutineTrackingTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function test_sets_logging_autocompletes_routine(): void
-    {
+    public function test_sets_logging_autocompletes_routine(): void    {
         $user = User::factory()->create();
         $routine = $this->setsRoutine($user);
         $items = $routine->checklistItems()->orderBy('id')->get();
@@ -159,5 +158,36 @@ class RoutineTrackingTest extends TestCase
         $this->assertFalse($svc->validateCall('routine_create', [
             'title' => 'X', 'frequency' => 'daily', 'tracking_mode' => 'value',
         ], $user)['ok']);
+    }
+
+    public function test_step_tick_requires_logged_value_in_sets_mode(): void
+    {
+        $user = User::factory()->create();
+        $routine = $this->setsRoutine($user);
+        $item = $routine->checklistItems()->orderBy('id')->first();
+        $date = now()->toDateString();
+
+        // Ticking without any logged number is refused server-side.
+        $this->actingAs($user)->postJson(
+            route('planner.check-items.toggle', $item) . '?date=' . $date
+        )->assertStatus(422);
+        $this->assertFalse($item->fresh()->completedOn($date));
+
+        // After logging a number, the step is auto-ticked.
+        $this->actingAs($user)->postJson(route('planner.routines.log', $routine), [
+            'date' => $date, 'item_id' => $item->id, 'sets' => [1 => 15],
+        ])->assertOk()->assertJsonPath('steps_done.' . $item->id, true);
+        $this->assertTrue($item->fresh()->completedOn($date));
+    }
+
+    public function test_routine_row_collapses_details_by_default(): void
+    {
+        $user = User::factory()->create();
+        $this->setsRoutine($user);
+
+        $this->actingAs($user)->get(route('planner.index', ['view' => 'day']))
+            ->assertOk()
+            ->assertSee('data-details', false)
+            ->assertSee('pl-expand', false);
     }
 }

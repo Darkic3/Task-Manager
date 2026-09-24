@@ -21,6 +21,10 @@
     $trackMode   = $routine->tracking_mode ?? 'none';
     $logValues   = $toggleable ? ($routine->logValues ?? []) : [];
     $logUrl      = $toggleable && $trackMode !== 'none' ? route('planner.routines.log', $routine) : null;
+
+    /* Details (steps + logging) start collapsed to keep the day view tidy */
+    $hasSteps    = $toggleable && ! empty($routine->ringSteps) && count($routine->ringSteps) > 0;
+    $hasDetails  = $toggleable && ($hasSteps || $logUrl);
 @endphp
 <div class="pl-task pl-routine {{ $isDone ? 'is-done' : '' }}"
      @if($toggleable)
@@ -71,6 +75,11 @@
                     {{ $stepsDone }}/{{ $routine->ringSteps->count() }}
                 </span>
             @endif
+            @if($hasDetails)
+                <button type="button" class="pl-expand" onclick="toggleRoutineDetails(this)" title="Show details">
+                    <i class="bi bi-chevron-down"></i>
+                </button>
+            @endif
         </div>
         <div class="pl-task-meta">
             @if($routine->time_period)
@@ -97,6 +106,9 @@
             @endif
         </div>
 
+        @if($hasDetails)
+        <div class="pl-details" data-details>
+        @endif
         @if($toggleable && ! empty($routine->ringSteps) && count($routine->ringSteps) > 0)
             <div class="pl-steps">
                 @foreach($routine->ringSteps as $step)
@@ -106,6 +118,8 @@
                             data-routine="{{ $routine->id }}"
                             data-date="{{ $routineDate->toDateString() }}"
                             data-url="{{ route('planner.check-items.toggle', $step['id']) }}"
+                            data-tracked="{{ $trackMode }}"
+                            data-logged="{{ !empty($step['sets']) ? 1 : 0 }}"
                             onclick="toggleCheckItem(this)">
                         <i class="bi {{ $step['completed'] ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
                         {{ $step['name'] }}
@@ -137,6 +151,9 @@
                     </div>
                 @endforeach
             </div>
+        @endif
+        @if($hasDetails)
+        </div>
         @endif
     </div>
 </div>

@@ -88,6 +88,16 @@
     .pl-task-body{flex:1;min-width:0;}
     .pl-task-title{font-size:13px;font-weight:600;color:#1a1d23;line-height:1.35;word-break:break-word;}
     .pl-task.is-done .pl-task-title{text-decoration:line-through;color:#adb0b8;}
+    .pl-expand{
+        margin-left:auto;flex-shrink:0;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;
+        border:none;background:transparent;color:#adb0b8;cursor:pointer;border-radius:6px;font-size:12px;
+    }
+    .pl-expand:hover{color:#7c3aed;background:#faf5ff;}
+    .pl-expand i{transition:transform .15s;}
+    .pl-expand.open i{transform:rotate(180deg);}
+    .pl-details{display:none;}
+    .pl-details.open{display:block;}
+    .pl-task-title{display:flex;align-items:center;gap:4px;}
     .pl-task-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;}
     .pl-priority{font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;}
     .pl-proj,.pl-due{font-size:11px;color:#8a8f98;display:inline-flex;align-items:center;gap:4px;}
@@ -169,6 +179,8 @@
     .pl-logset input{width:64px;padding:3px 7px;border:1px solid #e5e7eb;border-radius:7px;font-size:11.5px;outline:none;}
     .pl-logset input:focus{border-color:#c4b5fd;}
     .pl-logset input.has-val{border-color:#a9dfbf;background:#f3fbf6;}
+    @keyframes plFlash{0%,100%{box-shadow:none;}50%{box-shadow:0 0 0 3px rgba(124,58,237,.45);}}
+    .pl-flash{animation:plFlash .8s ease-in-out 2;border-color:#7c3aed !important;}
 
     /* ── Package B: confetti + toast ── */
     #plConfetti{position:fixed;inset:0;pointer-events:none;z-index:1080;overflow:hidden;}
@@ -496,12 +508,36 @@
     }
 
     async function toggleCheckItem(btn) {
+        /* Tracked sets-mode steps need a logged number first — ticking alone is not allowed */
+        if (btn.dataset.tracked === 'sets' && btn.dataset.logged !== '1' && !btn.classList.contains('done')) {
+            expandRoutineDetails(btn);
+            const input = findFirstEmptySetInput(btn);
+            if (input) {
+                input.focus();
+                input.classList.remove('pl-flash');
+                void input.offsetWidth;
+                input.classList.add('pl-flash');
+            }
+            return;
+        }
         btn.disabled = true;
         try {
             const res = await fetch(btn.dataset.url + '?date=' + encodeURIComponent(btn.dataset.date), {
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
             });
+            if (res.status === 422) {
+                /* Server refused (e.g. tracked step without a logged number) */
+                expandRoutineDetails(btn);
+                const input = findFirstEmptySetInput(btn);
+                if (input) {
+                    input.focus();
+                    input.classList.remove('pl-flash');
+                    void input.offsetWidth;
+                    input.classList.add('pl-flash');
+                }
+                return;
+            }
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const json = await res.json();
 
@@ -569,6 +605,14 @@
             box.querySelectorAll('input[data-set]').forEach(inp => {
                 inp.classList.toggle('has-val', saved[inp.dataset.set] !== undefined);
             });
+            /* A logged set auto-ticks its step chip */
+            if (json.steps_done) {
+                Object.entries(json.steps_done).forEach(([itemId, done]) => {
+                    setStepChip(itemId, box.dataset.date, done, true);
+                });
+            } else {
+                setStepChip(box.dataset.item, box.dataset.date, true, true);
+            }
             if (json.routine_completed) {
                 applyRoutineToggle(box.dataset.routine, box.dataset.date, true);
                 refreshRoutineCounters();
@@ -579,6 +623,44 @@
         } finally {
             btn.disabled = false;
         }
+    }
+
+    /* ── Routine details accordion (collapsed by default) ── */
+    function toggleRoutineDetails(btn) {
+        const row = btn.closest('[data-routine-item]');
+        const details = row ? row.querySelector('[data-details]') : null;
+        if (!details) return;
+        const open = details.classList.toggle('open');
+        btn.classList.toggle('open', open);
+        btn.title = open ? 'Hide details' : 'Show details';
+    }
+
+    function expandRoutineDetails(el) {
+        const row = el.closest('[data-routine-item]');
+        const details = row ? row.querySelector('[data-details]') : null;
+        if (details && !details.classList.contains('open')) {
+            details.classList.add('open');
+            const chev = row.querySelector('.pl-expand');
+            if (chev) { chev.classList.add('open'); chev.title = 'Hide details'; }
+        }
+    }
+
+    function findFirstEmptySetInput(stepBtn) {
+        const row = stepBtn.closest('[data-routine-item]');
+        if (!row) return null;
+        const box = row.querySelector('[data-log-sets][data-item="' + stepBtn.dataset.id + '"]');
+        if (!box) return null;
+        return box.querySelector('input[data-set]:not(.has-val)') || box.querySelector('input[data-set]');
+    }
+
+    function setStepChip(itemId, date, done, logged) {
+        document.querySelectorAll('[data-step-item][data-id="' + itemId + '"][data-date="' + date + '"]').forEach(chip => {
+            chip.classList.toggle('done', !!done);
+            const i = chip.querySelector('i');
+            if (i) i.className = 'bi ' + (done ? 'bi-check-circle-fill' : 'bi-circle');
+            if (logged !== undefined) chip.dataset.logged = logged ? '1' : '0';
+        });
+        refreshStepCounts();
     }
 
     /* Flame reflects the server-computed streak (never inflated client-side) */

@@ -179,6 +179,21 @@ class PlannerController extends Controller
         $itemCompleted = $item->toggleOn($date);
 
         $routine = $item->routine;
+
+        // Tracked sets-mode steps need a logged number: completing the tick
+        // without one is reverted (the UI must ask for the number first).
+        if ($itemCompleted && $routine->tracking_mode === Routine::TRACKING_SETS) {
+            $hasLog = \App\Models\RoutineLog::where('user_id', Auth::id())
+                ->where('routine_id', $routine->id)
+                ->where('checklist_item_id', $item->id)
+                ->where('completed_date', RoutineCheckitemCompletion::dateKey($date))
+                ->exists();
+            if (! $hasLog) {
+                $item->toggleOn($date); // revert to uncompleted
+
+                return response()->json(['ok' => false, 'error' => 'Log the number for this step first.'], 422);
+            }
+        }
         $items = $routine->checklistItems()->orderBy('sort_order')->orderBy('id')->get();
         $key = RoutineCheckitemCompletion::dateKey($date);
         $doneIds = $items->isNotEmpty()
@@ -459,6 +474,21 @@ class PlannerController extends Controller
             \App\Models\RoutineLog::logValue(Auth::id(), $routine->id, $date, $value, $item->id, $setNo);
         }
 
+        // A logged set auto-ticks its step (tick without a number is not allowed).
+        $key = RoutineCheckitemCompletion::dateKey($date);
+        $stepDone = RoutineCheckitemCompletion::where('checklist_item_id', $item->id)
+            ->where('completed_date', $key)
+            ->exists();
+        if (! $stepDone) {
+            RoutineCheckitemCompletion::create([
+                'user_id' => Auth::id(),
+                'checklist_item_id' => $item->id,
+                'completed_date' => $key,
+                'completed_at' => now(),
+            ]);
+            $stepDone = true;
+        }
+
         $fresh = $routine->fresh();
         $routineCompleted = $fresh->completedOn($date);
         if (! $routineCompleted && $this->allSetsLogged($fresh, $date)) {
@@ -466,9 +496,19 @@ class PlannerController extends Controller
             $routineCompleted = true;
         }
 
+        $stepsDone = $fresh->checklistItems()->get()
+            ->mapWithKeys(function ($it) use ($key) {
+                $done = RoutineCheckitemCompletion::where('checklist_item_id', $it->id)
+                    ->where('completed_date', $key)
+                    ->exists();
+
+                return [(int) $it->id => $done];
+            })->all();
+
         return response()->json([
             'ok' => true,
             'routine_completed' => $routineCompleted,
+            'steps_done' => $stepsDone,
             'values' => $fresh->loggedValues($date),
         ]);
     }

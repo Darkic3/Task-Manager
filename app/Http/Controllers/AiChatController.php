@@ -616,7 +616,7 @@ class AiChatController extends Controller
         $userId = Auth::id();
         $sseFlush = $this->sseFlushClosure();
 
-        return response()->stream(function () use ($body, $model, $provider, $userId, $conversationId, $sseFlush, $agentMode) {
+        return response()->stream(function () use ($body, $model, $provider, $userId, $conversationId, $sseFlush, $agentMode, $key, $endpoint, $messages, $tools) {
             echo "data: " . json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId]) . "\n\n";
             $sseFlush();
             $buffer = '';
@@ -649,11 +649,57 @@ class AiChatController extends Controller
                         }
                         $decoded = json_decode($data, true);
                         if (is_array($decoded) && isset($decoded['error'])) {
+                            $providerError = $this->ai->formatErrorArray($decoded['error']);
+                            // Mid-stream provider error (e.g. Nara returns HTTP 200 with
+                            // {"error":{"type":"upstream_error",...}} on streaming only).
+                            // If nothing was streamed yet, fall back to a sync call which
+                            // often still works, instead of showing the raw error.
+                            if ($accumulatedText === '' && empty($toolAccum)) {
+                                \Log::warning('AI stream mid-stream provider error, falling back to sync', ['provider' => $provider, 'model' => $model, 'error' => $providerError]);
+                                try {
+                                    $raw = $this->callOpenAiSyncRaw($key, $endpoint, $messages, $model, $tools);
+                                    $fallbackText = $raw['text'] !== '' ? $raw['text'] : null;
+                                    $fallbackTools = $raw['tool_calls'] ?? [];
+                                } catch (\Exception $e2) {
+                                    $fallbackText = null;
+                                    $fallbackTools = [];
+                                    \Log::warning('AI stream sync fallback also failed', ['provider' => $provider, 'error' => $e2->getMessage()]);
+                                }
+                                if ($fallbackText !== null && $fallbackText !== '') {
+                                    $accumulatedText = $fallbackText;
+                                    foreach (str_split($fallbackText, 5) as $chunk) {
+                                        echo "data: " . json_encode(['choices' => [['delta' => ['content' => $chunk]]]]) . "\n\n";
+                                        $sseFlush();
+                                        usleep(12000);
+                                    }
+                                    try {
+                                        AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => $fallbackText, 'model' => $model]);
+                                        AiConversation::where('id', $conversationId)->touch();
+                                    } catch (\Exception $e) {}
+                                    if ($agentMode) {
+                                        $accum = [];
+                                        foreach (array_values($fallbackTools) as $i => $tc) {
+                                            $accum[$i] = [
+                                                'id' => $tc['id'] ?? null,
+                                                'name' => $tc['function']['name'] ?? null,
+                                                'arguments' => is_string($tc['function']['arguments'] ?? null)
+                                                    ? $tc['function']['arguments']
+                                                    : json_encode($tc['function']['arguments'] ?? []),
+                                            ];
+                                        }
+                                        $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
+                                        $controller->emitToolMissedNotice($fallbackText, $accum, $sseFlush);
+                                    }
+                                    echo "data: [DONE]\n\n";
+                                    $sseFlush();
+                                    return;
+                                }
+                            }
                             if ($accumulatedText) {
                                 AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => $accumulatedText, 'model' => $model]);
                                 AiConversation::where('id', $conversationId)->touch();
                             }
-                            echo "data: " . json_encode(['error' => $this->ai->formatErrorArray($decoded['error'])]) . "\n\n";
+                            echo "data: " . json_encode(['error' => $providerError]) . "\n\n";
                             $sseFlush();
                             echo "data: [DONE]\n\n";
                             $sseFlush();
