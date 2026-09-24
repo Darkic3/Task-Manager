@@ -95,11 +95,17 @@ class PlannerController extends Controller
                 fn ($t) => $t->due_date && Carbon::parse($t->due_date)->isSameDay($day)
             );
             $dayRoutines = $this->splitRoutines($routines, $day);
-            $this->decorateHabitMetricsBulk($dayRoutines['today'], $day, $stepMap);
+            // Clone per day: the same routine instance (e.g. a daily one like
+            // Cobra Pose) occurs on several days, and decorateHabitMetricsBulk
+            // mutates ringSteps/logValues/ring in place. Without cloning, every
+            // day column would render the LAST decorated day's state (e.g. Thu
+            // showing Fri's empty steps even though Thu step 1 was logged).
+            $todayRoutines = $dayRoutines['today']->map(fn ($r) => clone $r);
+            $this->decorateHabitMetricsBulk($todayRoutines, $day, $stepMap);
             $days[] = [
                 'date' => $day,
                 'tasks' => $this->sortByPriority($dayTasks->values()),
-                'routines' => $dayRoutines['today'],
+                'routines' => $todayRoutines,
                 'routineDone' => $dayRoutines['done'],
                 'routineTotal' => $dayRoutines['total'],
             ];
