@@ -1047,11 +1047,30 @@ footer { display: none !important; }
         const totals = prev.totals || {};
         let html = '<h4>📋 ' + escPlan(plan.title) + '</h4>'
             + '<div class="lina-plan-totals">'
-            + (totals.subprojects || 0) + ' sub-project(s) · '
-            + (totals.tasks || 0) + ' task(s) · '
-            + (totals.subtasks || 0) + ' subtask(s)</div>';
+            + ((totals.routines || 0) > 0
+                ? (totals.routines + ' routine(s) · ' + (totals.steps || 0) + ' step(s)')
+                : ((totals.subprojects || 0) + ' sub-project(s) · '
+                    + (totals.tasks || 0) + ' task(s) · '
+                    + (totals.subtasks || 0) + ' subtask(s)'))
+            + '</div>';
 
-        html += '<div class="lina-plan-tree"><ul><li>📁 <strong>' + escPlan(tree.project?.name) + '</strong>';
+        html += '<div class="lina-plan-tree"><ul>';
+        if ((tree.routines || []).length) {
+            tree.routines.forEach(r => {
+                html += '<li>🔁 <strong>' + escPlan(r.title) + '</strong>'
+                    + ' <span class="lina-plan-due">' + escPlan(r.frequency || '')
+                    + (r.tracking_mode && r.tracking_mode !== 'none' ? ' · ' + escPlan(r.tracking_mode) : '') + '</span>';
+                if ((r.steps || []).length) {
+                    html += '<ul>' + r.steps.slice(0, 10).map(s =>
+                        '<li>• ' + escPlan(s) + '</li>').join('')
+                        + (r.steps.length > 10 ? '<li class="lina-plan-subs">+' + (r.steps.length - 10) + ' more…</li>' : '')
+                        + '</ul>';
+                }
+                html += '</li>';
+            });
+        } else {
+            html += '<li>📁 <strong>' + escPlan(tree.project?.name) + '</strong>';
+        }
         const taskHtml = (t) => {
             let s = escPlan(t.title);
             if (t.due_date) s += ' <span class="lina-plan-due">' + escPlan(t.due_date) + '</span>';
@@ -1064,13 +1083,17 @@ footer { display: none !important; }
             return '<li>☑ ' + s + '</li>';
         };
         html += '<ul>';
-        (tree.project?.tasks || []).forEach(t => { html += taskHtml(t); });
-        (tree.subprojects || []).forEach(s => {
-            html += '<li>📂 <strong>' + escPlan(s.name) + '</strong><ul>';
-            (s.tasks || []).forEach(t => { html += taskHtml(t); });
-            html += '</ul></li>';
-        });
-        html += '</ul></li></ul></div>';
+        if (tree.project) {
+            (tree.project.tasks || []).forEach(t => { html += taskHtml(t); });
+            (tree.subprojects || []).forEach(s => {
+                html += '<li>📂 <strong>' + escPlan(s.name) + '</strong><ul>';
+                (s.tasks || []).forEach(t => { html += taskHtml(t); });
+                html += '</ul></li>';
+            });
+            html += '</ul></li></ul></div>';
+        } else {
+            html += '</ul></div>';
+        }
         html += '<div class="lina-plan-body"></div>';
         card.innerHTML = html;
         const body = card.querySelector('.lina-plan-body');

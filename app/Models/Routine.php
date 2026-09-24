@@ -17,8 +17,16 @@ class Routine extends Model
         'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
     ];
 
+    public const TRACKING_NONE = 'none';
+    public const TRACKING_VALUE = 'value';
+    public const TRACKING_SETS = 'sets';
+
+    public const VALUE_KINDS = ['number', 'weight', 'time', 'reps', 'percent'];
+
     protected $fillable = [
         'user_id',
+        'parent_id',
+        'cycle_no',
         'title',
         'description',
         'frequency',
@@ -30,6 +38,10 @@ class Routine extends Model
         'every_n_days',
         'start_time',
         'end_time',
+        'tracking_mode',
+        'value_kind',
+        'value_unit',
+        'value_label',
     ];
 
     protected $casts = [
@@ -47,6 +59,65 @@ class Routine extends Model
     public function completions(): HasMany
     {
         return $this->hasMany(RoutineCompletion::class);
+    }
+
+    public function logs(): HasMany
+    {
+        return $this->hasMany(RoutineLog::class);
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Routine::class, 'parent_id');
+    }
+
+    public function cycles(): HasMany
+    {
+        return $this->hasMany(Routine::class, 'parent_id')->orderBy('cycle_no');
+    }
+
+    public function isTracked(): bool
+    {
+        return in_array($this->tracking_mode, [self::TRACKING_VALUE, self::TRACKING_SETS], true);
+    }
+
+    public function trackingLabel(): string
+    {
+        return match ($this->tracking_mode) {
+            self::TRACKING_VALUE => trim(($this->value_label ?: 'Value') . ($this->value_unit ? " ({$this->value_unit})" : '')),
+            self::TRACKING_SETS => 'Sets',
+            default => '',
+        };
+    }
+
+    /**
+     * Logged values for a date: ['value' => ?float] for value mode, or
+     * [itemId => [setNo => value]] for sets mode. Uses loaded `logs` if present.
+     */
+    public function loggedValues($date): array
+    {
+        $key = RoutineLog::dateKey($date);
+        $logs = $this->relationLoaded('logs')
+            ? $this->logs->filter(fn ($l) => $l->completed_date instanceof Carbon
+                ? $l->completed_date->toDateString() === $key
+                : substr((string) $l->completed_date, 0, 10) === $key)
+            : $this->logs()->where('completed_date', $key)->get();
+
+        if ($this->tracking_mode === self::TRACKING_VALUE) {
+            $first = $logs->firstWhere('checklist_item_id', null);
+
+            return ['value' => $first ? (float) $first->value : null];
+        }
+
+        $out = [];
+        foreach ($logs as $log) {
+            if ($log->checklist_item_id === null) {
+                continue;
+            }
+            $out[(int) $log->checklist_item_id][(int) $log->set_no] = (float) $log->value;
+        }
+
+        return $out;
     }
 
     public function checklistItems(): HasMany

@@ -604,6 +604,13 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{ request()->is('track*') ? 'active' : '' }}"
+                            href="{{ route('track.index') }}">
+                            <i class="bi bi-graph-up"></i>
+                            <span>Track</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{ request()->is('time*') ? 'active' : '' }}"
                             href="{{ route('time.reports') }}">
                             <i class="bi bi-stopwatch"></i>

@@ -32,6 +32,80 @@ class AiPlansTest extends TestCase
         ];
     }
 
+    private function routinePlanArgs(): array
+    {
+        return [
+            'title' => 'Workout routines',
+            'routines' => [
+                [
+                    'title' => 'PULL A', 'frequency' => 'weekly', 'days' => ['saturday'],
+                    'tracking_mode' => 'sets',
+                    'steps' => [
+                        ['name' => 'Pull-up', 'target_sets' => 4],
+                        ['name' => 'Row', 'target_sets' => 3],
+                    ],
+                ],
+                [
+                    'title' => 'Weigh in', 'frequency' => 'daily',
+                    'tracking_mode' => 'value', 'value_kind' => 'weight',
+                    'value_unit' => 'kg', 'value_label' => 'Weight',
+                ],
+            ],
+        ];
+    }
+
+    public function test_routine_plan_branch_builds_routines(): void
+    {
+        $user = User::factory()->create();
+        $svc = new AiToolService;
+        $check = $svc->validateCall('plan_propose', $this->routinePlanArgs(), $user);
+        $this->assertTrue($check['ok'], $check['error'] ?? 'validate failed');
+        $this->assertEquals(2, $check['resolved']['totals']['routines']);
+
+        $plan = AiPlan::create([
+            'user_id' => $user->id,
+            'title' => $check['resolved']['title'],
+            'structure' => $check['resolved']['structure'],
+            'phases' => $svc->buildPlanPhases($check['resolved']['structure']),
+            'status' => AiPlan::STATUS_PROPOSED,
+            'current_phase' => 0,
+            'expires_at' => now()->addMinutes(15),
+            'idempotency_key' => bin2hex(random_bytes(16)),
+        ]);
+        $this->assertCount(1, $plan->phases);
+        $this->assertEquals('routines', $plan->phases[0]['key']);
+
+        $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $plan))->assertOk();
+        $this->actingAs($user)->postJson(route('ai.plans.confirm-phase', $plan), ['phase' => 0])
+            ->assertOk()->assertJsonPath('plan.status', 'done');
+
+        $pull = \App\Models\Routine::where('title', 'PULL A')->firstOrFail();
+        $this->assertEquals(['saturday'], $pull->decodedDays());
+        $this->assertEquals('sets', $pull->tracking_mode);
+        $this->assertEquals(2, $pull->checklistItems()->count());
+        $this->assertEquals(4, $pull->checklistItems()->where('name', 'Pull-up')->first()->target_sets);
+        $weigh = \App\Models\Routine::where('title', 'Weigh in')->firstOrFail();
+        $this->assertEquals('weight', $weigh->value_kind);
+    }
+
+    public function test_plan_rejects_mixed_tree_and_routines(): void
+    {
+        $user = User::factory()->create();
+        $svc = new AiToolService;
+
+        $mixed = $this->workoutArgs();
+        $mixed['routines'] = [['title' => 'X', 'frequency' => 'daily']];
+        $this->assertFalse($svc->validateCall('plan_propose', $mixed, $user)['ok']);
+
+        $tooMany = ['title' => 'Big', 'routines' => array_map(
+            fn ($i) => ['title' => "R$i", 'frequency' => 'daily'],
+            range(1, 8)
+        )];
+        $this->assertFalse($svc->validateCall('plan_propose', $tooMany, $user)['ok']);
+
+        $this->assertFalse($svc->validateCall('plan_propose', ['title' => 'Empty'], $user)['ok']);
+    }
+
     private function makePlan(User $user, array $args = null): AiPlan
     {
         $svc = new AiToolService;

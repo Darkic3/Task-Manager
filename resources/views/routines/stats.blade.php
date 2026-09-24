@@ -95,7 +95,18 @@
         <p class="rs-header-sub">
             {{ $routine->recurrenceLabel() }}
             @if($routine->timeLabel()) &middot; {{ $routine->timeLabel() }} @endif
+            @if(($routine->cycle_no ?? 1) > 1) &middot; Cycle {{ $routine->cycle_no }} @endif
+            @if(!empty($prevCycle))
+                &middot; prev cycle: {{ $prevCycle['completions'] }} done{{ $prevCycle['last_value'] !== null ? ', last ' . $prevCycle['last_value'] . ' ' . ($prevCycle['unit'] ?? '') : '' }}
+            @endif
         </p>
+        <form method="POST" action="{{ route('routines.new-cycle', $routine) }}" style="margin-top:8px;position:relative;z-index:1;"
+              onsubmit="return confirm('Start a new cycle? The current one will be archived with its history.');">
+            @csrf
+            <button type="submit" style="background:white;border:1px solid #e3e4e8;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#7c3aed;cursor:pointer;">
+                <i class="bi bi-arrow-repeat"></i> Start new cycle
+            </button>
+        </form>
     </div>
 
     {{-- Stat cards --}}
@@ -172,9 +183,64 @@
         </div>
     </div>
 
+        {{-- Logged values (tracked routines) --}}
+    @if(!empty($valueStats))
+        <div class="rs-card" style="margin-top:14px;">
+            <div class="rs-card-head">
+                <i class="bi bi-graph-up" style="color:#0e7490;"></i>
+                <span class="rs-card-title">Value History — {{ $valueStats['label'] }}</span>
+                <span class="rs-legend">last 90 days</span>
+            </div>
+            <div class="rs-card-body">
+                @if(count($valueStats['points']))
+                    @php
+                        $pts = $valueStats['points'];
+                        $vals = array_column($pts, 'value');
+                        $min = min($vals); $max = max($vals);
+                        $span = max(0.0001, $max - $min);
+                    @endphp
+                    <div class="tr-stats">
+                        <div class="tr-stat">
+                            <div class="tr-val">{{ $valueStats['latest']['value'] }} {{ $valueStats['unit'] ?? '' }}</div>
+                            <div class="tr-lbl">Latest ({{ $valueStats['latest']['date'] }})</div>
+                        </div>
+                        <div class="tr-stat">
+                            <div class="tr-val">{{ $valueStats['pr'] }} {{ $valueStats['unit'] ?? '' }}</div>
+                            <div class="tr-lbl">Personal record</div>
+                        </div>
+                        <div class="tr-stat">
+                            <div class="tr-val">{{ $valueStats['avg'] ?? '—' }}{{ $valueStats['avg'] !== null ? ' ' . ($valueStats['unit'] ?? '') : '' }}</div>
+                            <div class="tr-lbl">{{ $valueStats['mode'] === 'value' ? 'Average' : 'Sessions' }} ({{ count($pts) }})</div>
+                        </div>
+                    </div>
+                    <div class="tr-chart" style="height:110px;">
+                        @foreach($pts as $p)
+                            @php $h = 8 + round(($p['value'] - $min) / $span * 92); @endphp
+                            <div class="tr-bar-wrap" title="{{ $p['date'] }} — {{ $p['value'] }}">
+                                <div class="tr-bar {{ $p['value'] == $max ? 'is-peak' : '' }}" style="height:{{ $h }}%;"></div>
+                            </div>
+                        @endforeach
+                    </div>
+                    @if(!empty($valueStats['per_step']))
+                        <div style="margin-top:14px;font-size:12px;font-weight:700;color:#1a1d23;">Last session ({{ $valueStats['last_date'] }})</div>
+                        @foreach($valueStats['per_step'] as $ps)
+                            <div style="font-size:12px;color:#3d4149;margin-top:4px;">
+                                <b>{{ $ps['name'] }}</b> — {{ implode(' · ', $ps['sets']) }}
+                                <span style="color:#8a8f98;">(best {{ $ps['best'] }})</span>
+                            </div>
+                        @endforeach
+                    @endif
+                @else
+                    <div class="tr-empty">
+                        <i class="bi bi-graph-up me-1"></i>No values logged yet. Log from the Day page to start the chart.
+                    </div>
+                @endif
+            </div>
+        </div>
+    @endif
+
     {{-- Completion tracker --}}
-    <div class="rs-card" style="margin-top:14px;">
-        <div class="rs-card-head">
+    <div class="rs-card" style="margin-top:14px;">        <div class="rs-card-head">
             <i class="bi bi-stopwatch" style="color:#7c3aed;"></i>
             <span class="rs-card-title">Completion Tracker</span>
             <span class="rs-legend">{{ $tracker['count'] }} tracked · last 3 months</span>

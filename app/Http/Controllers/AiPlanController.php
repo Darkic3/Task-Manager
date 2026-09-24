@@ -146,6 +146,8 @@ class AiPlanController extends Controller
                 fn ($s) => array_sum(array_map(fn ($t) => count($t['subtasks'] ?? []), $s['tasks'] ?? [])),
                 $structure['subprojects'] ?? []
             ));
+        $routineCount = count($structure['routines'] ?? []);
+        $stepCount = array_sum(array_map(fn ($r) => count($r['steps'] ?? []), $structure['routines'] ?? []));
 
         return [
             'id' => $plan->id,
@@ -160,6 +162,8 @@ class AiPlanController extends Controller
                     'subprojects' => count($structure['subprojects'] ?? []),
                     'tasks' => $taskCount,
                     'subtasks' => $subCount,
+                    'routines' => $routineCount,
+                    'steps' => $stepCount,
                 ],
             ]),
             'expires_at' => $plan->expires_at?->toIso8601String(),

@@ -396,6 +396,34 @@
                     </div>
                 </div>
 
+                {{-- Tracking (optional measurable routines) --}}
+                <div class="cu-section">
+                    <div class="cu-section-header">
+                        <span class="cu-section-icon purple"><i class="bi bi-graph-up"></i></span>
+                        <span class="cu-section-title">Tracking</span>
+                        <span class="cu-section-sub">Optional — log a number each day</span>
+                    </div>
+                    <div class="cu-section-body">
+                        <select name="tracking_mode" id="tracking_mode" class="cu-input">
+                            <option value="none" {{ old('tracking_mode', 'none') === 'none' ? 'selected' : '' }}>No tracking — just tick</option>
+                            <option value="value" {{ old('tracking_mode') === 'value' ? 'selected' : '' }}>One value per day (e.g. weight)</option>
+                            <option value="sets" {{ old('tracking_mode') === 'sets' ? 'selected' : '' }}>Sets per step (e.g. workout moves)</option>
+                        </select>
+                        <div id="tracking-value-fields" style="display:flex;gap:6px;margin-top:8px;">
+                            <select name="value_kind" class="cu-input" style="flex:1;" title="Value kind">
+                                @foreach(['number' => 'Number', 'weight' => 'Weight', 'time' => 'Time', 'reps' => 'Reps', 'percent' => 'Percent'] as $k => $lbl)
+                                    <option value="{{ $k }}" {{ old('value_kind') === $k ? 'selected' : '' }}>{{ $lbl }}</option>
+                                @endforeach
+                            </select>
+                            <input type="text" name="value_unit" class="cu-input" style="width:90px;" placeholder="Unit (kg)" maxlength="20" value="{{ old('value_unit') }}">
+                            <input type="text" name="value_label" class="cu-input" style="flex:1;" placeholder="Label (e.g. Weight)" maxlength="100" value="{{ old('value_label') }}">
+                        </div>
+                        <div id="tracking-sets-hint" style="font-size:11px;color:#8a8f98;margin-top:8px;">
+                            Set the number of sets per step below — each set is logged with its number every day.
+                        </div>
+                    </div>
+                </div>
+
                 {{-- Steps (optional sub-items) --}}
                 <div class="cu-section">
                     <div class="cu-section-header">
@@ -443,21 +471,36 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* ── Steps editor ── */
     let stepIdx = 0;
-    window.addStepRow = function (name = '', id = '') {
+    window.addStepRow = function (name = '', id = '', sets = 1, unit = '') {
         const i = stepIdx++;
         const wrap = document.createElement('div');
         wrap.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;';
         wrap.innerHTML = `
             <input type="hidden" name="items[${i}][id]" value="${id}">
             <input type="text" class="cu-input" name="items[${i}][name]" style="padding-left:10px;flex:1;" placeholder="e.g. Set ${i + 1} (3×15)" maxlength="255">
+            <input type="number" class="cu-input" name="items[${i}][target_sets]" style="width:64px;" min="1" max="20" title="Sets per day" value="${sets}">
+            <input type="text" class="cu-input" name="items[${i}][unit]" style="width:64px;" placeholder="unit" maxlength="20" value="${unit}">
             <button type="button" class="cu-chip-label" style="padding:4px 8px;color:#dc2626;border-color:#fecaca;" title="Remove"><i class="bi bi-x-lg"></i></button>`;
         wrap.querySelector('input[type=text]').value = name;
         wrap.querySelector('button').onclick = () => wrap.remove();
         document.getElementById('stepRows').appendChild(wrap);
     };
     @foreach(collect(old('items', [])) as $row)
-    addStepRow(@json($row['name'] ?? ''), @json($row['id'] ?? ''));
+    addStepRow(@json($row['name'] ?? ''), @json($row['id'] ?? ''), @json($row['target_sets'] ?? 1), @json($row['unit'] ?? ''));
     @endforeach
+
+    /* ── Tracking mode toggle ── */
+    (function () {
+        const mode = document.getElementById('tracking_mode');
+        const valFields = document.getElementById('tracking-value-fields');
+        const setsHint = document.getElementById('tracking-sets-hint');
+        function updateTracking() {
+            valFields.style.display = mode.value === 'value' ? '' : 'none';
+            setsHint.style.display = mode.value === 'sets' ? '' : 'none';
+        }
+        mode.addEventListener('change', updateTracking);
+        updateTracking();
+    })();
 
     // "When" mode: Any time / Time of day / Exact time
     const whenPanels = {

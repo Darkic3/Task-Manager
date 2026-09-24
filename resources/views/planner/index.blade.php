@@ -152,6 +152,24 @@
     }
     .steps-count.all{color:#29774b;background:#e3f5ec;}
 
+    /* ── Routine metric logging (value + sets) ── */
+    .pl-log{display:flex;align-items:center;gap:6px;margin-top:7px;}
+    .pl-log input{width:110px;padding:4px 9px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;}
+    .pl-log input:focus{border-color:#c4b5fd;}
+    .pl-log button,.pl-logset button{
+        padding:4px 12px;border-radius:8px;border:1px solid #c4b5fd;background:#faf5ff;
+        color:#7c3aed;font-size:11.5px;font-weight:700;cursor:pointer;
+    }
+    .pl-log button:hover,.pl-logset button:hover{background:#ede9fe;}
+    .pl-log button:disabled,.pl-logset button:disabled{opacity:.5;cursor:wait;}
+    .pl-log-saved{font-size:11px;color:#16a34a;font-weight:700;}
+    .pl-logsets{display:flex;flex-direction:column;gap:6px;margin-top:7px;}
+    .pl-logset{display:flex;align-items:center;gap:5px;flex-wrap:wrap;background:#fafbfc;border:1px solid #eef0f3;border-radius:8px;padding:5px 8px;}
+    .pl-logset-name{font-size:11.5px;font-weight:700;color:#3d4149;flex:1;min-width:90px;}
+    .pl-logset input{width:64px;padding:3px 7px;border:1px solid #e5e7eb;border-radius:7px;font-size:11.5px;outline:none;}
+    .pl-logset input:focus{border-color:#c4b5fd;}
+    .pl-logset input.has-val{border-color:#a9dfbf;background:#f3fbf6;}
+
     /* ── Package B: confetti + toast ── */
     #plConfetti{position:fixed;inset:0;pointer-events:none;z-index:1080;overflow:hidden;}
     #plConfetti i{position:absolute;top:-12px;width:8px;height:14px;border-radius:2px;opacity:0;animation:plFall 1.4s ease-in forwards;}
@@ -506,9 +524,65 @@
         }
     }
 
+    /* ── Metric logging: single value + per-step sets ── */
+    async function logRoutineValue(btn) {
+        const box = btn.closest('[data-log-value]');
+        const input = box.querySelector('input');
+        const value = parseFloat(input.value);
+        if (isNaN(value)) { input.focus(); return; }
+        btn.disabled = true;
+        try {
+            const res = await fetch(box.dataset.url + '?date=' + encodeURIComponent(box.dataset.date), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value }),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            let saved = box.querySelector('.pl-log-saved');
+            if (!saved) { saved = document.createElement('span'); saved.className = 'pl-log-saved'; box.appendChild(saved); }
+            saved.textContent = '✓ ' + (json.values?.value ?? value);
+        } catch (e) {
+            console.error('[Planner] log value failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function logRoutineSets(btn) {
+        const box = btn.closest('[data-log-sets]');
+        const sets = {};
+        box.querySelectorAll('input[data-set]').forEach(inp => {
+            if (inp.value !== '' && !isNaN(parseFloat(inp.value))) sets[inp.dataset.set] = parseFloat(inp.value);
+        });
+        if (!Object.keys(sets).length) { box.querySelector('input[data-set]')?.focus(); return; }
+        btn.disabled = true;
+        try {
+            const res = await fetch(box.dataset.url + '?date=' + encodeURIComponent(box.dataset.date), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ item_id: box.dataset.item, sets }),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            const saved = json.values?.[box.dataset.item] || {};
+            box.querySelectorAll('input[data-set]').forEach(inp => {
+                inp.classList.toggle('has-val', saved[inp.dataset.set] !== undefined);
+            });
+            if (json.routine_completed) {
+                applyRoutineToggle(box.dataset.routine, box.dataset.date, true);
+                refreshRoutineCounters();
+                maybeCelebrate();
+            }
+        } catch (e) {
+            console.error('[Planner] log sets failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
     /* Flame reflects the server-computed streak (never inflated client-side) */
-    function setStreak(id, streak, hideIfZero) {
-        document.querySelectorAll('[data-routine-item][data-id="' + id + '"] .flame').forEach(fl => {
+    function setStreak(id, streak, hideIfZero) {        document.querySelectorAll('[data-routine-item][data-id="' + id + '"] .flame').forEach(fl => {
             if (!streak) {
                 if (hideIfZero) fl.remove();
                 return;

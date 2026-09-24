@@ -21,9 +21,14 @@ class AiToolService
         'note_create', 'note_update', 'note_delete',
         'project_create',
         'checklist_add', 'checklist_toggle',
-        'routine_create', 'routine_complete', 'routine_delete',
+        'routine_create', 'routine_complete', 'routine_delete', 'routine_log',
         'plan_propose',
     ];
+
+    public const ROUTINE_VALUE_KINDS = ['number', 'weight', 'time', 'reps', 'percent'];
+
+    public const MAX_PLAN_ROUTINES = 7;
+    public const MAX_PLAN_ROUTINE_STEPS = 20;
 
     public const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
@@ -99,7 +104,7 @@ class AiToolService
             $this->fn('checklist_toggle', 'Toggle a checklist item completed state', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
-            $this->fn('routine_create', 'Create a recurring routine (e.g. weekly workout). Prefer this over N tasks for repeating programs', [
+            $this->fn('routine_create', 'Create a recurring routine. Ask the user first when tracking is wanted but the unit kind is unknown', [
                 'title' => ['type' => 'string', 'description' => 'Routine title'],
                 'frequency' => ['type' => 'string', 'enum' => ['daily', 'weekly', 'monthly', 'every_n_days']],
                 'days' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => self::WEEK_DAYS], 'description' => 'Weekdays for weekly frequency'],
@@ -107,7 +112,33 @@ class AiToolService
                 'every_n_days' => ['type' => 'integer', 'description' => 'Interval 2-60 for every_n_days frequency'],
                 'time_period' => ['type' => 'string', 'description' => 'Time-of-day period key (morning, afternoon, evening, night) if known'],
                 'description' => ['type' => 'string', 'description' => 'Short plan summary, under 500 chars'],
+                'tracking_mode' => ['type' => 'string', 'enum' => ['none', 'value', 'sets'], 'description' => 'none=checkbox only, value=one number per day, sets=per-set numbers'],
+                'value_kind' => ['type' => 'string', 'enum' => self::ROUTINE_VALUE_KINDS, 'description' => 'Required when tracking_mode is value'],
+                'value_unit' => ['type' => 'string', 'description' => 'Display unit, e.g. kg'],
+                'value_label' => ['type' => 'string', 'description' => 'Label, e.g. Weight'],
+                'steps' => [
+                    'type' => 'array', 'description' => 'Max 20 steps; each may define target_sets for sets mode',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'name' => ['type' => 'string', 'description' => 'Max 120 chars'],
+                            'target_sets' => ['type' => 'integer', 'description' => 'Sets per day, 1-20'],
+                            'unit' => ['type' => 'string'],
+                        ],
+                        'required' => ['name'],
+                        'additionalProperties' => false,
+                    ],
+                ],
             ], ['title', 'frequency']),
+            $this->fn('routine_log', 'Log a tracked number for a routine day (value mode or one set of a step)', [
+                'routine' => ['type' => 'string', 'description' => 'Routine name or ID'],
+                'routine_id' => ['type' => 'integer', 'description' => 'Routine ID (preferred over name)'],
+                'date' => $date(),
+                'value' => ['type' => 'number', 'description' => 'Logged number'],
+                'item' => ['type' => 'string', 'description' => 'Step name or ID (sets mode only)'],
+                'item_id' => ['type' => 'integer', 'description' => 'Step ID (sets mode only, preferred)'],
+                'set_no' => ['type' => 'integer', 'description' => 'Set number 1-20 (sets mode, default 1)'],
+            ], ['value']),
             $this->fn('routine_complete', 'Mark a routine done for a date (defaults to today). Never un-completes', [
                 'id' => ['type' => 'integer'],
                 'date' => $date(),
@@ -140,7 +171,7 @@ class AiToolService
                             ],
                             'subprojects' => [
                                 'type' => 'array',
-                                'description' => 'Max 3 sub-projects',
+                                'description' => 'Max 3 sub-projects (project-tree plans only)',
                                 'items' => [
                                     'type' => 'object',
                                     'properties' => [
@@ -152,8 +183,41 @@ class AiToolService
                                     'additionalProperties' => false,
                                 ],
                             ],
+                            'routines' => [
+                                'type' => 'array',
+                                'description' => 'Max 7 routines (routine plans only — cannot be combined with a project tree)',
+                                'items' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'title' => ['type' => 'string'],
+                                        'frequency' => ['type' => 'string', 'enum' => ['daily', 'weekly', 'monthly', 'every_n_days']],
+                                        'days' => ['type' => 'array', 'items' => ['type' => 'string']],
+                                        'tracking_mode' => ['type' => 'string', 'enum' => ['none', 'value', 'sets']],
+                                        'value_kind' => ['type' => 'string'],
+                                        'value_unit' => ['type' => 'string'],
+                                        'value_label' => ['type' => 'string'],
+                                        'description' => ['type' => 'string'],
+                                        'steps' => [
+                                            'type' => 'array',
+                                            'description' => 'Max 20 steps with optional target_sets',
+                                            'items' => [
+                                                'type' => 'object',
+                                                'properties' => [
+                                                    'name' => ['type' => 'string'],
+                                                    'target_sets' => ['type' => 'integer'],
+                                                    'unit' => ['type' => 'string'],
+                                                ],
+                                                'required' => ['name'],
+                                                'additionalProperties' => false,
+                                            ],
+                                        ],
+                                    ],
+                                    'required' => ['title', 'frequency'],
+                                    'additionalProperties' => false,
+                                ],
+                            ],
                         ],
-                        'required' => ['title', 'project'],
+                        'required' => ['title'],
                         'additionalProperties' => false,
                     ],
                 ],
@@ -236,6 +300,7 @@ class AiToolService
             'routine_create' => $this->validateRoutineCreate($args),
             'routine_complete' => $this->validateRoutineComplete($args, $user),
             'routine_delete' => $this->validateOwned($args, $user, Routine::class, 'id'),
+            'routine_log' => $this->validateRoutineLog($args, $user),
             'plan_propose' => $this->validatePlanPropose($args),
             default => $this->fail('Unsupported tool'),
         };
@@ -254,8 +319,9 @@ class AiToolService
             'task_create' => ['title' => isset($resolved['parent_id']) ? 'Create subtask' : 'Create task', 'rows' => $this->rows($resolved, ['title', 'project_name', 'parent_title', 'due_date', 'priority', 'status'])],
             'reminder_create' => ['title' => 'Create reminder', 'rows' => $this->rows($resolved, ['title', 'date', 'time', 'priority'])],
             'note_create' => ['title' => 'Create note', 'rows' => $this->rows($resolved, ['title', 'category'])],
-            'routine_create' => ['title' => 'Create routine', 'rows' => $this->rows($resolved, ['title', 'frequency', 'days_label', 'time_period', 'description'])],
+            'routine_create' => ['title' => 'Create routine', 'rows' => $this->rows($resolved, ['title', 'frequency', 'days_label', 'tracking_mode', 'value_label', 'time_period', 'description'])],
             'routine_delete' => $this->previewRoutineDelete($resolved),
+            'routine_log' => $this->previewRoutineLog($resolved),
             'plan_propose' => $this->previewPlan($resolved),
             default => ['title' => ucfirst(str_replace('_', ' ', $tool)), 'rows' => $this->rows($resolved, array_keys($resolved))],
         };
@@ -287,6 +353,7 @@ class AiToolService
                 'routine_create' => $this->execRoutineCreate($resolved, $user),
                 'routine_complete' => $this->execRoutineComplete($resolved, $user),
                 'routine_delete' => $this->execRoutineDelete($resolved, $user),
+                'routine_log' => $this->execRoutineLog($resolved, $user),
                 // Plans never execute as a single action; they run phase by phase.
                 'plan_propose' => ['ok' => false, 'message' => 'Plans run phase by phase after structure approval.', 'id' => null],
                 default => ['ok' => false, 'message' => 'Unsupported tool', 'id' => null],
@@ -587,9 +654,32 @@ class AiToolService
             'every_n_days' => 'nullable|integer|min:2|max:60',
             'time_period' => 'nullable|string|max:50',
             'description' => 'nullable|string|max:2000',
+            'tracking_mode' => 'nullable|in:none,value,sets',
+            'value_kind' => 'nullable|in:' . implode(',', self::ROUTINE_VALUE_KINDS),
+            'value_unit' => 'nullable|string|max:20',
+            'value_label' => 'nullable|string|max:100',
+            'steps' => 'nullable|array|max:20',
+            'steps.*.name' => 'required|string|max:120',
+            'steps.*.target_sets' => 'nullable|integer|min:1|max:20',
+            'steps.*.unit' => 'nullable|string|max:20',
         ]);
         if ($v->fails()) {
             return $this->fail($v->errors()->first());
+        }
+
+        $tracking = $args['tracking_mode'] ?? 'none';
+        if ($tracking === 'value' && empty($args['value_kind'])) {
+            return $this->fail('Value-tracked routines need a value kind (ask the user which unit).');
+        }
+
+        $steps = [];
+        foreach (array_values((array) ($args['steps'] ?? [])) as $i => $s) {
+            $steps[] = [
+                'name' => trim((string) $s['name']),
+                'target_sets' => max(1, min(20, (int) ($s['target_sets'] ?? 1))),
+                'unit' => isset($s['unit']) && trim((string) $s['unit']) !== '' ? mb_substr(trim((string) $s['unit']), 0, 20) : null,
+                'sort_order' => $i,
+            ];
         }
 
         $frequency = $args['frequency'];
@@ -624,6 +714,84 @@ class AiToolService
             'time_period' => $args['time_period'] ?? null,
             'description' => $args['description'] ?? null,
             'days_label' => $daysLabel,
+            'tracking_mode' => $tracking,
+            'value_kind' => $tracking === 'value' ? $args['value_kind'] : null,
+            'value_unit' => $tracking === 'value' ? ($args['value_unit'] ?? null) : null,
+            'value_label' => $tracking === 'value' ? ($args['value_label'] ?? null) : null,
+            'steps' => $steps,
+        ]];
+    }
+
+    /**
+     * Resolve a tracked routine by ID or name (owned by the user).
+     */
+    private function resolveRoutine(array $args, $user): ?Routine
+    {
+        if (! empty($args['routine_id'])) {
+            return Routine::where('id', (int) $args['routine_id'])->where('user_id', $user->id)->first();
+        }
+        if (! empty($args['routine'])) {
+            $needle = $args['routine'];
+
+            return is_numeric($needle)
+                ? Routine::where('id', (int) $needle)->where('user_id', $user->id)->first()
+                : Routine::where('user_id', $user->id)->where('title', 'like', "%{$needle}%")->first();
+        }
+
+        return null;
+    }
+
+    private function validateRoutineLog(array $args, $user): array
+    {
+        $v = Validator::make($args, [
+            'routine' => 'nullable|string|max:255',
+            'routine_id' => 'nullable|integer',
+            'date' => 'nullable|date',
+            'value' => 'required|numeric|min:0|max:1000000',
+            'item' => 'nullable|string|max:255',
+            'item_id' => 'nullable|integer',
+            'set_no' => 'nullable|integer|min:1|max:20',
+        ]);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+
+        $routine = $this->resolveRoutine($args, $user);
+        if (! $routine) {
+            return $this->fail('Routine not found or not yours.');
+        }
+        if (! $routine->isTracked()) {
+            return $this->fail("Routine '{$routine->title}' has tracking disabled.");
+        }
+
+        $date = isset($args['date']) ? Carbon::parse($args['date'])->toDateString() : now()->toDateString();
+        $itemId = null;
+        $itemName = null;
+        if ($routine->tracking_mode === Routine::TRACKING_SETS) {
+            $needle = $args['item_id'] ?? ($args['item'] ?? null);
+            if ($needle === null || $needle === '') {
+                return $this->fail('Sets mode needs the step (item or item_id).');
+            }
+            $item = is_numeric($needle)
+                ? $routine->checklistItems()->whereKey((int) $needle)->first()
+                : $routine->checklistItems()->where('name', 'like', "%{$needle}%")->first();
+            if (! $item) {
+                return $this->fail('Step not found in this routine.');
+            }
+            $itemId = $item->id;
+            $itemName = $item->name;
+        }
+
+        return ['ok' => true, 'error' => null, 'resolved' => [
+            'routine_id' => $routine->id,
+            'routine_title' => $routine->title,
+            'tracking_mode' => $routine->tracking_mode,
+            'unit' => $routine->tracking_mode === Routine::TRACKING_VALUE ? $routine->value_unit : null,
+            'date' => $date,
+            'value' => $args['value'],
+            'item_id' => $itemId,
+            'item_name' => $itemName,
+            'set_no' => max(1, min(20, (int) ($args['set_no'] ?? 1))),
         ]];
     }
 
@@ -658,20 +826,39 @@ class AiToolService
         if (! is_array($args['subprojects'])) {
             return $this->fail('subprojects must be a list.');
         }
+        $args['routines'] = array_values((array) ($args['routines'] ?? []));
 
         $v = Validator::make($args, [
             'title' => 'required|string|max:120',
-            'project' => 'required|array',
-            'project.name' => 'required|string|max:255',
+            'project' => 'nullable|array',
+            'project.name' => 'nullable|string|max:255',
             'project.description' => 'nullable|string|max:2000',
             'project.tasks' => 'nullable|array',
             'subprojects' => 'nullable|array|max:' . \App\Models\AiPlan::MAX_SUBPROJECTS,
             'subprojects.*.name' => 'required|string|max:255',
             'subprojects.*.description' => 'nullable|string|max:2000',
             'subprojects.*.tasks' => 'nullable|array',
+            'routines' => 'nullable|array|max:' . self::MAX_PLAN_ROUTINES,
         ]);
         if ($v->fails()) {
             return $this->fail($v->errors()->first());
+        }
+
+        // A plan is EITHER a project tree OR a routine set — never both.
+        $hasProjectTree = ! empty($args['project']['name']) || ! empty($args['subprojects']);
+        $hasRoutines = ! empty($args['routines']);
+        if ($hasProjectTree && $hasRoutines) {
+            return $this->fail('A plan holds either a project tree or routines, not both. Split into two plans.');
+        }
+        if (! $hasProjectTree && ! $hasRoutines) {
+            return $this->fail('The plan is empty: add a project with tasks or at least one routine.');
+        }
+
+        if ($hasRoutines) {
+            return $this->validatePlanRoutines($args['title'], $args['routines']);
+        }
+        if (empty($args['project']['name'])) {
+            return $this->fail('The project needs a name.');
         }
 
         $cleanTasks = function ($tasks, string $where) {
@@ -750,6 +937,7 @@ class AiToolService
                 'tasks' => $direct,
             ],
             'subprojects' => $subs,
+            'routines' => [],
         ];
 
         return ['ok' => true, 'error' => null, 'resolved' => [
@@ -759,6 +947,43 @@ class AiToolService
                 'subprojects' => count($subs),
                 'tasks' => $taskCount,
                 'subtasks' => $subCount,
+                'routines' => 0,
+                'steps' => 0,
+            ],
+        ]];
+    }
+
+    /**
+     * Validate the routines branch of a plan by reusing routine_create rules.
+     */
+    private function validatePlanRoutines(string $title, array $routines): array
+    {
+        $clean = [];
+        foreach (array_values($routines) as $r) {
+            if (! is_array($r)) {
+                return $this->fail('A routine in the plan is malformed.');
+            }
+            $check = $this->validateRoutineCreate($r);
+            if (! ($check['ok'] ?? false)) {
+                return $this->fail('Routine: ' . ($check['error'] ?? 'invalid.'));
+            }
+            if (count($check['resolved']['steps']) > self::MAX_PLAN_ROUTINE_STEPS) {
+                return $this->fail('Too many steps in one routine (max ' . self::MAX_PLAN_ROUTINE_STEPS . ').');
+            }
+            $clean[] = $check['resolved'];
+        }
+
+        $structure = ['project' => null, 'subprojects' => [], 'routines' => $clean];
+
+        return ['ok' => true, 'error' => null, 'resolved' => [
+            'title' => trim($title),
+            'structure' => $structure,
+            'totals' => [
+                'subprojects' => 0,
+                'tasks' => 0,
+                'subtasks' => 0,
+                'routines' => count($clean),
+                'steps' => array_sum(array_map(fn ($r) => count($r['steps']), $clean)),
             ],
         ]];
     }
@@ -769,6 +994,15 @@ class AiToolService
      */
     public function buildPlanPhases(array $structure): array
     {
+        if (! empty($structure['routines'])) {
+            $total = count($structure['routines']);
+
+            return [[
+                'key' => 'routines', 'label' => 'Create routines', 'total' => $total, 'done' => 0,
+                'status' => 'locked', 'result' => null,
+            ]];
+        }
+
         $subCount = count($structure['subprojects']);
         $taskCount = count($structure['project']['tasks'])
             + array_sum(array_map(fn ($s) => count($s['tasks']), $structure['subprojects']));
@@ -808,7 +1042,15 @@ class AiToolService
             $structure = $plan->structure;
             $key = $phase['key'];
 
-            if ($key === 'project') {
+            if ($key === 'routines') {
+                $ids = [];
+                foreach ($structure['routines'] as $r) {
+                    $result = $this->execRoutineCreate($r, $user);
+                    $ids[] = $result['id'];
+                }
+                $phase['result'] = ['routine_ids' => $ids];
+                $message = count($ids) . ' routine(s) created.';
+            } elseif ($key === 'project') {
                 $project = $user->projects()->create([
                     'name' => $structure['project']['name'],
                     'description' => $structure['project']['description'] ?? null,
@@ -971,14 +1213,14 @@ class AiToolService
         $structure = $resolved['structure'];
         $totals = $resolved['totals'];
         $tree = [
-            'project' => [
+            'project' => $structure['project'] ? [
                 'name' => $structure['project']['name'],
                 'tasks' => array_map(fn ($t) => [
                     'title' => $t['title'],
                     'due_date' => $t['due_date'],
                     'subtasks' => array_map(fn ($s) => $s['title'], $t['subtasks']),
                 ], $structure['project']['tasks']),
-            ],
+            ] : null,
             'subprojects' => array_map(fn ($s) => [
                 'name' => $s['name'],
                 'tasks' => array_map(fn ($t) => [
@@ -986,7 +1228,13 @@ class AiToolService
                     'due_date' => $t['due_date'],
                     'subtasks' => array_map(fn ($x) => $x['title'], $t['subtasks']),
                 ], $s['tasks']),
-            ], $structure['subprojects']),
+            ], $structure['subprojects'] ?? []),
+            'routines' => array_map(fn ($r) => [
+                'title' => $r['title'],
+                'frequency' => $r['frequency'],
+                'tracking_mode' => $r['tracking_mode'] ?? 'none',
+                'steps' => array_map(fn ($s) => $s['name'], $r['steps'] ?? []),
+            ], $structure['routines'] ?? []),
         ];
 
         return [
@@ -1135,9 +1383,33 @@ class AiToolService
             'weeks' => null,
             'months' => null,
             'time_period' => ($r['time_period'] && in_array($r['time_period'], $periodKeys, true)) ? $r['time_period'] : null,
+            'tracking_mode' => $r['tracking_mode'] ?? 'none',
+            'value_kind' => $r['value_kind'] ?? null,
+            'value_unit' => $r['value_unit'] ?? null,
+            'value_label' => $r['value_label'] ?? null,
         ]);
 
-        return ['ok' => true, 'message' => "Routine '{$routine->title}' created ({$routine->recurrenceLabel()}).", 'id' => $routine->id];
+        $n = 0;
+        foreach ((array) ($r['steps'] ?? []) as $s) {
+            $routine->checklistItems()->create([
+                'user_id' => $user->id,
+                'name' => $s['name'],
+                'sort_order' => $s['sort_order'] ?? $n,
+                'target_sets' => $s['target_sets'] ?? 1,
+                'unit' => $s['unit'] ?? null,
+            ]);
+            $n++;
+        }
+
+        $msg = "Routine '{$routine->title}' created ({$routine->recurrenceLabel()})";
+        if ($n > 0) {
+            $msg .= " with {$n} step(s)";
+        }
+        if (($r['tracking_mode'] ?? 'none') !== 'none') {
+            $msg .= " [tracking: {$r['tracking_mode']}]";
+        }
+
+        return ['ok' => true, 'message' => $msg . '.', 'id' => $routine->id];
     }
 
     private function execRoutineComplete(array $r, $user): array
@@ -1163,6 +1435,56 @@ class AiToolService
         $routine->delete();
 
         return ['ok' => true, 'message' => "Routine '{$title}' deleted.", 'id' => null];
+    }
+
+    private function previewRoutineLog(array $resolved): array
+    {
+        $rows = [
+            ['k' => 'Routine', 'v' => $resolved['routine_title']],
+            ['k' => 'Date', 'v' => $resolved['date']],
+            ['k' => 'Value', 'v' => (string) $resolved['value'] . ($resolved['unit'] ? ' ' . $resolved['unit'] : '')],
+        ];
+        if ($resolved['item_name']) {
+            $rows[] = ['k' => 'Step', 'v' => $resolved['item_name'] . ' (set ' . $resolved['set_no'] . ')'];
+        }
+
+        return ['title' => 'Log value', 'rows' => $rows];
+    }
+
+    private function execRoutineLog(array $r, $user): array
+    {
+        $routine = Routine::where('id', $r['routine_id'])->where('user_id', $user->id)->firstOrFail();
+        \App\Models\RoutineLog::logValue($user->id, $routine->id, $r['date'], $r['value'], $r['item_id'], $r['set_no']);
+
+        $what = $r['item_name'] ? "'{$r['item_name']}' set {$r['set_no']}" : "'{$routine->title}'";
+        $msg = "Logged {$r['value']}" . ($r['unit'] ? " {$r['unit']}" : '') . " for {$what} on {$r['date']}.";
+
+        // Sets mode auto-completes the routine when every target set is logged.
+        if ($r['tracking_mode'] === Routine::TRACKING_SETS && ! $routine->completedOn($r['date'])) {
+            $items = $routine->checklistItems()->get();
+            $logs = \App\Models\RoutineLog::where('user_id', $user->id)
+                ->where('routine_id', $routine->id)
+                ->where('completed_date', $r['date'])
+                ->whereNotNull('checklist_item_id')
+                ->get()
+                ->groupBy('checklist_item_id');
+            $allDone = $items->isNotEmpty();
+            foreach ($items as $item) {
+                $have = isset($logs[$item->id]) ? $logs[$item->id]->pluck('set_no')->map(fn ($n) => (int) $n)->all() : [];
+                for ($s = 1; $s <= max(1, (int) $item->target_sets); $s++) {
+                    if (! in_array($s, $have, true)) {
+                        $allDone = false;
+                        break 2;
+                    }
+                }
+            }
+            if ($allDone) {
+                $routine->toggleOn($r['date']);
+                $msg .= " All sets done — routine completed ✅";
+            }
+        }
+
+        return ['ok' => true, 'message' => $msg, 'id' => $routine->id];
     }
 
     // ── helpers ──
@@ -1199,6 +1521,9 @@ class AiToolService
             'everyNDays' => 'every_n_days',
             'every_n_day' => 'every_n_days',
             'timePeriod' => 'time_period',
+            'routineId' => 'routine_id',
+            'itemId' => 'item_id',
+            'setNo' => 'set_no',
         ];
         foreach ($aliases as $from => $to) {
             if (array_key_exists($from, $args) && ! array_key_exists($to, $args)) {
@@ -1208,7 +1533,7 @@ class AiToolService
         }
 
         // OpenRouter may send numbers as strings; keep strict but forgiving for ids.
-        foreach (['id', 'task_id', 'project_id'] as $k) {
+        foreach (['id', 'task_id', 'project_id', 'routine_id', 'item_id'] as $k) {
             if (isset($args[$k]) && is_numeric($args[$k])) {
                 $args[$k] = (int) $args[$k];
             }

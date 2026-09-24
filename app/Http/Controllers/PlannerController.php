@@ -51,6 +51,7 @@ class PlannerController extends Controller
         $rangeStart = $selected->copy()->subYear()->startOfDay();
         $this->preloadRoutineCompletions($user->id, $routines, $rangeStart, $selected);
         $stepMap = $this->preloadStepCompletions($routines, $selected, $selected);
+        $this->preloadRoutineLogs($user->id, $routines, $selected, $selected);
 
         $routinesData = $this->splitRoutines($routines, $selected);
         $this->decorateHabitMetricsBulk($routinesData['today'], $selected, $stepMap);
@@ -85,6 +86,7 @@ class PlannerController extends Controller
         $rangeStart = $start->copy()->subYear()->startOfDay();
         $this->preloadRoutineCompletions($user->id, $routines, $rangeStart, $end);
         $stepMap = $this->preloadStepCompletions($routines, $start, $end);
+        $this->preloadRoutineLogs($user->id, $routines, $start, $end);
 
         $days = [];
         for ($i = 0; $i < 7; $i++) {
@@ -383,8 +385,121 @@ class PlannerController extends Controller
                 'id' => $s->id,
                 'name' => $s->name,
                 'completed' => isset($stepMap[(int) $s->id][$dayKey]),
+                'target_sets' => (int) ($s->target_sets ?? 1),
+                'unit' => $s->unit,
+                'sets' => $routine->relationLoaded('logs')
+                    ? $routine->logs
+                        ->filter(fn ($l) => (int) $l->checklist_item_id === (int) $s->id
+                            && (($l->completed_date instanceof Carbon)
+                                ? $l->completed_date->toDateString()
+                                : substr((string) $l->completed_date, 0, 10)) === $dayKey)
+                        ->mapWithKeys(fn ($l) => [(int) $l->set_no => (float) $l->value])
+                        ->all()
+                    : [],
             ])->values();
+
+            $routine->logValues = $routine->isTracked() ? $routine->loggedValues($date) : [];
         }
+    }
+
+    /**
+     * Preload routine metric logs for [from..to] in ONE query.
+     */
+    private function preloadRoutineLogs(int $userId, $routines, Carbon $from, Carbon $to): void
+    {
+        if ($routines->isEmpty()) {
+            return;
+        }
+
+        $rows = \App\Models\RoutineLog::where('user_id', $userId)
+            ->whereIn('routine_id', $routines->pluck('id'))
+            ->whereBetween('completed_date', [$from->toDateString(), $to->toDateString()])
+            ->orderBy('checklist_item_id')->orderBy('set_no')
+            ->get()
+            ->groupBy('routine_id');
+
+        foreach ($routines as $routine) {
+            $routine->setRelation('logs', $rows->get($routine->id, collect()));
+        }
+    }
+
+    /**
+     * Log a tracked value for a routine day.
+     * Value mode: {date, value}. Sets mode: {date, item_id, sets: {set_no: value}}.
+     * Sets mode auto-completes the routine when every target set is logged.
+     */
+    public function logRoutine(Request $request, Routine $routine)
+    {
+        abort_if($routine->user_id !== Auth::id(), 403);
+        abort_if(! $routine->isTracked(), 422, 'Routine is not tracked.');
+
+        $date = $this->parseDate($request->input('date'))->startOfDay();
+
+        if ($routine->tracking_mode === Routine::TRACKING_VALUE) {
+            $data = $request->validate(['value' => 'required|numeric|min:0|max:1000000']);
+            \App\Models\RoutineLog::logValue(Auth::id(), $routine->id, $date, $data['value']);
+
+            return response()->json([
+                'ok' => true,
+                'values' => $routine->fresh()->loggedValues($date),
+            ]);
+        }
+
+        // Sets mode.
+        $data = $request->validate([
+            'item_id' => 'required|integer',
+            'sets' => 'required|array|min:1|max:20',
+            'sets.*' => 'required|numeric|min:0|max:1000000',
+        ]);
+        $item = $routine->checklistItems()->whereKey($data['item_id'])->first();
+        abort_if(! $item, 422, 'Invalid step.');
+
+        foreach ($data['sets'] as $setNo => $value) {
+            $setNo = max(1, min(20, (int) $setNo));
+            \App\Models\RoutineLog::logValue(Auth::id(), $routine->id, $date, $value, $item->id, $setNo);
+        }
+
+        $fresh = $routine->fresh();
+        $routineCompleted = $fresh->completedOn($date);
+        if (! $routineCompleted && $this->allSetsLogged($fresh, $date)) {
+            $fresh->toggleOn($date);
+            $routineCompleted = true;
+        }
+
+        return response()->json([
+            'ok' => true,
+            'routine_completed' => $routineCompleted,
+            'values' => $fresh->loggedValues($date),
+        ]);
+    }
+
+    /**
+     * Every step has logs for set 1..target_sets on the given date.
+     */
+    private function allSetsLogged(Routine $routine, Carbon $date): bool
+    {
+        $items = $routine->checklistItems()->get();
+        if ($items->isEmpty()) {
+            return false;
+        }
+        $key = $date->toDateString();
+        $logs = \App\Models\RoutineLog::where('user_id', $routine->user_id)
+            ->where('routine_id', $routine->id)
+            ->where('completed_date', $key)
+            ->whereNotNull('checklist_item_id')
+            ->get()
+            ->groupBy('checklist_item_id');
+
+        foreach ($items as $item) {
+            $have = isset($logs[$item->id]) ? $logs[$item->id]->pluck('set_no')->map(fn ($n) => (int) $n)->all() : [];
+            for ($s = 1; $s <= max(1, (int) $item->target_sets); $s++) {
+                if (! in_array($s, $have, true)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**

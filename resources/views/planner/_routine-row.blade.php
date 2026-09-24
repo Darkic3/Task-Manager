@@ -16,6 +16,11 @@
     $ringLast7   = $routine->ringLast7 ?? null;
     $ringC       = 2 * M_PI * 15.5;
     $ringOffset  = $ringRate !== null ? $ringC - ($ringC * $ringRate / 100) : 0;
+
+    /* Tracking: value mode shows one input, sets mode shows per-step set inputs */
+    $trackMode   = $routine->tracking_mode ?? 'none';
+    $logValues   = $toggleable ? ($routine->logValues ?? []) : [];
+    $logUrl      = $toggleable && $trackMode !== 'none' ? route('planner.routines.log', $routine) : null;
 @endphp
 <div class="pl-task pl-routine {{ $isDone ? 'is-done' : '' }}"
      @if($toggleable)
@@ -105,6 +110,31 @@
                         <i class="bi {{ $step['completed'] ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
                         {{ $step['name'] }}
                     </button>
+                @endforeach
+            </div>
+        @endif
+
+        @if($logUrl && $trackMode === 'value')
+            <div class="pl-log" data-log-value data-routine="{{ $routine->id }}" data-date="{{ $routineDate->toDateString() }}" data-url="{{ $logUrl }}">
+                <input type="number" step="any" min="0" placeholder="{{ $routine->trackingLabel() }}"
+                       value="{{ $logValues['value'] ?? '' }}" aria-label="{{ $routine->trackingLabel() }}">
+                <button type="button" onclick="logRoutineValue(this)">ثبت</button>
+                @if(isset($logValues['value']))<span class="pl-log-saved">✓ {{ $logValues['value'] }}</span>@endif
+            </div>
+        @endif
+
+        @if($logUrl && $trackMode === 'sets' && ! empty($routine->ringSteps) && count($routine->ringSteps) > 0)
+            <div class="pl-logsets">
+                @foreach($routine->ringSteps as $step)
+                    @php $logged = $step['sets'] ?? []; $target = max(1, (int) ($step['target_sets'] ?? 1)); @endphp
+                    <div class="pl-logset" data-log-sets data-item="{{ $step['id'] }}" data-routine="{{ $routine->id }}" data-date="{{ $routineDate->toDateString() }}" data-url="{{ $logUrl }}">
+                        <span class="pl-logset-name">{{ $step['name'] }}{{ $step['unit'] ? ' (' . $step['unit'] . ')' : '' }}</span>
+                        @for($s = 1; $s <= $target; $s++)
+                            <input type="number" step="any" min="0" data-set="{{ $s }}" placeholder="S{{ $s }}"
+                                   value="{{ $logged[$s] ?? '' }}" aria-label="{{ $step['name'] }} set {{ $s }}">
+                        @endfor
+                        <button type="button" onclick="logRoutineSets(this)">ثبت</button>
+                    </div>
                 @endforeach
             </div>
         @endif

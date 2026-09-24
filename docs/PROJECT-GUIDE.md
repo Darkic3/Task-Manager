@@ -47,11 +47,17 @@
 
 ### روتین‌ها `/routines` (`RoutineController`)
 - ساخت/ویرایش با `days` (هفتگی) / `month_days` (ماهانه) / `every_n_days` (۲ تا ۶۰)؛ یا `time_period` (صبح/ظهر/...) از `config/routines.php` یا بازه ساعت دقیق — هرگز هر دو با هم.
-- صفحه stats هر روتین: هیت‌مپ ۱۶ هفته، streak جاری/بهترین، adherence سی‌روزه، `completionTracker` (توزیع ساعت انجام + انحراف از ساعت برنامه).
+- **رهگیری (tracking):** `tracking_mode` ‏(none/value/sets) + `value_kind` ‏(number/weight/time/reps/percent) + `value_unit/value_label`؛ هر حرکت `target_sets` و `unit` خودش را دارد. مقادیر در `routine_logs` (یونیک routine/item/date/set؛ ثبت مجدد = آپدیت).
+- ثبت روزانه از پلنر (`POST /planner/routines/{id}/log`)؛ تکمیل همه ست‌ها روتین را auto-complete می‌کند.
+- صفحه stats هر روتین: هیت‌مپ ۱۶ هفته، streak جاری/بهترین، adherence سی‌روزه، `completionTracker` (توزیع ساعت انجام + انحراف از ساعت برنامه)، **نمودار مقادیر ۹۰ روزه + رکورد شخصی + آخرین جلسه**.
+- **سیکل جدید** (`POST /routines/{id}/new-cycle`): کپی روتین + حرکات با `cycle_no+1` و لینک `parent_id`، آرشیو (سافت‌دیلیت) نسخه قبلی با حفظ تاریخچه؛ stats خلاصه سیکل قبل را نشان می‌دهد.
 - `toggleOn` ایدم‌پوتنت است (تیک مجدد = آنتیک، بدون رکورد تکراری).
 
 ### ریمایندر `/reminders` (`ReminderController`)
 اولویت ۴سطحی، دسته‌بندی، تگ، تکرار (daily/weekly/monthly/yearly با ساخت occurrence بعدی هنگام تکمیل)، snooze (دقیقه‌ای)، تقویم (fullCalendar events)، duplicate، اسکوپ‌های active/completed/overdue/dueToday.
+
+### ترک `/track` (`TrackController`)
+هاب روتین‌های رهگیری‌شونده: آخرین مقدار، اختلاف با قبلی (▲▼)، اسپارک‌لاین ۱۴ روزه، جزئیات آخرین جلسه ست‌ها (value مود: آخرین مقدار؛ sets مود: تعداد ست‌های آخرین جلسه)، فیلتر kind. تک‌کوئری لاگ ۳۰ روزه (بدون N+1).
 
 ### نوت/فایل/پروفایل/میل
 نوت: جستجو، فیلتر دسته، favorite، duplicate، excerpt/wordCount. فایل: `name/path/type`. پروفایل: ویرایش + آواتار + رمز. میل (`MailController`): فعلاً فقط ویوی اینباکس (استاب).
@@ -85,7 +91,7 @@
 
 تاگل در هدر چت (`ai/index.blade.php`)، ذخیره در `localStorage`، ارسال `mode` با هر درخواست؛ **سرور تنها مرجع تصمیم است** و فرانت در مود chat کارت proposal را رندر نمی‌کند.
 
-### ۳.۴ ابزارها (۱۷ عدد، `AiToolService::TOOLS`)
+### ۳.۴ ابزارها (۱۸ عدد، `AiToolService::TOOLS`)
 نام‌ها فقط آندرلاین (API نقطه/خط‌فاصله را با ۴۰۰ رد می‌کند): `normalizeToolName` رکوردهای قدیمی نقطه‌دار را هم می‌پذیرد.
 
 | ابزار | ورودی کلیدی | رفتار |
@@ -95,9 +101,10 @@
 | note_create/update/delete | title*, content* | — |
 | project_create | name*, **parent?** (نام یا ID ساب‌پروژه، سقف عمق ۵) | type=project |
 | checklist_add/toggle | task_id+name / id | toggle برمی‌گرداند (done/reopened) |
-| routine_create | title*, frequency*, days/month_days/every_n_days, time_period?, description | آینه قوانین `RoutineController@validated`؛ پیام موفقیت شامل `recurrenceLabel` |
+| routine_create | title*, frequency*, days/month_days/every_n_days, tracking_mode?, value_kind/unit/label?, steps[{name*, target_sets?, unit?}] | آینه قوانین `RoutineController@validated`؛ پیام موفقیت شامل `recurrenceLabel` |
 | routine_complete | id, date? (پیش‌فرض امروز) | **هرگز آنتیک نمی‌کند**؛ تکراری = «already done» |
-| plan_propose | title*, project{name,tasks[]}, subprojects[] (هر تسک: title*, due_date?, priority?, subtasks[]) | فقط validate؛ اجرا مرحله‌ای بعد از تأیید ساختار (بخش ۳٫۶) |
+| routine_log | routine(+id), date?, value*, item(+id)?, set_no? | ثبت مقدار با چک رهگیری‌بودن؛ ست‌مود کامل = auto-complete |
+| plan_propose | title*, **یا** project{name,tasks[]}+subprojects[] **یا** routines[{title*, frequency*, tracking?, steps[]}] (انحصاری) | فقط validate؛ اجرا مرحله‌ای بعد از تأیید ساختار (بخش ۳٫۶) |
 | routine_delete | id | سافت‌دیلیت؛ کارت می‌گوید تاریخچه می‌ماند |
 
 چرخه: `definitions()` (JSON Schema با `additionalProperties:false`) → مدل tool_call می‌زند → `validateCall` (فقط خواندن + چک `user_id`، aliasهای camelCase مثل `projectId/dueDate/monthDays` هم پذیرفته می‌شود) → رکورد `ai_pending_actions` (pending، انقضا ۱۵ دقیقه، سقف ۵ باز به‌ازای کاربر، `idempotency_key`) → **کارت تأیید** (مشخصات + اثر خطرناک) → `POST /ai/actions/{id}/confirm|reject` (throttle:30,1، مالکیت ۴۰۳، re-validate، اجرا در transaction، تأیید تکراری dedupe، پیام ✅ در تاریخچه، لاگ `ai.tool.*`). بدون Undo.
@@ -114,8 +121,8 @@
 - ولیدیشن ورودی در همه store/update؛ خروجی‌های JSON خطا اطلاعات чужой لو ندهند.
 - AI: ابزار فقط در Agent + openai-compatible؛ re-validate لحظه اجرا؛ سقف pending؛ throttle روی confirm/reject.
 
-## ۵. تست‌ها (`php artisan test` — سبز: ۵۵ تست)
-`AiPlansTest` (سقف‌ها، فلو کامل سلسله‌مراتب، mismatch ایندکس فاز، run_all، ۴۰۳/انقضا، parent در ابزارهای تکی، پکت plan از chat)، `AiToolsTest` (validate/execute/confirm/reject/انقضا/403/aliasها/legacy)، `AiModesTest` (chat ابزار نمی‌فرستد، agent proposal می‌سازد، پرامپت‌ها، ابزارهای روتین)، `RoutinesHabitTest`، `TasksChaptersTest`، `DetailsPagesTest` و بقیه. برای HTTP پروایدر از `Http::fake` استفاده کن (الگو در `AiModesTest`).
+## ۵. تست‌ها (`php artisan test` — سبز: ۶۴ تست)
+`RoutineTrackingTest` (لاگ value/sets، auto-complete، سیکل، صفحه track، ابزارهای رهگیری)، `AiPlansTest` (سقف‌ها، فلو کامل سلسله‌مراتب **و شاخه routines**، mismatch ایندکس فاز، run_all، ۴۰۳/انقضا، parent در ابزارهای تکی، پکت plan از chat)، `AiToolsTest`، `AiModesTest`، `RoutinesHabitTest`، `TasksChaptersTest`، `DetailsPagesTest` و بقیه. برای HTTP پروایدر از `Http::fake` استفاده کن (الگو در `AiModesTest`).
 نکته محیطی: تست‌ها به MySQL روی `127.0.0.1:3306` (دیتابیس `task_test`) وصل می‌شوند؛ اگر MySQL پایین بود تست‌ها خطای connection می‌دهند.
 
 ## ۶. افزودن قابلیت (چک‌لیست توسعه)

@@ -16,6 +16,8 @@ class RoutineChecklistItem extends Model
         'user_id',
         'name',
         'sort_order',
+        'target_sets',
+        'unit',
     ];
 
     public function routine(): BelongsTo

@@ -750,11 +750,12 @@ class AiChatController extends Controller
         $modeBlock = $mode === 'agent'
             ? <<<AGENT
             MODE: AGENT — you can act on the workspace via tools.
-            - When the user asks to create, edit, complete or delete a SINGLE task, reminder, note, project, routine or checklist item, call the matching tool instead of just describing it. Destructive deletes need no extra warning text because the app shows a confirmation card.
-            - For a BUILD request (a program, a project with parts, anything with more than 2 items): call plan_propose ONCE with the FULL tree (project + sub-projects + tasks with due_dates + subtasks). Never fire many single calls for one program. The user confirms the structure first, then each phase separately.
-            - For a recurring weekly program with no sub-parts, prefer routine_create (frequency weekly + days) over tasks, unless the user explicitly asked for tasks/projects.
-            - Keep every single title SHORT: task/subtask titles under 120 chars, descriptions under 500 chars. Never paste a whole program, list or long text into one argument — it gets cut off and garbled. Exercises go into subtasks, one per subtask.
-            - Compute due_dates yourself from today's date (given above). Max per plan: 3 sub-projects, 30 tasks, 100 subtasks. If the request is bigger, propose the first chunk and tell the user to say "continue" for the rest.
+            - SINGLE items: task_create/update/complete/delete, reminder_*, note_*, project_create, checklist_*, routine_create/complete/delete/log. Destructive deletes need no extra warning text because the app shows a confirmation card.
+            - BUILDS (a program, a project with parts, anything with more than 2 items): call plan_propose ONCE with the FULL tree — never many single calls for one program. Two shapes, never mixed: {project + subprojects + tasks + subtasks} for project work, {routines[]} for repeating programs (workouts, habits). The user confirms the structure first, then each phase separately.
+            - Repeating weekly programs (workout days, daily habits) go to plan_propose.routines (one routine per weekday, frequency weekly + days), NOT to projects/tasks — unless the user explicitly asked for tasks.
+            - TRACKING: routines support tracking_mode none|value|sets. If the user wants numbers logged (weight, wake time, reps) but the unit kind is unknown, ASK in text first (e.g. "in what unit?"), then call with the right value_kind/value_unit. Steps of sets-mode routines carry target_sets; exercises go to subtasks/steps, one per item.
+            - Keep every single title SHORT: task/subtask/routine titles under 120 chars, descriptions under 500 chars. Never paste a whole program, list or long text into one argument — it gets cut off and garbled.
+            - Compute due_dates yourself from today's date (given above). Max per plan: 3 sub-projects, 30 tasks, 100 subtasks, 7 routines.
             - Use exact snake_case argument names from the schema (project_id, due_date, task_id). Omit project_id when unsure — the server picks the user's first project.
             AGENT
             : <<<CHAT

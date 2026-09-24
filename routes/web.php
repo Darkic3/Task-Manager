@@ -18,6 +18,7 @@ use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TimeTrackingController;
+use App\Http\Controllers\TrackController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -55,11 +56,13 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks/{task}/update-status', [TaskController::class, 'updateStatus']);
 
     Route::resource('routines', RoutineController::class)->except(['show']);
+    Route::post('routines/{routine}/new-cycle', [RoutineController::class, 'newCycle'])->name('routines.new-cycle');
     Route::get('routines/{routine}/stats', [RoutineController::class, 'stats'])->name('routines.stats');
     Route::get('routines/showAll', [RoutineController::class, 'showAll'])->name('routines.showAll');
     Route::get('routines/daily', [RoutineController::class, 'showDaily'])->name('routines.showDaily');
     Route::get('routines/weekly', [RoutineController::class, 'showWeekly'])->name('routines.showWeekly');
     Route::get('routines/monthly', [RoutineController::class, 'showMonthly'])->name('routines.showMonthly');
+    Route::get('/track', [TrackController::class, 'index'])->name('track.index');
     Route::resource('files', FileController::class);
     Route::resource('notes', NoteController::class);
     Route::patch('notes/{note}/toggle-favorite', [NoteController::class, 'toggleFavorite'])->name('notes.toggle-favorite');
@@ -76,6 +79,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/planner', [PlannerController::class, 'index'])->name('planner.index');
     Route::post('/planner/tasks/{task}/toggle', [PlannerController::class, 'toggleTask'])->name('planner.tasks.toggle');
     Route::post('/planner/routines/{routine}/toggle', [PlannerController::class, 'toggleRoutine'])->name('planner.routines.toggle');
+    Route::post('/planner/routines/{routine}/log', [PlannerController::class, 'logRoutine'])->name('planner.routines.log');
     Route::post('/planner/check-items/{item}/toggle', [PlannerController::class, 'toggleCheckItem'])->name('planner.check-items.toggle');
 
     // Time tracking

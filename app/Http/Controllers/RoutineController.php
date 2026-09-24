@@ -86,6 +86,36 @@ class RoutineController extends Controller
         return redirect()->route('routines.index')->with('success', 'Routine deleted successfully.');
     }
 
+    /**
+     * Start a new cycle: duplicate the routine with its steps for editing
+     * (change moves/sets for the coming weeks) and archive the current one.
+     * History and logs of the old cycle stay untouched for comparison.
+     */
+    public function newCycle(Routine $routine)
+    {
+        $this->authorizeRoutine($routine);
+
+        $copy = $routine->replicate(['deleted_at']);
+        $copy->parent_id = $routine->id;
+        $copy->cycle_no = ((int) $routine->cycle_no) + 1;
+        $copy->save();
+
+        foreach ($routine->checklistItems()->orderBy('sort_order')->orderBy('id')->get() as $i => $item) {
+            $copy->checklistItems()->create([
+                'user_id' => $copy->user_id,
+                'name' => $item->name,
+                'sort_order' => $i,
+                'target_sets' => $item->target_sets,
+                'unit' => $item->unit,
+            ]);
+        }
+
+        $routine->delete();
+
+        return redirect()->route('routines.edit', $copy)
+            ->with('success', "Cycle {$copy->cycle_no} started — adjust moves and sets, then save. Previous cycle is archived with its history.");
+    }
+
     public function stats(Routine $routine)
     {
         $this->authorizeRoutine($routine);
@@ -119,8 +149,104 @@ class RoutineController extends Controller
         $streak = $routine->streakStats($today);
         $adherence = $routine->adherence(30, $today);
         $tracker = $routine->completionTracker();
+        $valueStats = $this->valueStats($routine, $today);
+        $prevCycle = $this->prevCycleSummary($routine);
 
-        return view('routines.stats', compact('routine', 'weeks', 'monthSpans', 'streak', 'adherence', 'tracker'));
+        return view('routines.stats', compact('routine', 'weeks', 'monthSpans', 'streak', 'adherence', 'tracker', 'valueStats', 'prevCycle'));
+    }
+
+    /**
+     * One-line comparison with the archived previous cycle (if any).
+     */
+    private function prevCycleSummary(Routine $routine): ?array
+    {
+        if (! $routine->parent_id) {
+            return null;
+        }
+        $prev = Routine::withTrashed()->find($routine->parent_id);
+        if (! $prev || $prev->user_id !== $routine->user_id) {
+            return null;
+        }
+        $logs = $prev->completions()->count();
+        $lastValue = null;
+        if ($prev->tracking_mode === Routine::TRACKING_VALUE) {
+            $lastValue = \App\Models\RoutineLog::where('routine_id', $prev->id)
+                ->whereNull('checklist_item_id')
+                ->orderByDesc('completed_date')
+                ->first()?->value;
+        }
+
+        return [
+            'title' => $prev->title,
+            'cycle_no' => $prev->cycle_no,
+            'completions' => $logs,
+            'last_value' => $lastValue !== null ? (float) $lastValue : null,
+            'unit' => $prev->value_unit,
+        ];
+    }
+
+    /**
+     * Logged-value history for tracked routines (single query):
+     * daily series for the chart + personal record + per-step latest.
+     */
+    private function valueStats(Routine $routine, Carbon $today): ?array
+    {
+        if (! $routine->isTracked()) {
+            return null;
+        }
+
+        $from = $today->copy()->subDays(89)->startOfDay();
+        $logs = \App\Models\RoutineLog::where('routine_id', $routine->id)
+            ->where('completed_date', '>=', $from->toDateString())
+            ->orderBy('completed_date')
+            ->get();
+
+        if ($routine->tracking_mode === Routine::TRACKING_VALUE) {
+            $points = $logs->whereNull('checklist_item_id')
+                ->groupBy(fn ($l) => $l->completed_date instanceof Carbon
+                    ? $l->completed_date->toDateString()
+                    : substr((string) $l->completed_date, 0, 10))
+                ->map(fn ($g, $d) => ['date' => $d, 'value' => (float) $g->first()->value])
+                ->sortBy('date')->values();
+
+            return [
+                'mode' => 'value',
+                'points' => $points->all(),
+                'latest' => $points->last(),
+                'pr' => $points->max('value'),
+                'avg' => $points->count() ? round($points->avg('value'), 2) : null,
+                'unit' => $routine->value_unit,
+                'label' => $routine->trackingLabel(),
+            ];
+        }
+
+        // Sets mode: daily volume (sum) for the chart + per-step latest session.
+        $stepLogs = $logs->whereNotNull('checklist_item_id');
+        $byDate = $stepLogs->groupBy(fn ($l) => $l->completed_date instanceof Carbon
+            ? $l->completed_date->toDateString()
+            : substr((string) $l->completed_date, 0, 10));
+        $points = $byDate->map(fn ($g, $d) => ['date' => $d, 'value' => round($g->sum(fn ($l) => (float) $l->value), 2)])
+            ->sortBy('date')->values();
+
+        $lastDate = $byDate->keys()->sort()->last();
+        $stepNames = $routine->checklistItems->keyBy('id');
+        $perStep = $lastDate ? $byDate[$lastDate]->groupBy('checklist_item_id')->map(fn ($g, $itemId) => [
+            'name' => $stepNames->get($itemId)?->name ?? ('Step #' . $itemId),
+            'sets' => $g->sortBy('set_no')->map(fn ($l) => (float) $l->value)->values()->all(),
+            'best' => $stepLogs->where('checklist_item_id', $itemId)->max(fn ($l) => (float) $l->value),
+        ])->values()->all() : [];
+
+        return [
+            'mode' => 'sets',
+            'points' => $points->all(),
+            'latest' => $points->last(),
+            'pr' => $points->max('value'),
+            'avg' => null,
+            'unit' => 'total',
+            'label' => 'Daily volume',
+            'per_step' => $perStep,
+            'last_date' => $lastDate,
+        ];
     }
 
     public function showAll()
@@ -257,6 +383,12 @@ class RoutineController extends Controller
             'end_time' => 'nullable|required_with:start_time|after_or_equal:start_time',
             'items' => 'nullable|array|max:20',
             'items.*.name' => 'required_with:items.*.id|string|max:255',
+            'tracking_mode' => 'nullable|in:none,value,sets',
+            'value_kind' => 'nullable|in:number,weight,time,reps,percent',
+            'value_unit' => 'nullable|string|max:20',
+            'value_label' => 'nullable|string|max:100',
+            'items.*.target_sets' => 'nullable|integer|min:1|max:20',
+            'items.*.unit' => 'nullable|string|max:20',
         ];
 
         if ($request->input('frequency') === 'weekly') {
@@ -307,6 +439,20 @@ class RoutineController extends Controller
             $data['end_time'] = $data['end_time'] ?? null;
         }
 
+        // Tracking: value mode needs a kind; sets mode needs no extra fields here.
+        $data['tracking_mode'] = $data['tracking_mode'] ?? 'none';
+        if ($data['tracking_mode'] === 'value' && empty($data['value_kind'])) {
+            $data['value_kind'] = 'number';
+        }
+        if ($data['tracking_mode'] !== 'value') {
+            $data['value_kind'] = null;
+            $data['value_unit'] = null;
+            $data['value_label'] = null;
+        } else {
+            $data['value_unit'] = $data['value_unit'] ?? null;
+            $data['value_label'] = $data['value_label'] ?? null;
+        }
+
         return $data;
     }
 
@@ -330,11 +476,15 @@ class RoutineController extends Controller
             }
 
             $id = isset($row['id']) ? (int) $row['id'] : null;
+            $targetSets = max(1, min(20, (int) ($row['target_sets'] ?? 1)));
+            $unit = isset($row['unit']) && trim((string) $row['unit']) !== ''
+                ? mb_substr(trim((string) $row['unit']), 0, 20)
+                : null;
 
             if ($id) {
                 $item = $routine->checklistItems()->whereKey($id)->first();
                 if ($item) {
-                    $item->update(['name' => $name, 'sort_order' => $i]);
+                    $item->update(['name' => $name, 'sort_order' => $i, 'target_sets' => $targetSets, 'unit' => $unit]);
                     $keep[] = $item->id;
 
                     continue;
@@ -345,6 +495,8 @@ class RoutineController extends Controller
                 'user_id' => $routine->user_id,
                 'name' => $name,
                 'sort_order' => $i,
+                'target_sets' => $targetSets,
+                'unit' => $unit,
             ]);
             $keep[] = $item->id;
         }
