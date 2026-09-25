@@ -198,25 +198,28 @@
                         $vals = array_column($pts, 'value');
                         $min = min($vals); $max = max($vals);
                         $span = max(0.0001, $max - $min);
+                        $isTimeV = $valueStats['is_time'] ?? false;
+                        $fmtV = fn ($v) => $v === null ? '—' : ($isTimeV ? \App\Models\Routine::minutesToTimeValue($v) : $v);
+                        $unitV = $isTimeV ? '' : ($valueStats['unit'] ?? '');
                     @endphp
                     <div class="tr-stats">
                         <div class="tr-stat">
-                            <div class="tr-val">{{ $valueStats['latest']['value'] }} {{ $valueStats['unit'] ?? '' }}</div>
+                            <div class="tr-val">{{ $fmtV($valueStats['latest']['value']) }} {{ $unitV }}</div>
                             <div class="tr-lbl">Latest ({{ $valueStats['latest']['date'] }})</div>
                         </div>
                         <div class="tr-stat">
-                            <div class="tr-val">{{ $valueStats['pr'] }} {{ $valueStats['unit'] ?? '' }}</div>
+                            <div class="tr-val">{{ $fmtV($valueStats['pr']) }} {{ $unitV }}</div>
                             <div class="tr-lbl">Personal record</div>
                         </div>
                         <div class="tr-stat">
-                            <div class="tr-val">{{ $valueStats['avg'] ?? '—' }}{{ $valueStats['avg'] !== null ? ' ' . ($valueStats['unit'] ?? '') : '' }}</div>
+                            <div class="tr-val">{{ $fmtV($valueStats['avg']) }}{{ $valueStats['avg'] !== null && $unitV !== '' ? ' ' . $unitV : '' }}</div>
                             <div class="tr-lbl">{{ $valueStats['mode'] === 'value' ? 'Average' : 'Sessions' }} ({{ count($pts) }})</div>
                         </div>
                     </div>
                     <div class="tr-chart" style="height:110px;">
                         @foreach($pts as $p)
                             @php $h = 8 + round(($p['value'] - $min) / $span * 92); @endphp
-                            <div class="tr-bar-wrap" title="{{ $p['date'] }} — {{ $p['value'] }}">
+                            <div class="tr-bar-wrap" title="{{ $p['date'] }} — {{ $fmtV($p['value']) }}">
                                 <div class="tr-bar {{ $p['value'] == $max ? 'is-peak' : '' }}" style="height:{{ $h }}%;"></div>
                             </div>
                         @endforeach

@@ -485,6 +485,16 @@
         return null;
     }
 
+    /* A 404 on a toggle means the bound record no longer exists (deleted or
+       archived in another tab). The current view is stale, so resync once
+       instead of leaving a broken checkbox and a console error. */
+    let plGoneReloading = false;
+    function plHandleGone() {
+        if (plGoneReloading) return;
+        plGoneReloading = true;
+        window.location.reload();
+    }
+
     async function toggleTask(cb) {
         const url = cb.dataset.url;
         const id  = cb.dataset.id;
@@ -494,6 +504,7 @@
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
             });
+            if (res.status === 404) { plHandleGone(); throw new Error('GONE'); }
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const json = await res.json();
             document.querySelectorAll('[data-task-item][data-id="' + id + '"]').forEach(row => {
@@ -502,8 +513,10 @@
             });
             refreshCounters();
         } catch (e) {
-            cb.checked = !cb.checked;
-            console.error('[Planner] toggle failed', e);
+            if (e.message !== 'GONE') {
+                cb.checked = !cb.checked;
+                console.error('[Planner] toggle failed', e);
+            }
         } finally {
             cb.disabled = false;
         }
@@ -542,8 +555,10 @@
             }
             refreshRoutineCounters();
         } catch (e) {
-            cb.checked = !cb.checked;
-            console.error('[Planner] routine toggle failed', e);
+            if (e.message !== 'GONE') {
+                cb.checked = !cb.checked;
+                console.error('[Planner] routine toggle failed', e);
+            }
         } finally {
             cb.disabled = false;
         }
@@ -554,6 +569,7 @@
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
         }).then(res => {
+            if (res.status === 404) { plHandleGone(); throw new Error('GONE'); }
             if (!res.ok) throw new Error('HTTP ' + res.status);
             return res.json();
         });
@@ -622,6 +638,7 @@
                 }
                 return;
             }
+            if (res.status === 404) { plHandleGone(); throw new Error('GONE'); }
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const json = await res.json();
 
@@ -638,18 +655,33 @@
                 if (json.routine_completed) maybeCelebrate();
             }
         } catch (e) {
-            console.error('[Planner] step toggle failed', e);
+            if (e.message !== 'GONE') console.error('[Planner] step toggle failed', e);
         } finally {
             btn.disabled = false;
         }
     }
 
     /* ── Metric logging: single value + per-step sets ── */
+    function fmtLogValue(kind, v) {
+        if (v === null || v === undefined || v === '') return '';
+        if (kind !== 'time') return v;
+        const m = ((Math.round(Number(v)) % 1440) + 1440) % 1440;
+        return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    }
+
     async function logRoutineValue(btn) {
         const box = btn.closest('[data-log-value]');
         const input = box.querySelector('input');
-        const value = parseFloat(input.value);
-        if (isNaN(value)) { input.focus(); return; }
+        const isTime = input.type === 'time';
+        let value;
+        if (isTime) {
+            if (!input.value) { input.focus(); return; }
+            const [h, m] = input.value.split(':').map(Number);
+            value = h * 60 + (m || 0);   /* stored as minutes from midnight */
+        } else {
+            value = parseFloat(input.value);
+            if (isNaN(value)) { input.focus(); return; }
+        }
         btn.disabled = true;
         try {
             const res = await plFetch(box.dataset.url + '?date=' + encodeURIComponent(box.dataset.date), {
@@ -657,13 +689,14 @@
                 headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
                 body: JSON.stringify({ value }),
             });
+            if (res.status === 404) { plHandleGone(); throw new Error('GONE'); }
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const json = await res.json();
             let saved = box.querySelector('.pl-log-saved');
             if (!saved) { saved = document.createElement('span'); saved.className = 'pl-log-saved'; box.appendChild(saved); }
-            saved.textContent = '✓ ' + (json.values?.value ?? value);
+            saved.textContent = '✓ ' + fmtLogValue(box.dataset.kind, json.values?.value ?? value);
         } catch (e) {
-            console.error('[Planner] log value failed', e);
+            if (e.message !== 'GONE') console.error('[Planner] log value failed', e);
         } finally {
             btn.disabled = false;
         }
@@ -683,6 +716,7 @@
                 headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
                 body: JSON.stringify({ item_id: box.dataset.item, sets }),
             });
+            if (res.status === 404) { plHandleGone(); throw new Error('GONE'); }
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const json = await res.json();
             const saved = json.values?.[box.dataset.item] || {};
@@ -703,7 +737,7 @@
                 maybeCelebrate();
             }
         } catch (e) {
-            console.error('[Planner] log sets failed', e);
+            if (e.message !== 'GONE') console.error('[Planner] log sets failed', e);
         } finally {
             btn.disabled = false;
         }

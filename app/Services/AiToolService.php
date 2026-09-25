@@ -134,7 +134,7 @@ class AiToolService
                 'routine' => ['type' => 'string', 'description' => 'Routine name or ID'],
                 'routine_id' => ['type' => 'integer', 'description' => 'Routine ID (preferred over name)'],
                 'date' => $date(),
-                'value' => ['type' => 'number', 'description' => 'Logged number'],
+                'value' => ['type' => 'number', 'description' => 'Logged number. For time-kind routines pass minutes since midnight (e.g. "07:30" → 450); an "HH:MM" string is also accepted'],
                 'item' => ['type' => 'string', 'description' => 'Step name or ID (sets mode only)'],
                 'item_id' => ['type' => 'integer', 'description' => 'Step ID (sets mode only, preferred)'],
                 'set_no' => ['type' => 'integer', 'description' => 'Set number 1-20 (sets mode, default 1)'],
@@ -747,7 +747,7 @@ class AiToolService
             'routine' => 'nullable|string|max:255',
             'routine_id' => 'nullable|integer',
             'date' => 'nullable|date',
-            'value' => 'required|numeric|min:0|max:1000000',
+            'value' => 'required',
             'item' => 'nullable|string|max:255',
             'item_id' => 'nullable|integer',
             'set_no' => 'nullable|integer|min:1|max:20',
@@ -762,6 +762,25 @@ class AiToolService
         }
         if (! $routine->isTracked()) {
             return $this->fail("Routine '{$routine->title}' has tracking disabled.");
+        }
+
+        $isTime = $routine->isTimeValue();
+        $value = $args['value'];
+        if ($isTime && is_string($value) && preg_match('/^\s*(\d{1,2})[:.](\d{2})\s*$/', $value, $m)) {
+            // "07:30" / "7.30" → minutes from midnight.
+            $value = (int) $m[1] * 60 + (int) $m[2];
+        }
+        if (! is_numeric($value)) {
+            return $this->fail($isTime
+                ? 'Value must be an int (minutes since midnight) or an "HH:MM" string like "07:30".'
+                : 'Value must be a number.');
+        }
+        $value = (float) $value;
+        if ($isTime && ($value < 0 || $value > 1439)) {
+            return $this->fail('Time values must be within 0-1439 minutes (midnight to 23:59).');
+        }
+        if ($value < 0 || $value > 1000000) {
+            return $this->fail('Value out of range.');
         }
 
         $date = isset($args['date']) ? Carbon::parse($args['date'])->toDateString() : now()->toDateString();
@@ -787,8 +806,10 @@ class AiToolService
             'routine_title' => $routine->title,
             'tracking_mode' => $routine->tracking_mode,
             'unit' => $routine->tracking_mode === Routine::TRACKING_VALUE ? $routine->value_unit : null,
+            'is_time' => $isTime,
             'date' => $date,
-            'value' => $args['value'],
+            'value' => $value,
+            'value_display' => $isTime ? Routine::minutesToTimeValue($value) : (string) $value,
             'item_id' => $itemId,
             'item_name' => $itemName,
             'set_no' => max(1, min(20, (int) ($args['set_no'] ?? 1))),
@@ -1442,7 +1463,7 @@ class AiToolService
         $rows = [
             ['k' => 'Routine', 'v' => $resolved['routine_title']],
             ['k' => 'Date', 'v' => $resolved['date']],
-            ['k' => 'Value', 'v' => (string) $resolved['value'] . ($resolved['unit'] ? ' ' . $resolved['unit'] : '')],
+            ['k' => 'Value', 'v' => ($resolved['value_display'] ?? (string) $resolved['value']) . ($resolved['unit'] ? ' ' . $resolved['unit'] : '')],
         ];
         if ($resolved['item_name']) {
             $rows[] = ['k' => 'Step', 'v' => $resolved['item_name'] . ' (set ' . $resolved['set_no'] . ')'];
@@ -1457,7 +1478,8 @@ class AiToolService
         \App\Models\RoutineLog::logValue($user->id, $routine->id, $r['date'], $r['value'], $r['item_id'], $r['set_no']);
 
         $what = $r['item_name'] ? "'{$r['item_name']}' set {$r['set_no']}" : "'{$routine->title}'";
-        $msg = "Logged {$r['value']}" . ($r['unit'] ? " {$r['unit']}" : '') . " for {$what} on {$r['date']}.";
+        $shown = $r['value_display'] ?? (string) $r['value'];
+        $msg = "Logged {$shown}" . (($r['unit'] ?? null) && ! ($r['is_time'] ?? false) ? " {$r['unit']}" : '') . " for {$what} on {$r['date']}.";
 
         // Sets mode auto-completes the routine when every target set is logged.
         if ($r['tracking_mode'] === Routine::TRACKING_SETS && ! $routine->completedOn($r['date'])) {

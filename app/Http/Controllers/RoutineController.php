@@ -211,6 +211,7 @@ class RoutineController extends Controller
 
             return [
                 'mode' => 'value',
+                'is_time' => $routine->isTimeValue(),
                 'points' => $points->all(),
                 'latest' => $points->last(),
                 'pr' => $points->max('value'),

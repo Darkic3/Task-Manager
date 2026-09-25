@@ -457,7 +457,9 @@ class PlannerController extends Controller
         $date = $this->parseDate($request->input('date'))->startOfDay();
 
         if ($routine->tracking_mode === Routine::TRACKING_VALUE) {
-            $data = $request->validate(['value' => 'required|numeric|min:0|max:1000000']);
+            // Time-kind routines store minutes since midnight — clamp to a day.
+            $max = $routine->isTimeValue() ? 1439 : 1000000;
+            $data = $request->validate(['value' => "required|numeric|min:0|max:{$max}"]);
             \App\Models\RoutineLog::logValue(Auth::id(), $routine->id, $date, $data['value']);
 
             return response()->json([
