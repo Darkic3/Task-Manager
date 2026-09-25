@@ -72,10 +72,18 @@
                     </div>
                     <div class="tk-card-body">
                         @if($card['latest'] !== null)
-                            <div class="tk-latest">{{ rtrim(rtrim(number_format($card['latest'], 2, '.', ''), '0'), '.') }} <small>{{ $card['unit'] ?? ($card['latest_suffix'] ?? '') }}</small></div>
+                            @php $isTime = $card['is_time'] ?? false; @endphp
+                            <div class="tk-latest">
+                                @if($isTime)
+                                    {{ \App\Models\Routine::minutesToTimeValue($card['latest']) }}
+                                @else
+                                    {{ rtrim(rtrim(number_format($card['latest'], 2, '.', ''), '0'), '.') }} <small>{{ $card['unit'] ?? ($card['latest_suffix'] ?? '') }}</small>
+                                @endif
+                            </div>
                             @if($card['delta'] !== null)
                                 <div class="tk-delta {{ $card['delta'] > 0 ? 'up' : ($card['delta'] < 0 ? 'down' : 'flat') }}">
-                                    {{ $card['delta'] > 0 ? '▲' : ($card['delta'] < 0 ? '▼' : '●') }} {{ $card['delta'] }}
+                                    {{ $card['delta'] > 0 ? '▲' : ($card['delta'] < 0 ? '▼' : '●') }}
+                                    {{ $isTime ? abs((int) round($card['delta'])) . 'm' : $card['delta'] }}
                                 </div>
                             @endif
                             <div class="tk-date">{{ $card['latest_date'] }}</div>
@@ -85,7 +93,7 @@
                         @if(count($spark))
                             <div class="tk-spark" title="Last {{ count($spark) }} days">
                                 @foreach($spark as $i => $v)
-                                    <div class="tk-bar" style="height:{{ max(4, round($v / $max * 100)) }}%;" title="{{ $card['spark_labels'][$i] ?? '' }}: {{ $v }}"></div>
+                                    <div class="tk-bar" style="height:{{ max(4, round($v / $max * 100)) }}%;" title="{{ $card['spark_labels'][$i] ?? '' }}: {{ ($card['is_time'] ?? false) ? \App\Models\Routine::minutesToTimeValue($v) : $v }}"></div>
                                 @endforeach
                             </div>
                         @endif

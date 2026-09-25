@@ -62,6 +62,7 @@ class TrackController extends Controller
 
             return [
                 'routine' => $routine,
+                'is_time' => $routine->isTimeValue(),
                 'latest' => $latest['value'] ?? null,
                 'latest_date' => $latest['date'] ?? null,
                 'delta' => ($latest && $prev) ? round($latest['value'] - $prev['value'], 2) : null,

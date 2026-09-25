@@ -81,6 +81,56 @@ class Routine extends Model
         return in_array($this->tracking_mode, [self::TRACKING_VALUE, self::TRACKING_SETS], true);
     }
 
+    /**
+     * Value-tracked "time" routines log clock times; stored as minutes from
+     * midnight (0-1439) so deltas, sparklines and sorting stay numeric.
+     */
+    public function isTimeValue(): bool
+    {
+        return $this->tracking_mode === self::TRACKING_VALUE && ($this->value_kind ?? null) === 'time';
+    }
+
+    public static function minutesToTimeValue($minutes): ?string
+    {
+        if ($minutes === null || ! is_numeric($minutes)) {
+            return null;
+        }
+        $m = ((int) round((float) $minutes)) % 1440;
+        if ($m < 0) {
+            $m += 1440;
+        }
+
+        return sprintf('%02d:%02d', intdiv($m, 60), $m % 60);
+    }
+
+    /**
+     * "07:30" / "6:45 PM" display form for time kinds; plain number otherwise.
+     */
+    public function formatValue($value, bool $amPm = false): string
+    {
+        if ($value === null || ! is_numeric($value)) {
+            return '';
+        }
+        if (! $this->isTimeValue()) {
+            $float = (float) $value;
+            if ($float === 0.0) {
+                return '0';
+            }
+
+            return rtrim(rtrim(number_format($float, 2, '.', ''), '0'), '.');
+        }
+        $time = self::minutesToTimeValue($value);
+        if (! $amPm || $time === null) {
+            return $time ?? '';
+        }
+        [$h, $mi] = explode(':', $time);
+        $h = (int) $h;
+        $suffix = $h >= 12 ? 'PM' : 'AM';
+        $h12 = $h % 12 === 0 ? 12 : $h % 12;
+
+        return $h12 . ':' . $mi . ' ' . $suffix;
+    }
+
     public function trackingLabel(): string
     {
         return match ($this->tracking_mode) {

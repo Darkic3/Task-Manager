@@ -215,4 +215,40 @@ class RoutineTrackingTest extends TestCase
         $this->assertSame(2, substr_count($html, 'data-modal="1"'));
         $this->assertStringContainsString('pl-expand-modal', $html);
     }
+
+    public function test_time_kind_routine_logs_clock_times_as_minutes(): void
+    {
+        $user = User::factory()->create();
+        $routine = Routine::factory()->create([
+            'user_id' => $user->id, 'frequency' => 'daily', 'title' => 'Wake Up',
+            'tracking_mode' => 'value', 'value_kind' => 'time', 'value_label' => 'Wake time',
+        ]);
+
+        // AI tool accepts "HH:MM" and stores minutes from midnight.
+        $svc = new AiToolService;
+        $check = $svc->validateCall('routine_log', ['routine_id' => $routine->id, 'value' => '07:30'], $user);
+        $this->assertTrue($check['ok']);
+        $this->assertSame(450, (int) $check['resolved']['value']);
+        $this->assertSame('07:30', $check['resolved']['value_display']);
+        $bad = $svc->validateCall('routine_log', ['routine_id' => $routine->id, 'value' => 2000], $user);
+        $this->assertFalse($bad['ok']);
+
+        // Endpoint stores minutes; values beyond a day are rejected.
+        $this->actingAs($user)->postJson(route('planner.routines.log', $routine), [
+            'date' => now()->toDateString(), 'value' => 465,
+        ])->assertOk();
+        $this->actingAs($user)->postJson(route('planner.routines.log', $routine), [
+            'date' => now()->toDateString(), 'value' => 2000,
+        ])->assertStatus(422);
+
+        // Day page renders a time input (not a number) for time kinds.
+        $this->actingAs($user)->get(route('planner.index', ['view' => 'day']))
+            ->assertOk()
+            ->assertSee('type="time"', false);
+
+        // Track hub shows the clock time, not raw minutes.
+        $this->actingAs($user)->get(route('track.index'))
+            ->assertOk()
+            ->assertSee('07:45');
+    }
 }
