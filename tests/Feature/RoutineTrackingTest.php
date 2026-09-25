@@ -130,6 +130,9 @@ class RoutineTrackingTest extends TestCase
         $result = $svc->execute('routine_log', $check['resolved'], $user);
         $this->assertTrue($result['ok']);
         $this->assertDatabaseHas('routine_logs', ['routine_id' => $routine->id, 'value' => 81]);
+        // Value-mode logging through the AI tool also auto-completes the routine.
+        $this->assertTrue($routine->fresh()->completedOn(now()->toDateString()));
+        $this->assertStringContainsString('completed', $result['message']);
 
         $bad = $svc->validateCall('routine_log', ['routine_id' => $routine->id, 'value' => 'abc'], $user);
         $this->assertFalse($bad['ok']);
@@ -236,7 +239,8 @@ class RoutineTrackingTest extends TestCase
         // Endpoint stores minutes; values beyond a day are rejected.
         $this->actingAs($user)->postJson(route('planner.routines.log', $routine), [
             'date' => now()->toDateString(), 'value' => 465,
-        ])->assertOk();
+        ])->assertOk()->assertJsonPath('routine_completed', true);
+        $this->assertTrue($routine->fresh()->completedOn(now()), 'value log must auto-complete the routine');
         $this->actingAs($user)->postJson(route('planner.routines.log', $routine), [
             'date' => now()->toDateString(), 'value' => 2000,
         ])->assertStatus(422);

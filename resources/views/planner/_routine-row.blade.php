@@ -149,15 +149,18 @@
 
         @if($logUrl && $trackMode === 'value')
             @php $isTimeLog = $routine->isTimeValue(); $logVal = $logValues['value'] ?? null; @endphp
-            <div class="pl-log" data-log-value data-kind="{{ $isTimeLog ? 'time' : 'number' }}" data-routine="{{ $routine->id }}" data-date="{{ $routineDate->toDateString() }}" data-url="{{ $logUrl }}">
+            <div class="pl-log {{ $isTimeLog ? 'is-time' : '' }}" data-log-value data-kind="{{ $isTimeLog ? 'time' : 'number' }}" data-routine="{{ $routine->id }}" data-date="{{ $routineDate->toDateString() }}" data-url="{{ $logUrl }}">
                 @if($isTimeLog)
-                    <input type="time" step="60"
-                           value="{{ \App\Models\Routine::minutesToTimeValue($logVal) }}" aria-label="{{ $routine->trackingLabel() }}">
+                    <div class="pl-time-field">
+                        <i class="bi bi-alarm-fill"></i>
+                        <input type="time" step="60"
+                               value="{{ \App\Models\Routine::minutesToTimeValue($logVal) }}" aria-label="{{ $routine->trackingLabel() }}">
+                    </div>
                 @else
                     <input type="number" step="any" min="0" placeholder="{{ $routine->trackingLabel() }}"
                            value="{{ $logVal }}" aria-label="{{ $routine->trackingLabel() }}">
                 @endif
-                <button type="button" onclick="logRoutineValue(this)">ثبت</button>
+                <button type="button" onclick="logRoutineValue(this)"><i class="bi bi-check2"></i> ثبت</button>
                 @if($logVal !== null && $logVal !== '')<span class="pl-log-saved">✓ {{ $isTimeLog ? \App\Models\Routine::minutesToTimeValue($logVal) : $logVal }}</span>@endif
             </div>
         @endif

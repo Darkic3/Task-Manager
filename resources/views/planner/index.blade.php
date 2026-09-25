@@ -123,6 +123,8 @@
     .pl-modal-body .pl-logset input{width:76px;padding:5px 9px;font-size:12.5px;}
     .pl-modal-body .pl-steps{gap:7px;}
     .pl-modal-body .pl-step{font-size:12px;padding:4px 12px;}
+    .pl-modal-body .pl-time-field{width:100%;justify-content:flex-start;}
+    .pl-modal-body .pl-time-field input[type="time"]{flex:1;width:auto;font-size:15px;padding:8px 0;}
     body.pl-modal-open{overflow:hidden;}
     .pl-details{display:none;}
     .pl-details.open{display:block;}
@@ -192,16 +194,36 @@
     .steps-count.all{color:#29774b;background:#e3f5ec;}
 
     /* ── Routine metric logging (value + sets) ── */
-    .pl-log{display:flex;align-items:center;gap:6px;margin-top:7px;}
+    .pl-log{display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap;}
     .pl-log input{width:110px;padding:4px 9px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;}
     .pl-log input:focus{border-color:#c4b5fd;}
+    /* clock-time field: alarm icon + native time picker fused into one pill */
+    .pl-time-field{
+        display:inline-flex;align-items:center;gap:7px;padding:0 11px;
+        border:1.5px solid #ddd6fe;border-radius:11px;
+        background:linear-gradient(180deg,#fdfcff 0%,#f6f3ff 100%);
+        transition:border-color .15s,box-shadow .15s;
+    }
+    .pl-time-field > i{color:#7c3aed;font-size:13px;}
+    .pl-time-field:hover{border-color:#c4b5fd;}
+    .pl-time-field:focus-within{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.14);}
+    .pl-time-field input[type="time"]{
+        border:none;background:transparent;outline:none;box-shadow:none;
+        width:90px;padding:6px 0;font-size:13.5px;font-weight:700;color:#1a1d23;
+        letter-spacing:.6px;font-variant-numeric:tabular-nums;color-scheme:light;
+    }
     .pl-log button,.pl-logset button{
+        display:inline-flex;align-items:center;gap:4px;
         padding:4px 12px;border-radius:8px;border:1px solid #c4b5fd;background:#faf5ff;
         color:#7c3aed;font-size:11.5px;font-weight:700;cursor:pointer;
     }
     .pl-log button:hover,.pl-logset button:hover{background:#ede9fe;}
     .pl-log button:disabled,.pl-logset button:disabled{opacity:.5;cursor:wait;}
-    .pl-log-saved{font-size:11px;color:#16a34a;font-weight:700;}
+    .pl-log-saved{
+        font-size:11px;font-weight:700;color:#15803d;background:#e9f9f0;
+        border:1px solid #bbf7d0;border-radius:20px;padding:2px 10px;
+        font-variant-numeric:tabular-nums;
+    }
     .pl-logsets{display:flex;flex-direction:column;gap:6px;margin-top:7px;}
     .pl-logset{display:flex;align-items:center;gap:5px;flex-wrap:wrap;background:#fafbfc;border:1px solid #eef0f3;border-radius:8px;padding:5px 8px;}
     .pl-logset-name{font-size:11.5px;font-weight:700;color:#3d4149;flex:1;min-width:90px;}
@@ -695,6 +717,13 @@
             let saved = box.querySelector('.pl-log-saved');
             if (!saved) { saved = document.createElement('span'); saved.className = 'pl-log-saved'; box.appendChild(saved); }
             saved.textContent = '✓ ' + fmtLogValue(box.dataset.kind, json.values?.value ?? value);
+            /* A value routine has one input per day: logging it completes it. */
+            if (json.routine_completed) {
+                applyRoutineToggle(box.dataset.routine, box.dataset.date, true);
+                if (json.streak != null) setStreak(box.dataset.routine, json.streak);
+                refreshRoutineCounters();
+                maybeCelebrate();
+            }
         } catch (e) {
             if (e.message !== 'GONE') console.error('[Planner] log value failed', e);
         } finally {

@@ -1481,6 +1481,12 @@ class AiToolService
         $shown = $r['value_display'] ?? (string) $r['value'];
         $msg = "Logged {$shown}" . (($r['unit'] ?? null) && ! ($r['is_time'] ?? false) ? " {$r['unit']}" : '') . " for {$what} on {$r['date']}.";
 
+        // Value mode has one input per day: logging it completes the routine.
+        if ($r['tracking_mode'] === Routine::TRACKING_VALUE && ! $routine->completedOn($r['date'])) {
+            $routine->toggleOn($r['date']);
+            $msg .= " Routine completed ✅";
+        }
+
         // Sets mode auto-completes the routine when every target set is logged.
         if ($r['tracking_mode'] === Routine::TRACKING_SETS && ! $routine->completedOn($r['date'])) {
             $items = $routine->checklistItems()->get();

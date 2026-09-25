@@ -462,9 +462,20 @@ class PlannerController extends Controller
             $data = $request->validate(['value' => "required|numeric|min:0|max:{$max}"]);
             \App\Models\RoutineLog::logValue(Auth::id(), $routine->id, $date, $data['value']);
 
+            // A value routine has exactly one input per day: logging it
+            // completes the routine, same as filling every set in sets mode.
+            $fresh = $routine->fresh();
+            $routineCompleted = $fresh->completedOn($date);
+            if (! $routineCompleted) {
+                $fresh->toggleOn($date);
+                $routineCompleted = true;
+            }
+
             return response()->json([
                 'ok' => true,
-                'values' => $routine->fresh()->loggedValues($date),
+                'values' => $fresh->loggedValues($date),
+                'routine_completed' => $routineCompleted,
+                'streak' => $fresh->streakStats($date)['current'],
             ]);
         }
 
