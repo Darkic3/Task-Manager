@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChecklistItem;
+use App\Models\Project;
 use App\Models\Routine;
 use App\Models\RoutineCheckitemCompletion;
 use App\Models\RoutineChecklistItem;
@@ -10,6 +12,7 @@ use App\Models\Task;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class PlannerController extends Controller
 {
@@ -68,6 +71,11 @@ class PlannerController extends Controller
             'bucketMonth' => $routinesData['month'],
             'routineDone' => $routinesData['done'],
             'routineTotal' => $routinesData['total'],
+            'nextUp' => $this->buildNextUp($pending, $routinesData['today'], $selected),
+            'quickProjects' => Project::where('user_id', $user->id)
+                ->whereNotIn('status', ['completed', 'closed'])
+                ->orderBy('name')
+                ->get(['id', 'name']),
         ]);
     }
 
@@ -135,6 +143,44 @@ class PlannerController extends Controller
             'status' => $task->status,
             'completed' => $completed,
             'completed_at' => $task->completed_at?->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Toggle one checklist step of a task from My Day (ownership-checked).
+     * The task auto-completes when its last step is ticked (and un-completes
+     * when a step is unticked), mirroring routine step behavior.
+     */
+    public function toggleTaskCheckItem(Request $request, ChecklistItem $item)
+    {
+        abort_if($item->task->user_id !== Auth::id(), 403);
+
+        $item->update(['completed' => ! $item->completed]);
+
+        $task = $item->task;
+        $items = $task->checklistItems()->get();
+        $done = $items->where('completed', true)->count();
+        $total = $items->count();
+        $allDone = $total > 0 && $done === $total;
+
+        if ($allDone && $task->status !== 'completed') {
+            $task->status = 'completed';
+            $task->completed_at = $task->completed_at ?? now();
+            $task->save();
+        } elseif (! $allDone && $task->status === 'completed') {
+            $task->status = 'to_do';
+            $task->completed_at = null;
+            $task->save();
+        }
+
+        return response()->json([
+            'ok' => true,
+            'item_id' => $item->id,
+            'completed' => (bool) $item->completed,
+            'task_id' => $task->id,
+            'task_completed' => $allDone,
+            'steps_done' => $done,
+            'steps_total' => $total,
         ]);
     }
 
@@ -232,6 +278,199 @@ class PlannerController extends Controller
             'steps_total' => $total,
             'streak' => $routine->fresh()->streakStats($date)['current'],
         ]);
+    }
+
+    /**
+     * Pick the single most important item for the "Next Up" card: the top
+     * pending task (priority → time → due date), else the first undone routine.
+     * Routines carry their steps so the card can point at the first unfinished
+     * step instead of a bulk "Complete".
+     */
+    private function buildNextUp($pending, $todayRoutines, Carbon $date): ?array
+    {
+        $task = $pending->first();
+        if ($task) {
+            $task->loadMissing('checklistItems');
+            $items = $task->checklistItems;
+            $firstOpen = $items->first(fn ($i) => ! $i->completed);
+
+            return [
+                'type' => 'task',
+                'task' => $task,
+                'date' => $date,
+                'stepsDone' => $items->where('completed', true)->count(),
+                'stepsTotal' => $items->count(),
+                'nextStep' => $firstOpen ? ['id' => $firstOpen->id, 'name' => $firstOpen->name, 'target_sets' => 1, 'sets' => [], 'completed' => false] : null,
+            ];
+        }
+
+        $routine = $todayRoutines->first(fn ($r) => ! $r->completedOn($date));
+        if ($routine) {
+            $steps = collect($routine->ringSteps ?? []);
+            $nextStep = $steps->first(fn ($s) => empty($s['completed']));
+
+            return [
+                'type' => 'routine',
+                'routine' => $routine,
+                'date' => $date,
+                'stepsDone' => $steps->where('completed', true)->count(),
+                'stepsTotal' => $steps->count(),
+                'nextStep' => $nextStep,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Lightweight endpoint that re-computes the Next Up card for a given date
+     * so the UI can refresh it after a completion without a full reload.
+     */
+    public function nextUp(Request $request)
+    {
+        $user = Auth::user();
+        $date = $this->parseDate($request->input('date'))->startOfDay();
+
+        $pending = $this->sortByPriority(
+            Task::where('user_id', $user->id)
+                ->whereDate('due_date', $date->toDateString())
+                ->where('status', '!=', 'completed')
+                ->with('project:id,name')
+                ->get()
+        );
+
+        $routines = $this->fetchRoutines($user);
+        $this->preloadRoutineCompletions($user->id, $routines, $date->copy()->subYear()->startOfDay(), $date);
+        $stepMap = $this->preloadStepCompletions($routines, $date, $date);
+        $this->preloadRoutineLogs($user->id, $routines, $date, $date);
+        $today = $routines
+            ->filter(fn ($r) => $r->occursOn($date))
+            ->sortBy(fn ($r) => $r->sortKey())
+            ->values();
+        $this->decorateHabitMetricsBulk($today, $date, $stepMap);
+
+        $nextUp = $this->buildNextUp($pending, $today, $date);
+
+        return response()->json([
+            'ok' => true,
+            'html' => view('planner._next-up', ['nextUp' => $nextUp, 'date' => $date])->render(),
+        ]);
+    }
+
+    /**
+     * Quick-add a task from My Day without leaving the page: only a title is
+     * required; the task lands on the selected day (defaults to the Inbox
+     * project when none is chosen).
+     */
+    public function quickAddTask(Request $request)
+    {
+        $user = Auth::user();
+        $periodKeys = array_keys(config('routines.periods', []));
+
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+            'project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')->where('user_id', $user->id)],
+            'time_period' => 'nullable|in:'.implode(',', $periodKeys),
+            'due_time' => 'nullable|date_format:H:i',
+            'priority' => 'nullable|in:low,medium,high',
+            'estimated_minutes' => 'nullable|integer|in:5,10,15,20,30,45,60,90,120',
+            'date' => 'nullable|date',
+        ]);
+
+        $date = ! empty($data['date']) ? Carbon::parse($data['date'])->startOfDay() : now()->startOfDay();
+        $projectId = $data['project_id'] ?? $this->resolveInboxProject($user)->id;
+
+        $task = Task::create([
+            'user_id' => $user->id,
+            'project_id' => $projectId,
+            'title' => trim($data['title']),
+            'due_date' => $date->toDateString(),
+            'time_period' => $data['time_period'] ?? null,
+            'due_time' => isset($data['due_time']) && $data['due_time'] !== '' ? $data['due_time'].':00' : null,
+            'priority' => $data['priority'] ?? 'medium',
+            'status' => 'to_do',
+            'estimated_hours' => isset($data['estimated_minutes'])
+                ? round(((int) $data['estimated_minutes']) / 60, 2)
+                : null,
+        ]);
+        $task->load('project:id,name');
+
+        return response()->json([
+            'ok' => true,
+            'task' => ['id' => $task->id, 'title' => $task->title],
+            'html' => view('planner._task-row', ['task' => $task, 'count' => true])->render(),
+        ], 201);
+    }
+
+    /**
+     * Quick-add a routine from My Day. Defaults to a daily routine so a title
+     * alone is enough; weekly/monthly inherit sensible defaults.
+     */
+    public function quickAddRoutine(Request $request)
+    {
+        $user = Auth::user();
+        $periodKeys = array_keys(config('routines.periods', []));
+
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+            'frequency' => 'nullable|in:daily,weekly,monthly,every_n_days',
+            'days' => 'nullable|array',
+            'days.*' => 'string|in:'.implode(',', Routine::WEEK_DAYS),
+            'time_period' => 'nullable|in:'.implode(',', $periodKeys),
+            'date' => 'nullable|date',
+        ]);
+
+        $date = ! empty($data['date']) ? Carbon::parse($data['date'])->startOfDay() : now()->startOfDay();
+        $frequency = $data['frequency'] ?? 'daily';
+
+        $attributes = [
+            'title' => trim($data['title']),
+            'frequency' => $frequency,
+            'time_period' => $data['time_period'] ?? null,
+            'tracking_mode' => Routine::TRACKING_NONE,
+        ];
+
+        if ($frequency === 'weekly') {
+            $days = array_values(array_unique(array_map('strtolower', $data['days'] ?? [])));
+            $attributes['days'] = $days ?: [strtolower($date->format('l'))];
+            $attributes['month_days'] = null;
+            $attributes['every_n_days'] = null;
+        } elseif ($frequency === 'monthly') {
+            $attributes['month_days'] = [$date->day];
+            $attributes['days'] = null;
+            $attributes['every_n_days'] = null;
+        } elseif ($frequency === 'every_n_days') {
+            $attributes['every_n_days'] = 2;
+            $attributes['days'] = null;
+            $attributes['month_days'] = null;
+        } else {
+            $attributes['days'] = null;
+            $attributes['month_days'] = null;
+            $attributes['every_n_days'] = null;
+        }
+
+        $routine = $user->routines()->create($attributes);
+
+        return response()->json([
+            'ok' => true,
+            'routine' => ['id' => $routine->id, 'title' => $routine->title],
+            'html' => view('planner._routine-row', [
+                'routine' => $routine,
+                'routineDate' => $date,
+                'count' => true,
+            ])->render(),
+        ], 201);
+    }
+
+    /**
+     * The per-user fallback project for quick-added tasks.
+     */
+    private function resolveInboxProject($user): Project
+    {
+        return Project::firstOrCreate(
+            ['user_id' => $user->id, 'name' => 'Inbox'],
+            ['type' => 'inbox', 'status' => 'not_started']
+        );
     }
 
     /**
@@ -618,6 +857,7 @@ class PlannerController extends Controller
     {
         return $tasks->sortBy(fn ($t) => [
             self::PRIORITY_ORDER[$t->priority] ?? 3,
+            $t->due_time ? substr((string) $t->due_time, 0, 5) : '99:99',
             $t->due_date ? Carbon::parse($t->due_date)->timestamp : PHP_INT_MAX,
         ])->values();
     }

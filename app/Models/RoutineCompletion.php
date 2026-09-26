@@ -11,11 +11,23 @@ class RoutineCompletion extends Model
 {
     use HasFactory;
 
+    public const STATUS_DONE = 'done';
+    public const STATUS_SKIPPED = 'skipped';
+    public const STATUS_REST = 'rest';
+
+    public const SKIP_REASONS = [
+        'no_time' => 'No time',
+        'low_energy' => 'Low energy',
+        'off_plan' => 'Off plan',
+    ];
+
     protected $fillable = [
         'user_id',
         'routine_id',
         'completed_date',
         'completed_at',
+        'status',
+        'skip_reason',
     ];
 
     protected $casts = [

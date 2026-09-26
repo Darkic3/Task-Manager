@@ -253,6 +253,112 @@
     }
     #plToast button:hover{color:white;}
 
+    /* ── Next Up card ── */
+    .pl-next-wrap{margin-bottom:14px;}
+    .pl-next-wrap[hidden]{display:none;}
+    .pl-next-card{
+        display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+        background:linear-gradient(135deg,#faf5ff 0%,#fff 60%);
+        border:1px solid #ddd6fe;border-radius:11px;padding:11px 14px;
+        box-shadow:0 2px 8px rgba(124,58,237,.08);
+    }
+    .pl-next-label{
+        display:inline-flex;align-items:center;gap:5px;flex-shrink:0;
+        font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+        color:#7c3aed;background:#ede9fe;border-radius:20px;padding:3px 10px;
+    }
+    .pl-next-body{flex:1;min-width:180px;}
+    .pl-next-title{font-size:14px;font-weight:700;color:#1a1d23;display:flex;align-items:center;gap:7px;}
+    .pl-next-title i{color:#7c3aed;font-size:15px;}
+    .pl-next-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;}
+    .pl-next-actions{display:flex;align-items:center;gap:7px;margin-left:auto;}
+    .pl-next-actions button{
+        display:inline-flex;align-items:center;gap:5px;border-radius:8px;
+        font-size:12.5px;font-weight:700;cursor:pointer;padding:6px 13px;transition:all .15s;
+    }
+    .pl-next-step{
+        display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+        width:100%;background:#fafbfc;border:1px dashed #ddd6fe;border-radius:9px;
+        padding:7px 11px;margin-top:1px;
+    }
+    .pl-next-step > i{color:#7c3aed;font-size:13px;flex-shrink:0;}
+    .pl-next-step-name{font-size:12.5px;font-weight:700;color:#3d4149;}
+    .pl-next-set-inputs{display:inline-flex;gap:5px;margin-left:auto;}
+    .pl-next-set-inputs input{
+        width:74px;padding:4px 8px;border:1px solid #e5e7eb;border-radius:7px;
+        font-size:12px;outline:none;font-variant-numeric:tabular-nums;
+    }
+    .pl-next-set-inputs input:focus{border-color:#c4b5fd;}
+    .pl-start-hint{font-size:11px;font-weight:600;color:#8a8f98;}
+    .pl-next-start{background:#7c3aed;color:#fff;border:1px solid #7c3aed;}
+    .pl-next-start:hover{background:#6d28d9;}
+    .pl-next-done{background:#fff;color:#16a34a;border:1px solid #bbf7d0;}
+    .pl-next-done:hover{background:#f0fdf4;}
+
+    /* ── Quick add ── */
+    .pl-toolbar-right{display:flex;align-items:center;gap:8px;}
+    .pl-add-btn{
+        display:inline-flex;align-items:center;gap:6px;
+        background:#7c3aed;color:#fff;border:1px solid #7c3aed;border-radius:7px;
+        padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer;transition:all .15s;
+    }
+    .pl-add-btn:hover{background:#6d28d9;}
+    .pl-fab{
+        display:none;position:fixed;right:18px;bottom:18px;z-index:1000;
+        width:52px;height:52px;border-radius:50%;border:none;
+        background:#7c3aed;color:#fff;font-size:22px;cursor:pointer;
+        box-shadow:0 6px 18px rgba(124,58,237,.4);
+        align-items:center;justify-content:center;
+    }
+    .pl-fab:hover{background:#6d28d9;}
+    @media(max-width:640px){
+        .pl-add-btn{display:none;}
+        .pl-fab{display:flex;}
+    }
+    .pl-qa{position:fixed;inset:0;z-index:1095;display:flex;align-items:flex-start;justify-content:center;padding:70px 16px 16px;}
+    .pl-qa[hidden]{display:none;}
+    .pl-qa-backdrop{position:absolute;inset:0;background:rgba(17,20,26,.45);}
+    .pl-qa-dialog{
+        position:relative;background:#fff;border-radius:14px;width:min(440px,96vw);
+        display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;
+    }
+    .pl-qa-head{display:flex;align-items:center;padding:14px 16px 10px;}
+    .pl-qa-title{font-size:14px;font-weight:800;color:#1a1d23;}
+    .pl-qa-x{margin-left:auto;border:none;background:#f2f3f5;color:#6b7385;width:28px;height:28px;border-radius:8px;font-size:16px;line-height:1;cursor:pointer;}
+    .pl-qa-x:hover{background:#e6e8ec;color:#1a1d23;}
+    .pl-qa-tabs{display:flex;gap:4px;padding:0 16px 10px;border-bottom:1px solid #eef0f3;}
+    .pl-qa-tab{
+        border:1px solid transparent;background:transparent;color:#8a8f98;
+        font-size:12.5px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;
+    }
+    .pl-qa-tab.active{background:#faf5ff;color:#7c3aed;border-color:#ddd6fe;}
+    .pl-qa-form{display:flex;flex-direction:column;gap:10px;padding:14px 16px 16px;}
+    .pl-qa-form[hidden]{display:none;}
+    .pl-qa-input{
+        width:100%;padding:10px 12px;border:1.5px solid #e3e4e8;border-radius:9px;
+        font-size:13.5px;outline:none;transition:border-color .15s;
+    }
+    .pl-qa-input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    .pl-qa-row{display:flex;gap:8px;}
+    .pl-qa-row select,.pl-qa-row input[type="time"]{
+        flex:1;padding:7px 9px;border:1px solid #e3e4e8;border-radius:9px;
+        font-size:12.5px;color:#3d4149;outline:none;background:#fff;
+    }
+    .pl-qa-row select:focus,.pl-qa-row input:focus{border-color:#c4b5fd;}
+    .pl-qa-chips{display:flex;gap:6px;flex-wrap:wrap;}
+    .pl-qa-chips button{
+        border:1px solid #e5e7eb;background:#fafbfc;color:#6b6f78;
+        border-radius:20px;padding:4px 12px;font-size:11.5px;font-weight:700;cursor:pointer;transition:all .12s;
+    }
+    .pl-qa-chips button:hover{border-color:#c4b5fd;color:#7c3aed;}
+    .pl-qa-chips button.active{background:#ede9fe;border-color:#c4b5fd;color:#7c3aed;}
+    .pl-qa-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:2px;}
+    .pl-qa-actions button[type="submit"]{
+        background:#7c3aed;color:#fff;border:1px solid #7c3aed;border-radius:9px;
+        padding:8px 18px;font-size:12.5px;font-weight:700;cursor:pointer;
+    }
+    .pl-qa-actions button[type="submit"]:hover{background:#6d28d9;}
+
     /* Week grid */
     .pl-week{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px;}
     @media(max-width:1100px){ .pl-week{grid-template-columns:repeat(7,minmax(160px,1fr));} }
@@ -303,12 +409,19 @@
                 <i class="bi bi-calendar-week"></i> Week
             </a>
         </div>
-        <div class="pl-nav">
-            <a href="{{ route('planner.index', ['view' => $view, 'date' => $prevDate->toDateString()]) }}"
-               class="pl-nav-btn" title="Previous"><i class="bi bi-chevron-left"></i></a>
-            <a href="{{ route('planner.index', ['view' => $view]) }}" class="pl-today-btn">Today</a>
-            <a href="{{ route('planner.index', ['view' => $view, 'date' => $nextDate->toDateString()]) }}"
-               class="pl-nav-btn" title="Next"><i class="bi bi-chevron-right"></i></a>
+        <div class="pl-toolbar-right">
+            <div class="pl-nav">
+                <a href="{{ route('planner.index', ['view' => $view, 'date' => $prevDate->toDateString()]) }}"
+                   class="pl-nav-btn" title="Previous"><i class="bi bi-chevron-left"></i></a>
+                <a href="{{ route('planner.index', ['view' => $view]) }}" class="pl-today-btn">Today</a>
+                <a href="{{ route('planner.index', ['view' => $view, 'date' => $nextDate->toDateString()]) }}"
+                   class="pl-nav-btn" title="Next"><i class="bi bi-chevron-right"></i></a>
+            </div>
+            @if($view === 'day')
+                <button type="button" class="pl-add-btn" onclick="openQuickAdd('task')">
+                    <i class="bi bi-plus-lg"></i> Add
+                </button>
+            @endif
         </div>
     </div>
 
@@ -322,6 +435,9 @@
                 <div class="pl-stat overdue"><i class="bi bi-exclamation-triangle"></i> Overdue <strong>{{ $overdue->count() }}</strong></div>
             @endif
         </div>
+
+        {{-- Next Up --}}
+        @include('planner._next-up', ['nextUp' => $nextUp ?? null, 'date' => $date])
 
         {{-- Routines for the selected day --}}
         <div class="pl-section">
@@ -437,6 +553,89 @@
             <div class="pl-modal-body" data-modal-body></div>
         </div>
     </div>
+
+    @if($view === 'day')
+        <button type="button" class="pl-fab" onclick="openQuickAdd('task')" aria-label="Quick add">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+
+        <div class="pl-qa" id="plQuickAdd" hidden>
+            <div class="pl-qa-backdrop" data-qa-close></div>
+            <div class="pl-qa-dialog" role="dialog" aria-modal="true" aria-labelledby="plQaTitle">
+                <div class="pl-qa-head">
+                    <span class="pl-qa-title" id="plQaTitle">Quick add</span>
+                    <button type="button" class="pl-qa-x" data-qa-close aria-label="Close">&times;</button>
+                </div>
+                <div class="pl-qa-tabs" role="tablist">
+                    <button type="button" class="pl-qa-tab active" data-qa-tab="task">Task</button>
+                    <button type="button" class="pl-qa-tab" data-qa-tab="routine">Routine</button>
+                </div>
+
+                <form class="pl-qa-form" data-qa-panel="task"
+                      data-url="{{ route('planner.quick-add.task') }}"
+                      onsubmit="return submitQuickTask(this)">
+                    <input type="hidden" name="date" value="{{ $date->toDateString() }}">
+                    <input type="text" name="title" class="pl-qa-input" placeholder="What needs to be done?" autocomplete="off">
+                    <div class="pl-qa-row">
+                        <select name="priority" aria-label="Priority">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                        <select name="project_id" aria-label="Project">
+                            <option value="">Inbox</option>
+                            @foreach(($quickProjects ?? []) as $proj)
+                                <option value="{{ $proj->id }}">{{ $proj->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="pl-qa-row">
+                        <select name="time_period" aria-label="Time of day">
+                            <option value="">Anytime</option>
+                            @foreach(config('routines.periods', []) as $key => $period)
+                                <option value="{{ $key }}">{{ $period['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <input type="time" name="due_time" aria-label="Exact time">
+                    </div>
+                    <div class="pl-qa-chips" data-qa-minutes>
+                        <button type="button" data-min="15">15m</button>
+                        <button type="button" data-min="30">30m</button>
+                        <button type="button" data-min="60">1h</button>
+                        <button type="button" data-min="90">1h 30m</button>
+                    </div>
+                    <input type="hidden" name="estimated_minutes" value="">
+                    <div class="pl-qa-actions">
+                        <button type="submit">Add task</button>
+                    </div>
+                </form>
+
+                <form class="pl-qa-form" data-qa-panel="routine" hidden
+                      data-url="{{ route('planner.quick-add.routine') }}"
+                      onsubmit="return submitQuickRoutine(this)">
+                    <input type="hidden" name="date" value="{{ $date->toDateString() }}">
+                    <input type="text" name="title" class="pl-qa-input" placeholder="Routine name" autocomplete="off">
+                    <div class="pl-qa-row">
+                        <select name="frequency" aria-label="Frequency">
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="every_n_days">Every other day</option>
+                        </select>
+                        <select name="time_period" aria-label="Time of day">
+                            <option value="">Anytime</option>
+                            @foreach(config('routines.periods', []) as $key => $period)
+                                <option value="{{ $key }}">{{ $period['label'] }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="pl-qa-actions">
+                        <button type="submit">Add routine</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
 @endsection
 
 @push('scripts')
@@ -934,6 +1133,315 @@
             const countEl = dayEl.querySelector('.pl-day-count');
             if (countEl) countEl.textContent = d + '/' + routines.length;
         });
+    }
+
+    /* ── Generic undo toast (reuses the routine toast shell) ── */
+    function plShowToast(message, undoFn) {
+        const toast = document.getElementById('plToast');
+        if (!toast) return;
+        toast.replaceChildren();
+        const span = document.createElement('span');
+        span.textContent = message;
+        toast.appendChild(span);
+        if (undoFn) {
+            const undo = document.createElement('button');
+            undo.type = 'button';
+            undo.textContent = 'Undo';
+            undo.onclick = () => { hideRoutineToast(); undoFn(); };
+            toast.appendChild(undo);
+        }
+        toast.classList.add('show');
+        clearTimeout(plToastTimer);
+        plToastTimer = setTimeout(hideRoutineToast, 4500);
+    }
+
+    async function plUndoDelete(type, id) {
+        const url = type === 'task'
+            ? '{{ url('tasks') }}/' + id
+            : '{{ url('routines') }}/' + id;
+        try {
+            await plFetch(url, { method: 'DELETE', headers: { 'Accept': 'application/json' } });
+        } catch (e) { /* best effort */ }
+        document.querySelectorAll('[data-' + type + '-item][data-id="' + id + '"]').forEach(row => row.remove());
+        if (type === 'task') refreshCounters(); else refreshRoutineCounters();
+    }
+
+    /* ── Quick add ── */
+    const plQa = document.getElementById('plQuickAdd');
+
+    function openQuickAdd(tab) {
+        if (!plQa) return;
+        plQa.hidden = false;
+        document.body.classList.add('pl-modal-open');
+        switchQuickTab(tab || 'task');
+        const panel = plQa.querySelector('[data-qa-panel="' + (tab || 'task') + '"]');
+        if (panel) setTimeout(() => { const inp = panel.querySelector('[name="title"]'); if (inp) inp.focus(); }, 40);
+    }
+
+    function closeQuickAdd() {
+        if (!plQa) return;
+        plQa.hidden = true;
+        document.body.classList.remove('pl-modal-open');
+    }
+
+    function switchQuickTab(tab) {
+        if (!plQa) return;
+        plQa.querySelectorAll('[data-qa-tab]').forEach(b => b.classList.toggle('active', b.dataset.qaTab === tab));
+        plQa.querySelectorAll('[data-qa-panel]').forEach(p => { p.hidden = p.dataset.qaPanel !== tab; });
+    }
+
+    if (plQa) {
+        plQa.querySelectorAll('[data-qa-close]').forEach(b => b.addEventListener('click', closeQuickAdd));
+        plQa.querySelectorAll('[data-qa-tab]').forEach(b => b.addEventListener('click', () => switchQuickTab(b.dataset.qaTab)));
+        plQa.querySelectorAll('[data-qa-minutes] button').forEach(b => {
+            b.addEventListener('click', () => {
+                const form = b.closest('[data-qa-panel]');
+                const input = form.querySelector('[name="estimated_minutes"]');
+                const wasActive = b.classList.contains('active');
+                plQa.querySelectorAll('[data-qa-minutes] button').forEach(x => x.classList.remove('active'));
+                input.value = wasActive ? '' : b.dataset.min;
+                if (!wasActive) b.classList.add('active');
+            });
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !plQa.hidden) closeQuickAdd();
+        });
+    }
+
+    function plInsertRow(containerId, html) {
+        const body = document.getElementById(containerId);
+        if (!body) return;
+        const empty = body.querySelector('.pl-empty');
+        if (empty) empty.remove();
+        body.insertAdjacentHTML('afterbegin', (html || '').trim());
+    }
+
+    async function submitQuickTask(form) {
+        const titleInput = form.querySelector('[name="title"]');
+        const title = titleInput.value.trim();
+        if (!title) { titleInput.focus(); return false; }
+        const btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        try {
+            const res = await plFetch(form.dataset.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    title: title,
+                    date: form.querySelector('[name="date"]').value,
+                    priority: form.querySelector('[name="priority"]').value,
+                    project_id: form.querySelector('[name="project_id"]').value || null,
+                    time_period: form.querySelector('[name="time_period"]').value || null,
+                    due_time: form.querySelector('[name="due_time"]').value || null,
+                    estimated_minutes: form.querySelector('[name="estimated_minutes"]').value || null,
+                }),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            plInsertRow('plPendingBody', json.html);
+            refreshCounters();
+            closeQuickAdd();
+            form.reset();
+            plQa.querySelectorAll('[data-qa-minutes] button').forEach(x => x.classList.remove('active'));
+            plShowToast('Task added', () => plUndoDelete('task', json.task.id));
+            refreshNextUp();
+        } catch (e) {
+            console.error('[Planner] quick add task failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+        return false;
+    }
+
+    async function submitQuickRoutine(form) {
+        const titleInput = form.querySelector('[name="title"]');
+        const title = titleInput.value.trim();
+        if (!title) { titleInput.focus(); return false; }
+        const btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        try {
+            const res = await plFetch(form.dataset.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    title: title,
+                    date: form.querySelector('[name="date"]').value,
+                    frequency: form.querySelector('[name="frequency"]').value,
+                    time_period: form.querySelector('[name="time_period"]').value || null,
+                }),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            plInsertRow('plRoutinesBody', json.html);
+            refreshRoutineCounters();
+            closeQuickAdd();
+            form.reset();
+            plShowToast('Routine added', () => plUndoDelete('routine', json.routine.id));
+            refreshNextUp();
+        } catch (e) {
+            console.error('[Planner] quick add routine failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+        return false;
+    }
+
+    /* ── Next Up ── */
+    function plNextCard() {
+        const wrap = document.getElementById('plNextUp');
+        return wrap ? wrap.querySelector('.pl-next-card') : null;
+    }
+
+    /* Reflect a single step tick on the matching list row (task or routine). */
+    function setTaskRowStepProgress(ownerId, done, total, ownerCompleted, kind = 'task') {
+        const sel = kind === 'task' ? '[data-task-item][data-id="' + ownerId + '"]' : '[data-routine-item][data-id="' + ownerId + '"]';
+        document.querySelectorAll(sel).forEach(row => {
+            const badge = row.querySelector('.steps-count');
+            if (badge) {
+                badge.textContent = done + '/' + total;
+                badge.classList.toggle('all', total > 0 && done === total);
+            }
+            if (kind === 'routine' && ownerCompleted !== undefined) {
+                row.classList.toggle('is-done', !!ownerCompleted);
+                row.dataset.completed = ownerCompleted ? '1' : '0';
+            }
+        });
+        if (kind === 'task') refreshCounters(); else refreshRoutineCounters();
+    }
+
+    async function plCompleteNext() {
+        const wrap = document.getElementById('plNextUp');
+        const card = wrap ? wrap.querySelector('.pl-next-card') : null;
+        if (!card) return;
+        const type = card.dataset.nextType;
+        const id = card.dataset.nextId;
+        const url = card.dataset.nextUrl;
+        const date = wrap.dataset.nextDate;
+        const stepBox = card.querySelector('[data-next-step]');
+        const allDone = card.dataset.nextAllDone === '1';
+
+        try {
+            if (type === 'task') {
+                /* With open steps: tick just the first unfinished step (+ note it). */
+                if (stepBox && stepBox.dataset.stepId) {
+                    const res = await plFetch(stepBox.dataset.stepUrl, { method: 'POST', headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const json = await res.json();
+                    setTaskRowStepProgress(json.task_id, json.steps_done, json.steps_total, json.completed);
+                } else {
+                    const res = await plFetch(url, { method: 'POST', headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const json = await res.json();
+                    document.querySelectorAll('[data-task-item][data-id="' + id + '"]').forEach(row => {
+                        row.classList.toggle('is-done', !!json.completed);
+                        row.dataset.completed = json.completed ? '1' : '0';
+                    });
+                    refreshCounters();
+                }
+            } else {
+                /* Value-tracked routine: one guided input must be logged first. */
+                if (stepBox && stepBox.dataset.logvalue === '1') {
+                    const input = stepBox.querySelector('[data-next-value-input]');
+                    let value = null;
+                    if (input && input.value) {
+                        value = input.type === 'time'
+                            ? (input.value.split(':').reduce((a, p) => a * 60 + Number(p), 0))
+                            : parseFloat(input.value);
+                    }
+                    if (value === null || isNaN(value)) {
+                        if (input) {
+                            input.classList.remove('pl-flash');
+                            void input.offsetWidth;
+                            input.classList.add('pl-flash');
+                            input.focus();
+                        }
+                        return;
+                    }
+                    await plFetch(stepBox.dataset.logUrl + '?date=' + encodeURIComponent(date), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ value: value }),
+                    });
+                }
+                /* Tracked sets step: fill the mini inputs inline or get them flashed. */
+                if (stepBox && stepBox.dataset.logsets === '1' && stepBox.dataset.stepId) {
+                    const sets = {};
+                    stepBox.querySelectorAll('[data-set]').forEach(inp => {
+                        if (inp.value !== '' && !isNaN(parseFloat(inp.value))) sets[inp.dataset.set] = parseFloat(inp.value);
+                    });
+                    if (!Object.keys(sets).length) {
+                        /* No numbers typed — flash the inputs and stop. */
+                        stepBox.querySelectorAll('[data-set]').forEach(inp => {
+                            inp.classList.remove('pl-flash');
+                            void inp.offsetWidth;
+                            inp.classList.add('pl-flash');
+                        });
+                        const first = stepBox.querySelector('[data-set]');
+                        if (first) first.focus();
+                        return;
+                    }
+                    await plFetch(stepBox.dataset.logUrl + '?date=' + encodeURIComponent(date), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ item_id: stepBox.dataset.stepId, sets: sets }),
+                    });
+                }
+                if (stepBox && stepBox.dataset.stepId && !allDone) {
+                    /* Tick only the first unfinished step; full toggle only when every step is done. */
+                    const res = await plFetch(stepBox.dataset.stepUrl + '?date=' + encodeURIComponent(date), {
+                        method: 'POST', headers: { 'Accept': 'application/json' },
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const json = await res.json();
+                    setTaskRowStepProgress(json.routine_id, json.steps_done, json.steps_total, json.routine_completed, 'routine');
+                } else {
+                    const json = await routineToggleRequest(url, date);
+                    applyRoutineToggle(id, date, !!json.completed);
+                    if (json.items && json.items.length) syncStepButtons(id, date, !!json.completed);
+                    refreshRoutineCounters();
+                }
+            }
+            await refreshNextUp();
+        } catch (e) {
+            console.error('[Planner] next up complete failed', e);
+        }
+    }
+
+    async function plStartNext() {
+        const wrap = document.getElementById('plNextUp');
+        const card = wrap ? wrap.querySelector('.pl-next-card') : null;
+        if (!card || card.dataset.nextType !== 'task') return;
+        const taskId = card.dataset.nextId;
+        try {
+            await plFetch('{{ route('time.start') }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ task_id: taskId }),
+            });
+            await plFetch('{{ url('tasks') }}/' + taskId + '/update-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ status: 'in_progress' }),
+            });
+        } catch (e) {
+            console.error('[Planner] next up start failed', e);
+        }
+    }
+
+    async function refreshNextUp() {
+        const wrap = document.getElementById('plNextUp');
+        if (!wrap) return;
+        const date = wrap.dataset.nextDate;
+        try {
+            const res = await plFetch('{{ route('planner.next-up') }}?date=' + encodeURIComponent(date), {
+                headers: { 'Accept': 'application/json' },
+            });
+            if (!res.ok) return;
+            const json = await res.json();
+            wrap.outerHTML = json.html;
+        } catch (e) {
+            console.error('[Planner] next up refresh failed', e);
+        }
     }
 </script>
 @endpush

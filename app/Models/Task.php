@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -16,6 +17,8 @@ class Task extends Model
         'title',
         'description',
         'due_date',
+        'time_period',
+        'due_time',
         'priority',
         'status',
         'weight',
@@ -284,5 +287,63 @@ class Task extends Model
     public function checklistItems()
     {
         return $this->hasMany(ChecklistItem::class);
+    }
+
+    /**
+     * Human label for the assigned time-of-day period, if any.
+     */
+    public function periodLabel(): ?string
+    {
+        if (! $this->time_period) {
+            return null;
+        }
+
+        return config("routines.periods.{$this->time_period}.label") ?? ucfirst((string) $this->time_period);
+    }
+
+    public function periodIcon(): ?string
+    {
+        if (! $this->time_period) {
+            return null;
+        }
+
+        return config("routines.periods.{$this->time_period}.icon");
+    }
+
+    public function periodColor(): ?string
+    {
+        if (! $this->time_period) {
+            return null;
+        }
+
+        return config("routines.periods.{$this->time_period}.color");
+    }
+
+    /**
+     * Scheduling order for the assigned period (matches routines' config).
+     */
+    public function periodOrder(): int
+    {
+        if (! $this->time_period) {
+            return 99;
+        }
+
+        return (int) config("routines.periods.{$this->time_period}.order", 99);
+    }
+
+    /**
+     * Exact time the task is planned for, formatted for display (null when unset).
+     */
+    public function dueTimeLabel(): ?string
+    {
+        if (! $this->due_time) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($this->due_time)->format('g:i A');
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 }
