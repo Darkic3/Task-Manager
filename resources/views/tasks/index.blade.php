@@ -366,6 +366,49 @@
     .ql-toolbar{border-color:#e5e7eb !important;border-radius:6px 6px 0 0;}
     .ql-container.ql-snow{border-color:#e5e7eb !important;border-radius:0 0 6px 6px;}
     #task-quill-editor{height:120px;}
+
+    /* ── Add-to-day ── */
+    @keyframes cudIn{from{opacity:0;transform:translateY(6px) scale(.98);}to{opacity:1;transform:none;}}
+    :root{--cud-purple:#7c3aed;}
+    .cu-add-day{
+        display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+        width:24px;height:24px;margin-left:2px;border:none;border-radius:6px;
+        background:#f4f5f7;color:#8b8d98;cursor:pointer;transition:all .15s;
+    }
+    .cu-add-day i{font-size:11px;}
+    .cu-add-day:hover{background:#ede9fe;color:var(--cud-purple);}
+    .cu-add-day.set{background:#e8f7ef;color:#30a46c;}
+
+    .cud-modal{position:fixed;inset:0;z-index:1100;display:flex;align-items:center;justify-content:center;padding:16px;}
+    .cud-modal[hidden]{display:none;}
+    .cud-backdrop{position:absolute;inset:0;background:rgba(17,20,26,.45);}
+    .cud-box{
+        position:relative;background:#fff;border-radius:12px;width:min(380px,94vw);
+        box-shadow:0 20px 60px rgba(0,0,0,.28);overflow:hidden;
+        animation:cudIn .16s ease-out;
+    }
+    .cud-head{display:flex;align-items:flex-start;gap:10px;padding:14px 16px 10px;}
+    .cud-eyebrow{font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--cud-purple);display:flex;align-items:center;gap:5px;}
+    .cud-title{font-size:14px;font-weight:700;color:#1a1d23;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;}
+    .cud-x{
+        margin-left:auto;flex-shrink:0;border:none;background:#f2f3f5;color:#6b7385;
+        width:28px;height:28px;border-radius:8px;font-size:16px;line-height:1;cursor:pointer;
+    }
+    .cud-x:hover{background:#e6e8ec;color:#1a1d23;}
+    .cud-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:4px 16px 12px;}
+    .cud-chip{
+        display:inline-flex;align-items:center;justify-content:center;gap:6px;
+        border:1px solid #e5e7eb;background:#fafbfc;color:#6b6f78;
+        font-size:12px;font-weight:700;border-radius:9px;padding:8px 6px;cursor:pointer;transition:all .12s;
+    }
+    .cud-chip:hover{border-color:#c4b5fd;color:var(--cud-purple);background:#faf5ff;}
+    .cud-chip.active{background:#ede9fe;border-color:#c4b5fd;color:var(--cud-purple);}
+    .cud-chip.busy{opacity:.55;pointer-events:none;}
+    .cud-foot{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 14px;border-top:1px solid #f2f3f5;}
+    .cud-hint{font-size:11px;color:#8a8f98;}
+    .cud-link{font-size:11.5px;font-weight:700;color:var(--cud-purple);text-decoration:none;}
+    .cud-link:hover{text-decoration:underline;}
+    @media(max-width:480px){ .cud-chips{grid-template-columns:repeat(2,1fr);} }
 </style>
 @endpush
 
@@ -556,6 +599,13 @@
                 @endif
             </div>
             <div class="cu-list-actions">
+                @if($task->status !== 'completed')
+                    <button type="button" class="cu-task-btn {{ $task->time_period && $task->due_date && \Carbon\Carbon::parse($task->due_date)->isToday() ? 'is-set' : '' }}"
+                            data-add-day data-id="{{ $task->id }}" data-title="{{ $task->title }}"
+                            data-period="{{ $task->time_period }}" title="Add to today's plan">
+                        <i class="bi bi-calendar-plus"></i>
+                    </button>
+                @endif
                 <a href="{{ route('tasks.show', $task->id) }}" class="cu-task-btn" title="View"><i class="bi bi-eye"></i></a>
                 <a href="{{ route('tasks.edit', $task->id) }}" class="cu-task-btn" title="Edit"><i class="bi bi-pencil"></i></a>
             </div>
@@ -752,6 +802,32 @@
 
 <div id="cuToast"></div>
 
+{{-- "Add to today" — pick the day period for a task --}}
+<div class="cud-modal" id="addToDayModal" hidden>
+    <div class="cud-backdrop" data-add-day-close></div>
+    <div class="cud-box" role="dialog" aria-modal="true" aria-labelledby="addToDayTitle">
+        <div class="cud-head">
+            <div style="min-width:0;">
+                <div class="cud-eyebrow"><i class="bi bi-calendar-plus"></i> Add to today's plan</div>
+                <div class="cud-title" data-add-day-title>&nbsp;</div>
+            </div>
+            <button type="button" class="cud-x" data-add-day-close aria-label="Close">&times;</button>
+        </div>
+        <div class="cud-chips">
+            <button type="button" class="cud-chip" data-period=""><i class="bi bi-infinity"></i> Anytime</button>
+            @foreach(config('routines.periods', []) as $key => $p)
+                <button type="button" class="cud-chip" data-period="{{ $key }}">
+                    <i class="bi {{ $p['icon'] }}" style="color:{{ $p['color'] }};"></i> {{ $p['label'] }}
+                </button>
+            @endforeach
+        </div>
+        <div class="cud-foot">
+            <span class="cud-hint">Moves to today's plan</span>
+            <a href="{{ route('planner.index') }}" class="cud-link" target="_blank" rel="noopener">Open My Day →</a>
+        </div>
+    </div>
+</div>
+
 {{-- Bulk action bar --}}
 <div id="cuBulkBar" style="display:none;">
     <span id="cuBulkCount">0 selected</span>
@@ -776,7 +852,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const kanban = document.getElementById('cuKanban');
     const list   = document.getElementById('cuList');
     const tree   = document.getElementById('cuTree');
-    const csrf   = '{{ csrf_token() }}';
+    const csrf0 = '{{ csrf_token() }}';
+    let csrf = csrf0;
 
     /* Toast */
     let toastTimer;
@@ -1404,6 +1481,90 @@ document.addEventListener('DOMContentLoaded', function () {
         document.body.appendChild(f);
         f.submit();
     }
+
+    /* ── Add to day ── */
+    const addDayModal = document.getElementById('addToDayModal');
+    let addDayState = null;
+
+    function openAddDay(trigger) {
+        if (!addDayModal) return;
+        addDayState = {
+            id: trigger.dataset.id,
+            title: trigger.dataset.title || '',
+            period: trigger.dataset.period || '',
+            source: trigger,
+        };
+        const titleEl = addDayModal.querySelector('[data-add-day-title]');
+        if (titleEl) titleEl.textContent = addDayState.title;
+        addDayModal.querySelectorAll('.cud-chip').forEach(c => {
+            c.classList.toggle('active', c.dataset.period === addDayState.period);
+        });
+        addDayModal.hidden = false;
+    }
+
+    function closeAddDay() {
+        if (!addDayModal) return;
+        addDayModal.hidden = true;
+        addDayState = null;
+    }
+
+    async function applyAddToDay(chip) {
+        if (!addDayState) return;
+        const state = addDayState;
+        chip.classList.add('busy');
+        const send = () => fetch(`{{ url('tasks') }}/${state.id}/add-to-day`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+            body: JSON.stringify({ time_period: chip.dataset.period || null }),
+        });
+        try {
+            let res = await send();
+            /* Session may have rotated the token since this page loaded */
+            if (res.status === 419) {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) { csrf = meta.content; res = await send(); }
+            }
+            if (res.status === 401) { window.location.reload(); return; }
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+
+            /* Immediate feedback on the trigger: set-state + icon swap */
+            const src = state.source;
+            src.classList.add('set');
+            src.title = "Change today's slot";
+            const icon = src.querySelector('i');
+            if (icon) icon.className = 'bi ' + (chip.dataset.period ? 'bi-calendar2-check' : 'bi-calendar-check');
+            document.querySelectorAll(`[data-add-day][data-id="${state.id}"]`).forEach(b => {
+                if (b !== src) b.dataset.period = chip.dataset.period || '';
+            });
+
+            closeAddDay();
+            toast(`Today · ${json.period_label} ✓`);
+        } catch (err) {
+            console.error('[Tasks] add-to-day failed', err);
+            toast(`Could not add to day (${err.message || 'network'})`);
+        } finally {
+            chip.classList.remove('busy');
+            addDayState = null;
+        }
+    }
+
+    document.addEventListener('click', e => {
+        if (!addDayModal) return;
+        const trigger = e.target.closest('[data-add-day]');
+        if (trigger) {
+            e.preventDefault();
+            e.stopPropagation();
+            openAddDay(trigger);
+            return;
+        }
+        const chip = e.target.closest('.cud-chip');
+        if (chip) { applyAddToDay(chip); return; }
+        if (e.target.closest('[data-add-day-close]')) closeAddDay();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && addDayModal && !addDayModal.hidden) closeAddDay();
+    });
 });
 </script>
 @endpush

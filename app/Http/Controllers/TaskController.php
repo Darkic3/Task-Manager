@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -281,5 +282,41 @@ class TaskController extends Controller
         $task->save();
 
         return response()->json(['message' => 'Task status updated successfully.']);
+    }
+
+    /**
+     * Slot a task into today's plan from the Tasks page: sets the due date to
+     * the selected day and the time-of-day period it belongs to.
+     */
+    public function addToDay(Request $request, Task $task)
+    {
+        abort_if($task->user_id !== Auth::id(), 403);
+
+        $periodKeys = array_keys(config('routines.periods', []));
+
+        $data = $request->validate([
+            'time_period' => 'nullable|in:'.implode(',', $periodKeys),
+            'date' => 'nullable|date',
+        ]);
+
+        $date = ! empty($data['date'])
+            ? Carbon::parse($data['date'])->startOfDay()
+            : now()->startOfDay();
+
+        $task->due_date = $date->toDateString();
+        $task->time_period = $data['time_period'] ?? null;
+        $task->save();
+
+        $period = $data['time_period'] ?? null;
+
+        return response()->json([
+            'ok' => true,
+            'task_id' => $task->id,
+            'due_date' => $task->due_date->toDateString(),
+            'time_period' => $period,
+            'period_label' => $period
+                ? (config("routines.periods.{$period}.label") ?? ucfirst($period))
+                : 'Anytime',
+        ]);
     }
 }

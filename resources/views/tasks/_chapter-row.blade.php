@@ -48,6 +48,10 @@
             <i class="bi bi-three-dots"></i>
         </button>
         <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size:13px;border-radius:8px;">
+            @if(! $isDone)
+                <li><button type="button" class="dropdown-item" data-add-day data-id="{{ $task->id }}" data-title="{{ $task->title }}" data-period="{{ $task->time_period }}"><i class="bi bi-calendar-plus me-2"></i>Add to today's plan</button></li>
+                <li><hr class="dropdown-divider"></li>
+            @endif
             <li><a class="dropdown-item" href="{{ route('tasks.show', $task->id) }}"><i class="bi bi-eye me-2"></i>View</a></li>
             <li><a class="dropdown-item" href="{{ route('tasks.edit', $task->id) }}"><i class="bi bi-pencil me-2"></i>Edit</a></li>
             <li><hr class="dropdown-divider"></li>

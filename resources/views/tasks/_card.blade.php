@@ -16,6 +16,15 @@
             : ($days < 0 ? abs($days) . 'd late'
             : ($days > 1 ? $days . 'd left' : ''))));
     }
+
+    /* Planned for today with a day-period chip */
+    $plannedToday = $task->time_period && $task->due_date
+        && \Carbon\Carbon::parse($task->due_date)->isToday()
+        && $task->status !== 'completed';
+    $plannedPeriod = $plannedToday
+        ? (config("routines.periods.{$task->time_period}.label") ?? ucfirst($task->time_period))
+        : null;
+    $plannedIcon = config("routines.periods.{$task->time_period}.icon") ?? 'bi-calendar-day';
 @endphp
 <div class="cu-task-card {{ $task->status === 'completed' ? 'is-done' : '' }}"
      data-id="{{ $task->id }}"
@@ -48,6 +57,12 @@
             </span>
         @endif
 
+        @if($plannedToday)
+            <span class="cu-mini" style="color:#7c3aed;background:#f3effe;" title="Planned today · {{ $plannedPeriod }}">
+                <i class="bi {{ $plannedIcon }}"></i> {{ $plannedPeriod }}
+            </span>
+        @endif
+
         @if($task->children->count() > 0)
             <span class="cu-mini" title="{{ $task->children->count() }} subtasks">
                 <i class="bi bi-diagram-3"></i>{{ $task->children->count() }}
@@ -57,6 +72,15 @@
         <span class="cu-assignee" title="{{ $task->user?->name ?? 'Unassigned' }}">
             {{ strtoupper(substr($task->user?->name ?? '—', 0, 1)) }}
         </span>
+
+        @if($task->status !== 'completed')
+            <button type="button" class="cu-add-day {{ $plannedToday ? 'set' : '' }}"
+                    data-add-day data-id="{{ $task->id }}" data-title="{{ $task->title }}"
+                    data-period="{{ $task->time_period }}"
+                    title="{{ $plannedToday ? 'Change today\'s slot' : 'Add to today\'s plan' }}">
+                <i class="bi {{ $plannedToday ? 'bi-calendar2-check' : 'bi-calendar-plus' }}"></i>
+            </button>
+        @endif
 
         <div class="dropdown cu-card-menu">
             <button class="cu-task-menu-btn" data-bs-toggle="dropdown" aria-expanded="false">

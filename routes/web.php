@@ -54,6 +54,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::delete('tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
     Route::post('tasks/{task}/update-status', [TaskController::class, 'updateStatus']);
+    Route::post('tasks/{task}/add-to-day', [TaskController::class, 'addToDay'])->name('tasks.add-to-day');
 
     Route::resource('routines', RoutineController::class)->except(['show']);
     Route::post('routines/{routine}/new-cycle', [RoutineController::class, 'newCycle'])->name('routines.new-cycle');
