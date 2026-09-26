@@ -141,6 +141,51 @@ class PlannerNextUpTest extends TestCase
         $this->assertStringContainsString('Complete step', $html);
     }
 
+    public function test_tracked_final_step_offers_guided_single_log_call(): void
+    {
+        $user = User::factory()->create();
+        $routine = Routine::factory()->create([
+            'user_id' => $user->id, 'frequency' => 'daily', 'title' => 'Cobra Pose',
+            'tracking_mode' => 'sets',
+        ]);
+        $first = RoutineChecklistItem::create(['user_id' => $user->id, 'routine_id' => $routine->id, 'name' => 'Step A', 'sort_order' => 0, 'target_sets' => 1]);
+        $second = RoutineChecklistItem::create(['user_id' => $user->id, 'routine_id' => $routine->id, 'name' => 'Step B', 'sort_order' => 1, 'target_sets' => 1]);
+        $third = RoutineChecklistItem::create(['user_id' => $user->id, 'routine_id' => $routine->id, 'name' => 'Step C', 'sort_order' => 2, 'target_sets' => 1]);
+        $today = now()->toDateString();
+        // In sets mode the only way to be 2/3 is with logged numbers (auto-ticked).
+        $this->actingAs($user)->postJson(
+            route('planner.routines.log', $routine) . '?date=' . $today,
+            ['item_id' => $first->id, 'sets' => ['1' => 10]]
+        )->assertOk();
+        $this->actingAs($user)->postJson(
+            route('planner.routines.log', $routine) . '?date=' . $today,
+            ['item_id' => $second->id, 'sets' => ['1' => 12]]
+        )->assertOk();
+
+        $html = $this->nextUpHtml($user);
+
+        // Card contract: guided step inputs + per-step toggle URL, one call does the tick.
+        $this->assertStringContainsString('2/3', $html);
+        $this->assertStringContainsString('Step C', $html);
+        $this->assertStringContainsString('data-logsets="1"', $html);
+        $this->assertStringContainsString(route('planner.routines.log', $routine), $html);
+        $this->assertStringContainsString('data-set="1"', $html);
+        $this->assertStringContainsString(route('planner.check-items.toggle', $third->id), $html);
+
+        // One log call ticks the final step AND completes the routine — no second toggle needed.
+        $this->actingAs($user)->postJson(
+            route('planner.routines.log', $routine) . '?date=' . $today,
+            ['item_id' => $third->id, 'sets' => ['1' => 15]]
+        )->assertOk()->assertJsonPath('routine_completed', true);
+
+        $this->assertTrue($third->completedOn(now()));
+        $this->assertTrue($routine->fresh()->completedOn(now()));
+
+        // Completed routines must no longer be offered.
+        $html = $this->nextUpHtml($user);
+        $this->assertStringNotContainsString('Cobra Pose', $html);
+    }
+
     public function test_routine_card_floats_to_active_step_schedule(): void
     {
         $user = User::factory()->create();

@@ -1344,68 +1344,122 @@
                     });
                     refreshCounters();
                 }
-            } else {
-                /* Value-tracked routine: one guided input must be logged first. */
-                if (stepBox && stepBox.dataset.logvalue === '1') {
-                    const input = stepBox.querySelector('[data-next-value-input]');
-                    let value = null;
-                    if (input && input.value) {
-                        value = input.type === 'time'
-                            ? (input.value.split(':').reduce((a, p) => a * 60 + Number(p), 0))
-                            : parseFloat(input.value);
-                    }
-                    if (value === null || isNaN(value)) {
-                        if (input) {
-                            input.classList.remove('pl-flash');
-                            void input.offsetWidth;
-                            input.classList.add('pl-flash');
-                            input.focus();
-                        }
-                        return;
-                    }
-                    await plFetch(stepBox.dataset.logUrl + '?date=' + encodeURIComponent(date), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify({ value: value }),
-                    });
+            } else if (stepBox && stepBox.dataset.logvalue === '1') {
+                /* Value-tracked routine: log the guided input — the log itself completes the routine. */
+                const input = stepBox.querySelector('[data-next-value-input]');
+                let value = null;
+                if (input && input.value) {
+                    value = input.type === 'time'
+                        ? (input.value.split(':').reduce((a, p) => a * 60 + Number(p), 0))
+                        : parseFloat(input.value);
                 }
-                /* Tracked sets step: fill the mini inputs inline or get them flashed. */
-                if (stepBox && stepBox.dataset.logsets === '1' && stepBox.dataset.stepId) {
-                    const sets = {};
+                if (value === null || isNaN(value)) {
+                    if (input) {
+                        input.classList.remove('pl-flash');
+                        void input.offsetWidth;
+                        input.classList.add('pl-flash');
+                        input.focus();
+                    }
+                    return;
+                }
+                const logRes = await plFetch(stepBox.dataset.logUrl + '?date=' + encodeURIComponent(date), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ value: value }),
+                });
+                if (!logRes.ok) throw new Error('HTTP ' + logRes.status);
+                const logJson = await logRes.json();
+                if (logJson.routine_completed) {
+                    applyRoutineToggle(id, date, true);
+                    if (logJson.streak != null) setStreak(id, logJson.streak);
+                    refreshRoutineCounters();
+                    maybeCelebrate();
+                }
+            } else if (stepBox && stepBox.dataset.logsets === '1' && stepBox.dataset.stepId) {
+                /* Tracked sets step: log the typed numbers — the server auto-ticks the step, no extra toggle. */
+                const sets = {};
+                stepBox.querySelectorAll('[data-set]').forEach(inp => {
+                    if (inp.value !== '' && !isNaN(parseFloat(inp.value))) sets[inp.dataset.set] = parseFloat(inp.value);
+                });
+                if (!Object.keys(sets).length && stepBox.dataset.logged !== '1') {
+                    /* No numbers typed — flash the inputs and stop. */
                     stepBox.querySelectorAll('[data-set]').forEach(inp => {
-                        if (inp.value !== '' && !isNaN(parseFloat(inp.value))) sets[inp.dataset.set] = parseFloat(inp.value);
+                        inp.classList.remove('pl-flash');
+                        void inp.offsetWidth;
+                        inp.classList.add('pl-flash');
                     });
-                    if (!Object.keys(sets).length) {
-                        /* No numbers typed — flash the inputs and stop. */
-                        stepBox.querySelectorAll('[data-set]').forEach(inp => {
-                            inp.classList.remove('pl-flash');
-                            void inp.offsetWidth;
-                            inp.classList.add('pl-flash');
-                        });
-                        const first = stepBox.querySelector('[data-set]');
-                        if (first) first.focus();
-                        return;
-                    }
-                    await plFetch(stepBox.dataset.logUrl + '?date=' + encodeURIComponent(date), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify({ item_id: stepBox.dataset.stepId, sets: sets }),
-                    });
+                    const first = stepBox.querySelector('[data-set]');
+                    if (first) first.focus();
+                    return;
                 }
-                if (stepBox && stepBox.dataset.stepId && !allDone) {
-                    /* Tick only the first unfinished step; full toggle only when every step is done. */
+                if (!Object.keys(sets).length) {
+                    /* Numbers already logged before (unticked from elsewhere) — the plain tick is allowed. */
                     const res = await plFetch(stepBox.dataset.stepUrl + '?date=' + encodeURIComponent(date), {
                         method: 'POST', headers: { 'Accept': 'application/json' },
                     });
                     if (!res.ok) throw new Error('HTTP ' + res.status);
-                    const json = await res.json();
-                    setTaskRowStepProgress(json.routine_id, json.steps_done, json.steps_total, json.routine_completed, 'routine');
-                } else {
-                    const json = await routineToggleRequest(url, date);
-                    applyRoutineToggle(id, date, !!json.completed);
-                    if (json.items && json.items.length) syncStepButtons(id, date, !!json.completed);
-                    refreshRoutineCounters();
+                    const tickJson = await res.json();
+                    setStepChip(tickJson.item_id, date, tickJson.completed);
+                    refreshStepCounts();
+                    if (tickJson.routine_completed !== undefined) {
+                        applyRoutineToggle(tickJson.routine_id, date, !!tickJson.routine_completed);
+                        if (tickJson.routine_completed && tickJson.streak != null) setStreak(tickJson.routine_id, tickJson.streak);
+                        refreshRoutineCounters();
+                        if (tickJson.routine_completed) maybeCelebrate();
+                    }
+                    await refreshNextUp();
+                    return;
                 }
+                const logRes = await plFetch(stepBox.dataset.logUrl + '?date=' + encodeURIComponent(date), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ item_id: stepBox.dataset.stepId, sets: sets }),
+                });
+                if (!logRes.ok) throw new Error('HTTP ' + logRes.status);
+                const logJson = await logRes.json();
+                /* Sync the list-row chips with what the log actually did. */
+                if (logJson.steps_done) {
+                    const ids = Object.keys(logJson.steps_done);
+                    const doneCount = ids.filter(k => logJson.steps_done[k]).length;
+                    ids.forEach(itemId => setStepChip(itemId, date, logJson.steps_done[itemId], true));
+                    setTaskRowStepProgress(id, doneCount, ids.length, logJson.routine_completed, 'routine');
+                } else {
+                    setStepChip(stepBox.dataset.stepId, date, true, true);
+                }
+                if (logJson.routine_completed) {
+                    applyRoutineToggle(id, date, true);
+                    refreshRoutineCounters();
+                    maybeCelebrate();
+                }
+            } else if (stepBox && stepBox.dataset.stepId && !allDone) {
+                /* Tick only the first unfinished step; full toggle only when every step is done. */
+                const res = await plFetch(stepBox.dataset.stepUrl + '?date=' + encodeURIComponent(date), {
+                    method: 'POST', headers: { 'Accept': 'application/json' },
+                });
+                if (res.status === 422) {
+                    /* Server needs a logged number first (tracked step). */
+                    stepBox.querySelectorAll('[data-set]').forEach(inp => {
+                        inp.classList.remove('pl-flash');
+                        void inp.offsetWidth;
+                        inp.classList.add('pl-flash');
+                    });
+                    return;
+                }
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const json = await res.json();
+                setStepChip(json.item_id, date, json.completed);
+                refreshStepCounts();
+                if (json.routine_completed !== undefined) {
+                    applyRoutineToggle(json.routine_id, date, !!json.routine_completed);
+                    if (json.routine_completed && json.streak != null) setStreak(json.routine_id, json.streak);
+                    refreshRoutineCounters();
+                    if (json.routine_completed) maybeCelebrate();
+                }
+            } else {
+                const json = await routineToggleRequest(url, date);
+                applyRoutineToggle(id, date, !!json.completed);
+                if (json.items && json.items.length) syncStepButtons(id, date, !!json.completed);
+                refreshRoutineCounters();
             }
             await refreshNextUp();
         } catch (e) {
@@ -1433,6 +1487,14 @@
             console.error('[Planner] next up start failed', e);
         }
     }
+
+    /* Enter inside the Next Up card inputs submits like "Complete step". */
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && e.target.matches('#plNextUp [data-set], #plNextUp [data-next-value-input]')) {
+            e.preventDefault();
+            plCompleteNext();
+        }
+    });
 
     async function refreshNextUp() {
         const wrap = document.getElementById('plNextUp');

@@ -64,6 +64,7 @@
                 <div class="pl-next-step" data-next-step
                      data-step-id="{{ $nextStep['id'] }}"
                      data-step-url="{{ $nextTask ? route('planner.task-items.toggle', $nextStep['id']) : route('planner.check-items.toggle', $nextStep['id']) }}"
+                     data-logged="{{ !empty($nextStep['sets']) ? 1 : 0 }}"
                      @if($nextRoutine && $nextRoutine->tracking_mode === 'sets') data-logsets="1" data-log-url="{{ route('planner.routines.log', $nextRoutine) }}" @endif>
                     <i class="bi bi-diagram-3"></i>
                     <span class="pl-next-step-name">{{ $nextStep['name'] }}
