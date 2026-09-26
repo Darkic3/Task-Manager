@@ -39,10 +39,20 @@ class ChecklistItemController extends Controller
 
     public function update(Request $request, ChecklistItem $checklistItem)
     {
-        $checklistItem->update([
-            'completed' => $request->has('completed'),
-            'name' => $request->name,
+        $data = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'completed' => 'sometimes|boolean',
         ]);
+
+        $checklistItem->update($data);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'data' => $checklistItem,
+            ]);
+        }
+
         return back()->with('success', 'Checklist item updated successfully.');
     }
 

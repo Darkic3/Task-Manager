@@ -92,7 +92,12 @@
     transition:all .12s; color:#fff; font-size:11px; background:white; padding:0;
 }
 .ts-cl-check.checked { background:#7c3aed; border-color:#7c3aed; }
-.ts-cl-text { flex:1; font-size:13.5px; color:#3d4149; }
+.ts-cl-text {
+    flex:1; font-size:13.5px; color:#3d4149; cursor:text; padding:2px 6px;
+    border-radius:4px; white-space:pre-wrap; word-break:break-word; outline:none;
+}
+.ts-cl-text:hover { background:#eef0f2; }
+.ts-cl-text.editing { background:#fff; box-shadow:0 0 0 2px #7c3aed; }
 .ts-cl-del {
     opacity:0; background:none; border:none; cursor:pointer; color:#c1c4cc;
     padding:4px; border-radius:4px; font-size:12px;
@@ -266,7 +271,7 @@
                         <i class="bi bi-check" style="font-size:11px;"></i>
                     @endif
                 </button>
-                <div class="ts-cl-text">{{ $item->name }}</div>
+                <div class="ts-cl-text" onclick="editChecklistItem(this)" title="Click to edit">{{ $item->name }}</div>
                 <button class="ts-cl-del" onclick="deleteChecklistItem({{ $item->id }})" title="Delete">
                     <i class="bi bi-trash"></i>
                 </button>
@@ -452,7 +457,7 @@ function addChecklistItem(e) {
             div.setAttribute('data-id', d.data.id);
             div.innerHTML = `
                 <button class="ts-cl-check" onclick="toggleChecklistItem(${d.data.id})"></button>
-                <div class="ts-cl-text"></div>
+                <div class="ts-cl-text" onclick="editChecklistItem(this)" title="Click to edit"></div>
                 <button class="ts-cl-del" onclick="deleteChecklistItem(${d.data.id})" title="Delete">
                     <i class="bi bi-trash"></i>
                 </button>`;
@@ -481,6 +486,64 @@ function deleteChecklistItem(id) {
         }
     })
     .catch(() => showToast('Failed to delete item', false));
+}
+
+/* Inline edit — click the text to rename */
+function editChecklistItem(el) {
+    if (el.isContentEditable) return;
+    const row = el.closest('.ts-cl-item');
+    const id  = row.getAttribute('data-id');
+    const original = el.textContent.trim();
+
+    el.contentEditable = 'true';
+    el.classList.add('editing');
+    el.focus();
+
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    const onKey = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); el.textContent = original; el.blur(); }
+    };
+    const onBlur = () => {
+        el.removeEventListener('keydown', onKey);
+        el.removeEventListener('blur', onBlur);
+        el.contentEditable = 'false';
+        el.classList.remove('editing');
+        const name = el.textContent.replace(/\s+/g, ' ').trim();
+        if (name === '' || name === original) { el.textContent = original; return; }
+        saveChecklistItem(id, name, original, el);
+    };
+    el.addEventListener('keydown', onKey);
+    el.addEventListener('blur', onBlur);
+}
+
+function saveChecklistItem(id, name, original, el) {
+    fetch(`/checklist-items/${id}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type':'application/json',
+            'Accept':'application/json',
+            'X-Requested-With':'XMLHttpRequest',
+            'X-CSRF-TOKEN': CSRF
+        },
+        body: JSON.stringify({ name })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            el.textContent = d.data.name;
+            showToast('Item updated');
+        } else {
+            el.textContent = original;
+            showToast('Failed to update item', false);
+        }
+    })
+    .catch(() => { el.textContent = original; showToast('Failed to update item', false); });
 }
 
 document.addEventListener('DOMContentLoaded', updateChecklistUI);
