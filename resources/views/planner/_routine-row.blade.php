@@ -8,7 +8,8 @@
     $fc          = $freqColors[$routine->frequency] ?? '#7c3aed';
     $freqIcons   = ['daily' => 'bi-sun', 'weekly' => 'bi-calendar-week', 'monthly' => 'bi-calendar-month', 'every_n_days' => 'bi-arrow-left-right'];
     $fi          = $freqIcons[$routine->frequency] ?? 'bi-arrow-repeat';
-    $accent      = $routine->periodColor() ?: $fc;
+    $active      = $routine->activeStepSchedule ?? null;
+    $accent      = ($active['period_color'] ?? null) ?: $routine->periodColor() ?: $fc;
 
     /* Habit Ring (package A): adherence ring + streak flame + last-7 dots */
     $ringRate    = $routine->ringRate ?? null;
@@ -101,7 +102,11 @@
             @endif
         </div>
         <div class="pl-task-meta">
-            @if($routine->time_period)
+            @if($active)
+                <span class="pl-priority" style="color:{{ $accent }};background:{{ $accent }}1a;text-transform:none;">
+                    <i class="bi {{ $active['period_icon'] ?: 'bi-clock' }}"></i> {{ $active['period_label'] ?: $active['time_label'] }}
+                </span>
+            @elseif($routine->time_period)
                 <span class="pl-priority" style="color:{{ $accent }};background:{{ $accent }}1a;text-transform:none;">
                     <i class="bi {{ $routine->periodIcon() }}"></i> {{ $routine->periodLabel() }}
                 </span>

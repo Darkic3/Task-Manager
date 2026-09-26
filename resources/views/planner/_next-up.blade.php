@@ -38,7 +38,12 @@
                             <span class="pl-due"><i class="bi bi-hourglass-split"></i> {{ $nextTask->estimatedLabel() }}</span>
                         @endif
                     @else
-                        @if($nextRoutine->time_period)
+                        @if($nextRoutine->activeStepSchedule)
+                            @php $as = $nextRoutine->activeStepSchedule; @endphp
+                            <span class="pl-priority" style="color:{{ $as['period_color'] ?: '#64748b' }};background:{{ $as['period_color'] ?: '#64748b' }}1a;text-transform:none;">
+                                <i class="bi {{ $as['period_icon'] ?: 'bi-clock' }}"></i> {{ $as['period_label'] ?: $as['time_label'] }}
+                            </span>
+                        @elseif($nextRoutine->time_period)
                             <span class="pl-priority" style="color:{{ $nextRoutine->periodColor() }};background:{{ $nextRoutine->periodColor() }}1a;text-transform:none;">
                                 <i class="bi {{ $nextRoutine->periodIcon() }}"></i> {{ $nextRoutine->periodLabel() }}
                             </span>

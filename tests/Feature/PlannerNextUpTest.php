@@ -141,6 +141,56 @@ class PlannerNextUpTest extends TestCase
         $this->assertStringContainsString('Complete step', $html);
     }
 
+    public function test_routine_card_floats_to_active_step_schedule(): void
+    {
+        $user = User::factory()->create();
+        $routine = Routine::factory()->create([
+            'user_id' => $user->id, 'frequency' => 'daily', 'title' => 'Cobra Pose',
+            'time_period' => 'morning', // routine-level period should be ignored when steps have schedules
+        ]);
+        $morning = RoutineChecklistItem::create(['user_id' => $user->id, 'routine_id' => $routine->id, 'name' => '15 - Morning', 'sort_order' => 0, 'time_period' => 'morning']);
+        $afternoon = RoutineChecklistItem::create(['user_id' => $user->id, 'routine_id' => $routine->id, 'name' => '15 - Afternoon', 'sort_order' => 1, 'time_period' => 'afternoon']);
+        $night = RoutineChecklistItem::create(['user_id' => $user->id, 'routine_id' => $routine->id, 'name' => '15 - Night', 'sort_order' => 2, 'time_period' => 'night']);
+
+        // Initial: active step is Morning, even though routine-level is also morning.
+        $html = $this->nextUpHtml($user);
+        $this->assertStringContainsString('Morning', $html);
+
+        // Finish morning step → active step moves to Afternoon.
+        $morning->toggleOn(now());
+        $html = $this->nextUpHtml($user);
+        $this->assertStringContainsString('Afternoon', $html);
+        $this->assertStringNotContainsString('data-next-step-id="'.$morning->id.'"', $html);
+
+        // Finish afternoon → active step becomes Night.
+        $afternoon->toggleOn(now());
+        $html = $this->nextUpHtml($user);
+        $this->assertStringContainsString('Night', $html);
+
+        // Finish night (routine auto-completes) → badge stays on the last step's time (Night).
+        $night->toggleOn(now());
+        $html = $this->nextUpHtml($user);
+        $this->assertStringContainsString('Night', $html);
+    }
+
+    public function test_todays_routines_sort_by_active_step_schedule(): void
+    {
+        $user = User::factory()->create();
+        $nightRoutine = Routine::factory()->create(['user_id' => $user->id, 'frequency' => 'daily', 'title' => 'Night routine']);
+        RoutineChecklistItem::create(['user_id' => $user->id, 'routine_id' => $nightRoutine->id, 'name' => 'Step', 'sort_order' => 0, 'time_period' => 'night']);
+
+        $exactRoutine = Routine::factory()->create(['user_id' => $user->id, 'frequency' => 'daily', 'title' => 'Exact routine']);
+        RoutineChecklistItem::create(['user_id' => $user->id, 'routine_id' => $exactRoutine->id, 'name' => 'Step', 'sort_order' => 0, 'scheduled_time' => '07:30']);
+
+        $morningRoutine = Routine::factory()->create(['user_id' => $user->id, 'frequency' => 'daily', 'title' => 'Morning routine']);
+        RoutineChecklistItem::create(['user_id' => $user->id, 'routine_id' => $morningRoutine->id, 'name' => 'Step', 'sort_order' => 0, 'time_period' => 'morning']);
+
+        $response = $this->actingAs($user)->get('/planner?date='.now()->toDateString());
+        $response->assertOk();
+
+        $response->assertSeeInOrder(['Exact routine', 'Morning routine', 'Night routine']);
+    }
+
     public function test_task_with_open_steps_shows_progress_and_next_step(): void
     {
         $user = User::factory()->create();

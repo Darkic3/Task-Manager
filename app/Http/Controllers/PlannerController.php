@@ -59,6 +59,11 @@ class PlannerController extends Controller
         $routinesData = $this->splitRoutines($routines, $selected);
         $this->decorateHabitMetricsBulk($routinesData['today'], $selected, $stepMap);
 
+        // Sort today's routines by their current active step's schedule.
+        $routinesData['today'] = $routinesData['today']
+            ->sortBy(fn ($r) => $r->activeStepSortKey ?? $r->sortKey())
+            ->values();
+
         return view('planner.index', [
             'view' => 'day',
             'date' => $selected,
@@ -110,6 +115,9 @@ class PlannerController extends Controller
             // showing Fri's empty steps even though Thu step 1 was logged).
             $todayRoutines = $dayRoutines['today']->map(fn ($r) => clone $r);
             $this->decorateHabitMetricsBulk($todayRoutines, $day, $stepMap);
+            $todayRoutines = $todayRoutines
+                ->sortBy(fn ($r) => $r->activeStepSortKey ?? $r->sortKey())
+                ->values();
             $days[] = [
                 'date' => $day,
                 'tasks' => $this->sortByPriority($dayTasks->values()),
@@ -345,9 +353,11 @@ class PlannerController extends Controller
         $this->preloadRoutineLogs($user->id, $routines, $date, $date);
         $today = $routines
             ->filter(fn ($r) => $r->occursOn($date))
-            ->sortBy(fn ($r) => $r->sortKey())
             ->values();
         $this->decorateHabitMetricsBulk($today, $date, $stepMap);
+        $today = $today
+            ->sortBy(fn ($r) => $r->activeStepSortKey ?? $r->sortKey())
+            ->values();
 
         $nextUp = $this->buildNextUp($pending, $today, $date);
 
@@ -551,9 +561,10 @@ class PlannerController extends Controller
      */
     private function splitRoutines($routines, Carbon $date): array
     {
+        // Sorting is intentionally deferred until after decoration, because the
+        // visible slot is driven by the first unfinished scheduled step.
         $today = $routines
             ->filter(fn ($r) => $r->occursOn($date))
-            ->sortBy(fn ($r) => $r->sortKey())
             ->values();
 
         // Buckets: routines NOT occurring today but still relevant this week / this month
@@ -651,6 +662,7 @@ class PlannerController extends Controller
                 'period_icon' => $s->periodIcon(),
                 'period_color' => $s->periodColor(),
                 'time_label' => $s->scheduledTimeLabel(),
+                'sort_key' => $s->sortKey(),
                 'sets' => $routine->relationLoaded('logs')
                     ? $routine->logs
                         ->filter(fn ($l) => (int) $l->checklist_item_id === (int) $s->id
@@ -661,6 +673,26 @@ class PlannerController extends Controller
                         ->all()
                     : [],
             ])->values();
+
+            $hasSchedule = fn ($s) => ! empty($s['period_label']) || ! empty($s['time_label']);
+
+            $activeStep = $routine->ringSteps->first(fn ($s) => ! $s['completed'] && $hasSchedule($s));
+            if (! $activeStep) {
+                $activeStep = $routine->ringSteps->last(fn ($s) => $hasSchedule($s));
+            }
+
+            if ($activeStep) {
+                $routine->activeStepSchedule = [
+                    'period_label' => $activeStep['period_label'],
+                    'period_icon' => $activeStep['period_icon'],
+                    'period_color' => $activeStep['period_color'],
+                    'time_label' => $activeStep['time_label'],
+                ];
+                $routine->activeStepSortKey = $activeStep['sort_key'];
+            } else {
+                $routine->activeStepSchedule = null;
+                $routine->activeStepSortKey = null;
+            }
 
             $routine->logValues = $routine->isTracked() ? $routine->loggedValues($date) : [];
         }
