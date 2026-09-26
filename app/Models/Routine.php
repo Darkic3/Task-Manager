@@ -345,20 +345,22 @@ class Routine extends Model
 
     /**
      * Ordering key: exact times first, then periods, then unscheduled.
+     * Letter prefixes (a/b/z) keep comparisons byte-wise — numeric-looking
+     * prefixes would make PHP compare some keys as numbers.
      */
     public function sortKey(): string
     {
         if ($this->start_time) {
-            return '1'.$this->start_time;
+            return 'a'.Carbon::parse($this->start_time)->format('H:i');
         }
 
         if ($this->time_period) {
             $order = (int) config("routines.periods.{$this->time_period}.order", 99);
 
-            return '2'.str_pad((string) $order, 2, '0', STR_PAD_LEFT);
+            return 'b'.str_pad((string) $order, 2, '0', STR_PAD_LEFT);
         }
 
-        return '9';
+        return 'z';
     }
 
     /**

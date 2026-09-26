@@ -142,6 +142,12 @@
                             onclick="toggleCheckItem(this)">
                         <i class="bi {{ $step['completed'] ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
                         {{ $step['name'] }}
+                        @if(!empty($step['period_label']) || !empty($step['time_label']))
+                            <span class="pl-step-schedule" style="color:{{ $step['period_color'] ?: '#64748b' }};">
+                                <i class="bi {{ $step['period_icon'] ?: 'bi-clock' }}"></i>
+                                {{ $step['period_label'] ?: $step['time_label'] }}
+                            </span>
+                        @endif
                     </button>
                 @endforeach
             </div>
@@ -170,7 +176,14 @@
                 @foreach($routine->ringSteps as $step)
                     @php $logged = $step['sets'] ?? []; $target = max(1, (int) ($step['target_sets'] ?? 1)); @endphp
                     <div class="pl-logset" data-log-sets data-item="{{ $step['id'] }}" data-routine="{{ $routine->id }}" data-date="{{ $routineDate->toDateString() }}" data-url="{{ $logUrl }}">
-                        <span class="pl-logset-name">{{ $step['name'] }}{{ $step['unit'] ? ' (' . $step['unit'] . ')' : '' }}</span>
+                        <span class="pl-logset-name">{{ $step['name'] }}{{ $step['unit'] ? ' (' . $step['unit'] . ')' : '' }}
+                            @if(!empty($step['period_label']) || !empty($step['time_label']))
+                                <span class="pl-step-schedule" style="color:{{ $step['period_color'] ?: '#64748b' }};">
+                                    <i class="bi {{ $step['period_icon'] ?: 'bi-clock' }}"></i>
+                                    {{ $step['period_label'] ?: $step['time_label'] }}
+                                </span>
+                            @endif
+                        </span>
                         @for($s = 1; $s <= $target; $s++)
                             <input type="number" step="any" min="0" data-set="{{ $s }}" placeholder="S{{ $s }}"
                                    value="{{ $logged[$s] ?? '' }}" aria-label="{{ $step['name'] }} set {{ $s }}">

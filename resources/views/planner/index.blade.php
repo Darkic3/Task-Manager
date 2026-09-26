@@ -187,6 +187,12 @@
     .pl-step i{font-size:13px;color:#c1c4cc;transition:color .12s;}
     .pl-step.done{background:#e3f5ec;border-color:#a9dfbf;color:#29774b;}
     .pl-step.done i{color:#30a46c;}
+    .pl-step-schedule{
+        display:inline-flex;align-items:center;gap:3px;margin-left:2px;
+        font-size:10px;font-weight:700;text-transform:none;white-space:nowrap;
+    }
+    .pl-step-schedule i{font-size:11px;color:inherit;}
+    .pl-modal-body .pl-step-schedule{font-size:9.5px;}
     .steps-count{
         font-size:10.5px;font-weight:700;color:#8a8f98;background:#f2f3f5;
         border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:1px;

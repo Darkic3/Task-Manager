@@ -239,6 +239,63 @@ class RoutinesHabitTest extends TestCase
         $this->assertContains('Set 2 (3×15) renamed', $routine->checklistItems->pluck('name')->all());
     }
 
+    public function test_steps_store_period_or_exact_time_and_enforce_xor(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post(route('routines.store'), [
+            'title' => 'Scheduled steps',
+            'frequency' => 'daily',
+            'items' => [
+                ['name' => 'Hold', 'time_period' => 'morning', 'scheduled_time' => '07:30'],
+                ['name' => 'Breathe', 'scheduled_time' => '07:30'],
+                ['name' => 'Anytime'],
+                ['name' => 'Evening', 'time_period' => 'evening'],
+            ],
+        ])->assertRedirect();
+
+        $routine = Routine::where('title', 'Scheduled steps')->firstOrFail();
+        $items = $routine->checklistItems->keyBy('name');
+
+        /* period wins when both are sent */
+        $hold = $items->get('Hold');
+        $this->assertSame('morning', $hold->time_period);
+        $this->assertNull($hold->scheduled_time);
+
+        $breathe = $items->get('Breathe');
+        $this->assertNull($breathe->time_period);
+        $this->assertSame('07:30:00', substr((string) $breathe->scheduled_time, 0, 8));
+
+        $this->assertNull($items->get('Anytime')->time_period);
+        $this->assertNull($items->get('Anytime')->scheduled_time);
+
+        $this->assertSame('evening', $items->get('Evening')->time_period);
+        $this->assertSame('Evening', $items->get('Evening')->periodLabel());
+
+        /* an unknown period key is rejected outright */
+        $this->actingAs($user)->post(route('routines.store'), [
+            'title' => 'Bad period',
+            'frequency' => 'daily',
+            'items' => [['name' => 'X', 'time_period' => 'whenever']],
+        ])->assertSessionHasErrors('items.0.time_period');
+    }
+
+    public function test_day_page_sorts_steps_by_schedule(): void
+    {
+        $user = User::factory()->create();
+        $routine = Routine::factory()->create(['user_id' => $user->id, 'frequency' => 'daily', 'title' => 'Ordered']);
+        \App\Models\RoutineChecklistItem::create(['routine_id' => $routine->id, 'user_id' => $user->id, 'name' => 'Unscheduled', 'sort_order' => 0]);
+        \App\Models\RoutineChecklistItem::create(['routine_id' => $routine->id, 'user_id' => $user->id, 'name' => 'Night step', 'sort_order' => 1, 'time_period' => 'night']);
+        \App\Models\RoutineChecklistItem::create(['routine_id' => $routine->id, 'user_id' => $user->id, 'name' => 'Exact step', 'sort_order' => 2, 'scheduled_time' => '07:30']);
+        \App\Models\RoutineChecklistItem::create(['routine_id' => $routine->id, 'user_id' => $user->id, 'name' => 'Morning step', 'sort_order' => 3, 'time_period' => 'morning']);
+
+        $response = $this->actingAs($user)->get('/planner?date='.now()->toDateString());
+        $response->assertOk();
+
+        /* exact time first, then periods by order, unscheduled last */
+        $response->assertSeeInOrder(['Exact step', '7:30 AM', 'Morning step', 'Night step', 'Unscheduled']);
+    }
+
     public function test_completing_all_steps_completes_the_routine(): void
     {
         $user = User::factory()->create();

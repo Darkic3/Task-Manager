@@ -471,13 +471,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* ── Steps editor ── */
     let stepIdx = 0;
-    window.addStepRow = function (name = '', id = '', sets = 1, unit = '') {
+    window.addStepRow = function (name = '', id = '', sets = 1, unit = '', timePeriod = '', scheduledTime = '') {
         const i = stepIdx++;
         const wrap = document.createElement('div');
-        wrap.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;';
+        wrap.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;';
         wrap.innerHTML = `
             <input type="hidden" name="items[${i}][id]" value="${id}">
-            <input type="text" class="cu-input" name="items[${i}][name]" style="padding-left:10px;flex:1;min-width:0;" placeholder="e.g. Pull-up" maxlength="255">
+            <input type="text" class="cu-input" name="items[${i}][name]" style="padding-left:10px;flex:1;min-width:140px;" placeholder="e.g. Pull-up" maxlength="255">
+            <select class="cu-input" name="items[${i}][time_period]" style="width:125px;flex-shrink:0;" title="Time of day">
+                <option value="">Any time</option>
+                @foreach(config('routines.periods', []) as $key => $period)
+                <option value="{{ $key }}">{{ $period['label'] }}</option>
+                @endforeach
+            </select>
+            <input type="time" class="cu-input" name="items[${i}][scheduled_time]" style="width:112px;flex-shrink:0;" title="Exact time">
             <span style="display:flex;align-items:center;gap:3px;color:#8a8f98;font-size:12px;font-weight:700;flex-shrink:0;" title="How many sets are logged per day">×
                 <input type="number" class="cu-input" name="items[${i}][target_sets]" style="width:54px;text-align:center;padding-left:6px;padding-right:6px;" min="1" max="20" value="${sets}">
                 <span style="font-weight:600;">sets</span>
@@ -485,11 +492,17 @@ document.addEventListener('DOMContentLoaded', function () {
             <input type="text" class="cu-input" name="items[${i}][unit]" style="width:70px;flex-shrink:0;" placeholder="unit" title="Unit shown next to sets (e.g. kg, reps)" maxlength="20" value="${unit}">
             <button type="button" class="cu-chip-label" style="padding:4px 8px;color:#dc2626;border-color:#fecaca;flex-shrink:0;" title="Remove"><i class="bi bi-x-lg"></i></button>`;
         wrap.querySelector('input[type=text]').value = name;
+        const periodSelect = wrap.querySelector('select');
+        const timeInput = wrap.querySelector('input[type=time]');
+        periodSelect.value = timePeriod || '';
+        timeInput.value = scheduledTime || '';
+        periodSelect.addEventListener('change', () => { if (periodSelect.value) timeInput.value = ''; });
+        timeInput.addEventListener('input', () => { if (timeInput.value) periodSelect.value = ''; });
         wrap.querySelector('button').onclick = () => wrap.remove();
         document.getElementById('stepRows').appendChild(wrap);
     };
     @foreach(collect(old('items', [])) as $row)
-    addStepRow(@json($row['name'] ?? ''), @json($row['id'] ?? ''), @json($row['target_sets'] ?? 1), @json($row['unit'] ?? ''));
+    addStepRow(@json($row['name'] ?? ''), @json($row['id'] ?? ''), @json($row['target_sets'] ?? 1), @json($row['unit'] ?? ''), @json($row['time_period'] ?? ''), @json($row['scheduled_time'] ?? ''));
     @endforeach
 
     /* ── Tracking mode toggle ── */

@@ -107,6 +107,8 @@ class RoutineController extends Controller
                 'sort_order' => $i,
                 'target_sets' => $item->target_sets,
                 'unit' => $item->unit,
+                'time_period' => $item->time_period,
+                'scheduled_time' => $item->scheduled_time,
             ]);
         }
 
@@ -390,6 +392,8 @@ class RoutineController extends Controller
             'value_label' => 'nullable|string|max:100',
             'items.*.target_sets' => 'nullable|integer|min:1|max:20',
             'items.*.unit' => 'nullable|string|max:20',
+            'items.*.time_period' => 'nullable|in:'.implode(',', $periodKeys),
+            'items.*.scheduled_time' => 'nullable|date_format:H:i',
         ];
 
         if ($request->input('frequency') === 'weekly') {
@@ -482,23 +486,47 @@ class RoutineController extends Controller
                 ? mb_substr(trim((string) $row['unit']), 0, 20)
                 : null;
 
+            // A step is scheduled either by a time-of-day period or an exact
+            // time — never both (mirrors routines).
+            $timePeriod = isset($row['time_period'])
+                && in_array($row['time_period'], array_keys(config('routines.periods', [])), true)
+                ? $row['time_period']
+                : null;
+            $scheduledTime = isset($row['scheduled_time']) && trim((string) $row['scheduled_time']) !== ''
+                ? trim((string) $row['scheduled_time'])
+                : null;
+
+            if ($timePeriod) {
+                $scheduledTime = null;
+            } elseif ($scheduledTime) {
+                $timePeriod = null;
+                $scheduledTime = strlen($scheduledTime) === 5 ? $scheduledTime.':00' : $scheduledTime;
+            } else {
+                $scheduledTime = null;
+            }
+
+            $attributes = [
+                'name' => $name,
+                'sort_order' => $i,
+                'target_sets' => $targetSets,
+                'unit' => $unit,
+                'time_period' => $timePeriod,
+                'scheduled_time' => $scheduledTime,
+            ];
+
             if ($id) {
                 $item = $routine->checklistItems()->whereKey($id)->first();
                 if ($item) {
-                    $item->update(['name' => $name, 'sort_order' => $i, 'target_sets' => $targetSets, 'unit' => $unit]);
+                    $item->update($attributes);
                     $keep[] = $item->id;
 
                     continue;
                 }
             }
 
-            $item = $routine->checklistItems()->create([
+            $item = $routine->checklistItems()->create(array_merge($attributes, [
                 'user_id' => $routine->user_id,
-                'name' => $name,
-                'sort_order' => $i,
-                'target_sets' => $targetSets,
-                'unit' => $unit,
-            ]);
+            ]));
             $keep[] = $item->id;
         }
 

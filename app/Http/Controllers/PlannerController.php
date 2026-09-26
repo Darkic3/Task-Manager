@@ -638,7 +638,7 @@ class PlannerController extends Controller
 
             $dayKey = $date->toDateString();
             $steps = $routine->relationLoaded('checklistItems')
-                ? $routine->checklistItems
+                ? $routine->checklistItems->sortBy(fn ($s) => $s->sortKey())->values()
                 : collect();
 
             $routine->ringSteps = $steps->map(fn ($s) => [
@@ -647,6 +647,10 @@ class PlannerController extends Controller
                 'completed' => isset($stepMap[(int) $s->id][$dayKey]),
                 'target_sets' => (int) ($s->target_sets ?? 1),
                 'unit' => $s->unit,
+                'period_label' => $s->periodLabel(),
+                'period_icon' => $s->periodIcon(),
+                'period_color' => $s->periodColor(),
+                'time_label' => $s->scheduledTimeLabel(),
                 'sets' => $routine->relationLoaded('logs')
                     ? $routine->logs
                         ->filter(fn ($l) => (int) $l->checklist_item_id === (int) $s->id

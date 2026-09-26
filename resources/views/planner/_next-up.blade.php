@@ -61,7 +61,14 @@
                      data-step-url="{{ $nextTask ? route('planner.task-items.toggle', $nextStep['id']) : route('planner.check-items.toggle', $nextStep['id']) }}"
                      @if($nextRoutine && $nextRoutine->tracking_mode === 'sets') data-logsets="1" data-log-url="{{ route('planner.routines.log', $nextRoutine) }}" @endif>
                     <i class="bi bi-diagram-3"></i>
-                    <span class="pl-next-step-name">{{ $nextStep['name'] }}</span>
+                    <span class="pl-next-step-name">{{ $nextStep['name'] }}
+                        @if(!empty($nextStep['period_label']) || !empty($nextStep['time_label']))
+                            <span class="pl-step-schedule" style="color:{{ $nextStep['period_color'] ?: '#64748b' }};font-size:10.5px;">
+                                <i class="bi {{ $nextStep['period_icon'] ?: 'bi-clock' }}"></i>
+                                {{ $nextStep['period_label'] ?: $nextStep['time_label'] }}
+                            </span>
+                        @endif
+                    </span>
                     @if($nextRoutine && $nextRoutine->tracking_mode === 'sets')
                         @php
                             $target = max(1, (int) ($nextStep['target_sets'] ?? 1));
