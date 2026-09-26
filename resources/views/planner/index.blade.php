@@ -323,30 +323,6 @@
             @endif
         </div>
 
-        {{-- Buckets: this week / this month --}}
-        @if($bucketWeek->count() || $bucketMonth->count())
-            <div class="pl-section">
-                <div class="pl-section-head">
-                    <i class="bi bi-calendar3" style="color:#2563eb;"></i>
-                    <span class="pl-section-title">Upcoming</span>
-                </div>
-                <div class="pl-section-body">
-                    @if($bucketWeek->count())
-                        <div style="font-size:11px;font-weight:700;color:#8a8f98;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;">This week</div>
-                        @foreach($bucketWeek as $routine)
-                            @include('planner._routine-row', ['routine' => $routine, 'routineDate' => $date, 'count' => false, 'toggleable' => false])
-                        @endforeach
-                    @endif
-                    @if($bucketMonth->count())
-                        <div style="font-size:11px;font-weight:700;color:#8a8f98;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;">This month</div>
-                        @foreach($bucketMonth as $routine)
-                            @include('planner._routine-row', ['routine' => $routine, 'routineDate' => $date, 'count' => false, 'toggleable' => false])
-                        @endforeach
-                    @endif
-                </div>
-            </div>
-        @endif
-
         {{-- Routines for the selected day --}}
         <div class="pl-section">
             <div class="pl-section-head">
