@@ -208,7 +208,7 @@
         <div class="cu-info-panel">
             <div class="cu-info-panel-header"><span>New Reminder</span></div>
             <div class="cu-info-body">
-                <div class="cu-avatar"><i class="bi bi-bell-plus"></i></div>
+                <div class="cu-avatar"><i class="bi bi-bell-fill"></i></div>
                 <div class="cu-panel-name">New Reminder</div>
                 <div class="cu-panel-sub">Fill in the form to create</div>
 

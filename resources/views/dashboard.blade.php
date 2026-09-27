@@ -160,7 +160,7 @@
                         </a>
                         <a href="{{ route('reminders.create') }}" class="quick-action-item">
                             <div class="quick-action-icon warning">
-                                <i class="bi bi-bell-plus"></i>
+                                <i class="bi bi-bell-fill"></i>
                             </div>
                             <span>Set Reminder</span>
                         </a>
@@ -446,7 +446,7 @@
                             </div>
                         @empty
                             <div class="empty-state">
-                                <i class="bi bi-bell-plus"></i>
+                                <i class="bi bi-bell-fill"></i>
                                 <p>No upcoming reminders</p>
                                 <a href="{{ route('reminders.create') }}" class="btn btn-primary btn-sm">Create Reminder</a>
                             </div>

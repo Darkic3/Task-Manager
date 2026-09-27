@@ -40,7 +40,7 @@
             </div>
             {{ $exercises->links() }}
         @else
-            <div class="wk-empty"><i class="bi bi-barbell"></i><strong>No exercises yet</strong><p class="mb-3">Create your first movement and reuse it in your weekly plans.</p><a href="{{ route('workouts.exercises.create') }}" class="wk-btn primary">Add exercise</a></div>
+            <div class="wk-empty"><i class="bi bi-heart-pulse"></i><strong>No exercises yet</strong><p class="mb-3">Create your first movement and reuse it in your weekly plans.</p><a href="{{ route('workouts.exercises.create') }}" class="wk-btn primary">Add exercise</a></div>
         @endif
     </div>
 </div></div>

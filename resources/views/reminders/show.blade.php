@@ -298,7 +298,7 @@
                       onsubmit="return confirm('Duplicate this reminder?')">
                     @csrf
                     <button type="submit" class="cu-pact cu-pact-info">
-                        <i class="bi bi-copy"></i> Duplicate
+                        <i class="bi bi-files"></i> Duplicate
                     </button>
                 </form>
 
