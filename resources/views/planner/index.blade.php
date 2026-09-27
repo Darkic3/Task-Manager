@@ -905,6 +905,12 @@
                 refreshRoutineCounters();
                 maybeCelebrate();
             }
+            refreshNextUp();
+            /* Saving from the routine modal closes it automatically. */
+            if (box.closest('#plRoutineModal')) {
+                closeRoutineModal();
+                plShowToast('Saved ✓');
+            }
         } catch (e) {
             if (e.message !== 'GONE') console.error('[Planner] log value failed', e);
         } finally {
@@ -946,12 +952,29 @@
                 refreshRoutineCounters();
                 maybeCelebrate();
             }
+            refreshNextUp();
+            /* Saving from the routine modal closes it automatically. */
+            if (box.closest('#plRoutineModal')) {
+                closeRoutineModal();
+                plShowToast('Saved ✓');
+            }
         } catch (e) {
             if (e.message !== 'GONE') console.error('[Planner] log sets failed', e);
         } finally {
             btn.disabled = false;
         }
     }
+
+    /* Enter in a routine log input submits that row like clicking "ثبت". */
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        const inp = e.target instanceof Element ? e.target.closest('.pl-log input, .pl-logset input') : null;
+        if (!inp) return;
+        e.preventDefault();
+        const box = inp.closest('[data-log-value], [data-log-sets]');
+        const btn = box ? box.querySelector('button') : null;
+        if (btn) btn.click();
+    });
 
     /* ── Routine details accordion (collapsed by default) ── */
     function toggleRoutineDetails(btn) {

@@ -219,6 +219,22 @@ class RoutineTrackingTest extends TestCase
         $this->assertStringContainsString('pl-expand-modal', $html);
     }
 
+    public function test_modal_log_save_closes_modal_and_enter_submits(): void
+    {
+        $user = User::factory()->create();
+        $this->valueRoutine($user); // tracked → opens the modal with a log input
+
+        $html = $this->actingAs($user)->get(route('planner.index', ['view' => 'day']))
+            ->assertOk()
+            ->getContent();
+
+        /* Enter inside a log input must submit that row's save button */
+        $this->assertStringContainsString("'.pl-log input, .pl-logset input'", $html);
+        $this->assertStringContainsString("box.querySelector('button')", $html);
+        /* A save from inside the routine modal must auto-close it */
+        $this->assertStringContainsString("if (box.closest('#plRoutineModal')) {", $html);
+    }
+
     public function test_time_kind_routine_logs_clock_times_as_minutes(): void
     {
         $user = User::factory()->create();
