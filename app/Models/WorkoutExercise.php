@@ -34,6 +34,11 @@ class WorkoutExercise extends Model
 
     public function targetLabel(): string
     {
+        if ($this->is_circuit) {
+            $rounds = $this->circuit_rounds ?: ($this->target_sets ?: 1);
+
+            return "Circuit × {$rounds}";
+        }
         if ($this->is_amrap) {
             return ($this->target_sets ?: 1).' × AMRAP';
         }
@@ -47,5 +52,10 @@ class WorkoutExercise extends Model
         }
 
         return $this->target_sets ? "{$this->target_sets} sets" : 'Open target';
+    }
+
+    public function requiredSetCount(): int
+    {
+        return max(1, (int) ($this->is_circuit ? ($this->circuit_rounds ?: $this->target_sets) : $this->target_sets));
     }
 }

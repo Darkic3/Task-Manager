@@ -10,7 +10,7 @@
 
 @section('content')
 <div class="wp-shell"><div class="wp-wrap">
-    <div class="wp-head"><div class="wp-head-main"><h1>Workout Plans</h1><p>Build a complete week, reuse your exercise library, and keep every cycle separate.</p></div><a class="wp-btn" href="{{ route('workouts.exercises.index') }}"><i class="bi bi-barbell"></i><span>Exercise library</span></a><a class="wp-btn primary" href="{{ route('workouts.plans.create') }}"><i class="bi bi-plus-lg"></i><span>New plan</span></a></div>
+    <div class="wp-head"><div class="wp-head-main"><h1>Workout Plans</h1><p>Build a complete week, reuse your exercise library, and keep every cycle separate.</p></div><a class="wp-btn" href="{{ route('workouts.reports.index') }}"><i class="bi bi-bar-chart"></i><span>Reports</span></a><a class="wp-btn" href="{{ route('workouts.exercises.index') }}"><i class="bi bi-barbell"></i><span>Exercise library</span></a><a class="wp-btn primary" href="{{ route('workouts.plans.create') }}"><i class="bi bi-plus-lg"></i><span>New plan</span></a></div>
     @if(session('success'))<div class="alert alert-success py-2 small">{{ session('success') }}</div>@endif
     @if($plans->count())
         <div class="wp-list">

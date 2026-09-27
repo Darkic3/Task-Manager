@@ -34,7 +34,7 @@
                             @foreach(array_slice($exercise->equipment ?? [], 0, 2) as $equipment)<span class="wk-pill gray">{{ $equipment }}</span>@endforeach
                         </div>
                         <div class="wk-ex-note">{{ $exercise->instructions ?: 'No form notes yet.' }}</div>
-                        <div class="wk-ex-foot"><span><i class="bi bi-arrow-repeat"></i> {{ $exercise->workout_exercises_count }} plan uses</span><span class="wk-actions"><a class="wk-icon" href="{{ route('workouts.exercises.edit', $exercise) }}" title="Edit"><i class="bi bi-pencil"></i></a><form method="POST" action="{{ route('workouts.exercises.destroy', $exercise) }}" onsubmit="return confirm('Archive this exercise?')">@csrf @method('DELETE')<button class="wk-icon border-0 bg-transparent" title="Archive"><i class="bi bi-archive"></i></button></form></span></div>
+                        <div class="wk-ex-foot"><span><i class="bi bi-arrow-repeat"></i> {{ $exercise->workout_exercises_count }} plan uses</span><span class="wk-actions"><a class="wk-icon" href="{{ route('workouts.reports.exercise', $exercise) }}" title="History"><i class="bi bi-graph-up"></i></a><a class="wk-icon" href="{{ route('workouts.exercises.edit', $exercise) }}" title="Edit"><i class="bi bi-pencil"></i></a><form method="POST" action="{{ route('workouts.exercises.destroy', $exercise) }}" onsubmit="return confirm('Archive this exercise?')">@csrf @method('DELETE')<button class="wk-icon border-0 bg-transparent" title="Archive"><i class="bi bi-archive"></i></button></form></span></div>
                     </article>
                 @endforeach
             </div>

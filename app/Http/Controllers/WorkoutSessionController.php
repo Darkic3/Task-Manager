@@ -104,7 +104,7 @@ class WorkoutSessionController extends Controller
             ])->merge(['completed' => filter_var($data['completed'] ?? true, FILTER_VALIDATE_BOOLEAN)])->all()
         );
 
-        $targetSets = max(1, (int) ($exercise->target_sets ?? 1));
+        $targetSets = $exercise->requiredSetCount();
         $completedSets = $exerciseLog->setLogs()->where('completed', true)->count();
         $exerciseLog->update([
             'completed' => ! empty($data['skip_reason']) ? false : $completedSets >= $targetSets,

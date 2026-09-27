@@ -22,6 +22,7 @@ use App\Http\Controllers\TrackController;
 use App\Http\Controllers\ExerciseController;
 use App\Http\Controllers\WorkoutPlanController;
 use App\Http\Controllers\WorkoutSessionController;
+use App\Http\Controllers\WorkoutReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -68,6 +69,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('sessions/{workoutSession}', [WorkoutSessionController::class, 'show'])->name('sessions.show');
         Route::post('sessions/{workoutSession}/sets', [WorkoutSessionController::class, 'saveSet'])->name('sessions.sets.store');
         Route::patch('sessions/{workoutSession}/finish', [WorkoutSessionController::class, 'finish'])->name('sessions.finish');
+        Route::get('reports', [WorkoutReportController::class, 'index'])->name('reports.index');
+        Route::get('reports/exercises/{exercise}', [WorkoutReportController::class, 'exercise'])->name('reports.exercise');
     });
     Route::post('routines/{routine}/new-cycle', [RoutineController::class, 'newCycle'])->name('routines.new-cycle');
     Route::get('routines/{routine}/stats', [RoutineController::class, 'stats'])->name('routines.stats');

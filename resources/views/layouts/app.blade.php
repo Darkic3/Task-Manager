@@ -605,6 +605,13 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{ request()->is('workouts*') ? 'active' : '' }}"
+                            href="{{ route('workouts.plans.index') }}">
+                            <i class="bi bi-barbell"></i>
+                            <span>Workouts</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{ request()->is('track*') ? 'active' : '' }}"
                             href="{{ route('track.index') }}">
                             <i class="bi bi-graph-up"></i>

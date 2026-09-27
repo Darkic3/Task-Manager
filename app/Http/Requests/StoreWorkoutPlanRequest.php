@@ -45,6 +45,8 @@ class StoreWorkoutPlanRequest extends FormRequest
             'days.*.exercises.*.is_circuit' => ['nullable', 'boolean'],
             'days.*.exercises.*.circuit_rounds' => ['nullable', 'integer', 'min:1', 'max:30'],
             'days.*.exercises.*.circuit_rest_seconds' => ['nullable', 'integer', 'min:0', 'max:3600'],
+            'days.*.exercises.*.alternatives' => ['nullable', 'array', 'max:5'],
+            'days.*.exercises.*.alternatives.*' => ['integer', 'exists:exercises,id'],
             'days.*.exercises.*.notes' => ['nullable', 'string', 'max:2000'],
         ];
     }
