@@ -161,13 +161,13 @@
                     </div>
                     <div class="rh-actions">
                         <a href="{{ route('routines.stats', $routine->id) }}" class="rh-link-btn" title="Stats"><i class="bi bi-graph-up"></i></a>
+                        <a href="{{ route('routines.edit', $routine->id) }}" class="rh-link-btn" title="Edit"><i class="bi bi-pencil"></i></a>
                         <div class="dropdown rh-menu">
                             <button class="rh-kebab" data-bs-toggle="dropdown" aria-expanded="false" title="More">
                                 <i class="bi bi-three-dots"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><a class="dropdown-item" href="{{ route('routines.stats', $routine->id) }}"><i class="bi bi-graph-up me-2"></i>Stats</a></li>
-                                <li><a class="dropdown-item" href="{{ route('routines.edit', $routine->id) }}"><i class="bi bi-pencil me-2"></i>Edit</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
                                     <button class="dropdown-item text-danger" onclick="archiveRoutine{{ md5($routine->id) }}()">
