@@ -348,13 +348,15 @@ class PlannerController extends Controller
         );
 
         $routines = $this->fetchRoutines($user);
-        $this->preloadRoutineCompletions($user->id, $routines, $date->copy()->subYear()->startOfDay(), $date);
+        // Next Up only needs today's completion state. The full day view owns
+        // the one-year habit metrics; refreshing this small card must stay fast.
+        $this->preloadRoutineCompletions($user->id, $routines, $date, $date);
         $stepMap = $this->preloadStepCompletions($routines, $date, $date);
         $this->preloadRoutineLogs($user->id, $routines, $date, $date);
         $today = $routines
             ->filter(fn ($r) => $r->occursOn($date))
             ->values();
-        $this->decorateHabitMetricsBulk($today, $date, $stepMap);
+        $this->decorateNextUpRoutines($today, $date, $stepMap);
         $today = $today
             ->sortBy(fn ($r) => $r->activeStepSortKey ?? $r->sortKey())
             ->values();
@@ -365,6 +367,56 @@ class PlannerController extends Controller
             'ok' => true,
             'html' => view('planner._next-up', ['nextUp' => $nextUp, 'date' => $date])->render(),
         ]);
+    }
+
+    /**
+     * Decorate only the step/log state needed by the Next Up card.
+     * Habit rings and one-year streak metrics are intentionally excluded from
+     * this refresh path because they are not rendered by the card.
+     */
+    private function decorateNextUpRoutines($routines, Carbon $date, array $stepMap): void
+    {
+        $dayKey = $date->toDateString();
+
+        foreach ($routines as $routine) {
+            $steps = $routine->relationLoaded('checklistItems')
+                ? $routine->checklistItems->sortBy(fn ($s) => $s->sortKey())->values()
+                : collect();
+
+            $routine->ringSteps = $steps->map(fn ($s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'completed' => isset($stepMap[(int) $s->id][$dayKey]),
+                'target_sets' => (int) ($s->target_sets ?? 1),
+                'unit' => $s->unit,
+                'period_label' => $s->periodLabel(),
+                'period_icon' => $s->periodIcon(),
+                'period_color' => $s->periodColor(),
+                'time_label' => $s->scheduledTimeLabel(),
+                'sort_key' => $s->sortKey(),
+                'sets' => $routine->relationLoaded('logs')
+                    ? $routine->logs
+                        ->filter(fn ($l) => (int) $l->checklist_item_id === (int) $s->id
+                            && (($l->completed_date instanceof Carbon)
+                                ? $l->completed_date->toDateString()
+                                : substr((string) $l->completed_date, 0, 10)) === $dayKey)
+                        ->mapWithKeys(fn ($l) => [(int) $l->set_no => (float) $l->value])
+                        ->all()
+                    : [],
+            ])->values();
+
+            $hasSchedule = fn ($s) => ! empty($s['period_label']) || ! empty($s['time_label']);
+            $activeStep = $routine->ringSteps->first(fn ($s) => ! $s['completed'] && $hasSchedule($s));
+            $activeStep ??= $routine->ringSteps->last(fn ($s) => $hasSchedule($s));
+            $routine->activeStepSortKey = $activeStep['sort_key'] ?? null;
+            $routine->activeStepSchedule = $activeStep ? [
+                'period_label' => $activeStep['period_label'],
+                'period_icon' => $activeStep['period_icon'],
+                'period_color' => $activeStep['period_color'],
+                'time_label' => $activeStep['time_label'],
+            ] : null;
+            $routine->logValues = $routine->isTracked() ? $routine->loggedValues($date) : [];
+        }
     }
 
     /**
