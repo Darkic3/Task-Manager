@@ -360,7 +360,27 @@ class AiChatController extends Controller
                 throw new \Exception('Empty response from provider');
             }
 
-            return ['reply' => $raw['text']];
+            $out = ['reply' => $raw['text']];
+            // Custom proxies often drop tool_calls: if the user pasted a
+            // training plan, build the import preview from the raw text.
+            $userMessage = '';
+            foreach (array_reverse($messages) as $message) {
+                if (($message['role'] ?? null) === 'user' && trim((string) ($message['content'] ?? '')) !== '') {
+                    $userMessage = (string) $message['content'];
+                    break;
+                }
+            }
+            if ($userMessage !== '' && $this->isWorkoutIntent($userMessage)) {
+                $fallback = $this->buildWorkoutFallbackProposal($user, null, $userMessage, $raw['text']);
+                if (isset($fallback['import'])) {
+                    $out['proposals'] = [$fallback];
+                    $out['proposal'] = $fallback;
+                } elseif (isset($fallback['error'])) {
+                    $out['reply'] .= "\n\n⚠️ ".$fallback['error'];
+                }
+            }
+
+            return $out;
         }
 
         $first = $raw['tool_calls'][0];
@@ -402,6 +422,9 @@ class AiChatController extends Controller
         $tool = AiToolService::normalizeToolName($tool);
         if ($tool === 'plan_propose') {
             return $this->createPlanFromToolCall($user, $conversationId, $argsJson);
+        }
+        if ($tool === 'workout_plan_propose') {
+            return $this->createWorkoutImportFromToolCall($user, $conversationId, $argsJson);
         }
 
         $service = new AiToolService;
@@ -493,6 +516,185 @@ class AiChatController extends Controller
         $controller = app(AiPlanController::class);
 
         return ['plan' => $controller->serialize($plan)] + ['expires_at' => $plan->expires_at->toIso8601String()];
+    }
+
+    /**
+     * Validate a workout_plan_propose call and store it as a WorkoutImport
+     * preview (no WorkoutPlan is created yet). Returns a
+     * workout_import_proposal packet for the import review card.
+     */
+    private function createWorkoutImportFromToolCall($user, $conversationId, string $argsJson): array
+    {
+        $service = new AiToolService;
+        $args = is_string($argsJson) ? (json_decode($argsJson, true) ?? []) : (array) $argsJson;
+
+        $open = \App\Models\WorkoutImport::where('user_id', $user->id)
+            ->where('status', \App\Models\WorkoutImport::PREVIEW)
+            ->where('expires_at', '>', now())
+            ->count();
+        if ($open >= 3) {
+            return ['error' => 'Too many open workout imports. Confirm or discard one first.'];
+        }
+
+        $check = $service->validateCall('workout_plan_propose', $args, $user);
+        if (! ($check['ok'] ?? false)) {
+            return ['error' => $check['error'] ?? 'Invalid workout plan.'];
+        }
+
+        $structure = app(\App\Services\WorkoutImportService::class)
+            ->normalizeStructure($check['resolved']['structure'], $check['resolved']['structure']['start_date'] ?? null);
+
+        $import = \App\Models\WorkoutImport::create([
+            'user_id' => $user->id,
+            'source_text' => 'AI chat workout plan proposed on '.now()->toDateTimeString(),
+            'structure' => $structure,
+            'status' => \App\Models\WorkoutImport::PREVIEW,
+            'expires_at' => now()->addMinutes(30),
+        ]);
+
+        \Log::info('ai.workout.proposed', ['user_id' => $user->id, 'import_id' => $import->id]);
+
+        return [
+            'import' => [
+                'id' => $import->id,
+                'title' => $structure['title'] ?? 'Workout plan',
+                'week_number' => $structure['week_number'] ?? null,
+                'start_date' => $structure['start_date'] ?? null,
+                'preview' => $service->previewWorkoutPlan($check['resolved']),
+                'preview_url' => route('workouts.imports.show', $import),
+            ],
+            'expires_at' => $import->expires_at->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Server-side workout intent detection, independent of the model.
+     * Catches pasted training plans even when the provider never emits a
+     * tool_call (common with custom proxies like Nara/OpenRouter).
+     */
+    private function isWorkoutIntent(string $text): bool
+    {
+        $hits = 0;
+        foreach (['week', 'day 1', 'day1', 'pull', 'push', 'legs', 'rir', 'amrap', 'circuit', '×', 'warm-up', 'warmup', 'recovery', 'ست', 'تکرار', 'حرکت', 'برنامه'] as $needle) {
+            if (mb_stripos($text, $needle) !== false) {
+                $hits++;
+            }
+        }
+
+        return $hits >= 2 && mb_strlen($text) > 200;
+    }
+
+    private function startsTodayCue(string $text): bool
+    {
+        foreach (['starting today', 'start from today', 'starts today', 'شروع از امروز', 'شروعش از امروز', 'از امروز'] as $needle) {
+            if (mb_stripos($text, $needle) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function extractWorkoutJson(string $text): ?array
+    {
+        if (preg_match_all('/```(?:json)?\s*(\{.*?\})\s*```/s', $text, $matches)) {
+            foreach ($matches[1] as $candidate) {
+                $decoded = json_decode($candidate, true);
+                if (is_array($decoded) && isset($decoded['days']) && is_array($decoded['days'])) {
+                    return $decoded;
+                }
+            }
+        }
+        $start = strpos($text, '{');
+        $end = strrpos($text, '}');
+        if ($start !== false && $end !== false && $end > $start) {
+            $decoded = json_decode(substr($text, $start, $end - $start + 1), true);
+            if (is_array($decoded) && isset($decoded['days']) && is_array($decoded['days'])) {
+                return $decoded;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Fallback: build a WorkoutImport preview from the raw pasted plan when
+     * the model replied with text only (no tool_call). Idempotent per message
+     * hash so streaming retries never create duplicates.
+     * Returns a workout_import_proposal packet (import or error key).
+     */
+    private function buildWorkoutFallbackProposal($user, $conversationId, string $userMessage, string $assistantText): array
+    {
+        $hash = md5($userMessage);
+        $recent = \App\Models\WorkoutImport::where('user_id', $user->id)
+            ->where('status', \App\Models\WorkoutImport::PREVIEW)
+            ->where('expires_at', '>', now())
+            ->where('source_text', 'like', '%[msg:'.$hash.']%')
+            ->latest()
+            ->first();
+        if ($recent) {
+            $structure = $recent->structure;
+
+            return [
+                'import' => [
+                    'id' => $recent->id,
+                    'title' => $structure['title'] ?? 'Workout plan',
+                    'week_number' => $structure['week_number'] ?? null,
+                    'start_date' => $structure['start_date'] ?? null,
+                    'preview' => (new AiToolService)->previewWorkoutPlan(['structure' => $structure]),
+                    'preview_url' => route('workouts.imports.show', $recent),
+                ],
+                'expires_at' => $recent->expires_at->toIso8601String(),
+            ];
+        }
+
+        $imports = app(\App\Services\WorkoutImportService::class);
+        $anchor = $this->startsTodayCue($userMessage) ? now()->toDateString() : null;
+
+        $structure = null;
+        $extracted = $this->extractWorkoutJson($assistantText);
+        if ($extracted) {
+            try {
+                $structure = $imports->normalizeStructure($extracted, $anchor);
+            } catch (\Throwable $e) {
+                $structure = null;
+            }
+        }
+        if (! $structure) {
+            try {
+                $structure = $imports->parseWithAi($user, mb_substr($userMessage, 0, 30000), $anchor);
+            } catch (\Throwable $e) {
+                \Log::warning('ai.workout.fallback_failed', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+
+                return ['error' => 'نتونستم ساختار برنامه را استخراج کنم. از مسیر Workouts → Import with AI متن را بده تا همان‌جا parse شود.'];
+            }
+        }
+        if ($anchor && empty($structure['start_date'])) {
+            $structure['start_date'] = $anchor;
+            $structure = $imports->normalizeStructure($structure, $anchor);
+        }
+
+        $import = \App\Models\WorkoutImport::create([
+            'user_id' => $user->id,
+            'source_text' => 'AI chat workout plan [msg:'.$hash.'] proposed on '.now()->toDateTimeString()."\n\n".mb_substr($userMessage, 0, 8000),
+            'structure' => $structure,
+            'status' => \App\Models\WorkoutImport::PREVIEW,
+            'expires_at' => now()->addMinutes(30),
+        ]);
+
+        \Log::info('ai.workout.fallback_proposed', ['user_id' => $user->id, 'import_id' => $import->id]);
+
+        return [
+            'import' => [
+                'id' => $import->id,
+                'title' => $structure['title'] ?? 'Workout plan',
+                'week_number' => $structure['week_number'] ?? null,
+                'start_date' => $structure['start_date'] ?? null,
+                'preview' => (new AiToolService)->previewWorkoutPlan(['structure' => $structure]),
+                'preview_url' => route('workouts.imports.show', $import),
+            ],
+            'expires_at' => $import->expires_at->toIso8601String(),
+        ];
     }
 
     private function callGeminiSync(string $key, string $baseUrl, array $messages, string $model): string
@@ -613,7 +815,7 @@ class AiChatController extends Controller
                 $fallbackTools = [];
             }
 
-            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode) {
+            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages) {
                 echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
                 $sseFlush();
                 foreach (str_split($fullText, 5) as $chunk) {
@@ -638,6 +840,7 @@ class AiChatController extends Controller
                         ];
                     }
                     $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
+                    $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
                     $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
                 }
                 echo "data: [DONE]\n\n";
@@ -679,6 +882,7 @@ class AiChatController extends Controller
                             }
                             if ($agentMode) {
                                 $controller->emitToolProposals($toolAccum, $userId, $conversationId, $sseFlush);
+                                $controller->emitWorkoutFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
                                 $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush);
                             }
                             echo "data: [DONE]\n\n";
@@ -716,20 +920,21 @@ class AiChatController extends Controller
                                         AiConversation::where('id', $conversationId)->touch();
                                     } catch (\Exception $e) {
                                     }
-                                    if ($agentMode) {
-                                        $accum = [];
-                                        foreach (array_values($fallbackTools) as $i => $tc) {
-                                            $accum[$i] = [
-                                                'id' => $tc['id'] ?? null,
-                                                'name' => $tc['function']['name'] ?? null,
-                                                'arguments' => is_string($tc['function']['arguments'] ?? null)
-                                                    ? $tc['function']['arguments']
-                                                    : json_encode($tc['function']['arguments'] ?? []),
-                                            ];
+                                        if ($agentMode) {
+                                            $accum = [];
+                                            foreach (array_values($fallbackTools) as $i => $tc) {
+                                                $accum[$i] = [
+                                                    'id' => $tc['id'] ?? null,
+                                                    'name' => $tc['function']['name'] ?? null,
+                                                    'arguments' => is_string($tc['function']['arguments'] ?? null)
+                                                        ? $tc['function']['arguments']
+                                                        : json_encode($tc['function']['arguments'] ?? []),
+                                                ];
+                                            }
+                                            $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
+                                            $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fallbackText, $sseFlush);
+                                            $controller->emitToolMissedNotice($fallbackText, $accum, $sseFlush);
                                         }
-                                        $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
-                                        $controller->emitToolMissedNotice($fallbackText, $accum, $sseFlush);
-                                    }
                                     echo "data: [DONE]\n\n";
                                     $sseFlush();
 
@@ -780,11 +985,41 @@ class AiChatController extends Controller
             }
             $controller->emitToolProposals($agentMode ? $toolAccum : [], $userId, $conversationId, $sseFlush);
             if ($agentMode) {
+                $controller->emitWorkoutFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
                 $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush);
             }
             echo "data: [DONE]\n\n";
             $sseFlush();
         }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
+    }
+
+    /**
+     * Streaming fallback: when the provider returned text only (no tool_call)
+     * but the user pasted a training plan, build the import preview from the
+     * raw text and emit it as a workout_import_proposal packet.
+     */
+    public function emitWorkoutFallbackIfNeeded(array $toolAccum, int $userId, int $conversationId, array $messages, string $assistantText, callable $sseFlush): void
+    {
+        if (! empty($toolAccum)) {
+            return;
+        }
+        $userMessage = '';
+        foreach (array_reverse($messages) as $message) {
+            if (($message['role'] ?? null) === 'user' && trim((string) ($message['content'] ?? '')) !== '') {
+                $userMessage = (string) $message['content'];
+                break;
+            }
+        }
+        if ($userMessage === '' || ! $this->isWorkoutIntent($userMessage)) {
+            return;
+        }
+        $user = User::find($userId);
+        if (! $user) {
+            return;
+        }
+        $packet = $this->buildWorkoutFallbackProposal($user, $conversationId, $userMessage, $assistantText);
+        echo 'data: '.json_encode(['type' => 'workout_import_proposal'] + $packet)."\n\n";
+        $sseFlush();
     }
 
     /**
@@ -805,9 +1040,10 @@ class AiChatController extends Controller
                 continue;
             }
             $proposal = $this->createPendingFromToolCall($user, $conversationId, $name, $tc['arguments'] ?? '{}');
-            $packetType = AiToolService::normalizeToolName($name) === 'plan_propose'
+            $normalizedName = AiToolService::normalizeToolName($name);
+            $packetType = $normalizedName === 'plan_propose'
                 ? 'plan_proposal'
-                : 'tool_proposal';
+                : ($normalizedName === 'workout_plan_propose' ? 'workout_import_proposal' : 'tool_proposal');
             echo 'data: '.json_encode(['type' => $packetType] + $proposal)."\n\n";
             $sseFlush();
         }
@@ -842,17 +1078,21 @@ class AiChatController extends Controller
             ? <<<'AGENT'
             MODE: AGENT — you can act on the workspace via tools.
             - SINGLE items: task_create/update/complete/delete, reminder_*, note_*, project_create, checklist_*, routine_create/complete/delete/log. Destructive deletes need no extra warning text because the app shows a confirmation card.
-            - BUILDS (a program, a project with parts, anything with more than 2 items): call plan_propose ONCE with the FULL tree — never many single calls for one program. Two shapes, never mixed: {project + subprojects + tasks + subtasks} for project work, {routines[]} for repeating programs (workouts, habits). The user confirms the structure first, then each phase separately.
-            - Repeating habits can use plan_propose.routines. Structured multi-day workout plans belong to the dedicated Workout AI Import flow, not routines or tasks; direct the user to Workouts → Import with AI when they paste a full training plan.
+            - WORKOUT PLANS (any pasted training plan with DAYs, sets×reps, RIR, circuits, warm-ups): call workout_plan_propose ONCE with the FULL 7-day structure — never plan_propose, never project_create, never routine_create, never many single calls. Preserve every movement and detail; do not summarize exercises into one task.
+            - DAY MAPPING: days[] must arrive in execution order (index 0 = DAY 1). When the user says "starting today / شروع از امروز", set start_date to today's date (given above) so DAY 1 maps to today — even if today is Sunday. Never force DAY 1 back to Saturday in that case.
+            - WEEK NUMBER: if the pasted text says one week (e.g. WEEK 13) but the user explicitly says another (e.g. week 14), ASK in text which week number to use before calling the tool. If the user already confirmed, use the confirmed number.
+            - PARSING: "4×6–8" → target_sets 4, rep_min 6, rep_max 8. "30–45s / 2min / 3min" → duration_seconds. "7kg / 2kg / 9kg" → target_weight. "RIR 1–2" → target_rir. "3s پایین رفتن" → tempo/notes. "/ پا / سمت" → side_mode per_side. "1×MAX" → is_amrap true. "Circuit ×3 + استراحت بین دورها 2min" → is_circuit true + circuit_rounds + circuit_rest_seconds. "❌ movement" → rules (excluded), not exercises. "جایگزین: X" → notes. Safety/STOP warnings → notes + rules. Keep Persian and English names exactly as written.
+            - BUILDS (non-workout programs): call plan_propose ONCE with the FULL tree — never many single calls. Two shapes, never mixed: {project + subprojects + tasks + subtasks} for project work, {routines[]} for simple repeating habits. The user confirms the structure first, then each phase separately.
             - routine_create with frequency weekly REQUIRES days (lowercase, e.g. ["thursday"]); never omit it. Different workouts on different days = separate calls, one weekday each. Compute the weekday from today's date.
             - TRACKING: routines support tracking_mode none|value|sets. If the user wants numbers logged (weight, wake time, reps) but the unit kind is unknown, ASK in text first (e.g. "in what unit?"), then call with the right value_kind/value_unit. Steps of sets-mode routines carry target_sets; exercises go to subtasks/steps, one per item.
-            - Keep every single title SHORT: task/subtask/routine titles under 120 chars, descriptions under 500 chars. Never paste a whole program, list or long text into one argument — it gets cut off and garbled.
-            - Compute due_dates yourself from today's date (given above). Max per plan: 3 sub-projects, 30 tasks, 100 subtasks, 7 routines.
+            - Keep every single title SHORT: task/subtask/routine titles under 120 chars, descriptions under 500 chars. For workouts, keep every exercise as its own item — never paste a whole program into one argument.
+            - Compute due_dates/start_date yourself from today's date (given above). Max per plan: 3 sub-projects, 30 tasks, 100 subtasks, 7 routines. Max per workout: 7 days, 40 exercises per day.
             - Use exact snake_case argument names from the schema (project_id, due_date, task_id). Omit project_id when unsure — the server picks the user's first project.
             AGENT
             : <<<'CHAT'
             MODE: CHAT — read-only discussion. You cannot create, edit or delete anything; there are no tools in this mode.
-            - Talk about the user's projects, tasks, notes, reminders and routines, explain, summarize and advise.
+            - Talk about the user's projects, tasks, notes, reminders, routines, workouts, explain, summarize and advise.
+            - For workout plans: explain the structure, differences, and what you would build, but do not create anything here. Ask them to switch to Agent mode (🛠 اجرا) or use Workouts → Import with AI so it can be built with confirmation.
             - If the user asks you to create or change something, explain briefly what you would do and ask them to switch to Agent mode (🛠 اجرا) so you can do it with their confirmation.
             CHAT;
         $systemPrompt = <<<PROMPT

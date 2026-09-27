@@ -24,17 +24,22 @@ class WorkoutImportService
         private readonly WorkoutPlanService $plans,
     ) {}
 
-    public function parseWithAi($user, string $source): array
+    public function parseWithAi($user, string $source, ?string $anchorStartDate = null): array
     {
         $resolved = $this->providers->resolve($user);
         if (! $resolved) {
             throw new RuntimeException('Configure an AI provider before importing a workout.');
         }
+        $anchor = $this->safeDate($anchorStartDate);
+        if ($anchor) {
+            $weekday = strtolower(Carbon::parse($anchor)->format('l'));
+            $source .= "\n\nANCHOR: DAY 1 of this plan maps to {$anchor} ({$weekday}). Return days[] in execution order with index 0 = DAY 1. Keep every movement and detail.";
+        }
 
         $system = <<<'PROMPT'
 You convert workout plans into strict JSON. Return JSON only, never markdown.
 Use exactly this shape: {"title":"","week_number":null,"goal":"","description":"","start_date":null,"rules":[],"days":[{"weekday":"saturday","title":"","type":"training|rest|recovery","notes":"","exercises":[{"name":"","section":"warmup|main|accessory|cooldown","target_sets":null,"rep_min":null,"rep_max":null,"duration_seconds":null,"target_weight":null,"target_rir":null,"rest_seconds":null,"tempo":"","side_mode":"bilateral|per_side|alternating","is_amrap":false,"is_circuit":false,"circuit_rounds":null,"circuit_rest_seconds":null,"notes":"","alternatives":[]}] }]}
-Always return all seven weekdays in this order: saturday, sunday, monday, tuesday, wednesday, thursday, friday. Convert circuit rounds, AMRAP, seconds/minutes and per-side notation into fields. Put safety warnings in notes or rules. Excluded movements may be added to rules, not exercises. Never invent exercise performance logs.
+Always return all seven weekdays in this order: saturday, sunday, monday, tuesday, wednesday, thursday, friday, unless a start_date anchor is given — then days[] must arrive in execution order with index 0 = DAY 1 mapped to the anchor date (even if it is a Sunday). Preserve every movement as its own exercise; never merge a day into one item. "4×6–8" means target_sets 4, rep_min 6, rep_max 8. "30–45s", "2min", "3min", "40–60s" mean duration_seconds. "7kg", "2kg", "9kg" mean target_weight. Main RIR goes to target_rir. Persian tempo cues like "3s پایین رفتن" go to tempo/notes. "/ پا" and "/ سمت" mean side_mode per_side. "1×MAX" means is_amrap true. "Circuit ×3" with rest between rounds means is_circuit true plus circuit_rounds and circuit_rest_seconds. "❌ movement" means an excluded rule, not an exercise. "جایگزین: X" goes to notes. Chest-pain STOP warnings go to notes and rules. Keep Persian and English exercise names exactly as written. Never invent exercise performance logs.
 PROMPT;
         $messages = [
             ['role' => 'system', 'content' => $system],
@@ -42,30 +47,38 @@ PROMPT;
         ];
         $content = $this->requestModel($resolved, $messages);
 
-        return $this->normalizeStructure($this->decodeJson($content));
+        return $this->normalizeStructure($this->decodeJson($content), $anchor);
     }
 
-    public function normalizeStructure(array $input): array
+    public function normalizeStructure(array $input, ?string $anchorStartDate = null): array
     {
-        $daysByWeekday = collect((array) ($input['days'] ?? []))->keyBy(fn ($day) => strtolower((string) ($day['weekday'] ?? '')));
-        $days = [];
-        foreach (WorkoutPlan::WEEKDAYS as $weekday) {
-            $day = (array) $daysByWeekday->get($weekday, []);
-            $candidateType = $day['type'] ?? 'rest';
-            $type = in_array($candidateType, ['training', 'rest', 'recovery'], true) ? $candidateType : 'rest';
-            $exercises = array_slice((array) ($day['exercises'] ?? []), 0, self::MAX_EXERCISES_PER_DAY);
-            $days[] = [
-                'weekday' => $weekday,
-                'title' => Str::limit(trim((string) ($day['title'] ?? ucfirst($type))), 120, ''),
-                'type' => $type,
-                'notes' => Str::limit(trim((string) ($day['notes'] ?? '')), 2000, ''),
-                'exercises' => array_values(array_map(fn ($exercise) => $this->normalizeExercise((array) $exercise), $exercises)),
-            ];
+        $anchor = $this->safeDate($anchorStartDate ?? ($input['start_date'] ?? null));
+        $orderedDays = array_values((array) ($input['days'] ?? []));
+
+        // Sequential mode: days arrive as DAY 1..DAY 7 in execution order
+        // (chat tool). Map index 0 to the anchor date's weekday so
+        // "starting today (Sunday)" keeps DAY 1 on Sunday.
+        $hasSequentialCue = $anchor && $this->isSequentialPayload($orderedDays);
+        if ($hasSequentialCue) {
+            $days = $this->mapSequentialDays($orderedDays, $anchor);
+        } else {
+            $daysByWeekday = collect($orderedDays)->keyBy(function ($day): string {
+                $day = (array) $day;
+
+                return strtolower((string) ($day['weekday'] ?? ''));
+            });
+            $days = [];
+            foreach (WorkoutPlan::WEEKDAYS as $weekday) {
+                $day = (array) $daysByWeekday->get($weekday, []);
+                $days[] = $this->normalizeDay($day, $weekday);
+            }
         }
+
+        $weekNumber = $this->latinDigits($input['week_number'] ?? null);
 
         return [
             'title' => Str::limit(trim((string) ($input['title'] ?? 'Imported Workout Plan')), 160, ''),
-            'week_number' => isset($input['week_number']) && is_numeric($input['week_number']) ? max(1, min(999, (int) $input['week_number'])) : null,
+            'week_number' => isset($input['week_number']) && is_numeric($weekNumber) ? max(1, min(999, (int) $weekNumber)) : null,
             'goal' => Str::limit(trim((string) ($input['goal'] ?? '')), 255, ''),
             'description' => Str::limit(trim((string) ($input['description'] ?? '')), 5000, ''),
             'start_date' => $this->safeDate($input['start_date'] ?? null),
@@ -78,7 +91,7 @@ PROMPT;
     {
         $exercises = Exercise::forUser($userId)->get();
 
-        return collect($import->structure['days'] ?? [])->map(function (array $day) use ($exercises): array {
+        $days = collect($import->structure['days'] ?? [])->map(function (array $day) use ($exercises): array {
             $day['exercises'] = collect($day['exercises'] ?? [])->map(function (array $exercise) use ($exercises): array {
                 $match = $this->matchExercise($exercise['name'], $exercises);
                 $exercise['matched_exercise_id'] = $match?->id;
@@ -89,7 +102,22 @@ PROMPT;
             })->all();
 
             return $day;
-        })->all();
+        });
+
+        // Show the week in execution order (DAY 1 first) when the import has
+        // a start date, so a week starting Sunday does not open on Saturday.
+        $startDate = $this->safeDate($import->structure['start_date'] ?? null);
+        if ($startDate) {
+            try {
+                $order = array_flip(WorkoutPlan::WEEKDAYS);
+                $startIdx = $order[strtolower(Carbon::parse($startDate)->format('l'))] ?? 0;
+                $days = $days->sortBy(fn ($day) => (($order[$day['weekday']] ?? 0) - $startIdx + 7) % 7)->values();
+            } catch (\Throwable) {
+                // Keep stored order when the date cannot be parsed.
+            }
+        }
+
+        return $days->all();
     }
 
     public function confirm(WorkoutImport $import, int $userId): WorkoutPlan
@@ -135,10 +163,12 @@ PROMPT;
     private function normalizeExercise(array $exercise): array
     {
         $boolean = fn ($value) => filter_var($value ?? false, FILTER_VALIDATE_BOOLEAN);
+        $section = $exercise['section'] ?? 'main';
+        $sideMode = $exercise['side_mode'] ?? null;
 
         return [
             'name' => Str::limit(trim((string) ($exercise['name'] ?? 'Unknown movement')), 120, ''),
-            'section' => in_array(($exercise['section'] ?? 'main'), ['warmup', 'main', 'accessory', 'cooldown'], true) ? $exercise['section'] : 'main',
+            'section' => in_array($section, ['warmup', 'main', 'accessory', 'cooldown'], true) ? $section : 'main',
             'target_sets' => $this->intOrNull($exercise['target_sets'] ?? null, 1, 99),
             'rep_min' => $this->intOrNull($exercise['rep_min'] ?? null, 1, 999),
             'rep_max' => $this->intOrNull($exercise['rep_max'] ?? null, 1, 999),
@@ -147,7 +177,7 @@ PROMPT;
             'target_rir' => $this->numberOrNull($exercise['target_rir'] ?? null),
             'rest_seconds' => $this->intOrNull($exercise['rest_seconds'] ?? null, 0, 3600),
             'tempo' => Str::limit(trim((string) ($exercise['tempo'] ?? '')), 40, ''),
-            'side_mode' => in_array(($exercise['side_mode'] ?? ''), ['bilateral', 'per_side', 'alternating'], true) ? $exercise['side_mode'] : null,
+            'side_mode' => in_array($sideMode, ['bilateral', 'per_side', 'alternating'], true) ? $sideMode : null,
             'is_amrap' => $boolean($exercise['is_amrap'] ?? false),
             'is_circuit' => $boolean($exercise['is_circuit'] ?? false),
             'circuit_rounds' => $this->intOrNull($exercise['circuit_rounds'] ?? null, 1, 30),
@@ -214,13 +244,92 @@ PROMPT;
         return $decoded;
     }
 
+    private function normalizeDay(array $day, string $weekday): array
+    {
+        $candidateType = $day['type'] ?? 'rest';
+        $type = in_array($candidateType, ['training', 'rest', 'recovery'], true) ? $candidateType : 'rest';
+        $exercises = array_slice((array) ($day['exercises'] ?? []), 0, self::MAX_EXERCISES_PER_DAY);
+
+        return [
+            'weekday' => $weekday,
+            'title' => Str::limit(trim((string) ($day['title'] ?? ucfirst($type))), 120, ''),
+            'type' => $type,
+            'notes' => Str::limit(trim((string) ($day['notes'] ?? '')), 2000, ''),
+            'exercises' => array_values(array_map(fn ($exercise) => $this->normalizeExercise((array) $exercise), $exercises)),
+        ];
+    }
+
+    private function isSequentialPayload(array $days): bool
+    {
+        if (count($days) !== 7) {
+            return false;
+        }
+
+        foreach ($days as $day) {
+            $day = (array) $day;
+            if (isset($day['day_order']) || isset($day['day_index']) || isset($day['order'])) {
+                return true;
+            }
+        }
+
+        $weekdays = collect($days)
+            ->map(function ($day): string {
+                $day = (array) $day;
+
+                return strtolower((string) ($day['weekday'] ?? ''));
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        // Already in canonical Saturday-first order: keep weekday mapping.
+        if ($weekdays === WorkoutPlan::WEEKDAYS) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function mapSequentialDays(array $days, string $anchor): array
+    {
+        $cursor = Carbon::parse($anchor)->startOfDay();
+        $mapped = [];
+
+        foreach (array_slice($days, 0, self::MAX_DAYS) as $day) {
+            $day = (array) $day;
+            $weekday = strtolower($cursor->format('l'));
+            $mapped[] = $this->normalizeDay($day, $weekday);
+            $cursor->addDay();
+        }
+
+        // Keep execution order (DAY 1 first) so storage, preview and the
+        // builder all show the week the way the user will train it.
+        return $mapped;
+    }
+
+    private function latinDigits($value)
+    {
+        if (! is_string($value)) {
+            return $value;
+        }
+        $persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        $arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        $latin = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+        return str_replace(array_merge($persian, $arabic), $latin, $value);
+    }
+
     private function intOrNull($value, int $min, int $max): ?int
     {
+        $value = $this->latinDigits($value);
+
         return is_numeric($value) ? max($min, min($max, (int) $value)) : null;
     }
 
     private function numberOrNull($value): ?float
     {
+        $value = $this->latinDigits($value);
+
         return is_numeric($value) ? max(0, min(10000, (float) $value)) : null;
     }
 

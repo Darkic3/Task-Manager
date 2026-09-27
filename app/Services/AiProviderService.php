@@ -388,10 +388,13 @@ class AiProviderService
 
     public function openAiPayload(array $messages, string $model, bool $stream = false, ?string $baseUrl = null, ?array $tools = null): array
     {
+        $hasWorkoutTool = ! empty($tools) && collect($tools)->contains(fn ($tool) => ($tool['function']['name'] ?? null) === 'workout_plan_propose');
         $payload = [
             'messages'    => $messages,
             // Tool calls carry their arguments in the output, so they need headroom.
-            'max_tokens'  => ! empty($tools) ? 4096 : 2048,
+            // A full 7-day workout plan is ~8-12k tokens of arguments — the old
+            // 4096 cap truncated it, so the model replied with text only.
+            'max_tokens'  => $hasWorkoutTool ? 16000 : (! empty($tools) ? 4096 : 2048),
             'temperature' => 0.7,
         ];
         if ($stream) $payload['stream'] = true;

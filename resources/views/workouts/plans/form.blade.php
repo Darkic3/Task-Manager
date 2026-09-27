@@ -10,7 +10,7 @@
 
 @php
     $defaultDays = collect($weekdays)->map(fn ($weekday, $index) => ['weekday' => $weekday, 'title' => 'Rest', 'type' => 'rest', 'notes' => '', 'exercises' => []])->all();
-    $storedDays = $plan ? $plan->days->map(fn ($day) => ['weekday' => $day->weekday, 'title' => $day->title, 'type' => $day->type, 'notes' => $day->notes, 'exercises' => $day->exercises->map(fn ($item) => $item->only(['exercise_id','section','target_sets','rep_min','rep_max','duration_seconds','target_weight','target_rir','rest_seconds','tempo','side_mode','is_amrap','is_circuit','circuit_rounds','circuit_rest_seconds','alternatives','notes']))->values()->all()])->values()->all() : $defaultDays;
+    $storedDays = $plan ? $plan->orderedDays()->map(fn ($day) => ['weekday' => $day->weekday, 'title' => $day->title, 'type' => $day->type, 'notes' => $day->notes, 'exercises' => $day->exercises->map(fn ($item) => $item->only(['exercise_id','section','target_sets','rep_min','rep_max','duration_seconds','target_weight','target_rir','rest_seconds','tempo','side_mode','is_amrap','is_circuit','circuit_rounds','circuit_rest_seconds','alternatives','notes']))->values()->all()])->values()->all() : $defaultDays;
     $initialDays = old('days', $storedDays);
     $initialRules = old('rules', $plan?->rules->pluck('rule_text')->all() ?? []);
     $exerciseOptions = $exercises->map(fn ($exercise) => ['id' => $exercise->id, 'name' => $exercise->name, 'category' => $exercise->category])->values()->all();

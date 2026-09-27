@@ -856,6 +856,11 @@ footer { display: none !important; }
                             else console.warn('[Lina] plan ignored in chat mode');
                         } else if (json.type === 'plan_proposal' && json.error) {
                             appendError(json.error);
+                        } else if (json.type === 'workout_import_proposal' && json.import) {
+                            if (chatMode === 'agent') renderWorkoutImportCard(json.import);
+                            else console.warn('[Lina] workout import ignored in chat mode');
+                        } else if (json.type === 'workout_import_proposal' && json.error) {
+                            appendError(json.error);
                         } else if (json.conversation_id !== undefined && json.choices === undefined) {
                             // Our metadata packet: { model, conversation_id }
                             if (json.model) {
@@ -1020,6 +1025,45 @@ footer { display: none !important; }
             exp.textContent = 'Expires ' + formatTime(p.expires_at);
             card.appendChild(exp);
         }
+        wrap.appendChild(card);
+        msgsEl.appendChild(wrap);
+        scrollBottom();
+    }
+
+    /* ── Workout import proposal card ── */
+    function renderWorkoutImportCard(imp) {
+        const wrap = document.createElement('div');
+        wrap.className = 'lina-msg-wrap bot';
+        const card = document.createElement('div');
+        card.className = 'lina-tool-card';
+        const title = document.createElement('h4');
+        title.textContent = '🏋️ ' + (imp.title || 'Workout plan');
+        card.appendChild(title);
+        const rows = (imp.preview && imp.preview.rows) || [];
+        if (rows.length) {
+            const tbl = document.createElement('table');
+            rows.forEach(r => {
+                const tr = document.createElement('tr');
+                const tdK = document.createElement('td'); tdK.textContent = r.k;
+                const tdV = document.createElement('td'); tdV.textContent = r.v;
+                tr.appendChild(tdK); tr.appendChild(tdV); tbl.appendChild(tr);
+            });
+            card.appendChild(tbl);
+        }
+        const hint = document.createElement('div');
+        hint.className = 'lina-tool-impact';
+        hint.textContent = 'Review every movement and detail before creating the workout plan. Nothing is saved yet.';
+        card.appendChild(hint);
+        const actions = document.createElement('div');
+        actions.className = 'lina-tool-actions';
+        const openBtn = document.createElement('a');
+        openBtn.className = 'lina-tool-confirm';
+        openBtn.textContent = 'Review workout import';
+        openBtn.href = imp.preview_url || '#';
+        openBtn.target = '_blank';
+        openBtn.rel = 'noopener';
+        actions.appendChild(openBtn);
+        card.appendChild(actions);
         wrap.appendChild(card);
         msgsEl.appendChild(wrap);
         scrollBottom();

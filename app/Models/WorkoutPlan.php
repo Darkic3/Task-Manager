@@ -37,6 +37,27 @@ class WorkoutPlan extends Model
         return $this->hasMany(WorkoutDay::class)->orderBy('sort_order');
     }
 
+    /**
+     * Days in execution order: when the plan has a start_date, DAY 1 is the
+     * start date's weekday (e.g. Sunday), so a week starting Sunday shows
+     * Sunday first instead of Saturday (day 7). Without a start_date the
+     * stored Saturday-first order is kept.
+     */
+    public function orderedDays()
+    {
+        $days = $this->days;
+        if (! $this->start_date) {
+            return $days->values();
+        }
+
+        $order = array_flip(self::WEEKDAYS);
+        $startIdx = $order[strtolower($this->start_date->format('l'))] ?? 0;
+
+        return $days
+            ->sortBy(fn ($day) => (($order[$day->weekday] ?? 0) - $startIdx + 7) % 7)
+            ->values();
+    }
+
     public function rules(): HasMany
     {
         return $this->hasMany(WorkoutRule::class)->orderBy('sort_order');

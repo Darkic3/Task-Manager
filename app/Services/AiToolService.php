@@ -22,7 +22,7 @@ class AiToolService
         'project_create',
         'checklist_add', 'checklist_toggle',
         'routine_create', 'routine_complete', 'routine_delete', 'routine_log',
-        'plan_propose',
+        'plan_propose', 'workout_plan_propose',
     ];
 
     public const ROUTINE_VALUE_KINDS = ['number', 'weight', 'time', 'reps', 'percent'];
@@ -146,11 +146,59 @@ class AiToolService
             $this->fn('routine_delete', 'Delete a routine by ID (shows recorded-history impact before confirm)', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
+            $this->fn('workout_plan_propose', 'Build a structured multi-day WORKOUT plan (7 days with exercises, sets, reps, RIR, rest, tempo, circuits). Use this for ANY pasted training plan — never plan_propose, never routines, never tasks.', [
+                'title' => ['type' => 'string', 'description' => 'Plan title, e.g. Week 14 Training Plan'],
+                'week_number' => ['type' => 'integer', 'description' => 'Week number if the user stated one, else null'],
+                'start_date' => ['type' => 'string', 'description' => 'YYYY-MM-DD of DAY 1. When the user says starting today, use today\'s date from the system prompt.'],
+                'goal' => ['type' => 'string', 'description' => 'Training goal if stated'],
+                'description' => ['type' => 'string', 'description' => 'Short plan summary, max 2000 chars'],
+                'rules' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Plan rules, safety warnings, excluded movements'],
+                'days' => [
+                    'type' => 'array',
+                    'description' => 'Exactly 7 days in execution order: index 0 is DAY 1 (mapped to start_date), index 6 is DAY 7. Keep the user\'s day order.',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'title' => ['type' => 'string', 'description' => 'Day title, e.g. PULL A'],
+                            'type' => ['type' => 'string', 'enum' => ['training', 'rest', 'recovery']],
+                            'notes' => ['type' => 'string'],
+                            'exercises' => [
+                                'type' => 'array',
+                                'items' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'name' => ['type' => 'string'],
+                                        'section' => ['type' => 'string', 'enum' => ['warmup', 'main', 'accessory', 'cooldown']],
+                                        'target_sets' => ['type' => 'integer'],
+                                        'rep_min' => ['type' => 'integer'],
+                                        'rep_max' => ['type' => 'integer'],
+                                        'duration_seconds' => ['type' => 'integer', 'description' => 'For timed moves like Plank 40-60s use 40-60 range midpoint or max; prefer duration_seconds over reps'],
+                                        'target_weight' => ['type' => 'number'],
+                                        'target_rir' => ['type' => 'number'],
+                                        'rest_seconds' => ['type' => 'integer'],
+                                        'tempo' => ['type' => 'string'],
+                                        'side_mode' => ['type' => 'string', 'enum' => ['bilateral', 'per_side', 'alternating']],
+                                        'is_amrap' => ['type' => 'boolean'],
+                                        'is_circuit' => ['type' => 'boolean'],
+                                        'circuit_rounds' => ['type' => 'integer'],
+                                        'circuit_rest_seconds' => ['type' => 'integer'],
+                                        'notes' => ['type' => 'string', 'description' => 'Tempo cues, safety warnings, alternatives, per-side notes'],
+                                    ],
+                                    'required' => ['name'],
+                                    'additionalProperties' => false,
+                                ],
+                            ],
+                        ],
+                        'required' => ['title', 'type'],
+                        'additionalProperties' => false,
+                    ],
+                ],
+            ], ['title', 'days']),
             [
                 'type' => 'function',
                 'function' => [
                     'name' => 'plan_propose',
-                    'description' => 'Propose a whole multi-level build (project with sub-projects, tasks and subtasks) as ONE plan. Use this for programs and multi-part builds instead of many single calls',
+                    'description' => 'Propose a whole multi-level build (project with sub-projects, tasks and subtasks) as ONE plan. NEVER use for workout/training plans — those must use workout_plan_propose.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
@@ -302,6 +350,7 @@ class AiToolService
             'routine_delete' => $this->validateOwned($args, $user, Routine::class, 'id'),
             'routine_log' => $this->validateRoutineLog($args, $user),
             'plan_propose' => $this->validatePlanPropose($args),
+            'workout_plan_propose' => $this->validateWorkoutPlanPropose($args),
             default => $this->fail('Unsupported tool'),
         };
     }
@@ -323,6 +372,7 @@ class AiToolService
             'routine_delete' => $this->previewRoutineDelete($resolved),
             'routine_log' => $this->previewRoutineLog($resolved),
             'plan_propose' => $this->previewPlan($resolved),
+            'workout_plan_propose' => $this->previewWorkoutPlan($resolved),
             default => ['title' => ucfirst(str_replace('_', ' ', $tool)), 'rows' => $this->rows($resolved, array_keys($resolved))],
         };
     }
@@ -356,6 +406,8 @@ class AiToolService
                 'routine_log' => $this->execRoutineLog($resolved, $user),
                 // Plans never execute as a single action; they run phase by phase.
                 'plan_propose' => ['ok' => false, 'message' => 'Plans run phase by phase after structure approval.', 'id' => null],
+                // Workout plans are created via the WorkoutImport preview/confirm flow, not as a single action.
+                'workout_plan_propose' => ['ok' => false, 'message' => 'Workout plans are created via the import preview after confirmation.', 'id' => null],
                 default => ['ok' => false, 'message' => 'Unsupported tool', 'id' => null],
             };
         });
@@ -972,6 +1024,99 @@ class AiToolService
                 'steps' => 0,
             ],
         ]];
+    }
+
+    /**
+     * Validate a workout_plan_propose call WITHOUT writing anything.
+     * Caps: 7 days, 40 exercises per day. Days arrive in execution order
+     * (index 0 = DAY 1) so the caller can map DAY 1 to start_date.
+     */
+    public function validateWorkoutPlanPropose(array $args): array
+    {
+        $v = Validator::make($args, [
+            'title' => 'required|string|max:160',
+            'week_number' => 'nullable|integer|min:1|max:999',
+            'start_date' => 'nullable|date',
+            'goal' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:2000',
+            'rules' => 'nullable|array|max:30',
+            'rules.*' => 'nullable|string|max:500',
+            'days' => 'required|array|min:1|max:7',
+            'days.*.title' => 'required|string|max:120',
+            'days.*.type' => 'required|in:training,rest,recovery',
+            'days.*.notes' => 'nullable|string|max:2000',
+            'days.*.exercises' => 'nullable|array|max:40',
+            'days.*.exercises.*.name' => 'required|string|max:120',
+            'days.*.exercises.*.section' => 'nullable|in:warmup,main,accessory,cooldown',
+            'days.*.exercises.*.target_sets' => 'nullable|integer|min:1|max:99',
+            'days.*.exercises.*.rep_min' => 'nullable|integer|min:1|max:999',
+            'days.*.exercises.*.rep_max' => 'nullable|integer|min:1|max:999',
+            'days.*.exercises.*.duration_seconds' => 'nullable|integer|min:1|max:86400',
+            'days.*.exercises.*.target_weight' => 'nullable|numeric|min:0|max:10000',
+            'days.*.exercises.*.target_rir' => 'nullable|numeric|min:0|max:10',
+            'days.*.exercises.*.rest_seconds' => 'nullable|integer|min:0|max:3600',
+            'days.*.exercises.*.tempo' => 'nullable|string|max:40',
+            'days.*.exercises.*.side_mode' => 'nullable|in:bilateral,per_side,alternating',
+            'days.*.exercises.*.is_amrap' => 'nullable|boolean',
+            'days.*.exercises.*.is_circuit' => 'nullable|boolean',
+            'days.*.exercises.*.circuit_rounds' => 'nullable|integer|min:1|max:30',
+            'days.*.exercises.*.circuit_rest_seconds' => 'nullable|integer|min:0|max:3600',
+            'days.*.exercises.*.notes' => 'nullable|string|max:2000',
+        ]);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+
+        $days = array_values($args['days']);
+        $exerciseCount = 0;
+        foreach ($days as $dayIndex => $day) {
+            foreach ((array) ($day['exercises'] ?? []) as $exerciseIndex => $exercise) {
+                $exerciseCount++;
+                $min = $exercise['rep_min'] ?? null;
+                $max = $exercise['rep_max'] ?? null;
+                if ($min !== null && $max !== null && (int) $max < (int) $min) {
+                    return $this->fail("Day ".($dayIndex + 1)." exercise ".($exerciseIndex + 1).": max reps must be >= min reps.");
+                }
+            }
+        }
+
+        $resolved = [
+            'title' => trim((string) $args['title']),
+            'week_number' => isset($args['week_number']) ? (int) $args['week_number'] : null,
+            'start_date' => $args['start_date'] ?? null,
+            'goal' => isset($args['goal']) ? trim((string) $args['goal']) : null,
+            'description' => isset($args['description']) ? trim((string) $args['description']) : null,
+            'rules' => collect($args['rules'] ?? [])->map(fn ($rule) => trim((string) $rule))->filter()->values()->all(),
+            'days' => $days,
+        ];
+
+        return ['ok' => true, 'error' => null, 'resolved' => [
+            'title' => $resolved['title'],
+            'structure' => $resolved,
+            'totals' => [
+                'days' => count($days),
+                'exercises' => $exerciseCount,
+            ],
+        ]];
+    }
+
+    public function previewWorkoutPlan(array $resolved): array
+    {
+        $structure = $resolved['structure'] ?? $resolved;
+        $days = array_values($structure['days'] ?? []);
+        $rows = [
+            ['k' => 'title', 'v' => (string) ($structure['title'] ?? '')],
+            ['k' => 'days', 'v' => (string) count($days)],
+            ['k' => 'exercises', 'v' => (string) array_sum(array_map(fn ($day) => count((array) ($day['exercises'] ?? [])) , $days))],
+        ];
+        if (! empty($structure['week_number'])) {
+            $rows[] = ['k' => 'week_number', 'v' => (string) $structure['week_number']];
+        }
+        if (! empty($structure['start_date'])) {
+            $rows[] = ['k' => 'start_date', 'v' => (string) $structure['start_date']];
+        }
+
+        return ['title' => 'Build workout plan', 'rows' => $rows];
     }
 
     /**
