@@ -23,6 +23,7 @@ use App\Http\Controllers\ExerciseController;
 use App\Http\Controllers\WorkoutPlanController;
 use App\Http\Controllers\WorkoutSessionController;
 use App\Http\Controllers\WorkoutReportController;
+use App\Http\Controllers\WorkoutImportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -71,6 +72,10 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('sessions/{workoutSession}/finish', [WorkoutSessionController::class, 'finish'])->name('sessions.finish');
         Route::get('reports', [WorkoutReportController::class, 'index'])->name('reports.index');
         Route::get('reports/exercises/{exercise}', [WorkoutReportController::class, 'exercise'])->name('reports.exercise');
+        Route::get('imports/create', [WorkoutImportController::class, 'create'])->name('imports.create');
+        Route::post('imports', [WorkoutImportController::class, 'store'])->name('imports.store');
+        Route::get('imports/{workoutImport}', [WorkoutImportController::class, 'show'])->name('imports.show');
+        Route::post('imports/{workoutImport}/confirm', [WorkoutImportController::class, 'confirm'])->name('imports.confirm');
     });
     Route::post('routines/{routine}/new-cycle', [RoutineController::class, 'newCycle'])->name('routines.new-cycle');
     Route::get('routines/{routine}/stats', [RoutineController::class, 'stats'])->name('routines.stats');

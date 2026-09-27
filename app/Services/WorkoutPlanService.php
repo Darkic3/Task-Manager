@@ -35,9 +35,15 @@ class WorkoutPlanService
 
                 foreach ($dayData['exercises'] ?? [] as $exerciseOrder => $exerciseData) {
                     abort_unless(in_array((int) $exerciseData['exercise_id'], $allowedExerciseIds, true), 403);
-                    $day->exercises()->create(collect($exerciseData)->except(['exercise_id'])->merge([
+                    $alternatives = collect($exerciseData['alternatives'] ?? [])
+                        ->map(fn ($id) => (int) $id)
+                        ->filter(fn (int $id) => in_array($id, $allowedExerciseIds, true))
+                        ->values()
+                        ->all();
+                    $day->exercises()->create(collect($exerciseData)->except(['exercise_id', 'alternatives'])->merge([
                         'exercise_id' => (int) $exerciseData['exercise_id'],
                         'sort_order' => $exerciseOrder,
+                        'alternatives' => $alternatives,
                     ])->all());
                 }
             }

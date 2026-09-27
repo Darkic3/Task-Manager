@@ -84,6 +84,11 @@ class User extends Authenticatable
         return $this->hasMany(WorkoutSession::class);
     }
 
+    public function workoutImports()
+    {
+        return $this->hasMany(WorkoutImport::class);
+    }
+
     /**
      * Get the notes for the user.
      */
