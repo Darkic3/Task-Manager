@@ -51,9 +51,15 @@
     .cu-btn-new:hover{background:#6d28d9;color:white;}
 
     /* ─── Kanban — minimal ─── */
-    .cu-kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;align-items:start;}
-    @media(max-width:1100px){.cu-kanban{grid-template-columns:repeat(3,1fr);}}
-    @media(max-width:860px){.cu-kanban{grid-template-columns:1fr;}}
+    .cu-kanban{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:start;}
+    @media(max-width:1200px){.cu-kanban{grid-template-columns:repeat(3,minmax(0,1fr));}}
+    @media(max-width:920px){
+        .cu-kanban{display:flex;overflow-x:auto;gap:10px;padding-bottom:10px;scroll-snap-type:x proximity;scrollbar-width:thin;}
+        .cu-kanban .cu-col{flex:0 0 272px;scroll-snap-align:start;}
+    }
+    @media(max-width:560px){
+        .cu-kanban{display:grid;grid-template-columns:minmax(0,1fr);overflow:visible;padding-bottom:0;}
+    }
     .cu-col{background:#f2f3f5;border-radius:8px;display:flex;flex-direction:column;}
     .cu-col-head{
         display:flex;align-items:center;gap:8px;
@@ -86,20 +92,22 @@
     .cu-col-chevron-btn:hover{background:#e4e6ea;color:#1f2328;}
     .cu-col.collapsed .cu-col-chevron-btn i{transform:rotate(-90deg);}
     .cu-col-chevron-btn i{transition:transform .15s;}
-    .cu-col-body{padding:4px 8px 8px;min-height:100px;max-height:calc(100vh - 330px);overflow-y:auto;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;}
+    .cu-col-body{padding:4px 8px 8px;min-height:100px;max-height:calc(100vh - 330px);overflow-y:auto;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;transition:background .12s, box-shadow .12s;border-radius:8px;}
     .cu-col.collapsed .cu-col-body{display:none;}
-    .cu-col-body.drop-target{background:#ece9fd;border-radius:6px;}
+    .cu-col-body.drop-target{background:#ece9fd;box-shadow:inset 0 0 0 2px #c4b5fd;}
 
     /* ─── Task card — minimal ─── */
     .cu-task-card{
         background:white;border:1px solid #e5e7eb;border-radius:6px;
-        padding:10px 10px 8px;cursor:grab;transition:border-color .12s, box-shadow .12s;position:relative;
+        padding:10px 10px 8px;cursor:grab;transition:border-color .12s, box-shadow .12s, opacity .12s, transform .12s;position:relative;
+        -webkit-user-drag:element;user-select:none;-webkit-user-select:none;
     }
+    .cu-task-card *{ -webkit-user-drag:none; }
     .cu-task-card:hover{border-color:#d3d7de;box-shadow:0 1px 3px rgba(0,0,0,.06);}
     .cu-task-card:hover .cu-task-menu-btn{opacity:1;}
-    .cu-task-card.dragging{opacity:.4;}
-    .cu-task-card.drop-before{box-shadow:0 -2px 0 0 #7c3aed;}
-    .cu-task-card.drop-after{box-shadow:0 2px 0 0 #7c3aed;}
+    .cu-task-card.dragging{opacity:.45;transform:rotate(1.2deg) scale(.99);box-shadow:0 8px 20px rgba(0,0,0,.12);cursor:grabbing;}
+    .cu-task-card.drop-before{box-shadow:inset 0 3px 0 0 #7c3aed;}
+    .cu-task-card.drop-after{box-shadow:inset 0 -3px 0 0 #7c3aed;}
     .cu-grip{
         cursor:grab;color:#c9ccd3;font-size:13px;flex-shrink:0;
         display:flex;align-items:center;margin-top:1px;padding:2px 0;
@@ -540,11 +548,12 @@
                     </div>
                 </div>
                 <div class="cu-col-body" id="col-{{ $statusKey }}" data-status="{{ $statusKey }}">
-                    @forelse($tasks[$statusKey] ?? [] as $task)
+                    @foreach($tasks[$statusKey] ?? [] as $task)
                         @include('tasks._card', ['task' => $task])
-                    @empty
-                        <div class="cu-col-empty"><i class="bi {{ $col['icon'] }}" style="font-size:20px;display:block;margin-bottom:6px;"></i>{{ $col['empty'] }}</div>
-                    @endforelse
+                    @endforeach
+                    <div class="cu-col-empty" @if(!empty($tasks[$statusKey])) style="display:none;" @endif>
+                        <i class="bi {{ $col['icon'] }}" style="font-size:20px;display:block;margin-bottom:6px;"></i>{{ $col['empty'] }}
+                    </div>
                     <form class="cu-quickadd" data-quickadd="{{ $statusKey }}">
                         <i class="bi bi-plus-lg"></i>
                         <input type="text" placeholder="Add task…" data-status="{{ $statusKey }}">
@@ -1132,7 +1141,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    /* ─── Drag & drop: grip-only drag, drop indicator, auto-scroll, order persist ─── */
+    /* ─── Drag & drop: whole-card drag, drop indicator, auto-scroll, order persist ─── */
     let dropTarget = null; /* {card, pos: 'before'|'after'} */
     function clearIndicators() {
         document.querySelectorAll('.cu-task-card.drop-before,.cu-task-card.drop-after')
@@ -1140,19 +1149,21 @@ document.addEventListener('DOMContentLoaded', function () {
         dropTarget = null;
     }
     if (kanban) {
-        /* Only the grip starts a drag — no more accidental drags */
-        kanban.addEventListener('mousedown', e => {
-            const grip = e.target.closest('.cu-grip');
-            const card = e.target.closest('.cu-task-card');
-            if (card) card.draggable = !!(grip && !document.body.classList.contains('cu-selecting'));
-        });
-        document.addEventListener('mouseup', () => {
-            document.querySelectorAll('.cu-task-card[draggable="true"]')
-                .forEach(c => c.removeAttribute('draggable'));
-        });
+        kanban.querySelectorAll('.cu-task-card').forEach(c => { c.draggable = true; });
+
+        /* Remember what the user grabbed so controls stay click-only */
+        let dragSource = null;
+        kanban.addEventListener('mousedown', e => { dragSource = e.target; });
+
         kanban.addEventListener('dragstart', e => {
-            const card = e.target.closest('.cu-task-card');
-            if (!card || card.getAttribute('draggable') !== 'true') { e.preventDefault(); return; }
+            const card = (e.target.closest && e.target.closest('.cu-task-card')) || e.target;
+            if (!card.classList || !card.classList.contains('cu-task-card')) return;
+            const grab = dragSource || e.target;
+            if (document.body.classList.contains('cu-selecting')
+                || grab.closest('.cu-select-box, .cu-check, .cu-add-day, .cu-card-menu, form')) {
+                e.preventDefault();
+                return;
+            }
             card.classList.add('dragging');
             e.dataTransfer.setData('text/plain', card.dataset.id);
             e.dataTransfer.effectAllowed = 'move';
@@ -1160,7 +1171,6 @@ document.addEventListener('DOMContentLoaded', function () {
         kanban.addEventListener('dragend', () => {
             document.querySelectorAll('.cu-task-card.dragging').forEach(c => {
                 c.classList.remove('dragging');
-                c.removeAttribute('draggable');
             });
             document.querySelectorAll('.cu-col-body').forEach(c => c.classList.remove('drop-target'));
             clearIndicators();
@@ -1203,6 +1213,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     col.insertBefore(card, quick);
                 }
+                updateCounts(); /* hide empty placeholder immediately, no server round-trip wait */
                 updateStatus(taskId, status, () => {
                     syncTaskDoneUI(taskId, status, false);
                     if (from !== status) toast('Task moved ✓');
@@ -1426,6 +1437,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 cnt.textContent = [...col.querySelectorAll('.cu-task-card')]
                     .filter(c => c.style.display !== 'none').length;
             }
+        });
+        refreshEmptyStates();
+    }
+
+    /* Show/hide the "empty column" placeholder in sync with the cards */
+    function refreshEmptyStates() {
+        document.querySelectorAll('.cu-col-body').forEach(col => {
+            const empty = col.querySelector('.cu-col-empty');
+            if (!empty) return;
+            const visible = [...col.querySelectorAll('.cu-task-card')]
+                .filter(c => c.style.display !== 'none').length;
+            empty.style.display = visible ? 'none' : '';
         });
     }
 
