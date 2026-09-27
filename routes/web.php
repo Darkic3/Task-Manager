@@ -19,6 +19,9 @@ use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TimeTrackingController;
 use App\Http\Controllers\TrackController;
+use App\Http\Controllers\ExerciseController;
+use App\Http\Controllers\WorkoutPlanController;
+use App\Http\Controllers\WorkoutSessionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -57,6 +60,15 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks/{task}/add-to-day', [TaskController::class, 'addToDay'])->name('tasks.add-to-day');
 
     Route::resource('routines', RoutineController::class)->except(['show']);
+    Route::prefix('workouts')->name('workouts.')->group(function () {
+        Route::resource('exercises', ExerciseController::class)->except(['show']);
+        Route::resource('plans', WorkoutPlanController::class)->except(['show'])->parameters(['plans' => 'workoutPlan']);
+        Route::post('plans/{workoutPlan}/new-cycle', [WorkoutPlanController::class, 'newCycle'])->name('plans.new-cycle');
+        Route::post('days/{workoutDay}/session', [WorkoutSessionController::class, 'start'])->name('sessions.start');
+        Route::get('sessions/{workoutSession}', [WorkoutSessionController::class, 'show'])->name('sessions.show');
+        Route::post('sessions/{workoutSession}/sets', [WorkoutSessionController::class, 'saveSet'])->name('sessions.sets.store');
+        Route::patch('sessions/{workoutSession}/finish', [WorkoutSessionController::class, 'finish'])->name('sessions.finish');
+    });
     Route::post('routines/{routine}/new-cycle', [RoutineController::class, 'newCycle'])->name('routines.new-cycle');
     Route::get('routines/{routine}/stats', [RoutineController::class, 'stats'])->name('routines.stats');
     Route::get('routines/showAll', [RoutineController::class, 'showAll'])->name('routines.showAll');

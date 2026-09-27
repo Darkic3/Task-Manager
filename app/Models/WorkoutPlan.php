@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WorkoutPlan extends Model
@@ -39,5 +40,10 @@ class WorkoutPlan extends Model
     public function rules(): HasMany
     {
         return $this->hasMany(WorkoutRule::class)->orderBy('sort_order');
+    }
+
+    public function sessions(): HasManyThrough
+    {
+        return $this->hasManyThrough(WorkoutSession::class, WorkoutDay::class);
     }
 }

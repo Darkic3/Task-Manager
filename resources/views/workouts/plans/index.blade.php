@@ -17,7 +17,11 @@
             @foreach($plans as $plan)
                 <article class="wp-card"><div class="wp-card-top"><div><div class="wp-title">{{ $plan->title }}</div><div class="wp-sub">{{ $plan->goal ?: 'No goal set' }} @if($plan->week_number) · Week {{ $plan->week_number }} @endif</div></div><span class="wp-status {{ $plan->status }}">{{ $plan->status }}</span></div>
                     <div class="wp-days">@foreach($plan->days as $day)<div class="wp-day {{ $day->type }}"><strong>{{ substr($day->weekday, 0, 3) }}</strong><span>{{ $day->title }}</span></div>@endforeach</div>
-                    <div class="wp-foot"><small>{{ $plan->days_count }} days · {{ $plan->days->sum('exercises_count') }} movements · Cycle {{ $plan->cycle_no }}</small><div class="wp-actions"><a class="wp-btn" href="{{ route('workouts.plans.edit', $plan) }}"><i class="bi bi-pencil"></i> Edit</a><form method="POST" action="{{ route('workouts.plans.destroy', $plan) }}" onsubmit="return confirm('Archive this workout plan?')">@csrf @method('DELETE')<button class="wp-btn" type="submit"><i class="bi bi-archive"></i></button></form></div></div>
+                    <div class="wp-foot"><small>{{ $plan->days_count }} days · {{ $plan->days->sum('exercises_count') }} movements · Cycle {{ $plan->cycle_no }}</small><div class="wp-actions"><a class="wp-btn" href="{{ route('workouts.plans.edit', $plan) }}"><i class="bi bi-pencil"></i> Edit</a><form method="POST" action="{{ route('workouts.plans.new-cycle', $plan) }}" onsubmit="return confirm('Create a new cycle from this plan?')">@csrf<button class="wp-btn" type="submit" title="New cycle"><i class="bi bi-copy"></i></button></form><form method="POST" action="{{ route('workouts.plans.destroy', $plan) }}" onsubmit="return confirm('Archive this workout plan?')">@csrf @method('DELETE')<button class="wp-btn" type="submit"><i class="bi bi-archive"></i></button></form></div></div>
+                    @php $todayDay = $plan->days->firstWhere('weekday', strtolower(now()->format('l'))); @endphp
+                    @if($todayDay && in_array($todayDay->type, ['training', 'recovery'], true))
+                        <form method="POST" action="{{ route('workouts.sessions.start', $todayDay) }}" class="mt-3">@csrf<input type="hidden" name="date" value="{{ now()->toDateString() }}"><button class="wp-btn primary w-100 justify-content-center" type="submit"><i class="bi bi-play-fill"></i> Start today’s {{ $todayDay->title }}</button></form>
+                    @endif
                 </article>
             @endforeach
         </div>

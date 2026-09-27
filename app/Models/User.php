@@ -69,6 +69,21 @@ class User extends Authenticatable
         return $this->hasMany(Routine::class);
     }
 
+    public function exercises()
+    {
+        return $this->hasMany(Exercise::class);
+    }
+
+    public function workoutPlans()
+    {
+        return $this->hasMany(WorkoutPlan::class);
+    }
+
+    public function workoutSessions()
+    {
+        return $this->hasMany(WorkoutSession::class);
+    }
+
     /**
      * Get the notes for the user.
      */

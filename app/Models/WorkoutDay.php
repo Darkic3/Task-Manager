@@ -27,4 +27,9 @@ class WorkoutDay extends Model
     {
         return $this->type === 'training';
     }
+
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(WorkoutSession::class);
+    }
 }

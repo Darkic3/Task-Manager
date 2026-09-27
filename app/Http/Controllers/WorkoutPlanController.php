@@ -62,6 +62,15 @@ class WorkoutPlanController extends Controller
         return redirect()->route('workouts.plans.edit', $workoutPlan)->with('success', 'Workout plan updated.');
     }
 
+    public function newCycle(WorkoutPlan $workoutPlan): RedirectResponse
+    {
+        $this->authorizePlan($workoutPlan);
+        $copy = $this->plans->cloneCycle($workoutPlan);
+
+        return redirect()->route('workouts.plans.edit', $copy)
+            ->with('success', "Cycle {$copy->cycle_no} created. The previous plan and its history were left unchanged.");
+    }
+
     public function destroy(WorkoutPlan $workoutPlan): RedirectResponse
     {
         $this->authorizePlan($workoutPlan);
