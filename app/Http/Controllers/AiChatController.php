@@ -575,13 +575,13 @@ class AiChatController extends Controller
     private function isWorkoutIntent(string $text): bool
     {
         $hits = 0;
-        foreach (['week', 'day 1', 'day1', 'pull', 'push', 'legs', 'rir', 'amrap', 'circuit', '×', 'warm-up', 'warmup', 'recovery', 'ست', 'تکرار', 'حرکت', 'برنامه'] as $needle) {
+        foreach (['week', 'day 1', 'day1', 'pull', 'push', 'legs', 'rir', 'amrap', 'circuit', '×', 'warm-up', 'warmup', 'recovery', 'ست', 'تکرار', 'حرکت', 'برنامه', 'تمرین', 'عضله', 'ورزش', 'dead hang', 'push-up', 'pull-up', 'squat', 'mobility'] as $needle) {
             if (mb_stripos($text, $needle) !== false) {
                 $hits++;
             }
         }
 
-        return $hits >= 2 && mb_strlen($text) > 200;
+        return $hits >= 2 && mb_strlen($text) > 100;
     }
 
     private function startsTodayCue(string $text): bool
@@ -1078,11 +1078,12 @@ class AiChatController extends Controller
             ? <<<'AGENT'
             MODE: AGENT — you can act on the workspace via tools.
             - SINGLE items: task_create/update/complete/delete, reminder_*, note_*, project_create, checklist_*, routine_create/complete/delete/log. Destructive deletes need no extra warning text because the app shows a confirmation card.
-            - WORKOUT PLANS (any pasted training plan with DAYs, sets×reps, RIR, circuits, warm-ups): call workout_plan_propose ONCE with the FULL 7-day structure — never plan_propose, never project_create, never routine_create, never many single calls. Preserve every movement and detail; do not summarize exercises into one task.
+            - PROJECT BUILDS & STRATEGY: When asked to plan, break down, or architect a project/goal, first provide a concise 2-4 bullet strategic overview in your text reply, and then call plan_propose ONCE with the FULL structured tree (project + subprojects + tasks + subtasks).
+            - PLAN REVISIONS / EDITS: When the user asks for changes, edits, additions, or removals in a proposed plan (e.g. "تسک فلان رو تغییر بده", "X رو اضافه کن"), acknowledge the refinement and immediately emit an updated plan_propose with the revised structure.
+            - WORKOUT PLANS: For ANY pasted training plan (with DAYs, sets×reps, RIR, circuits, warm-ups, tempo): call workout_plan_propose ONCE with the FULL 7-day structure — never plan_propose, never project_create, never routine_create, never many single calls. Preserve every movement and detail; do not summarize exercises into one task.
             - DAY MAPPING: days[] must arrive in execution order (index 0 = DAY 1). When the user says "starting today / شروع از امروز", set start_date to today's date (given above) so DAY 1 maps to today — even if today is Sunday. Never force DAY 1 back to Saturday in that case.
             - WEEK NUMBER: if the pasted text says one week (e.g. WEEK 13) but the user explicitly says another (e.g. week 14), ASK in text which week number to use before calling the tool. If the user already confirmed, use the confirmed number.
             - PARSING: "4×6–8" → target_sets 4, rep_min 6, rep_max 8. "30–45s / 2min / 3min" → duration_seconds. "7kg / 2kg / 9kg" → target_weight. "RIR 1–2" → target_rir. "3s پایین رفتن" → tempo/notes. "/ پا / سمت" → side_mode per_side. "1×MAX" → is_amrap true. "Circuit ×3 + استراحت بین دورها 2min" → is_circuit true + circuit_rounds + circuit_rest_seconds. "❌ movement" → rules (excluded), not exercises. "جایگزین: X" → notes. Safety/STOP warnings → notes + rules. Keep Persian and English names exactly as written.
-            - BUILDS (non-workout programs): call plan_propose ONCE with the FULL tree — never many single calls. Two shapes, never mixed: {project + subprojects + tasks + subtasks} for project work, {routines[]} for simple repeating habits. The user confirms the structure first, then each phase separately.
             - routine_create with frequency weekly REQUIRES days (lowercase, e.g. ["thursday"]); never omit it. Different workouts on different days = separate calls, one weekday each. Compute the weekday from today's date.
             - TRACKING: routines support tracking_mode none|value|sets. If the user wants numbers logged (weight, wake time, reps) but the unit kind is unknown, ASK in text first (e.g. "in what unit?"), then call with the right value_kind/value_unit. Steps of sets-mode routines carry target_sets; exercises go to subtasks/steps, one per item.
             - Keep every single title SHORT: task/subtask/routine titles under 120 chars, descriptions under 500 chars. For workouts, keep every exercise as its own item — never paste a whole program into one argument.

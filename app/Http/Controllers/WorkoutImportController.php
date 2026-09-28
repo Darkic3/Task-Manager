@@ -50,12 +50,25 @@ class WorkoutImportController extends Controller
         ]);
     }
 
-    public function confirm(WorkoutImport $workoutImport): RedirectResponse
+    public function confirm(WorkoutImport $workoutImport)
     {
         $this->authorizeImport($workoutImport);
         abort_if($workoutImport->status !== WorkoutImport::PREVIEW || $workoutImport->isExpired(), 422, 'This import is no longer available.');
 
         $plan = $this->imports->confirm($workoutImport, auth()->id());
+
+        if (request()->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'plan' => [
+                    'id' => $plan->id,
+                    'title' => $plan->title,
+                    'url' => route('workouts.plans.show', $plan),
+                    'edit_url' => route('workouts.plans.edit', $plan),
+                ],
+                'message' => 'برنامه تمرینی با موفقیت ساخته شد و حرکات به کتابخانه اضافه شدند.'
+            ]);
+        }
 
         return redirect()->route('workouts.plans.edit', $plan)->with('success', 'Workout imported. New movements were added to your exercise library.');
     }

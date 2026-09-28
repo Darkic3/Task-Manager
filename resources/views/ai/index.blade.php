@@ -1036,34 +1036,83 @@ footer { display: none !important; }
         wrap.className = 'lina-msg-wrap bot';
         const card = document.createElement('div');
         card.className = 'lina-tool-card';
+        card.style.cssText = 'border-color:#c4b5fd;background:#faf5ff;';
+        
         const title = document.createElement('h4');
-        title.textContent = '🏋️ ' + (imp.title || 'Workout plan');
+        title.innerHTML = '🏋️ <strong>' + escPlan(imp.title || 'Workout Training Plan') + '</strong>'
+            + (imp.week_number ? ' <span class="badge bg-primary-subtle text-primary" style="font-size:11px;">Week ' + imp.week_number + '</span>' : '')
+            + (imp.start_date ? ' <span class="badge bg-light text-dark border" style="font-size:11px;">Starts: ' + imp.start_date + '</span>' : '');
         card.appendChild(title);
+
         const rows = (imp.preview && imp.preview.rows) || [];
         if (rows.length) {
             const tbl = document.createElement('table');
             rows.forEach(r => {
                 const tr = document.createElement('tr');
                 const tdK = document.createElement('td'); tdK.textContent = r.k;
-                const tdV = document.createElement('td'); tdV.textContent = r.v;
+                const tdV = document.createElement('td'); tdV.innerHTML = '<strong>' + escPlan(r.v) + '</strong>';
                 tr.appendChild(tdK); tr.appendChild(tdV); tbl.appendChild(tr);
             });
             card.appendChild(tbl);
         }
+
         const hint = document.createElement('div');
         hint.className = 'lina-tool-impact';
-        hint.textContent = 'Review every movement and detail before creating the workout plan. Nothing is saved yet.';
+        hint.style.cssText = 'color:#6d28d9;font-size:12px;margin:8px 0;';
+        hint.innerHTML = '<i class="bi bi-info-circle me-1"></i> ساختار ۷ روزه تمرین به همراه تمامی حرکات، ست‌ها، تمپوها و استراحت‌ها آماده ثبت است.';
         card.appendChild(hint);
+
         const actions = document.createElement('div');
         actions.className = 'lina-tool-actions';
+        actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;';
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'lina-tool-confirm';
+        confirmBtn.style.cssText = 'background:linear-gradient(135deg, #16a34a, #15803d);';
+        confirmBtn.innerHTML = '⚡ تأیید و ساخت مستقیم برنامه ورزشی';
+
         const openBtn = document.createElement('a');
-        openBtn.className = 'lina-tool-confirm';
-        openBtn.textContent = 'Review workout import';
+        openBtn.className = 'lina-tool-reject';
+        openBtn.style.cssText = 'font-size:12.5px;text-decoration:none;display:inline-flex;align-items:center;';
+        openBtn.innerHTML = '<i class="bi bi-eye me-1"></i> بررسی جزئیات';
         openBtn.href = imp.preview_url || '#';
         openBtn.target = '_blank';
         openBtn.rel = 'noopener';
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'lina-tool-reject';
+        editBtn.style.cssText = 'font-size:12.5px;';
+        editBtn.innerHTML = '<i class="bi bi-pencil me-1"></i> ویرایش / تغییر در برنامه';
+        editBtn.onclick = () => {
+            input.value = 'روی این برنامه ورزشی این تغییرات رو اعمال کن: ';
+            autoResize();
+            input.focus();
+        };
+
+        confirmBtn.onclick = async () => {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> در حال ساخت برنامه...';
+            try {
+                const res = await api('POST', '/workouts/imports/' + imp.id + '/confirm');
+                actions.remove();
+                hint.remove();
+                const done = document.createElement('div');
+                done.style.cssText = 'font-size:13px;color:#16a34a;font-weight:700;margin-top:10px;background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;';
+                done.innerHTML = `✅ ${res.message || 'برنامه تمرینی با موفقیت ساخته شد.'} <div class="mt-2"><a href="${res.plan?.url || '/workouts/plans'}" class="btn btn-sm btn-success px-3 rounded-pill fw-bold" style="font-size:12px;"><i class="bi bi-calendar-check me-1"></i> مشاهده برنامه در Workouts</a></div>`;
+                card.appendChild(done);
+            } catch (e) {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '⚡ تأیید و ساخت مستقیم برنامه ورزشی';
+                appendError('خطا در ثبت برنامه. لطفاً دوباره تلاش کنید.');
+            }
+            scrollBottom();
+        };
+
+        actions.appendChild(confirmBtn);
         actions.appendChild(openBtn);
+        actions.appendChild(editBtn);
         card.appendChild(actions);
+
         wrap.appendChild(card);
         msgsEl.appendChild(wrap);
         scrollBottom();
@@ -1145,26 +1194,73 @@ footer { display: none !important; }
         if (plan.status === 'proposed') {
             const actions = document.createElement('div');
             actions.className = 'lina-tool-actions';
-            const ok = document.createElement('button');
-            ok.className = 'lina-tool-confirm'; ok.textContent = 'تأیید ساختار';
-            const no = document.createElement('button');
-            no.className = 'lina-tool-reject'; no.textContent = 'انصراف';
-            ok.onclick = async () => {
-                ok.disabled = true; no.disabled = true; ok.textContent = '…';
+            actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;';
+
+            // 1-Click Build Everything
+            const buildAllBtn = document.createElement('button');
+            buildAllBtn.className = 'lina-tool-confirm';
+            buildAllBtn.style.cssText = 'background:linear-gradient(135deg, #4f46e5, #7c3aed);font-weight:700;';
+            buildAllBtn.innerHTML = '🚀 ساخت و اجرای کامل پروژه (1-Click)';
+
+            // Step by Step
+            const stepBtn = document.createElement('button');
+            stepBtn.className = 'lina-tool-reject';
+            stepBtn.textContent = 'گام‌به‌گام';
+
+            // Edit / Revision pill
+            const editBtn = document.createElement('button');
+            editBtn.className = 'lina-tool-reject';
+            editBtn.innerHTML = '<i class="bi bi-pencil me-1"></i> درخواست ویرایش';
+            editBtn.onclick = () => {
+                input.value = 'روی این پروژه این تغییرات رو اعمال کن: ';
+                autoResize();
+                input.focus();
+            };
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'lina-tool-reject';
+            cancelBtn.textContent = 'انصراف';
+
+            buildAllBtn.onclick = async () => {
+                buildAllBtn.disabled = true;
+                stepBtn.disabled = true;
+                buildAllBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> در حال ساخت پروژه...';
+                try {
+                    const res = await api('POST', '/ai/plans/' + plan.id + '/confirm-structure');
+                    const executed = await api('POST', '/ai/plans/' + plan.id + '/confirm-phase', { run_all: true });
+                    paintPlan(card, executed.plan);
+                } catch {
+                    appendError('خطا در اجرای پلن. ممکن است منقضی شده باشد.');
+                    paintPlan(card, plan);
+                }
+                scrollBottom();
+            };
+
+            stepBtn.onclick = async () => {
+                stepBtn.disabled = true;
+                buildAllBtn.disabled = true;
                 try {
                     const res = await api('POST', '/ai/plans/' + plan.id + '/confirm-structure');
                     paintPlan(card, res.plan);
-                } catch { appendError('Plan confirmation failed or expired.'); paintPlan(card, plan); }
+                } catch {
+                    appendError('خطا در تایید ساختار پلن.');
+                    paintPlan(card, plan);
+                }
                 scrollBottom();
             };
-            no.onclick = async () => {
-                ok.disabled = true; no.disabled = true;
+
+            cancelBtn.onclick = async () => {
+                cancelBtn.disabled = true;
                 try { await api('POST', '/ai/plans/' + plan.id + '/cancel'); } catch {}
                 plan.status = 'cancelled';
                 paintPlan(card, plan);
                 scrollBottom();
             };
-            actions.appendChild(ok); actions.appendChild(no);
+
+            actions.appendChild(buildAllBtn);
+            actions.appendChild(stepBtn);
+            actions.appendChild(editBtn);
+            actions.appendChild(cancelBtn);
             body.appendChild(actions);
         } else if (plan.status === 'confirmed' || plan.status === 'executing') {
             (plan.phases || []).forEach((ph, idx) => {
@@ -1202,9 +1298,9 @@ footer { display: none !important; }
             };
             body.appendChild(cancel);
         } else if (plan.status === 'done') {
-            body.innerHTML = '<div class="lina-plan-note ok">✅ Plan complete — همه مراحل ساخته شد.</div>';
+            body.innerHTML = '<div class="lina-plan-note ok" style="background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;color:#16a34a;font-weight:700;">✅ پروژه و تمامی تسک‌ها با موفقیت ساخته شدند. <div class="mt-2"><a href="/projects" class="btn btn-sm btn-primary px-3 rounded-pill fw-bold" style="font-size:12px;"><i class="bi bi-folder-check me-1"></i> مشاهده در Projects</a></div></div>';
         } else {
-            body.innerHTML = '<div class="lina-plan-note muted">Plan ' + escPlan(plan.status) + ' — چیزی بیشتر ساخته نشد.</div>';
+            body.innerHTML = '<div class="lina-plan-note muted">پلن ' + escPlan(plan.status) + ' شد — تغییری ایجاد نشد.</div>';
         }
         if (plan.expires_at && (plan.status === 'proposed' || plan.status === 'confirmed' || plan.status === 'executing')) {
             const exp = document.createElement('div');

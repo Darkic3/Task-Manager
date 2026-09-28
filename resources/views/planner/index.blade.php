@@ -4,61 +4,66 @@
 
 @push('styles')
 <style>
-    .main-content { padding:14px 16px; background:#f7f8fa; min-height:100vh; }
+    .main-content { padding: 18px 20px 60px; background: #f8fafc; min-height: 100vh; }
 
     /* Header */
     .pl-header {
-        background:linear-gradient(135deg,#7c3aed 0%,#5b21b6 100%);
-        border-radius:10px; padding:12px 18px; color:white; margin-bottom:14px;
-        position:relative; overflow:hidden; border:1px solid #6d28d9;
-        box-shadow:0 2px 8px rgba(124,58,237,.3);
+        background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+        border-radius: 16px; padding: 16px 22px; color: white; margin-bottom: 16px;
+        position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
     }
     .pl-header::before {
-        content:''; position:absolute; top:0; right:0; width:90px; height:90px;
-        background:rgba(255,255,255,.08); border-radius:50%; transform:translate(24px,-24px);
+        content: ''; position: absolute; top: -30px; right: -30px; width: 140px; height: 140px;
+        background: rgba(255, 255, 255, 0.12); border-radius: 50%;
     }
-    .pl-header-title{font-weight:700;font-size:18px;margin:0;position:relative;z-index:1;}
-    .pl-header-sub  {font-size:12.5px;opacity:.85;margin:2px 0 0;position:relative;z-index:1;}
+    .pl-header::after {
+        content: ''; position: absolute; bottom: -40px; right: 80px; width: 100px; height: 100px;
+        background: rgba(255, 255, 255, 0.08); border-radius: 50%;
+    }
+    .pl-header-title { font-weight: 800; font-size: 22px; margin: 0; position: relative; z-index: 1; letter-spacing: -0.02em; }
+    .pl-header-sub   { font-size: 13px; opacity: 0.9; margin: 3px 0 0; position: relative; z-index: 1; font-weight: 500; }
 
     /* Toolbar */
     .pl-toolbar {
-        display:flex; align-items:center; justify-content:space-between; gap:10px;
-        background:white; border:1px solid #e3e4e8; border-radius:9px;
-        padding:8px 12px; margin-bottom:14px; flex-wrap:wrap;
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        background: white; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 10px 14px; margin-bottom: 16px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
     }
-    .pl-toggle{display:flex;background:#f0f1f3;border-radius:7px;padding:3px;gap:2px;}
-    .pl-toggle-btn{
-        padding:5px 14px;border-radius:5px;font-size:12px;font-weight:600;
-        color:#8a8f98;text-decoration:none;display:flex;align-items:center;gap:5px;transition:all .15s;
+    .pl-toggle { display: flex; background: #f1f5f9; border-radius: 10px; padding: 3px; gap: 2px; }
+    .pl-toggle-btn {
+        padding: 6px 16px; border-radius: 8px; font-size: 12.5px; font-weight: 700;
+        color: #64748b; text-decoration: none; display: flex; align-items: center; gap: 6px; transition: all 0.15s;
     }
-    .pl-toggle-btn.active{background:white;color:#1a1d23;box-shadow:0 1px 3px rgba(0,0,0,.1);}
-    .pl-nav{display:flex;align-items:center;gap:6px;}
-    .pl-nav-btn{
-        width:30px;height:30px;display:flex;align-items:center;justify-content:center;
-        border:1px solid #e3e4e8;border-radius:7px;background:white;color:#6b7385;
-        text-decoration:none;transition:all .15s;
+    .pl-toggle-btn.active { background: white; color: #0f172a; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); }
+    .pl-nav { display: flex; align-items: center; gap: 6px; }
+    .pl-nav-btn {
+        width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+        border: 1px solid #e2e8f0; border-radius: 8px; background: white; color: #64748b;
+        text-decoration: none; transition: all 0.15s;
     }
-    .pl-nav-btn:hover{border-color:#c4b5fd;color:#7c3aed;background:#faf5ff;}
-    .pl-today-btn{
-        padding:5px 14px;border:1px solid #e3e4e8;border-radius:7px;background:white;
-        color:#3d4149;font-size:12px;font-weight:600;text-decoration:none;transition:all .15s;
+    .pl-nav-btn:hover { border-color: #c7d2fe; color: #4338ca; background: #f8faff; }
+    .pl-today-btn {
+        padding: 6px 14px; border: 1px solid #e2e8f0; border-radius: 8px; background: white;
+        color: #334155; font-size: 12px; font-weight: 700; text-decoration: none; transition: all 0.15s;
     }
-    .pl-today-btn:hover{border-color:#c4b5fd;color:#7c3aed;background:#faf5ff;}
+    .pl-today-btn:hover { border-color: #c7d2fe; color: #4338ca; background: #f8faff; }
 
     /* Stat chips */
-    .pl-stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
-    .pl-stat{
-        display:flex;align-items:center;gap:8px;background:white;border:1px solid #e3e4e8;
-        border-radius:9px;padding:8px 14px;font-size:12.5px;color:#6b7385;font-weight:600;
+    .pl-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .pl-stat {
+        display: flex; align-items: center; gap: 8px; background: white; border: 1px solid #e2e8f0;
+        border-radius: 12px; padding: 8px 16px; font-size: 12.5px; color: #64748b; font-weight: 600;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
     }
-    .pl-stat strong{font-size:15px;color:#1a1d23;}
-    .pl-stat.overdue strong{color:#dc2626;}
+    .pl-stat strong { font-size: 15px; color: #0f172a; font-weight: 800; }
+    .pl-stat.overdue strong { color: #dc2626; }
 
     /* Section */
-    .pl-section{background:white;border:1px solid #e3e4e8;border-radius:10px;overflow:hidden;margin-bottom:14px;}
-    .pl-section-head{
-        display:flex;align-items:center;gap:8px;padding:10px 16px;
-        background:#fafbfc;border-bottom:1px solid #e3e4e8;
+    .pl-section { background: white; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03); }
+    .pl-section-head {
+        display: flex; align-items: center; gap: 10px; padding: 12px 18px;
+        background: #f8fafc; border-bottom: 1px solid #f1f5f9;
     }
     .pl-section-head i{font-size:14px;}
     .pl-section-title{font-size:13px;font-weight:700;color:#1a1d23;}
