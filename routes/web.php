@@ -157,6 +157,9 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/ai/conversations/{conversation}', [AiChatController::class, 'deleteConversation'])->name('ai.conversations.delete');
     Route::post('/ai/conversations/{conversation}/clear', [AiChatController::class, 'clearConversation'])->name('ai.conversations.clear');
 
+    // Unified reports (tasks · routines · avoid habits · workouts · time)
+    Route::get('/reports', [\App\Http\Controllers\ReportsController::class, 'overview'])->name('reports.overview');
+
     // Dashboard routes
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/productivity-data', [DashboardController::class, 'getProductivityData'])->name('dashboard.productivity-data');

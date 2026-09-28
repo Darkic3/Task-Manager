@@ -630,6 +630,13 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{ request()->is('reports*') ? 'active' : '' }}"
+                            href="{{ route('reports.overview') }}">
+                            <i class="bi bi-bar-chart"></i>
+                            <span>Reports</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{ request()->is('notes*') ? 'active' : '' }}"
                             href="{{ route('notes.index') }}">
                             <i class="bi bi-journal-text"></i>
