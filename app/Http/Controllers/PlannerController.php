@@ -66,6 +66,10 @@ class PlannerController extends Controller
             ->sortBy(fn ($r) => $r->sortKey())
             ->values();
 
+        $totalEstimatedHours = $pending->sum(fn ($t) => (float) ($t->estimated_hours ?? 0));
+        $dailyCapacityHours = 6.0;
+        $capacityPercentage = min(round(($totalEstimatedHours / max($dailyCapacityHours, 0.1)) * 100), 150);
+
         return view('planner.index', [
             'view' => 'day',
             'date' => $selected,
@@ -78,6 +82,9 @@ class PlannerController extends Controller
             'bucketMonth' => $routinesData['month'],
             'routineDone' => $routinesData['done'],
             'routineTotal' => $routinesData['total'],
+            'totalEstimatedHours' => $totalEstimatedHours,
+            'dailyCapacityHours' => $dailyCapacityHours,
+            'capacityPercentage' => $capacityPercentage,
             'nextUp' => $this->buildNextUp($pending, $routinesData['today'], $selected),
             'quickProjects' => Project::where('user_id', $user->id)
                 ->whereNotIn('status', ['completed', 'closed'])

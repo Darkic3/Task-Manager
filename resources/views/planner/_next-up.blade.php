@@ -143,6 +143,9 @@
                     </button>
                 @else
                     @if($nextTask)
+                        <button type="button" class="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1 rounded-pill px-3 me-1" onclick="openFocusWorkstation({{ $nextTask->id }}, '{{ addslashes($nextTask->title) }}', '{{ addslashes($nextTask->project->name ?? 'My Day') }}')" title="Open in Fullscreen Focus Mode">
+                            <i class="bi bi-bullseye"></i> Focus
+                        </button>
                         <button type="button" class="pl-next-start" onclick="plStartNext()">
                             <i class="bi bi-play-fill"></i> Start
                         </button>

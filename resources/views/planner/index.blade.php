@@ -534,6 +534,19 @@
             </a>
         </div>
         <div class="pl-toolbar-right">
+            @if($view === 'day')
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-semibold d-inline-flex align-items-center gap-1" onclick="openMorningKickoff()" title="Morning kickoff ritual">
+                        <i class="bi bi-sunrise-fill text-warning"></i> Kickoff
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary fw-semibold d-inline-flex align-items-center gap-1 shadow-sm" onclick="openFocusWorkstation()" title="Enter full-screen distraction-free focus mode">
+                        <i class="bi bi-bullseye"></i> Focus
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1" onclick="openEveningShutdown()" title="Evening shutdown ritual">
+                        <i class="bi bi-moon-stars-fill text-primary"></i> Shutdown
+                    </button>
+                </div>
+            @endif
             <div class="pl-nav">
                 <a href="{{ route('planner.index', ['view' => $view, 'date' => $prevDate->toDateString()]) }}"
                    class="pl-nav-btn" title="Previous"><i class="bi bi-chevron-left"></i></a>
@@ -558,6 +571,26 @@
             @if($overdue->count())
                 <div class="pl-stat overdue"><i class="bi bi-exclamation-triangle"></i> Overdue <strong id="plOverdueStat">{{ $overdue->count() }}</strong></div>
             @endif
+        </div>
+
+        {{-- Workload Capacity Bar --}}
+        <div class="pl-capacity-bar mb-3 p-2 px-3 rounded-3 bg-white border d-flex align-items-center justify-content-between flex-wrap gap-2 shadow-sm">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-speedometer2 {{ ($totalEstimatedHours ?? 0) > 8 ? 'text-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'text-warning' : 'text-success') }} fs-5"></i>
+                <div>
+                    <span class="small fw-semibold text-dark">Daily Workload Capacity:</span>
+                    <span class="small text-muted">{{ number_format($totalEstimatedHours ?? 0, 1) }}h / {{ $dailyCapacityHours ?? 6 }}h focus capacity</span>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-grow-1 mx-lg-3" style="max-width: 280px;">
+                <div class="progress w-100" style="height: 7px;">
+                    <div class="progress-bar {{ ($totalEstimatedHours ?? 0) > 8 ? 'bg-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'bg-warning' : 'bg-success') }}" style="width: {{ $capacityPercentage ?? 0 }}%"></div>
+                </div>
+                <span class="small fw-bold {{ ($totalEstimatedHours ?? 0) > 8 ? 'text-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'text-warning' : 'text-success') }}">{{ $capacityPercentage ?? 0 }}%</span>
+            </div>
+            <span class="badge {{ ($totalEstimatedHours ?? 0) > 8 ? 'bg-danger-subtle text-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'bg-warning-subtle text-warning' : 'bg-success-subtle text-success') }} rounded-pill px-3 py-1 small">
+                {{ ($totalEstimatedHours ?? 0) > 8 ? '⚠️ Overloaded' : (($totalEstimatedHours ?? 0) > 6 ? '⚡ Heavy Day' : '✅ Optimal Load') }}
+            </span>
         </div>
 
         {{-- Day progress (tasks + routines combined) --}}
@@ -780,6 +813,9 @@
             </div>
         </div>
     @endif
+
+    @include('planner._focus-modal')
+    @include('planner._kickoff-modal')
 @endsection
 
 @push('scripts')
