@@ -17,7 +17,15 @@ class RoutineController extends Controller
     {
         $user = Auth::user();
         $today = now()->startOfDay();
-        $routines = $user->routines()->orderBy('title')->get();
+        // Ordered like the planner day column: period slot → manual drag
+        // order (sort_order) → title.
+        $routines = $user->routines()->get()
+            ->sortBy(fn ($r) => [
+                (int) ($r->time_period ? config("routines.periods.{$r->time_period}.order", 99) : 99),
+                (int) $r->sort_order,
+                mb_strtolower((string) $r->title),
+            ])
+            ->values();
 
         // Batch: one completions query for [today-1y .. today]; ring math is pure PHP.
         $from = $today->copy()->subYear()->startOfDay();
@@ -40,6 +48,35 @@ class RoutineController extends Controller
         $weekly = $this->weeklyConsistencyFromLoaded($routines, $today);
 
         return view('routines.index', compact('routines', 'weekly'));
+    }
+
+    /**
+     * Persist drag order of routines within a time period group.
+     */
+    public function reorder(Request $request)
+    {
+        $data = $request->validate([
+            'items' => 'required|array|min:1|max:100',
+            'items.*.id' => 'required|integer',
+            'items.*.sort_order' => 'required|integer|min:0|max:9999',
+        ]);
+
+        $routines = Routine::where('user_id', Auth::id())
+            ->whereIn('id', collect($data['items'])->pluck('id'))
+            ->get()->keyBy('id');
+
+        $updated = 0;
+        foreach ($data['items'] as $item) {
+            $routine = $routines->get($item['id']);
+            if (! $routine) {
+                continue;
+            }
+            $routine->sort_order = $item['sort_order'];
+            $routine->save();
+            $updated++;
+        }
+
+        return response()->json(['ok' => true, 'updated' => $updated]);
     }
 
     public function create()

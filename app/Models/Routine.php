@@ -31,6 +31,7 @@ class Routine extends Model
         'description',
         'frequency',
         'time_period',
+        'sort_order',
         'days',
         'weeks',
         'months',
@@ -357,10 +358,12 @@ class Routine extends Model
         if ($this->time_period) {
             $order = (int) config("routines.periods.{$this->time_period}.order", 99);
 
-            return 'b'.str_pad((string) $order, 2, '0', STR_PAD_LEFT);
+            // Manual drag order (sort_order) breaks ties inside one period.
+            return 'b'.str_pad((string) $order, 2, '0', STR_PAD_LEFT)
+                .str_pad((string) (int) $this->sort_order, 4, '0', STR_PAD_LEFT);
         }
 
-        return 'z';
+        return 'z'.str_pad((string) (int) $this->sort_order, 4, '0', STR_PAD_LEFT);
     }
 
     /**

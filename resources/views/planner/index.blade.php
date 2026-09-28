@@ -139,6 +139,34 @@
     }
     .pl-task-open:hover{color:#7c3aed;background:#faf5ff;}
 
+    /* Period groups + postpone actions */
+    .pl-period-group{display:flex;flex-direction:column;gap:2px;}
+    .pl-period-head{
+        display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;
+        letter-spacing:.05em;text-transform:uppercase;color:#64748b;padding:7px 2px 2px;
+    }
+    .pl-period-head i{font-size:12px;}
+    .pl-period-body{
+        display:flex;flex-direction:column;gap:6px;padding:2px;border-radius:8px;
+        min-height:10px;transition:background .15s;
+    }
+    .pl-period-body.drop-active{background:#f5f3ff;box-shadow:inset 0 0 0 2px #ddd6fe;}
+    .pl-task[draggable="true"]{cursor:grab;}
+    .pl-task[draggable="true"]:active{cursor:grabbing;}
+    .pl-task.dragging{opacity:.4;}
+    .pl-task.drop-before{box-shadow:inset 0 3px 0 0 #7c3aed;}
+    .pl-task.drop-after{box-shadow:inset 0 -3px 0 0 #7c3aed;}
+    .pl-task-actions{display:flex;gap:2px;flex-shrink:0;align-self:center;opacity:.55;transition:opacity .15s;}
+    .pl-task:hover .pl-task-actions{opacity:1;}
+    .pl-task-act{
+        width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+        border:none;background:transparent;color:#8a8f98;border-radius:6px;
+        font-size:12px;cursor:pointer;transition:all .15s;padding:0;
+    }
+    .pl-task-act:hover{color:#7c3aed;background:#f5f3ff;}
+    .pl-task-act-danger:hover{color:#dc2626;background:#fef2f2;}
+    .pl-task-act:disabled{opacity:.4;cursor:default;}
+
     /* Routine row accent */
     .pl-routine .pl-check input:checked + .pl-check-box{background:#7c3aed;border-color:#7c3aed;}
     .pl-routine-static{
@@ -467,11 +495,11 @@
                 <div class="pl-section-head">
                     <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;"></i>
                     <span class="pl-section-title">Overdue</span>
-                    <span class="pl-section-count">{{ $overdue->count() }}</span>
+                    <span class="pl-section-count" id="plOverdueCount">{{ $overdue->count() }}</span>
                 </div>
-                <div class="pl-section-body">
+                <div class="pl-section-body" id="plOverdueBody">
                     @foreach($overdue as $task)
-                        @include('planner._task-row', ['task' => $task, 'count' => false])
+                        @include('planner._task-row', ['task' => $task, 'count' => false, 'postpone' => 'today'])
                     @endforeach
                 </div>
             </div>
@@ -485,11 +513,22 @@
                 <span class="pl-section-count" id="plTodaySectionCount">{{ $pending->count() }}</span>
             </div>
             <div class="pl-section-body" id="plPendingBody">
-                @forelse($pending as $task)
-                    @include('planner._task-row', ['task' => $task, 'count' => true])
-                @empty
+                @php $groups = $pending->groupBy(fn ($t) => $t->time_period ?: 'anytime'); @endphp
+                @forelse($pending as $task)@empty
                     <div class="pl-empty"><i class="bi bi-cup-hot"></i>Nothing scheduled for this day. Enjoy!</div>
                 @endforelse
+                @foreach(config('routines.periods', []) as $key => $period)
+                    @if($groups->has($key))
+                        @include('planner._period-group', ['periodKey' => $key, 'period' => $period, 'rows' => $groups->get($key)])
+                    @endif
+                @endforeach
+                @if($groups->has('anytime'))
+                    @include('planner._period-group', [
+                        'periodKey' => 'anytime',
+                        'period' => ['label' => 'Anytime', 'icon' => 'bi-inbox', 'color' => '#64748b'],
+                        'rows' => $groups->get('anytime'),
+                    ])
+                @endif
             </div>
         </div>
 
@@ -1267,7 +1306,14 @@
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const json = await res.json();
-            plInsertRow('plPendingBody', json.html);
+            const gb = window.plEnsureGroup ? window.plEnsureGroup(json.group || 'anytime') : null;
+            if (gb) {
+                const wrap = document.createElement('div');
+                wrap.innerHTML = json.html.trim();
+                gb.appendChild(wrap.firstElementChild);
+            } else {
+                plInsertRow('plPendingBody', json.html);
+            }
             refreshCounters();
             closeQuickAdd();
             form.reset();
@@ -1534,5 +1580,180 @@
             console.error('[Planner] next up refresh failed', e);
         }
     }
+</script>
+@endpush
+
+@push('scripts')
+<script>
+/* ── My Day: period groups, drag & drop reordering, postpone actions ── */
+(function () {
+    const PL_PERIODS = @json(config('routines.periods', []));
+    const POSTPONE_URL = id => `{{ route('planner.tasks.postpone', ['task' => '__ID__']) }}`.replace('__ID__', id);
+    const REORDER_URL = '{{ route('planner.tasks.reorder') }}';
+    const body = document.getElementById('plPendingBody');
+    const periodOrder = key => key === 'anytime' ? 99 : (Number(PL_PERIODS[key]?.order) || 99);
+
+    /* Always available so quick-add can insert into the right group. */
+    window.plEnsureGroup = function (key) {
+        if (!body) { return null; }
+        let gb = body.querySelector(`[data-period-body="${key}"]`);
+        if (gb) { return gb; }
+        const def = key === 'anytime'
+            ? { label: 'Anytime', icon: 'bi-inbox', color: '#64748b' }
+            : (PL_PERIODS[key] || { label: key, icon: 'bi-clock', color: '#64748b' });
+        const group = document.createElement('div');
+        group.className = 'pl-period-group';
+        group.dataset.periodGroup = key;
+        group.innerHTML = `<div class="pl-period-head"><i class="bi ${def.icon}" style="color:${def.color};"></i><span>${def.label}</span></div><div class="pl-period-body" data-period-body="${key}"></div>`;
+        const empty = body.querySelector(':scope > .pl-empty');
+        if (empty) { empty.remove(); }
+        const ref = [...body.querySelectorAll('[data-period-group]')].find(g => periodOrder(g.dataset.periodGroup) > periodOrder(key));
+        ref ? body.insertBefore(group, ref) : body.appendChild(group);
+        return group.querySelector('[data-period-body]');
+    };
+
+    function updateRowPeriodChip(row, key) {
+        const meta = row.querySelector('.pl-task-meta');
+        if (!meta) { return; }
+        let chip = row.querySelector('[data-period-chip]');
+        if (key === 'anytime') { chip?.remove(); return; }
+        const def = PL_PERIODS[key] || {};
+        if (!chip) {
+            chip = document.createElement('span');
+            chip.className = 'pl-priority';
+            chip.dataset.periodChip = '';
+            meta.appendChild(chip);
+        }
+        const color = def.color || '#64748b';
+        chip.style.color = color;
+        chip.style.background = color + '1a';
+        chip.style.textTransform = 'none';
+        chip.innerHTML = `<i class="bi ${def.icon || 'bi-clock'}"></i> ${def.label || key}`;
+    }
+
+    function groupItems(groupBody) {
+        if (!groupBody) { return []; }
+        return [...groupBody.querySelectorAll('.pl-task')].map((row, i) => ({
+            id: Number(row.dataset.id),
+            sort_order: i * 10,
+            time_period: (row.dataset.period || 'anytime') === 'anytime' ? null : row.dataset.period,
+        }));
+    }
+
+    async function persist(items) {
+        if (!items.length) { return; }
+        try {
+            const res = await plFetch(REORDER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ items }),
+            });
+            if (!res.ok) { throw new Error('HTTP ' + res.status); }
+        } catch (e) {
+            console.error('[Planner] reorder save failed', e);
+        }
+    }
+
+    if (body) {
+        let dragRow = null, dragSrcKey = 'anytime', dropRef = null;
+
+        const clearMarks = () => {
+            body.querySelectorAll('.drop-before,.drop-after,.drop-active')
+                .forEach(el => el.classList.remove('drop-before', 'drop-after', 'drop-active'));
+            dropRef = null;
+        };
+
+        body.addEventListener('dragstart', e => {
+            const row = e.target.closest('.pl-task[draggable="true"]');
+            if (!row) { return; }
+            dragRow = row;
+            dragSrcKey = row.dataset.period || 'anytime';
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            try { e.dataTransfer.setData('text/plain', String(row.dataset.id)); } catch (_) {}
+        });
+
+        body.addEventListener('dragend', () => {
+            dragRow?.classList.remove('dragging');
+            clearMarks();
+            dragRow = null;
+        });
+
+        body.addEventListener('dragover', e => {
+            if (!dragRow) { return; }
+            const groupBody = e.target.closest('[data-period-body]');
+            if (!groupBody) { return; }
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            body.querySelectorAll('.drop-before,.drop-after,.drop-active')
+                .forEach(el => el.classList.remove('drop-before', 'drop-after', 'drop-active'));
+            groupBody.classList.add('drop-active');
+            const rows = [...groupBody.querySelectorAll('.pl-task:not(.dragging)')];
+            const after = rows.find(r => r.getBoundingClientRect().top + r.getBoundingClientRect().height / 2 > e.clientY);
+            dropRef = { groupBody, ref: after || null };
+            after ? after.classList.add('drop-before')
+                  : (rows.at(-1) ? rows.at(-1).classList.add('drop-after') : null);
+        });
+
+        body.addEventListener('drop', async e => {
+            if (!dragRow || !dropRef) { return; }
+            e.preventDefault();
+            const { groupBody, ref } = dropRef;
+            const targetKey = groupBody.dataset.periodBody;
+            ref ? groupBody.insertBefore(dragRow, ref) : groupBody.appendChild(dragRow);
+            updateRowPeriodChip(dragRow, targetKey);
+            dragRow.dataset.period = targetKey;
+            clearMarks();
+            const items = groupItems(groupBody);
+            if (targetKey !== dragSrcKey) {
+                const srcBody = body.querySelector(`[data-period-body="${dragSrcKey}"]`);
+                const src = groupItems(srcBody);
+                src.forEach(i => items.push(i));
+            }
+            await persist(items);
+            refreshCounters();
+        });
+    }
+
+    /* Postpone / pull-to-today / remove-from-day buttons. */
+    document.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-postpone],[data-clear-day]');
+        if (!btn || btn.dataset.busy) { return; }
+        btn.dataset.busy = '1';
+        const id = Number(btn.dataset.id);
+        const action = btn.hasAttribute('data-clear-day') ? 'clear' : btn.dataset.postpone;
+        try {
+            const res = await plFetch(POSTPONE_URL(id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ action }),
+            });
+            if (!res.ok) { throw new Error('HTTP ' + res.status); }
+            const json = await res.json();
+
+            document.querySelectorAll(`[data-task-item][data-id="${id}"]`).forEach(r => r.remove());
+
+            if (action === 'today' && json.row_html) {
+                const wrap = document.createElement('div');
+                wrap.innerHTML = json.row_html.trim();
+                const gb = window.plEnsureGroup(json.group || 'anytime');
+                gb?.appendChild(wrap.firstElementChild);
+            }
+
+            const overdueCount = document.getElementById('plOverdueCount');
+            if (overdueCount) {
+                const left = document.querySelectorAll('#plOverdueBody [data-task-item]').length;
+                overdueCount.textContent = left;
+                if (left === 0) {
+                    document.getElementById('plOverdueBody')?.closest('.pl-section')?.remove();
+                }
+            }
+            refreshCounters();
+        } catch (err) {
+            console.error('[Planner] postpone failed', err);
+            delete btn.dataset.busy;
+        }
+    });
+})();
 </script>
 @endpush

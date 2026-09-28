@@ -100,6 +100,20 @@
     .main-content { padding:14px 14px 40px; }
     .rh-row-meta .rh-rate { display:none; }
 }
+
+/* Period group heads + drag reordering */
+.rh-group-head {
+    display:flex; align-items:center; gap:7px;
+    font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+    color:#64748b; padding:14px 4px 6px; border-bottom:1px solid #eef0f4; margin-bottom:6px;
+}
+.rh-group-head i { font-size:13px; }
+.rh-group-head small { margin-left:auto; color:#adb0b8; font-weight:700; }
+.rh-item { cursor:grab; }
+.rh-item.dragging { opacity:.4; }
+.rh-item.drop-before .rh-card { box-shadow:inset 0 3px 0 0 #7c3aed; }
+.rh-item.drop-after .rh-card { box-shadow:inset 0 -3px 0 0 #7c3aed; }
+.rh-item[style*="display: none"] { cursor:default; }
 </style>
 @endpush
 
@@ -134,8 +148,23 @@
     </div>
 
     <div class="rh-list" id="rhList">
+        @php $currentGroup = null; @endphp
         @forelse($routines as $routine)
-            <div class="rh-item" data-frequency="{{ $routine->frequency }}">
+            @php
+                $pk = $routine->time_period ?: 'anytime';
+                $pd = $pk === 'anytime'
+                    ? ['label' => 'No schedule', 'icon' => 'bi-inbox', 'color' => '#64748b']
+                    : (config("routines.periods.{$pk}") ?? ['label' => ucfirst($pk), 'icon' => 'bi-clock', 'color' => '#64748b']);
+            @endphp
+            @if($pk !== $currentGroup)
+                @php $currentGroup = $pk; @endphp
+                <div class="rh-group-head" data-group-head="{{ $pk }}">
+                    <i class="bi {{ $pd['icon'] }}" style="color:{{ $pd['color'] }};"></i>
+                    <span>{{ $pd['label'] }}</span>
+                    <small>{{ $routines->where('time_period', $pk === 'anytime' ? null : $pk)->count() }}</small>
+                </div>
+            @endif
+            <div class="rh-item" data-frequency="{{ $routine->frequency }}" data-period="{{ $pk }}" data-id="{{ $routine->id }}" draggable="true">
                 <div class="rh-card">
                     <div class="rh-body">
                         <div class="rh-row-title">{{ $routine->title }}</div>
@@ -212,8 +241,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 const show = f === 'all' || item.dataset.frequency === f;
                 item.style.display = show ? '' : 'none';
             });
+            syncGroupHeads();
         });
     });
+
+    function syncGroupHeads() {
+        document.querySelectorAll('.rh-group-head').forEach(head => {
+            let el = head.nextElementSibling, visible = 0;
+            while (el && !el.classList.contains('rh-group-head')) {
+                if (el.classList.contains('rh-item') && el.style.display !== 'none') visible++;
+                el = el.nextElementSibling;
+            }
+            head.style.display = visible ? '' : 'none';
+        });
+    }
+    syncGroupHeads();
 
     /* Archive (soft delete) — keeps completion history */
     window.archiveRoutine = function(hmac) { };
@@ -225,6 +267,75 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     @empty
     @endforelse
+
+    /* ── Drag & drop: reorder routines inside one period group ── */
+    (function () {
+        const list = document.getElementById('rhList');
+        if (!list) return;
+        const REORDER_URL = '{{ route('routines.reorder') }}';
+        let dragItem = null, dropTarget = null, dropPos = null;
+
+        const clearMarks = () => {
+            list.querySelectorAll('.drop-before,.drop-after')
+                .forEach(el => el.classList.remove('drop-before', 'drop-after'));
+            dropTarget = null;
+            dropPos = null;
+        };
+
+        list.addEventListener('dragstart', e => {
+            const item = e.target.closest('.rh-item');
+            if (!item) return;
+            dragItem = item;
+            item.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            try { e.dataTransfer.setData('text/plain', String(item.dataset.id)); } catch (_) {}
+        });
+
+        list.addEventListener('dragend', () => {
+            dragItem?.classList.remove('dragging');
+            clearMarks();
+            dragItem = null;
+        });
+
+        list.addEventListener('dragover', e => {
+            if (!dragItem) return;
+            const item = e.target.closest('.rh-item');
+            if (!item || item === dragItem || item.dataset.period !== dragItem.dataset.period) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            clearMarks();
+            const r = item.getBoundingClientRect();
+            dropTarget = item;
+            dropPos = e.clientY < r.top + r.height / 2 ? 'before' : 'after';
+            item.classList.add('drop-' + dropPos);
+        });
+
+        list.addEventListener('drop', async e => {
+            if (!dragItem || !dropTarget) return;
+            e.preventDefault();
+            dropPos === 'before'
+                ? dropTarget.parentNode.insertBefore(dragItem, dropTarget)
+                : dropTarget.parentNode.insertBefore(dragItem, dropTarget.nextSibling);
+            clearMarks();
+            const key = dragItem.dataset.period;
+            const items = [...list.querySelectorAll(`.rh-item[data-period="${key}"]`)]
+                .map((el, i) => ({ id: Number(el.dataset.id), sort_order: i * 10 }));
+            try {
+                const res = await fetch(REORDER_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    },
+                    body: JSON.stringify({ items }),
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+            } catch (err) {
+                console.error('[Routines] reorder failed', err);
+            }
+        });
+    })();
 });
 </script>
 @endpush

@@ -62,6 +62,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks/{task}/add-to-day', [TaskController::class, 'addToDay'])->name('tasks.add-to-day');
 
     Route::resource('routines', RoutineController::class)->except(['show']);
+    Route::post('routines/reorder', [RoutineController::class, 'reorder'])->name('routines.reorder');
     Route::prefix('workouts')->name('workouts.')->group(function () {
         Route::resource('exercises', ExerciseController::class)->except(['show']);
         Route::resource('plans', WorkoutPlanController::class)->except(['show'])->parameters(['plans' => 'workoutPlan']);
@@ -105,6 +106,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/planner/task-items/{item}/toggle', [PlannerController::class, 'toggleTaskCheckItem'])->name('planner.task-items.toggle');
     Route::post('/planner/quick-add/task', [PlannerController::class, 'quickAddTask'])->name('planner.quick-add.task');
     Route::post('/planner/quick-add/routine', [PlannerController::class, 'quickAddRoutine'])->name('planner.quick-add.routine');
+    Route::post('/planner/tasks/{task}/postpone', [PlannerController::class, 'postponeTask'])->name('planner.tasks.postpone');
+    Route::post('/planner/tasks/reorder', [PlannerController::class, 'reorderTasks'])->name('planner.tasks.reorder');
     Route::get('/planner/next-up', [PlannerController::class, 'nextUp'])->name('planner.next-up');
 
     // Time tracking

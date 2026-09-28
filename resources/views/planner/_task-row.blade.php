@@ -8,12 +8,16 @@
     $periodColor = method_exists($task, 'periodColor') ? $task->periodColor() : null;
     $periodIcon  = method_exists($task, 'periodIcon') ? $task->periodIcon() : null;
     $timeLabel   = method_exists($task, 'dueTimeLabel') ? $task->dueTimeLabel() : null;
+    $postponeMode = $postpone ?? 'tomorrow';
+    $canDrag = !empty($draggable) && ! $isDone;
 @endphp
 <div class="pl-task {{ $isDone ? 'is-done' : '' }}"
      data-task-item
      data-id="{{ $task->id }}"
+     data-period="{{ $task->time_period ?: 'anytime' }}"
      data-completed="{{ $isDone ? 1 : 0 }}"
      data-count="{{ !empty($count) ? 1 : 0 }}"
+     @if($canDrag) draggable="true" @endif
      style="border-left:3px solid {{ $pc }};">
 
     <label class="pl-check" title="{{ $isDone ? 'Mark as not done' : 'Mark as done' }}">
@@ -33,7 +37,7 @@
                 <span class="pl-proj"><i class="bi bi-folder"></i> {{ $task->project->name }}</span>
             @endif
             @if($periodLabel)
-                <span class="pl-priority" style="color:{{ $periodColor ?: '#64748b' }};background:{{ $periodColor ?: '#64748b' }}1a;text-transform:none;">
+                <span class="pl-priority" data-period-chip style="color:{{ $periodColor ?: '#64748b' }};background:{{ $periodColor ?: '#64748b' }}1a;text-transform:none;">
                     <i class="bi {{ $periodIcon ?: 'bi-clock' }}"></i> {{ $periodLabel }}
                 </span>
             @endif
@@ -52,6 +56,25 @@
             @endif
         </div>
     </div>
+
+    @if(! $isDone)
+        <div class="pl-task-actions">
+            <button type="button"
+                    class="pl-task-act"
+                    data-postpone="{{ $postponeMode }}"
+                    data-id="{{ $task->id }}"
+                    title="{{ $postponeMode === 'today' ? 'Pull into today' : 'Postpone to tomorrow' }}">
+                <i class="bi {{ $postponeMode === 'today' ? 'bi-arrow-counterclockwise' : 'bi-arrow-90deg-down' }}"></i>
+            </button>
+            <button type="button"
+                    class="pl-task-act pl-task-act-danger"
+                    data-clear-day
+                    data-id="{{ $task->id }}"
+                    title="Remove from My Day">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+    @endif
 
     <a href="{{ route('tasks.show', $task->id) }}" class="pl-task-open" title="Open task">
         <i class="bi bi-box-arrow-up-right"></i>

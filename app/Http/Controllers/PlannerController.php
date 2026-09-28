@@ -46,7 +46,8 @@ class PlannerController extends Controller
                 ->where('status', '!=', 'completed')
                 ->whereDate('due_date', '<', $selected->toDateString())
                 ->with('project:id,name')
-                ->get()
+                ->get(),
+            byDate: true
         );
 
         // Single fetch for all routines + one batched completion/step fetch (no N+1).
@@ -152,6 +153,88 @@ class PlannerController extends Controller
             'completed' => $completed,
             'completed_at' => $task->completed_at?->toIso8601String(),
         ]);
+    }
+
+    /**
+     * Reschedule a task straight from My Day: push to tomorrow, pull an
+     * overdue task back to today, or drop its due date entirely.
+     */
+    public function postponeTask(Request $request, Task $task)
+    {
+        abort_if($task->user_id !== Auth::id(), 403);
+
+        $action = $request->validate([
+            'action' => ['required', Rule::in(['tomorrow', 'today', 'clear'])],
+        ])['action'];
+
+        $base = $task->due_date && $task->due_date->gt(today()) ? $task->due_date : today();
+
+        $task->due_date = match ($action) {
+            'tomorrow' => $base->copy()->addDay()->toDateString(),
+            'today' => today()->toDateString(),
+            'clear' => null,
+        };
+        $task->save();
+
+        // Pulling into the day means the row must reappear in the task groups.
+        if ($action === 'today') {
+            $task->load('project:id,name');
+
+            return response()->json([
+                'ok' => true,
+                'action' => $action,
+                'due_date' => $task->due_date,
+                'group' => $task->time_period ?: 'anytime',
+                'row_html' => view('planner._task-row', [
+                    'task' => $task,
+                    'count' => true,
+                    'postpone' => 'tomorrow',
+                    'hideDue' => true,
+                ])->render(),
+            ]);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'action' => $action,
+            'due_date' => $task->due_date,
+        ]);
+    }
+
+    /**
+     * Persist My Day drag & drop: manual order inside a period group and,
+     * when the row moved across groups, the new time period.
+     */
+    public function reorderTasks(Request $request)
+    {
+        $periodKeys = array_keys(config('routines.periods', []));
+
+        $data = $request->validate([
+            'items' => 'required|array|min:1|max:200',
+            'items.*.id' => 'required|integer',
+            'items.*.sort_order' => 'required|integer|min:0|max:99999',
+            'items.*.time_period' => ['nullable', Rule::in($periodKeys)],
+        ]);
+
+        $tasks = Task::where('user_id', Auth::id())
+            ->whereIn('id', collect($data['items'])->pluck('id'))
+            ->get()->keyBy('id');
+
+        $updated = 0;
+        foreach ($data['items'] as $item) {
+            $task = $tasks->get($item['id']);
+            if (! $task) {
+                continue;
+            }
+            $task->sort_order = $item['sort_order'];
+            if (array_key_exists('time_period', $item)) {
+                $task->time_period = $item['time_period'];
+            }
+            $task->save();
+            $updated++;
+        }
+
+        return response()->json(['ok' => true, 'updated' => $updated]);
     }
 
     /**
@@ -459,7 +542,8 @@ class PlannerController extends Controller
         return response()->json([
             'ok' => true,
             'task' => ['id' => $task->id, 'title' => $task->title],
-            'html' => view('planner._task-row', ['task' => $task, 'count' => true])->render(),
+            'group' => $task->time_period ?: 'anytime',
+            'html' => view('planner._task-row', ['task' => $task, 'count' => true, 'postpone' => 'tomorrow', 'hideDue' => true])->render(),
         ], 201);
     }
 
@@ -929,13 +1013,35 @@ class PlannerController extends Controller
         return ['rate' => $rate, 'streak' => $streak, 'last7' => $last7];
     }
 
-    private function sortByPriority($tasks)
+    private function sortByPriority($tasks, bool $byDate = false): \Illuminate\Support\Collection
     {
+        // Overdue lists care about dates first; the day plan uses the
+        // scheduled order: period → manual drag order → priority → exact time.
+        if ($byDate) {
+            return $tasks->sortBy(fn ($t) => [
+                $t->due_date ? Carbon::parse($t->due_date)->timestamp : PHP_INT_MAX,
+                $this->periodOrder($t->time_period),
+                (int) ($t->sort_order ?? 0),
+                self::PRIORITY_ORDER[$t->priority] ?? 3,
+            ])->values();
+        }
+
         return $tasks->sortBy(fn ($t) => [
+            $this->periodOrder($t->time_period),
+            (int) ($t->sort_order ?? 0),
             self::PRIORITY_ORDER[$t->priority] ?? 3,
             $t->due_time ? substr((string) $t->due_time, 0, 5) : '99:99',
             $t->due_date ? Carbon::parse($t->due_date)->timestamp : PHP_INT_MAX,
         ])->values();
+    }
+
+    private function periodOrder(?string $period): int
+    {
+        if (! $period) {
+            return 99;
+        }
+
+        return (int) config("routines.periods.{$period}.order", 99);
     }
 
     private function parseDate(?string $value): Carbon
