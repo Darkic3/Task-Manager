@@ -110,12 +110,27 @@ class WorkoutSessionController extends Controller
             'completed' => ! empty($data['skip_reason']) ? false : $completedSets >= $targetSets,
         ]);
 
+        $weight = (float) ($set->weight ?? 0);
+        $reps = (float) ($set->reps ?? 0);
+        $estimated1RM = ($reps > 0 && $weight > 0) ? round($weight * (1 + ($reps / 30)), 1) : 0;
+
+        $exerciseId = $exercise->exercise_id;
+        $previousBestWeight = (float) (WorkoutSetLog::whereHas('exerciseLog', function ($q) use ($exerciseId, $workoutSession) {
+            $q->whereHas('workoutExercise', fn ($we) => $we->where('exercise_id', $exerciseId))
+              ->whereHas('session', fn ($s) => $s->where('user_id', auth()->id())->where('id', '!=', $workoutSession->id));
+        })->max('weight') ?? 0);
+
+        $isPr = ($weight > 0 && $previousBestWeight > 0 && $weight > $previousBestWeight);
+
         return response()->json([
             'ok' => true,
             'set' => $set->fresh(),
             'exercise_completed' => $exerciseLog->completed,
             'completed_sets' => $completedSets,
             'target_sets' => $targetSets,
+            'is_pr' => $isPr,
+            'estimated_1rm' => $estimated1RM,
+            'previous_best_weight' => $previousBestWeight,
         ]);
     }
 

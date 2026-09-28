@@ -34,6 +34,51 @@ class WorkoutReportController extends Controller
         $summary = $this->summarizeSessions($sessions);
         $summary['scheduled'] = $days->sum('scheduled');
 
+        // Calculate sets per muscle group for Weekly Muscle Radar
+        $muscleVolume = [
+            'Chest' => 0,
+            'Back' => 0,
+            'Legs' => 0,
+            'Shoulders' => 0,
+            'Arms' => 0,
+            'Core' => 0,
+        ];
+
+        foreach ($sessions as $session) {
+            foreach ($session->exerciseLogs as $elog) {
+                $exercise = $elog->workoutExercise?->exercise;
+                if (! $exercise) {
+                    continue;
+                }
+                $setCount = $elog->setLogs->where('completed', true)->count();
+                $groups = (array) ($exercise->muscle_groups ?? []);
+
+                if (empty($groups)) {
+                    $name = strtolower($exercise->name ?? '');
+                    if (str_contains($name, 'bench') || str_contains($name, 'chest') || str_contains($name, 'push up')) {
+                        $groups[] = 'Chest';
+                    } elseif (str_contains($name, 'row') || str_contains($name, 'pull') || str_contains($name, 'lat') || str_contains($name, 'deadlift')) {
+                        $groups[] = 'Back';
+                    } elseif (str_contains($name, 'squat') || str_contains($name, 'leg') || str_contains($name, 'calf') || str_contains($name, 'lunge')) {
+                        $groups[] = 'Legs';
+                    } elseif (str_contains($name, 'press') || str_contains($name, 'shoulder') || str_contains($name, 'lateral')) {
+                        $groups[] = 'Shoulders';
+                    } elseif (str_contains($name, 'curl') || str_contains($name, 'tricep') || str_contains($name, 'bicep') || str_contains($name, 'arm')) {
+                        $groups[] = 'Arms';
+                    } else {
+                        $groups[] = 'Core';
+                    }
+                }
+
+                foreach ($groups as $g) {
+                    $cap = ucfirst(strtolower($g));
+                    if (array_key_exists($cap, $muscleVolume)) {
+                        $muscleVolume[$cap] += $setCount;
+                    }
+                }
+            }
+        }
+
         return view('workouts.reports.index', [
             'mode' => $mode,
             'date' => $date,
@@ -42,6 +87,7 @@ class WorkoutReportController extends Controller
             'days' => $days,
             'sessions' => $sessions,
             'summary' => $summary,
+            'muscleVolume' => $muscleVolume,
         ]);
     }
 
@@ -62,13 +108,17 @@ class WorkoutReportController extends Controller
                 'reps' => round($rows->sum(fn ($row) => (float) $row->reps), 2),
                 'volume' => round($rows->sum(fn ($row) => (float) $row->reps * (float) ($row->weight ?? 0)), 2),
                 'max_weight' => $rows->max(fn ($row) => (float) ($row->weight ?? 0)),
+                'best_1rm' => round((float) $rows->map(fn ($r) => (float) ($r->weight ?? 0) * (1 + ((float) ($r->reps ?? 0) / 30)))->max(), 1),
                 'avg_rir' => $rows->whereNotNull('rir')->count() ? round($rows->whereNotNull('rir')->avg('rir'), 1) : null,
                 'sets' => $rows->count(),
-            ])->sortByDesc('date')->values();
+            ])->sortBy('date')->values();
+
+        $allTime1RM = (float) $sets->map(fn ($r) => (float) ($r->weight ?? 0) * (1 + ((float) ($r->reps ?? 0) / 30)))->max();
 
         return view('workouts.reports.exercise', [
             'exercise' => $exercise,
-            'sessions' => $byDate,
+            'sessions' => $byDate->sortByDesc('date')->values(),
+            'chartSessions' => $byDate,
             'stats' => [
                 'sessions' => $byDate->count(),
                 'sets' => $sets->count(),
@@ -76,6 +126,7 @@ class WorkoutReportController extends Controller
                 'volume' => round($sets->sum(fn ($row) => (float) $row->reps * (float) ($row->weight ?? 0)), 2),
                 'best_weight' => $sets->max(fn ($row) => (float) ($row->weight ?? 0)) ?: null,
                 'best_reps' => $sets->max(fn ($row) => (float) ($row->reps ?? 0)) ?: null,
+                'all_time_1rm' => round($allTime1RM, 1) ?: null,
             ],
         ]);
     }
