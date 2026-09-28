@@ -123,6 +123,52 @@ class DashboardController extends Controller
             'low' => round(($priorityDistribution['low'] / $totalNonCompletedTasks) * 100),
         ];
 
+        // Today's Focus tasks (high priority or due today/overdue, not completed)
+        $todayFocusTasks = $user->tasks()
+            ->with(['project:id,name,slug', 'checklistItems', 'timeEntries'])
+            ->where('status', '!=', 'completed')
+            ->where(function ($q) {
+                $q->whereDate('due_date', '<=', now()->toDateString())
+                  ->orWhere('priority', 'high');
+            })
+            ->orderByRaw("CASE WHEN due_date IS NOT NULL AND due_date <= CURDATE() THEN 0 WHEN priority = 'high' THEN 1 WHEN priority = 'medium' THEN 2 ELSE 3 END")
+            ->orderBy('due_date', 'asc')
+            ->take(6)
+            ->get();
+
+        // Today's Workout Session integration
+        $todayWeekday = strtolower(now()->format('l'));
+        $activeWorkoutPlan = $user->workoutPlans()->where('status', 'active')->first()
+            ?? $user->workoutPlans()->latest()->first();
+
+        $todayWorkoutDay = null;
+        $todayWorkoutSession = null;
+        if ($activeWorkoutPlan) {
+            $todayWorkoutDay = $activeWorkoutPlan->days()
+                ->where('weekday', $todayWeekday)
+                ->with(['exercises.exercise'])
+                ->first();
+
+            if ($todayWorkoutDay) {
+                $todayWorkoutSession = \App\Models\WorkoutSession::where('user_id', $user->id)
+                    ->where('workout_day_id', $todayWorkoutDay->id)
+                    ->whereDate('workout_date', now()->toDateString())
+                    ->first();
+            }
+        }
+
+        // Active running timer
+        $activeTimeEntry = $user->timeEntries()
+            ->where('status', \App\Models\TimeEntry::STATUS_RUNNING)
+            ->with(['project:id,name', 'task:id,title'])
+            ->first();
+
+        // Tasks completed today
+        $tasksCompletedToday = $user->tasks()
+            ->where('status', 'completed')
+            ->whereDate('updated_at', now()->toDateString())
+            ->count();
+
         return view('dashboard', compact(
             'tasksCount',
             'routinesCount',
@@ -131,9 +177,15 @@ class DashboardController extends Controller
             'filesCount',
             'projectsCount',
             'recentTasks',
+            'todayFocusTasks',
             'todayRoutines',
             'routineTotalCount',
             'routineDoneCount',
+            'activeWorkoutPlan',
+            'todayWorkoutDay',
+            'todayWorkoutSession',
+            'activeTimeEntry',
+            'tasksCompletedToday',
             'recentNotes',
             'upcomingReminders',
             'completedTasksThisWeek',

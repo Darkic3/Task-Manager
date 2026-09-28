@@ -43,7 +43,7 @@
                 title="{{ $task->status === 'completed' ? 'Mark as To Do' : 'Mark as Completed' }}">
             <i class="bi {{ $task->status === 'completed' ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
         </button>
-        <a href="{{ route('tasks.show', $task->id) }}" class="cu-task-title" title="{{ $task->title }}">
+        <a href="{{ route('tasks.show', $task->id) }}" class="cu-task-title" title="{{ $task->title }}" onclick="event.preventDefault(); if(typeof openTaskDrawer === 'function') openTaskDrawer({{ $task->id }}); else window.location.href='{{ route('tasks.show', $task->id) }}';">
             {{ $task->title }}
         </a>
     </div>

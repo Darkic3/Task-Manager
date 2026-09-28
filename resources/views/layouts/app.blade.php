@@ -814,6 +814,7 @@
         });
     </script>
     @include('time._widget')
+    @include('tasks._drawer')
     @stack('scripts')
 </body>
 

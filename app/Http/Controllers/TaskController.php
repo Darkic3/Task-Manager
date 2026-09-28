@@ -92,9 +92,38 @@ class TaskController extends Controller
         }
     }
 
-    public function show(Task $task)
+    public function show(Request $request, Task $task)
     {
         $task->load(['user:id,name', 'project:id,name,slug', 'checklistItems', 'parent:id,title', 'childrenRecursive', 'timeEntries']);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => true,
+                'task' => [
+                    'id' => $task->id,
+                    'title' => $task->title,
+                    'description' => $task->description,
+                    'priority' => $task->priority,
+                    'status' => $task->status,
+                    'due_date' => $task->due_date ? $task->due_date->format('Y-m-d') : null,
+                    'due_date_formatted' => $task->due_date ? $task->due_date->format('M d, Y') : null,
+                    'estimated_hours' => $task->estimated_hours,
+                    'est_hours' => floor($task->estimated_hours ?? 0),
+                    'est_minutes' => round((($task->estimated_hours ?? 0) - floor($task->estimated_hours ?? 0)) * 60),
+                    'project_id' => $task->project_id,
+                    'project' => $task->project,
+                    'parent_id' => $task->parent_id,
+                    'parent' => $task->parent,
+                    'checklist_items' => $task->checklistItems,
+                    'children' => $task->childrenRecursive,
+                    'created_at_human' => $task->created_at->diffForHumans(),
+                    'show_url' => route('tasks.show', $task),
+                    'edit_url' => route('tasks.edit', $task),
+                    'update_url' => route('tasks.update', $task),
+                    'destroy_url' => route('tasks.destroy', $task),
+                ]
+            ]);
+        }
 
         return view('tasks.show', compact('task'));
     }
@@ -126,6 +155,7 @@ class TaskController extends Controller
             'estimated_hours' => 'nullable|numeric|min:0',
             'est_hours' => 'nullable|integer|min:0|max:999',
             'est_minutes' => 'nullable|integer|min:0|max:59',
+            'project_id' => 'nullable|integer',
             'parent_id' => 'nullable|integer|exists:tasks,id',
             'weight' => 'nullable|numeric|min:0|max:99',
             'auto_weight' => 'nullable|boolean',
@@ -141,6 +171,14 @@ class TaskController extends Controller
             : null;
 
         $task->update($data);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Task updated successfully',
+                'task' => $task->fresh(['project:id,name,slug', 'checklistItems'])
+            ]);
+        }
 
         return redirect()->route('tasks.show', $task->id)->with('success', 'Task updated successfully.');
     }
