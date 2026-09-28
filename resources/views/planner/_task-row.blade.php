@@ -57,26 +57,28 @@
         </div>
     </div>
 
-    @if(! $isDone)
-        <div class="pl-task-actions">
+    <div class="pl-task-actions">
+        @if(! $isDone)
             <button type="button"
-                    class="pl-task-act"
+                    class="pl-task-act {{ $postponeMode === 'today' ? 'pl-task-act-pull' : 'pl-task-act-move' }}"
                     data-postpone="{{ $postponeMode }}"
                     data-id="{{ $task->id }}"
-                    title="{{ $postponeMode === 'today' ? 'Pull into today' : 'Postpone to tomorrow' }}">
+                    title="{{ $postponeMode === 'today' ? 'Pull into today' : 'Postpone to tomorrow' }}"
+                    aria-label="{{ $postponeMode === 'today' ? 'Pull into today' : 'Postpone to tomorrow' }}">
                 <i class="bi {{ $postponeMode === 'today' ? 'bi-arrow-counterclockwise' : 'bi-arrow-90deg-down' }}"></i>
             </button>
             <button type="button"
                     class="pl-task-act pl-task-act-danger"
                     data-clear-day
                     data-id="{{ $task->id }}"
-                    title="Remove from My Day">
+                    title="Remove from My Day"
+                    aria-label="Remove from My Day">
                 <i class="bi bi-x-lg"></i>
             </button>
-        </div>
-    @endif
-
-    <a href="{{ route('tasks.show', $task->id) }}" class="pl-task-open" title="Open task">
-        <i class="bi bi-box-arrow-up-right"></i>
-    </a>
+        @endif
+        <a href="{{ route('tasks.show', $task->id) }}" class="pl-task-open" title="Open task details">
+            <span>Open</span>
+            <i class="bi bi-arrow-up-right"></i>
+        </a>
+    </div>
 </div>

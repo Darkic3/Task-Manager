@@ -352,26 +352,24 @@ class Routine extends Model
         return $this->time_period !== null || ($this->start_time && $this->end_time);
     }
 
-    /**
-     * Ordering key: exact times first, then periods, then unscheduled.
-     * Letter prefixes (a/b/z) keep comparisons byte-wise — numeric-looking
-     * prefixes would make PHP compare some keys as numbers.
+        /**
+     * The single ordering used everywhere (Routines page, My Day, Dashboard):
+     * time-period slot -> manual drag order -> exact start time -> title.
+     * Fixed-width pieces keep plain string comparison byte-wise correct.
      */
     public function sortKey(): string
     {
-        if ($this->start_time) {
-            return 'a'.Carbon::parse($this->start_time)->format('H:i');
-        }
+        $slot = $this->time_period
+            ? (int) config("routines.periods.{$this->time_period}.order", 99)
+            : 99;
+        $time = $this->start_time
+            ? Carbon::parse($this->start_time)->format('H:i')
+            : '99:99';
 
-        if ($this->time_period) {
-            $order = (int) config("routines.periods.{$this->time_period}.order", 99);
-
-            // Manual drag order (sort_order) breaks ties inside one period.
-            return 'b'.str_pad((string) $order, 2, '0', STR_PAD_LEFT)
-                .str_pad((string) (int) $this->sort_order, 4, '0', STR_PAD_LEFT);
-        }
-
-        return 'z'.str_pad((string) (int) $this->sort_order, 4, '0', STR_PAD_LEFT);
+        return str_pad((string) $slot, 2, '0', STR_PAD_LEFT)
+            . str_pad((string) (int) $this->sort_order, 4, '0', STR_PAD_LEFT)
+            . $time
+            . '-' . mb_strtolower((string) $this->title);
     }
 
     /**

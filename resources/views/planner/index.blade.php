@@ -133,11 +133,6 @@
     .pl-priority{font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;}
     .pl-proj,.pl-due{font-size:11px;color:#8a8f98;display:inline-flex;align-items:center;gap:4px;}
     .pl-due.overdue{color:#dc2626;font-weight:600;}
-    .pl-task-open{
-        flex-shrink:0;width:26px;height:26px;display:flex;align-items:center;justify-content:center;
-        color:#c4c9d4;text-decoration:none;border-radius:6px;transition:all .15s;
-    }
-    .pl-task-open:hover{color:#7c3aed;background:#faf5ff;}
 
     /* Period groups + postpone actions */
     .pl-period-group{display:flex;flex-direction:column;gap:2px;}
@@ -156,16 +151,64 @@
     .pl-task.dragging{opacity:.4;}
     .pl-task.drop-before{box-shadow:inset 0 3px 0 0 #7c3aed;}
     .pl-task.drop-after{box-shadow:inset 0 -3px 0 0 #7c3aed;}
-    .pl-task-actions{display:flex;gap:2px;flex-shrink:0;align-self:center;opacity:.55;transition:opacity .15s;}
-    .pl-task:hover .pl-task-actions{opacity:1;}
+    .pl-task-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;align-self:center;opacity:.4;transition:opacity .18s;}
+    .pl-task:hover .pl-task-actions,.pl-task:focus-within .pl-task-actions{opacity:1;}
     .pl-task-act{
-        width:24px;height:24px;display:flex;align-items:center;justify-content:center;
-        border:none;background:transparent;color:#8a8f98;border-radius:6px;
-        font-size:12px;cursor:pointer;transition:all .15s;padding:0;
+        width:27px;height:27px;display:grid;place-items:center;padding:0;
+        border:1px solid #e3e4e8;background:#fff;color:#5b6472;border-radius:8px;
+        font-size:13px;cursor:pointer;transition:all .15s;
     }
-    .pl-task-act:hover{color:#7c3aed;background:#f5f3ff;}
-    .pl-task-act-danger:hover{color:#dc2626;background:#fef2f2;}
-    .pl-task-act:disabled{opacity:.4;cursor:default;}
+    .pl-task-act-move:hover{background:#4f46e5;border-color:#4f46e5;color:#fff;transform:translateY(-1px);box-shadow:0 4px 10px rgba(79,70,229,.28);}
+    .pl-task-act-pull:hover{background:#16a34a;border-color:#16a34a;color:#fff;transform:translateY(-1px);box-shadow:0 4px 10px rgba(22,163,74,.28);}
+    .pl-task-act-danger:hover{background:#e11d48;border-color:#e11d48;color:#fff;transform:translateY(-1px);box-shadow:0 4px 10px rgba(225,29,72,.28);}
+    .pl-task-act:active{transform:translateY(0) scale(.96);}
+    .pl-task-act:disabled{opacity:.35;cursor:default;transform:none;box-shadow:none;}
+    .pl-task-open{
+        display:inline-flex;align-items:center;gap:4px;height:27px;padding:0 10px;
+        border:1px solid #e3e4e8;background:#fff;border-radius:8px;
+        color:#5b6472;font-size:11px;font-weight:800;letter-spacing:.02em;text-decoration:none;
+        transition:all .15s;
+    }
+    .pl-task-open:hover{background:#0f172a;border-color:#0f172a;color:#fff;transform:translateY(-1px);box-shadow:0 5px 12px rgba(15,23,42,.25);}
+    .pl-task-open i{font-size:12px;}
+
+    /* Day progress bar */
+    .pl-daybar{display:flex;align-items:center;gap:10px;margin:2px 0 14px;}
+    .pl-daybar-track{flex:1;height:8px;background:#eceef2;border-radius:20px;overflow:hidden;}
+    .pl-daybar-fill{height:100%;width:0%;border-radius:20px;background:linear-gradient(90deg,#7c3aed,#a78bfa);transition:width .45s ease;}
+    .pl-daybar-fill.is-full{background:linear-gradient(90deg,#16a34a,#4ade80);}
+    .pl-daybar-label{font-size:11.5px;font-weight:800;color:#7c3aed;min-width:36px;text-align:right;}
+    .pl-daybar-fill.is-full + .pl-daybar-label,.pl-daybar.done .pl-daybar-label{color:#16a34a;}
+
+    /* Postpone-all button on the Overdue head */
+    .pl-overdue-all{
+        display:inline-flex;align-items:center;gap:6px;margin-left:auto;
+        border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:8px;
+        font-size:10.5px;font-weight:800;padding:4px 10px;cursor:pointer;transition:all .15s;
+    }
+    .pl-overdue-all:hover{background:#dc2626;border-color:#dc2626;color:#fff;box-shadow:0 4px 10px rgba(220,38,38,.3);}
+    .pl-overdue-all:disabled{opacity:.5;cursor:default;}
+
+    /* Inline title editing */
+    .pl-task-title{cursor:text;border-radius:6px;padding:1px 4px;margin:-1px -4px;transition:background .15s;}
+    .pl-task-title:hover{background:#f5f3ff;}
+    .pl-task-title:hover::after{
+        content:'\F4C6';font-family:'bootstrap-icons';font-size:10px;color:#a78bfa;margin-left:6px;vertical-align:middle;
+    }
+    .pl-task.pl-routine .pl-task-title{cursor:pointer;}
+    .pl-task.pl-routine .pl-task-title:hover{background:transparent;}
+    .pl-task.pl-routine .pl-task-title:hover::after{content:none;}
+    .pl-title-input{
+        width:100%;font:inherit;font-size:13px;font-weight:600;color:#1a1d23;
+        border:1px solid #7c3aed;border-radius:7px;padding:2px 8px;outline:none;
+        box-shadow:0 0 0 3px rgba(124,58,237,.13);background:#fff;
+    }
+
+    @media(max-width:768px){
+        .pl-task-actions{opacity:1;}
+        .pl-task-open span{display:none;}
+        .pl-task-open{padding:0 8px;}
+    }
 
     /* Routine row accent */
     .pl-routine .pl-check input:checked + .pl-check-box{background:#7c3aed;border-color:#7c3aed;}
@@ -513,8 +556,14 @@
             <div class="pl-stat"><i class="bi bi-list-check"></i> Pending <strong id="plPendingCount">{{ $pending->count() }}</strong></div>
             <div class="pl-stat"><i class="bi bi-check-circle"></i> Done <strong id="plDoneCount">{{ $done->count() }}</strong></div>
             @if($overdue->count())
-                <div class="pl-stat overdue"><i class="bi bi-exclamation-triangle"></i> Overdue <strong>{{ $overdue->count() }}</strong></div>
+                <div class="pl-stat overdue"><i class="bi bi-exclamation-triangle"></i> Overdue <strong id="plOverdueStat">{{ $overdue->count() }}</strong></div>
             @endif
+        </div>
+
+        {{-- Day progress (tasks + routines combined) --}}
+        <div class="pl-daybar">
+            <div class="pl-daybar-track"><div class="pl-daybar-fill" id="plDayProgressFill"></div></div>
+            <span class="pl-daybar-label" id="plDayProgressLabel"></span>
         </div>
 
         {{-- Next Up --}}
@@ -543,6 +592,9 @@
                     <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;"></i>
                     <span class="pl-section-title">Overdue</span>
                     <span class="pl-section-count" id="plOverdueCount">{{ $overdue->count() }}</span>
+                    <button type="button" class="pl-overdue-all" id="plPostponeAll" title="Move every overdue task to tomorrow">
+                        <i class="bi bi-arrow-90deg-down"></i> Postpone all to tomorrow
+                    </button>
                 </div>
                 <div class="pl-section-body" id="plOverdueBody">
                     @foreach($overdue as $task)
@@ -784,7 +836,7 @@
         window.location.reload();
     }
 
-    async function toggleTask(cb) {
+    async function toggleTask(cb, silent) {
         const url = cb.dataset.url;
         const id  = cb.dataset.id;
         cb.disabled = true;
@@ -801,6 +853,12 @@
                 row.dataset.completed = json.completed ? '1' : '0';
             });
             refreshCounters();
+            if (!silent) {
+                plShowToast(json.completed ? 'Done ✓' : 'Reopened', () => {
+                    document.querySelectorAll('[data-task-item][data-id="' + id + '"] .pl-check input')
+                        .forEach(c => toggleTask(c, true));
+                });
+            }
         } catch (e) {
             if (e.message !== 'GONE') {
                 cb.checked = !cb.checked;
@@ -822,6 +880,7 @@
         if (p) p.textContent = pending;
         if (d) d.textContent = done;
         if (t) t.textContent = pending;
+        if (window.plRefreshDayProgress) window.plRefreshDayProgress();
     }
 
     async function toggleRoutine(cb) {
@@ -1367,6 +1426,7 @@
         const rs = document.getElementById('plRoutineSectionCount');
         if (rd) rd.textContent = done;
         if (rs) rs.textContent = total;
+        if (window.plRefreshDayProgress) window.plRefreshDayProgress();
 
         // per-day counters in week view
         document.querySelectorAll('.pl-day').forEach(dayEl => {
@@ -1917,18 +1977,119 @@
             }
 
             const overdueCount = document.getElementById('plOverdueCount');
+            let overdueLeft = -1;
             if (overdueCount) {
-                const left = document.querySelectorAll('#plOverdueBody [data-task-item]').length;
-                overdueCount.textContent = left;
-                if (left === 0) {
+                overdueLeft = document.querySelectorAll('#plOverdueBody [data-task-item]').length;
+                overdueCount.textContent = overdueLeft;
+                if (overdueLeft === 0) {
                     document.getElementById('plOverdueBody')?.closest('.pl-section')?.remove();
+                    document.querySelector('.pl-stat.overdue')?.remove();
+                } else {
+                    const stat = document.getElementById('plOverdueStat');
+                    if (stat) stat.textContent = overdueLeft;
                 }
             }
             refreshCounters();
+
+            const msgs = { tomorrow: 'Postponed to tomorrow', today: 'Pulled into today', clear: 'Removed from My Day' };
+            if (msgs[action]) {
+                plShowToast(msgs[action], () => {
+                    plFetch(POSTPONE_URL(id), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ action: 'restore', due_date: json.previous_due_date ?? null }),
+                    }).then(() => location.reload()).catch(() => {});
+                });
+            }
         } catch (err) {
             console.error('[Planner] postpone failed', err);
             delete btn.dataset.busy;
         }
+    });
+
+    /* ── Day progress bar (tasks + routines combined) ── */
+    window.plRefreshDayProgress = function () {
+        const fill = document.getElementById('plDayProgressFill');
+        if (!fill) { return; }
+        let done = 0, total = 0;
+        document.querySelectorAll('[data-task-item][data-count="1"], [data-routine-item][data-count="1"]').forEach(el => {
+            total++;
+            if (el.dataset.completed === '1') done++;
+        });
+        const pct = total > 0 ? Math.round(done / total * 100) : 0;
+        fill.style.width = pct + '%';
+        fill.classList.toggle('is-full', pct === 100 && total > 0);
+        const lbl = document.getElementById('plDayProgressLabel');
+        if (lbl) { lbl.textContent = total ? pct + '%' : ''; lbl.title = done + ' of ' + total + ' done'; }
+    };
+    window.plRefreshDayProgress();
+
+    /* ── Postpone every overdue task in one click ── */
+    const postponeAllBtn = document.getElementById('plPostponeAll');
+    if (postponeAllBtn) {
+        postponeAllBtn.addEventListener('click', async () => {
+            postponeAllBtn.disabled = true;
+            try {
+                const res = await plFetch('{{ route('planner.tasks.postpone-all') }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                });
+                if (!res.ok) { throw new Error('HTTP ' + res.status); }
+                location.reload();
+            } catch (e) {
+                console.error('[Planner] postpone all failed', e);
+                postponeAllBtn.disabled = false;
+            }
+        });
+    }
+
+    /* ── Double-click to rename a task title inline ── */
+    const TITLE_URL = id => `{{ route('planner.tasks.title', ['task' => '__ID__']) }}`.replace('__ID__', id);
+
+    document.addEventListener('dblclick', e => {
+        const titleEl = e.target.closest('.pl-task[data-task-item] .pl-task-title');
+        if (!titleEl || titleEl.querySelector('input')) { return; }
+        const row = titleEl.closest('[data-task-item]');
+        const old = titleEl.textContent.trim();
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'pl-title-input';
+        input.value = old;
+        input.maxLength = 255;
+        titleEl.textContent = '';
+        titleEl.appendChild(input);
+        input.focus();
+        input.select();
+
+        let settled = false;
+        const finish = async (save) => {
+            if (settled) { return; }
+            settled = true;
+            const val = input.value.trim();
+            if (save && val && val !== old) {
+                try {
+                    const res = await plFetch(TITLE_URL(row.dataset.id), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ title: val }),
+                    });
+                    if (!res.ok) { throw new Error('HTTP ' + res.status); }
+                    const json = await res.json();
+                    document.querySelectorAll(`[data-task-item][data-id="${row.dataset.id}"] .pl-task-title`)
+                        .forEach(t => { t.textContent = json.title; });
+                    plShowToast('Title updated');
+                    return;
+                } catch (err) {
+                    console.error('[Planner] rename failed', err);
+                }
+            }
+            titleEl.textContent = old;
+        };
+        input.addEventListener('keydown', ev => {
+            if (ev.key === 'Enter') { ev.preventDefault(); finish(true); }
+            if (ev.key === 'Escape') { ev.preventDefault(); finish(false); }
+        });
+        input.addEventListener('blur', () => finish(true));
     });
 })();
 </script>

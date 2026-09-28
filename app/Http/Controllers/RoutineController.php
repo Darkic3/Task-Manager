@@ -17,14 +17,10 @@ class RoutineController extends Controller
     {
         $user = Auth::user();
         $today = now()->startOfDay();
-        // Ordered like the planner day column: period slot → manual drag
-        // order (sort_order) → title.
+        // One shared order everywhere (sortKey): period slot → manual drag
+        // order → exact time → title — so My Day mirrors this page exactly.
         $routines = $user->routines()->get()
-            ->sortBy(fn ($r) => [
-                (int) ($r->time_period ? config("routines.periods.{$r->time_period}.order", 99) : 99),
-                (int) $r->sort_order,
-                mb_strtolower((string) $r->title),
-            ])
+            ->sortBy(fn ($r) => $r->sortKey())
             ->values();
 
         // Batch: one completions query for [today-1y .. today]; ring math is pure PHP.

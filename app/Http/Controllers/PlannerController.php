@@ -63,7 +63,7 @@ class PlannerController extends Controller
 
         // Sort today's routines by their current active step's schedule.
         $routinesData['today'] = $routinesData['today']
-            ->sortBy(fn ($r) => $r->activeStepSortKey ?? $r->sortKey())
+            ->sortBy(fn ($r) => $r->sortKey())
             ->values();
 
         return view('planner.index', [
@@ -119,7 +119,7 @@ class PlannerController extends Controller
             $todayRoutines = $dayRoutines['today']->map(fn ($r) => clone $r);
             $this->decorateHabitMetricsBulk($todayRoutines, $day, $stepMap, $violationMap);
             $todayRoutines = $todayRoutines
-                ->sortBy(fn ($r) => $r->activeStepSortKey ?? $r->sortKey())
+                ->sortBy(fn ($r) => $r->sortKey())
                 ->values();
             $days[] = [
                 'date' => $day,
@@ -165,16 +165,20 @@ class PlannerController extends Controller
     {
         abort_if($task->user_id !== Auth::id(), 403);
 
-        $action = $request->validate([
-            'action' => ['required', Rule::in(['tomorrow', 'today', 'clear'])],
-        ])['action'];
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['tomorrow', 'today', 'clear', 'restore'])],
+            'due_date' => ['nullable', 'date'],
+        ]);
+        $action = $data['action'];
 
+        $previous = $task->due_date?->toDateString();
         $base = $task->due_date && $task->due_date->gt(today()) ? $task->due_date : today();
 
         $task->due_date = match ($action) {
             'tomorrow' => $base->copy()->addDay()->toDateString(),
             'today' => today()->toDateString(),
             'clear' => null,
+            'restore' => ($data['due_date'] ?? null) ? Carbon::parse($data['due_date'])->toDateString() : null,
         };
         $task->save();
 
@@ -186,12 +190,14 @@ class PlannerController extends Controller
                 'ok' => true,
                 'action' => $action,
                 'due_date' => $task->due_date,
+                'previous_due_date' => $previous,
                 'group' => $task->time_period ?: 'anytime',
                 'row_html' => view('planner._task-row', [
                     'task' => $task,
                     'count' => true,
                     'postpone' => 'tomorrow',
                     'hideDue' => true,
+                    'draggable' => true,
                 ])->render(),
             ]);
         }
@@ -200,7 +206,37 @@ class PlannerController extends Controller
             'ok' => true,
             'action' => $action,
             'due_date' => $task->due_date,
+            'previous_due_date' => $previous,
         ]);
+    }
+
+    /**
+     * Inline title edit from My Day (double-click).
+     */
+    public function renameTask(Request $request, Task $task)
+    {
+        abort_if($task->user_id !== Auth::id(), 403);
+
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+        ]);
+
+        $task->update(['title' => trim($data['title'])]);
+
+        return response()->json(['ok' => true, 'title' => $task->title]);
+    }
+
+    /**
+     * One click: move every overdue open task to tomorrow.
+     */
+    public function postponeAllOverdue()
+    {
+        $moved = Task::where('user_id', Auth::id())
+            ->where('status', '!=', 'completed')
+            ->whereDate('due_date', '<', today())
+            ->update(['due_date' => today()->addDay()->toDateString()]);
+
+        return response()->json(['ok' => true, 'moved' => $moved]);
     }
 
     /**
@@ -582,7 +618,7 @@ class PlannerController extends Controller
             ->values();
         $this->decorateNextUpRoutines($today, $date, $stepMap, $violationMap);
         $today = $today
-            ->sortBy(fn ($r) => $r->activeStepSortKey ?? $r->sortKey())
+            ->sortBy(fn ($r) => $r->sortKey())
             ->values();
 
         $nextUp = $this->buildNextUp($pending, $today, $date);
@@ -698,7 +734,7 @@ class PlannerController extends Controller
             'ok' => true,
             'task' => ['id' => $task->id, 'title' => $task->title],
             'group' => $task->time_period ?: 'anytime',
-            'html' => view('planner._task-row', ['task' => $task, 'count' => true, 'postpone' => 'tomorrow', 'hideDue' => true])->render(),
+            'html' => view('planner._task-row', ['task' => $task, 'count' => true, 'postpone' => 'tomorrow', 'hideDue' => true, 'draggable' => true])->render(),
         ], 201);
     }
 
