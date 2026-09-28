@@ -89,6 +89,25 @@
     .rp-table td { padding: 7px 8px; border-bottom: 1px solid #f0f1f3; color: #3d4149; vertical-align: middle; }
     .rp-table tr:last-child td { border-bottom: none; }
     .rp-empty { text-align: center; color: #adb0b8; font-size: 12.5px; padding: 18px; }
+
+    .rp-insights { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 6px; }
+    @media(max-width:800px) { .rp-insights { grid-template-columns: 1fr; } }
+    .rp-insight {
+        display: flex; gap: 10px; align-items: flex-start; background: white;
+        border: 1px solid #e3e4e8; border-radius: 10px; padding: 11px 14px;
+        border-left-width: 4px;
+    }
+    .rp-insight.good { border-left-color: #16a34a; }
+    .rp-insight.warn { border-left-color: #d97706; }
+    .rp-insight.bad { border-left-color: #dc2626; }
+    .rp-insight.info { border-left-color: #7c3aed; }
+    .rp-insight i { font-size: 16px; margin-top: 1px; }
+    .rp-insight.good i { color: #16a34a; }
+    .rp-insight.warn i { color: #d97706; }
+    .rp-insight.bad i { color: #dc2626; }
+    .rp-insight.info i { color: #7c3aed; }
+    .rp-insight-title { font-size: 12.5px; font-weight: 800; color: #1a1d23; }
+    .rp-insight-body { font-size: 11.5px; color: #6b7280; margin-top: 1px; }
 </style>
 @endpush
 
@@ -161,6 +180,20 @@
             <div class="rp-kpi-label">Time tracked</div>
             {!! $delta($deltas['time'] !== 0 ? (int) round($deltas['time'] / 3600, 1) : 0, 'h') !!}
         </div>
+    </div>
+
+    {{-- Insights --}}
+    <div class="rp-sec-title" id="insights"><i class="bi bi-lightbulb" style="color:#d97706;"></i> Insights</div>
+    <div class="rp-insights">
+        @foreach($insights as $in)
+            <div class="rp-insight {{ $in['tone'] }}">
+                <i class="bi {{ $in['icon'] }}"></i>
+                <div>
+                    <div class="rp-insight-title">{{ $in['title'] }}</div>
+                    <div class="rp-insight-body">{{ $in['body'] }}</div>
+                </div>
+            </div>
+        @endforeach
     </div>
 
     {{-- Tasks --}}

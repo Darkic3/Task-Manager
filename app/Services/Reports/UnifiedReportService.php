@@ -25,7 +25,7 @@ final class UnifiedReportService
         $prevWorkouts = WorkoutReportService::summarize($userId, $range->prevFrom, $range->prevTo);
         $prevTime = TimeReportService::summarize($userId, $range->prevFrom, $range->prevTo);
 
-        return [
+        $report = [
             'tasks' => $tasks,
             'routines' => $routines,
             'avoid' => $avoid,
@@ -40,5 +40,9 @@ final class UnifiedReportService
                 'time' => $time['total'] - $prevTime['total'],
             ],
         ];
+
+        $report['insights'] = InsightService::generate($userId, $range, $report);
+
+        return $report;
     }
 }
