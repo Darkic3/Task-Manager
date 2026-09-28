@@ -57,15 +57,22 @@ class TimeTrackingController extends Controller
         return response()->json(['ok' => true, 'active' => $this->serialize($entry->fresh())], 201);
     }
 
+    /**
+     * Tasks for the time-tracking dropdowns. With a project_id: that
+     * project's open tasks; without one: the user's open tasks that have no
+     * project at all.
+     */
     public function tasksForProject(Request $request)
     {
         $data = $request->validate([
-            'project_id' => ['required', 'integer', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
+            'project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
         ]);
 
-        $tasks = Task::where('project_id', $data['project_id'])
-            ->where('user_id', Auth::id())
+        $tasks = Task::where('user_id', Auth::id())
             ->where('status', '!=', 'completed')
+            ->when(isset($data['project_id']),
+                fn ($query) => $query->where('project_id', $data['project_id']),
+                fn ($query) => $query->whereNull('project_id'))
             ->orderBy('sort_order')->orderBy('id')
             ->get(['id', 'title', 'status', 'parent_id']);
 

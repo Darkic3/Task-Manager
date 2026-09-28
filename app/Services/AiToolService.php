@@ -473,12 +473,9 @@ class AiToolService
             $projectId = $project->id;
             $projectName = $project->name;
         } else {
-            $project = Project::where('user_id', $user->id)->orderBy('id')->first();
-            if (! $project) {
-                return $this->fail('You have no project yet — create a project first.');
-            }
-            $projectId = $project->id;
-            $projectName = $project->name;
+            // No project given — the task simply has no project (allowed).
+            $projectId = null;
+            $projectName = null;
         }
 
         return ['ok' => true, 'error' => null, 'resolved' => [

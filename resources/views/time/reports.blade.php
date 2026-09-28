@@ -170,8 +170,8 @@
                     </div>
                     <div class="tm-field">
                         <label>Task</label>
-                        <select name="task_id" class="tm-input" id="tm-manual-task" disabled>
-                            <option value="">Select a project first</option>
+                        <select name="task_id" class="tm-input" id="tm-manual-task">
+                            <option value="">No specific task</option>
                         </select>
                     </div>
                 </div>
@@ -240,13 +240,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const taskSel = document.getElementById('tm-manual-task');
     if (!projectSel || !taskSel) return;
     projectSel.addEventListener('change', () => {
+        loadTasks();
+    });
+
+    function loadTasks() {
         taskSel.innerHTML = '<option value="">Loading…</option>';
-        taskSel.disabled = true;
-        if (!projectSel.value) {
-            taskSel.innerHTML = '<option value="">Select a project first</option>';
-            return;
-        }
-        fetch('{{ route('time.tasks') }}?project_id=' + encodeURIComponent(projectSel.value), { headers: { 'Accept': 'application/json' } })
+        const url = projectSel.value
+            ? '{{ route('time.tasks') }}?project_id=' + encodeURIComponent(projectSel.value)
+            : '{{ route('time.tasks') }}';
+        fetch(url, { headers: { 'Accept': 'application/json' } })
             .then(r => r.json())
             .then(j => {
                 taskSel.innerHTML = '<option value="">No specific task</option>' +
@@ -254,7 +256,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 taskSel.disabled = false;
             })
             .catch(() => { taskSel.innerHTML = '<option value="">Could not load tasks</option>'; });
-    });
+    }
+    loadTasks();
 });
 </script>
 @endpush

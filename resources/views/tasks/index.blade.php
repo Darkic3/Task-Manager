@@ -668,11 +668,22 @@
     {{-- PROJECTS VIEW (global page only) — one collapsible section per project --}}
     @if(!isset($project))
         @php
+            $orphanTasks = $flatAll->filter(fn ($t) => $t->project_id === null)->values();
             $projectsWithTasks = $projects->filter(
                 fn ($p) => $flatAll->contains(fn ($t) => (int) $t->project_id === (int) $p->id)
             )->values();
         @endphp
         <div class="cu-chapters-view" id="cuProjects" style="display:none;">
+            @if($orphanTasks->count())
+                @include('tasks._chapter-section', [
+                    'sectionId'    => 'p-none',
+                    'sectionTitle' => 'No project',
+                    'sectionUrl'   => null,
+                    'tasks'        => $orphanTasks->filter(fn ($t) => $t->parent_id === null)->values(),
+                    'grouped'      => $orphanTasks->groupBy('parent_id'),
+                    'collapsed'    => true,
+                ])
+            @endif
             @foreach($projectsWithTasks as $proj)
                 @php
                     $pTasks   = $flatAll->filter(fn ($t) => (int) $t->project_id === (int) $proj->id)->values();
@@ -731,9 +742,9 @@
                     <div class="row g-3">
                         <div class="col-md-4">
                             <div class="cu-field">
-                                <label class="cu-label">Project <span style="color:#e5484d;">*</span></label>
-                                <select name="project_id" class="cu-input cu-select" required>
-                                    <option value="">Select…</option>
+                                <label class="cu-label">Project</label>
+                                <select name="project_id" class="cu-input cu-select">
+                                    <option value="">No project</option>
                                     @foreach($projects as $proj)
                                         <option value="{{ $proj->id }}" {{ isset($project) && $project->id == $proj->id ? 'selected' : '' }}>{{ $proj->name }}</option>
                                     @endforeach
@@ -1480,12 +1491,12 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     function quickAdd(status, title) {
-        /* On global page fall back to the selected project filter (or first project) */
+        /* On the global page fall back to the selected project filter;
+           empty = task without a project */
         let projectId = `{{ $project->id ?? '' }}`;
         if (!projectId && projectSelect) {
-            projectId = projectSelect.value || (projectSelect.options[1]?.value || '');
+            projectId = projectSelect.value || '';
         }
-        if (!projectId) { toast('Select a project first'); return; }
 
         /* Full POST + redirect back: server renders the complete card markup */
         const f = document.createElement('form');

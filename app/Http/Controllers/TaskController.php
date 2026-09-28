@@ -8,6 +8,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class TaskController extends Controller
@@ -25,10 +26,13 @@ class TaskController extends Controller
                 ->get()
                 ->groupBy('status');
         } else {
-            // Show all tasks — exclude tasks from completed or closed projects
+            // Show all tasks — include tasks without a project; exclude tasks
+            // from completed or closed projects
             $tasks = Task::where('user_id', $user->id)
-                ->whereHas('project', function ($query) {
-                    $query->whereNotIn('status', ['completed', 'closed']);
+                ->where(function ($query) {
+                    $query->whereHas('project', function ($q) {
+                        $q->whereNotIn('status', ['completed', 'closed']);
+                    })->orWhereNull('project_id');
                 })
                 ->with(['project:id,name,slug', 'childrenRecursive', 'checklistItems', 'timeEntries'])
                 ->withCount('children')
@@ -57,7 +61,7 @@ class TaskController extends Controller
     public function store(Request $request, ?Project $project = null)
     {
         $data = $request->validate([
-            'project_id' => 'required|exists:projects,id',
+            'project_id' => ['nullable', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
             'user_id' => 'required|exists:users,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -100,7 +104,10 @@ class TaskController extends Controller
         $projects = Project::all();
         $users = User::all();
         $exclude = array_merge([$task->id], $this->descendantIds($task));
-        $parentOptions = Task::where('project_id', $task->project_id)
+        $parentOptions = Task::where('user_id', $task->user_id)
+            ->when($task->project_id !== null,
+                fn ($query) => $query->where('project_id', $task->project_id),
+                fn ($query) => $query->whereNull('project_id'))
             ->whereNotIn('id', $exclude)
             ->orderBy('sort_order')->orderBy('id')
             ->get(['id', 'title', 'parent_id']);
@@ -187,10 +194,10 @@ class TaskController extends Controller
     }
 
     /**
-     * Ensure the proposed parent belongs to the same project + user and
-     * does not create a cycle.
+     * Ensure the proposed parent belongs to the same project (or has none,
+     * matching the child) + user and does not create a cycle.
      */
-    private function resolveParent($parentId, int $projectId, int $userId, ?int $selfId = null): void
+    private function resolveParent($parentId, ?int $projectId, int $userId, ?int $selfId = null): void
     {
         if (! $parentId) {
             return;
@@ -200,8 +207,10 @@ class TaskController extends Controller
         }
 
         $parent = Task::where('id', $parentId)
-            ->where('project_id', $projectId)
             ->where('user_id', $userId)
+            ->when($projectId !== null,
+                fn ($query) => $query->where('project_id', $projectId),
+                fn ($query) => $query->whereNull('project_id'))
             ->first();
         abort_if(! $parent, 422, 'Invalid parent task.');
 

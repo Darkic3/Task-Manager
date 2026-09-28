@@ -589,7 +589,7 @@
                             <option value="high">High</option>
                         </select>
                         <select name="project_id" aria-label="Project">
-                            <option value="">Inbox</option>
+                            <option value="">No project</option>
                             @foreach(($quickProjects ?? []) as $proj)
                                 <option value="{{ $proj->id }}">{{ $proj->name }}</option>
                             @endforeach

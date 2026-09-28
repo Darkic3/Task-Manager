@@ -13,7 +13,7 @@ class PlannerQuickAddTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_quick_add_task_defaults_to_inbox_and_selected_day(): void
+    public function test_quick_add_task_defaults_to_no_project_and_selected_day(): void
     {
         $user = User::factory()->create();
         $date = now()->toDateString();
@@ -31,11 +31,8 @@ class PlannerQuickAddTest extends TestCase
         $this->assertSame('to_do', $task->status);
         $this->assertSame('medium', $task->priority);
         $this->assertSame($date, $task->due_date->toDateString());
-
-        $inbox = Project::where('user_id', $user->id)->where('name', 'Inbox')->first();
-        $this->assertNotNull($inbox);
-        $this->assertSame('inbox', $inbox->type);
-        $this->assertSame($inbox->id, $task->project_id);
+        $this->assertNull($task->project_id);
+        $this->assertSame(0, Project::where('user_id', $user->id)->count());
 
         $response->assertSee('Buy milk');
     }

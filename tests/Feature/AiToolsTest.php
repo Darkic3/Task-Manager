@@ -50,13 +50,28 @@ class AiToolsTest extends TestCase
         $project = Project::factory()->create(['user_id' => $user->id]);
         $svc = new AiToolService;
 
-        $check = $svc->validateCall('task_create', ['title' => 'AI task'], $user);
+        // With a project name → resolves to that project
+        $check = $svc->validateCall('task_create', ['title' => 'AI task', 'project' => $project->name], $user);
         $this->assertTrue($check['ok']);
         $this->assertEquals($project->id, $check['resolved']['project_id']);
 
         $result = $svc->execute('task_create', $check['resolved'], $user);
         $this->assertTrue($result['ok']);
         $this->assertDatabaseHas('tasks', ['id' => $result['id'], 'title' => 'AI task', 'user_id' => $user->id]);
+    }
+
+    public function test_service_allows_task_create_without_project(): void
+    {
+        $user = User::factory()->create();
+        $svc = new AiToolService;
+
+        $check = $svc->validateCall('task_create', ['title' => 'AI task'], $user);
+        $this->assertTrue($check['ok']);
+        $this->assertNull($check['resolved']['project_id']);
+
+        $result = $svc->execute('task_create', $check['resolved'], $user);
+        $this->assertTrue($result['ok']);
+        $this->assertDatabaseHas('tasks', ['id' => $result['id'], 'title' => 'AI task', 'user_id' => $user->id, 'project_id' => null]);
     }
 
     public function test_service_rejects_foreign_project(): void

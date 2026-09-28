@@ -238,6 +238,7 @@
                 <label for="project_id">Project</label>
                 <select name="project_id" id="project_id"
                         class="te-input {{ $errors->has('project_id') ? 'is-invalid' : '' }}">
+                    <option value="" {{ old('project_id', $task->project_id) ? '' : 'selected' }}>No project</option>
                     @foreach($projects as $project)
                         <option value="{{ $project->id }}"
                             {{ old('project_id', $task->project_id) == $project->id ? 'selected' : '' }}>

@@ -1087,7 +1087,7 @@ class AiChatController extends Controller
             - TRACKING: routines support tracking_mode none|value|sets. If the user wants numbers logged (weight, wake time, reps) but the unit kind is unknown, ASK in text first (e.g. "in what unit?"), then call with the right value_kind/value_unit. Steps of sets-mode routines carry target_sets; exercises go to subtasks/steps, one per item.
             - Keep every single title SHORT: task/subtask/routine titles under 120 chars, descriptions under 500 chars. For workouts, keep every exercise as its own item — never paste a whole program into one argument.
             - Compute due_dates/start_date yourself from today's date (given above). Max per plan: 3 sub-projects, 30 tasks, 100 subtasks, 7 routines. Max per workout: 7 days, 40 exercises per day.
-            - Use exact snake_case argument names from the schema (project_id, due_date, task_id). Omit project_id when unsure — the server picks the user's first project.
+            - Use exact snake_case argument names from the schema (project_id, due_date, task_id). Omit project_id when unsure — the task will then simply have no project (allowed).
             AGENT
             : <<<'CHAT'
             MODE: CHAT — read-only discussion. You cannot create, edit or delete anything; there are no tools in this mode.

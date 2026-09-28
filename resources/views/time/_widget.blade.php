@@ -212,13 +212,15 @@
     });
 
     projectSel.addEventListener('change', () => {
+        loadTasks();
+    });
+
+    function loadTasks() {
         taskSel.innerHTML = '<option value="">Loading…</option>';
-        taskSel.disabled = true;
-        if (!projectSel.value) {
-            taskSel.innerHTML = '<option value="">Select a project first</option>';
-            return;
-        }
-        fetch('{{ route('time.tasks') }}?project_id=' + encodeURIComponent(projectSel.value), { headers: { 'Accept': 'application/json' } })
+        const url = projectSel.value
+            ? '{{ route('time.tasks') }}?project_id=' + encodeURIComponent(projectSel.value)
+            : '{{ route('time.tasks') }}';
+        fetch(url, { headers: { 'Accept': 'application/json' } })
             .then(r => r.json())
             .then(j => {
                 taskSel.innerHTML = '<option value="">No specific task</option>' +
@@ -226,9 +228,10 @@
                 taskSel.disabled = false;
             })
             .catch(() => { taskSel.innerHTML = '<option value="">Could not load tasks</option>'; });
-    });
+    }
 
     refresh();
+    loadTasks();
     setInterval(refresh, 60000);
 })();
 </script>

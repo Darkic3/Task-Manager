@@ -421,8 +421,7 @@ class PlannerController extends Controller
 
     /**
      * Quick-add a task from My Day without leaving the page: only a title is
-     * required; the task lands on the selected day (defaults to the Inbox
-     * project when none is chosen).
+     * required; the task lands on the selected day and may have no project.
      */
     public function quickAddTask(Request $request)
     {
@@ -440,7 +439,7 @@ class PlannerController extends Controller
         ]);
 
         $date = ! empty($data['date']) ? Carbon::parse($data['date'])->startOfDay() : now()->startOfDay();
-        $projectId = $data['project_id'] ?? $this->resolveInboxProject($user)->id;
+        $projectId = $data['project_id'] ?? null;
 
         $task = Task::create([
             'user_id' => $user->id,
@@ -522,17 +521,6 @@ class PlannerController extends Controller
                 'count' => true,
             ])->render(),
         ], 201);
-    }
-
-    /**
-     * The per-user fallback project for quick-added tasks.
-     */
-    private function resolveInboxProject($user): Project
-    {
-        return Project::firstOrCreate(
-            ['user_id' => $user->id, 'name' => 'Inbox'],
-            ['type' => 'inbox', 'status' => 'not_started']
-        );
     }
 
     /**
