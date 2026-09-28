@@ -703,6 +703,8 @@ class AiToolService
             'every_n_days' => 'nullable|integer|min:2|max:60',
             'time_period' => 'nullable|string|max:50',
             'description' => 'nullable|string|max:2000',
+            'behavior_type' => 'nullable|in:build,avoid',
+            'count_violations' => 'nullable|boolean',
             'tracking_mode' => 'nullable|in:none,value,sets',
             'value_kind' => 'nullable|in:' . implode(',', self::ROUTINE_VALUE_KINDS),
             'value_unit' => 'nullable|string|max:20',
@@ -762,6 +764,8 @@ class AiToolService
             'every_n_days' => $frequency === 'every_n_days' ? max(2, (int) $args['every_n_days']) : null,
             'time_period' => $args['time_period'] ?? null,
             'description' => $args['description'] ?? null,
+            'behavior_type' => $args['behavior_type'] ?? 'build',
+            'count_violations' => ! empty($args['count_violations']),
             'days_label' => $daysLabel,
             'tracking_mode' => $tracking,
             'value_kind' => $tracking === 'value' ? $args['value_kind'] : null,
@@ -1546,6 +1550,8 @@ class AiToolService
             'weeks' => null,
             'months' => null,
             'time_period' => ($r['time_period'] && in_array($r['time_period'], $periodKeys, true)) ? $r['time_period'] : null,
+            'behavior_type' => in_array($r['behavior_type'] ?? 'build', ['build', 'avoid'], true) ? $r['behavior_type'] : 'build',
+            'count_violations' => ! empty($r['count_violations']),
             'tracking_mode' => $r['tracking_mode'] ?? 'none',
             'value_kind' => $r['value_kind'] ?? null,
             'value_unit' => $r['value_unit'] ?? null,
@@ -1578,6 +1584,9 @@ class AiToolService
     private function execRoutineComplete(array $r, $user): array
     {
         $routine = Routine::where('id', $r['id'])->where('user_id', $user->id)->firstOrFail();
+        if ($routine->isAvoid()) {
+            return ['ok' => false, 'message' => "Routine '{$routine->title}' is an avoid habit and cannot be checked off — staying clean is the goal.", 'id' => $routine->id];
+        }
         if ($routine->completedOn($r['date'])) {
             return ['ok' => true, 'message' => "Routine '{$routine->title}' is already done for {$r['date']}.", 'id' => $routine->id];
         }

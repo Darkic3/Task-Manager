@@ -72,6 +72,7 @@
 .sq-missed{background:#e3e5e9;}
 .sq-na{background:#f2f3f5;}
 .sq-future,.sq-today{background:transparent;box-shadow:inset 0 0 0 1px #e8eaef;}
+.sq-violated{background:#ef4444;}
 
 .rh-actions { flex-shrink:0; display:flex; align-items:center; gap:4px; }
 .rh-link-btn {
@@ -170,11 +171,14 @@
                         <div class="rh-row-title">{{ $routine->title }}</div>
                         <div class="rh-row-meta">
                             <span class="rh-pill"><i class="bi bi-arrow-repeat"></i> {{ $routine->recurrenceLabel() }}</span>
+                            @if(($routine->behavior_type ?? 'build') === 'avoid')
+                                <span class="rh-pill" style="background:#fee2e2;color:#b91c1c;" title="Forbidden habit — staying clean is the goal"><i class="bi bi-slash-circle"></i> ترک‌کردنی</span>
+                            @endif
                             @if($routine->timeLabel())
                                 <span class="rh-pill"><i class="bi bi-clock"></i> {{ $routine->timeLabel() }}</span>
                             @endif
                             @if(($routine->ringStreak ?? 0) > 0)
-                                <span class="rh-flame" title="Current streak">🔥{{ $routine->ringStreak }}</span>
+                                <span class="rh-flame" title="{{ ($routine->behavior_type ?? 'build') === 'avoid' ? 'Clean days in a row' : 'Current streak' }}">{{ ($routine->behavior_type ?? 'build') === 'avoid' ? '🛡️' : '🔥' }}{{ $routine->ringStreak }}</span>
                             @endif
                             @if($routine->ringLast7 !== null)
                                 <span class="last7" title="Last 7 days">

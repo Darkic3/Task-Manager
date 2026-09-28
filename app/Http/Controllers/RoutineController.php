@@ -37,12 +37,28 @@ class RoutineController extends Controller
                 ->groupBy('routine_id')
             : collect();
 
+        $vRows = $routines->isNotEmpty()
+            ? \App\Models\RoutineViolation::where('user_id', $user->id)
+                ->whereIn('routine_id', $routines->pluck('id'))
+                ->whereBetween('occurred_date', [$from->toDateString(), $today->toDateString()])
+                ->get()
+                ->groupBy('routine_id')
+            : collect();
+
         foreach ($routines as $routine) {
             $routine->setRelation('completions', $rows->get($routine->id, collect()));
-            $m = $this->habitMetricsFromLoaded($routine, $today);
-            $routine->ringRate = $m['rate'];
-            $routine->ringStreak = $m['streak'];
-            $routine->ringLast7 = $m['last7'];
+            $routine->setRelation('violations', $vRows->get($routine->id, collect()));
+            if ($routine->isAvoid()) {
+                $m = $routine->avoidMetrics($today);
+                $routine->ringRate = $m['rate'];
+                $routine->ringStreak = $m['current'];
+                $routine->ringLast7 = $m['last7'];
+            } else {
+                $m = $this->habitMetricsFromLoaded($routine, $today);
+                $routine->ringRate = $m['rate'];
+                $routine->ringStreak = $m['streak'];
+                $routine->ringLast7 = $m['last7'];
+            }
         }
 
         $weekly = $this->weeklyConsistencyFromLoaded($routines, $today);
@@ -191,7 +207,35 @@ class RoutineController extends Controller
         $valueStats = $this->valueStats($routine, $today);
         $prevCycle = $this->prevCycleSummary($routine);
 
-        return view('routines.stats', compact('routine', 'weeks', 'monthSpans', 'streak', 'adherence', 'tracker', 'valueStats', 'prevCycle'));
+        // Avoid habits: clean-day stats + violated heatmap cells + slip/note summary.
+        $avoid = null;
+        if ($routine->isAvoid()) {
+            $violated = array_flip($routine->violatedDateKeys($start, $end));
+            foreach ($cells as $key => &$cell) {
+                $cell['violated'] = isset($violated[$key]);
+            }
+            unset($cell);
+
+            $am = $routine->avoidMetrics($today);
+            $streak = [
+                'current' => $am['current'],
+                'best' => $am['best'],
+                'completed' => $am['clean'],
+                'total' => $am['total'],
+                'rate' => $am['rate'],
+            ];
+            $adherence = ['completed' => $am['clean'], 'total' => $am['total'], 'rate' => $am['rate']];
+            $avoid = [
+                'slip_total' => (int) $routine->violations()->sum('quantity'),
+                'slip_days' => count($routine->violatedDateKeys($today->copy()->subYear(), $today)),
+                'cravings' => $routine->routineNotes()->where('kind', 'craving')->count(),
+                'recent_notes' => $routine->routineNotes()->orderByDesc('occurred_at')->limit(10)->get(),
+            ];
+            $tracker = null;
+            $valueStats = null;
+        }
+
+        return view('routines.stats', compact('routine', 'weeks', 'monthSpans', 'streak', 'adherence', 'tracker', 'valueStats', 'prevCycle', 'avoid'));
     }
 
     /**
@@ -417,6 +461,8 @@ class RoutineController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'frequency' => 'required|in:daily,weekly,monthly,every_n_days',
+            'behavior_type' => 'nullable|in:build,avoid',
+            'count_violations' => 'nullable|boolean',
             'every_n_days' => 'nullable|required_if:frequency,every_n_days|integer|min:2|max:60',
             'time_period' => 'nullable|in:'.implode(',', $periodKeys),
             'start_time' => 'nullable|required_with:end_time',
@@ -479,6 +525,20 @@ class RoutineController extends Controller
         } else {
             $data['start_time'] = $data['start_time'] ?? null;
             $data['end_time'] = $data['end_time'] ?? null;
+        }
+
+        // Behavior: build (do it) or avoid (must NOT do it). Count mode only
+        // applies to avoid routines — it enables per-slip quantity input.
+        $data['behavior_type'] = $data['behavior_type'] ?? Routine::BEHAVIOR_BUILD;
+        $data['count_violations'] = $data['behavior_type'] === Routine::BEHAVIOR_AVOID
+            && ! empty($data['count_violations']);
+
+        // Avoid routines never use metric tracking — slips are the metric.
+        if ($data['behavior_type'] === Routine::BEHAVIOR_AVOID) {
+            $data['tracking_mode'] = 'none';
+            $data['value_kind'] = null;
+            $data['value_unit'] = null;
+            $data['value_label'] = null;
         }
 
         // Tracking: value mode needs a kind; sets mode needs no extra fields here.

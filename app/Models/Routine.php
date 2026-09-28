@@ -21,6 +21,11 @@ class Routine extends Model
     public const TRACKING_VALUE = 'value';
     public const TRACKING_SETS = 'sets';
 
+    public const BEHAVIOR_BUILD = 'build';
+    public const BEHAVIOR_AVOID = 'avoid';
+
+    public const BEHAVIORS = [self::BEHAVIOR_BUILD, self::BEHAVIOR_AVOID];
+
     public const VALUE_KINDS = ['number', 'weight', 'time', 'reps', 'percent'];
 
     protected $fillable = [
@@ -30,6 +35,8 @@ class Routine extends Model
         'title',
         'description',
         'frequency',
+        'behavior_type',
+        'count_violations',
         'time_period',
         'sort_order',
         'days',
@@ -50,6 +57,7 @@ class Routine extends Model
         'weeks' => 'array',
         'months' => 'array',
         'month_days' => 'array',
+        'count_violations' => 'boolean',
     ];
 
     public function user(): BelongsTo
@@ -445,6 +453,136 @@ class Routine extends Model
         ]);
 
         return true;
+    }
+
+    public function isAvoid(): bool
+    {
+        return ($this->behavior_type ?? self::BEHAVIOR_BUILD) === self::BEHAVIOR_AVOID;
+    }
+
+    public function violations(): HasMany
+    {
+        return $this->hasMany(RoutineViolation::class);
+    }
+
+    public function routineNotes(): HasMany
+    {
+        return $this->hasMany(RoutineNote::class);
+    }
+
+    /**
+     * Violation date keys (Y-m-d) within the range.
+     * Uses the eager-loaded `violations` relation when available (no query).
+     */
+    public function violatedDateKeys(Carbon $start, Carbon $end): array
+    {
+        $from = $start->toDateString();
+        $to = $end->toDateString();
+
+        $keys = $this->relationLoaded('violations')
+            ? $this->violations
+                ->map(fn ($v) => $v->occurred_date instanceof Carbon
+                    ? $v->occurred_date->toDateString()
+                    : Carbon::parse($v->occurred_date)->toDateString())
+                ->filter(fn ($key) => $key >= $from && $key <= $to)
+                ->values()
+                ->all()
+            : $this->violations()
+                ->whereBetween('occurred_date', [$from, $to])
+                ->pluck('occurred_date')
+                ->map(fn ($date) => Carbon::parse($date)->toDateString())
+                ->all();
+
+        return array_values(array_unique($keys));
+    }
+
+    /**
+     * Total slip quantity on a date (routine-level + all steps).
+     */
+    public function violationQtyOn($date): int
+    {
+        $key = RoutineViolation::dateKey($date);
+
+        $q = $this->relationLoaded('violations')
+            ? $this->violations->filter(fn ($v) => ($v->occurred_date instanceof Carbon
+                ? $v->occurred_date->toDateString()
+                : Carbon::parse($v->occurred_date)->toDateString()) === $key)
+            : $this->violations()->where('occurred_date', $key)->get();
+
+        return (int) $q->sum('quantity');
+    }
+
+    public function violatedOn($date): bool
+    {
+        return $this->violationQtyOn($date) > 0;
+    }
+
+    /**
+     * Avoid-aware metrics over the trailing number of days.
+     * $violatedSet is a flipped [Y-m-d => true] map (optional, avoids queries).
+     * Mirrors adherence()/habitMetrics() semantics: today is excluded until
+     * violated — a violation today breaks the streak immediately.
+     */
+    public function avoidMetrics(Carbon $date, int $days = 30, ?array $violatedSet = null): array
+    {
+        $date = $date->copy()->startOfDay();
+        $from = $date->copy()->subDays($days - 1);
+
+        $occurrences = $this->occurrenceDates($from, $date);
+        if ($violatedSet === null) {
+            $violatedSet = array_flip($this->violatedDateKeys($from, $date));
+        }
+        $todayKey = $date->toDateString();
+
+        if ($occurrences && end($occurrences) === $todayKey && ! isset($violatedSet[$todayKey])) {
+            array_pop($occurrences);
+        }
+
+        $clean = count(array_diff($occurrences, array_keys($violatedSet)));
+
+        $current = 0;
+        for ($i = count($occurrences) - 1; $i >= 0; $i--) {
+            if (isset($violatedSet[$occurrences[$i]])) {
+                break;
+            }
+            $current++;
+        }
+
+        $best = 0;
+        $run = 0;
+        foreach ($occurrences as $d) {
+            if (isset($violatedSet[$d])) {
+                $run = 0;
+            } else {
+                $best = max($best, ++$run);
+            }
+        }
+
+        $now = now()->startOfDay();
+        $last7 = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $day = $date->copy()->subDays($i);
+            $key = $day->toDateString();
+            $occurs = $this->occursForStats($day);
+
+            $state = 'na';
+            if ($day->isFuture() || $day->isSameDay($now)) {
+                $state = isset($violatedSet[$key]) ? 'violated' : ($day->isSameDay($now) ? 'today' : 'future');
+            } elseif ($occurs) {
+                $state = isset($violatedSet[$key]) ? 'violated' : 'done';
+            }
+
+            $last7[] = ['date' => $key, 'state' => $state];
+        }
+
+        return [
+            'clean' => $clean,
+            'total' => count($occurrences),
+            'rate' => count($occurrences) ? (int) round($clean / count($occurrences) * 100) : 0,
+            'current' => $current,
+            'best' => $best,
+            'last7' => $last7,
+        ];
     }
 
     /**

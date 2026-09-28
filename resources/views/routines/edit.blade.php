@@ -415,8 +415,48 @@
                     </div>
                 </div>
 
-                {{-- Tracking (optional measurable routines) --}}
+                {{-- Habit type: build it, or avoid it (forbidden habit) --}}
                 <div class="cu-section">
+                    <div class="cu-section-header">
+                        <span class="cu-section-icon" style="background:#fee2e2;color:#b91c1c;"><i class="bi bi-shield"></i></span>
+                        <span class="cu-section-title">Habit type</span>
+                        <span class="cu-section-sub">Build it or quit it</span>
+                    </div>
+                    <div class="cu-section-body">
+                        @php $bt = old('behavior_type', $routine->behavior_type ?? 'build'); @endphp
+                        <div class="cu-freq-chips">
+                            <div class="cu-chip-opt chip-daily">
+                                <input type="radio" name="behavior_type" id="behavior_build" value="build"
+                                    {{ $bt === 'build' ? 'checked' : '' }}>
+                                <label for="behavior_build" class="cu-chip-label">
+                                    <i class="bi bi-check2-circle"></i> Build — do it
+                                </label>
+                            </div>
+                            <div class="cu-chip-opt">
+                                <input type="radio" name="behavior_type" id="behavior_avoid" value="avoid"
+                                    {{ $bt === 'avoid' ? 'checked' : '' }}>
+                                <label for="behavior_avoid" class="cu-chip-label">
+                                    <i class="bi bi-slash-circle"></i> Avoid — forbidden habit
+                                </label>
+                            </div>
+                        </div>
+                        @error('behavior_type')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <div id="avoid-count-wrap" style="margin-top:10px;{{ $bt === 'avoid' ? '' : 'display:none;' }}">
+                            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#1a1d23;cursor:pointer;">
+                                <input type="checkbox" name="count_violations" value="1"
+                                    {{ old('count_violations', $routine->count_violations) ? 'checked' : '' }}
+                                    style="accent-color:#b91c1c;width:16px;height:16px;">
+                                Log a count per slip <span style="color:#8a8f98;font-size:11px;">(e.g. how many cigarettes)</span>
+                            </label>
+                        </div>
+                        <div id="avoid-hint" style="font-size:11px;color:#8a8f98;margin-top:8px;{{ $bt === 'avoid' ? '' : 'display:none;' }}">
+                            Avoid habits are never checked off — staying clean is the goal. Log a slip when it happens; each scheduled step can slip independently.
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Tracking (optional measurable routines) --}}
+                <div class="cu-section" id="tracking-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon purple"><i class="bi bi-graph-up"></i></span>
                         <span class="cu-section-title">Tracking</span>
@@ -593,6 +633,23 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         mode.addEventListener('change', updateTracking);
         updateTracking();
+    })();
+
+    /* ── Habit type: avoid hides tracking, shows count option ── */
+    (function () {
+        const build = document.getElementById('behavior_build');
+        const avoid = document.getElementById('behavior_avoid');
+        const countWrap = document.getElementById('avoid-count-wrap');
+        const hint = document.getElementById('avoid-hint');
+        const tracking = document.getElementById('tracking-section');
+        function updateBehavior() {
+            const isAvoid = avoid && avoid.checked;
+            if (countWrap) countWrap.style.display = isAvoid ? '' : 'none';
+            if (hint) hint.style.display = isAvoid ? '' : 'none';
+            if (tracking) tracking.style.display = isAvoid ? 'none' : '';
+        }
+        [build, avoid].forEach(r => r && r.addEventListener('change', updateBehavior));
+        updateBehavior();
     })();
 });
 

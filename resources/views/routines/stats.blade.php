@@ -63,6 +63,7 @@
     .hm-na     { background: #f1f2f4; }
     .hm-missed { background: #fecaca; }
     .hm-done   { background: #7c3aed; }
+    .hm-violated { background: #ef4444; }
     .hm-future { background: #fafbfc; box-shadow: inset 0 0 0 1px #eef0f3; }
     .hm-today  { box-shadow: 0 0 0 2px #c4b5fd; }
 
@@ -93,6 +94,9 @@
         </div>
         <h1 class="rs-header-title">{{ $routine->title }}</h1>
         <p class="rs-header-sub">
+            @if(!empty($avoid))
+                <span style="background:#fee2e2;color:#b91c1c;border-radius:20px;padding:1px 8px;font-weight:700;">🚫 ترک‌کردنی</span> &middot;
+            @endif
             {{ $routine->recurrenceLabel() }}
             @if($routine->timeLabel()) &middot; {{ $routine->timeLabel() }} @endif
             @if(($routine->cycle_no ?? 1) > 1) &middot; Cycle {{ $routine->cycle_no }} @endif
@@ -114,8 +118,8 @@
         <div class="rs-stat">
             <div class="rs-stat-icon" style="background:#fef3c7;color:#d97706;"><i class="bi bi-fire"></i></div>
             <div class="rs-stat-val">{{ $streak['current'] }}</div>
-            <div class="rs-stat-label">Current Streak</div>
-            <div class="rs-stat-sub">{{ $streak['current'] === 1 ? 'occurrence' : 'occurrences' }} in a row</div>
+            <div class="rs-stat-label">{{ !empty($avoid) ? 'Clean streak' : 'Current Streak' }}</div>
+            <div class="rs-stat-sub">{{ $streak['current'] === 1 ? 'day' : 'days' }} in a row</div>
         </div>
         <div class="rs-stat">
             <div class="rs-stat-icon" style="background:#ede9fe;color:#7c3aed;"><i class="bi bi-trophy"></i></div>
@@ -126,14 +130,14 @@
         <div class="rs-stat">
             <div class="rs-stat-icon" style="background:#dcfce7;color:#16a34a;"><i class="bi bi-graph-up-arrow"></i></div>
             <div class="rs-stat-val">{{ $adherence['rate'] }}%</div>
-            <div class="rs-stat-label">Adherence · 30d</div>
-            <div class="rs-stat-sub">{{ $adherence['completed'] }}/{{ $adherence['total'] }} completed</div>
+            <div class="rs-stat-label">{{ !empty($avoid) ? 'Clean rate · 30d' : 'Adherence · 30d' }}</div>
+            <div class="rs-stat-sub">{{ $adherence['completed'] }}/{{ $adherence['total'] }} {{ !empty($avoid) ? 'clean' : 'completed' }}</div>
         </div>
         <div class="rs-stat">
             <div class="rs-stat-icon" style="background:#dbeafe;color:#2563eb;"><i class="bi bi-check2-circle"></i></div>
-            <div class="rs-stat-val">{{ $streak['completed'] }}</div>
-            <div class="rs-stat-label">Total Completed</div>
-            <div class="rs-stat-sub">{{ $streak['rate'] }}% over last year</div>
+            <div class="rs-stat-val">{{ !empty($avoid) ? $avoid['slip_total'] : $streak['completed'] }}</div>
+            <div class="rs-stat-label">{{ !empty($avoid) ? 'Total slips' : 'Total Completed' }}</div>
+            <div class="rs-stat-sub">{{ !empty($avoid) ? $avoid['slip_days'].' days with a slip · '.$avoid['cravings'].' cravings' : $streak['rate'].'% over last year' }}</div>
         </div>
     </div>
 
@@ -143,8 +147,13 @@
             <i class="bi bi-grid-3x3-gap-fill" style="color:#7c3aed;"></i>
             <span class="rs-card-title">Activity</span>
             <div class="rs-legend">
-                <span class="dot" style="background:#fecaca;"></span> Missed
-                <span class="dot" style="background:#7c3aed;margin-left:6px;"></span> Done
+                @if(!empty($avoid))
+                    <span class="dot" style="background:#ef4444;"></span> Slipped
+                    <span class="dot" style="background:#7c3aed;margin-left:6px;"></span> Clean
+                @else
+                    <span class="dot" style="background:#fecaca;"></span> Missed
+                    <span class="dot" style="background:#7c3aed;margin-left:6px;"></span> Done
+                @endif
                 <span class="dot" style="background:#f1f2f4;margin-left:6px;"></span> Off
             </div>
         </div>
@@ -164,12 +173,13 @@
                             <div class="hm-col">
                                 @foreach($week as $cell)
                                     @php
+                                        $isV = !empty($cell['violated']);
                                         $cls = $cell['future']
                                             ? 'hm-future'
-                                            : (! $cell['occurs'] ? 'hm-na' : ($cell['completed'] ? 'hm-done' : 'hm-missed'));
+                                            : (! $cell['occurs'] ? 'hm-na' : ($isV ? 'hm-violated' : ($cell['completed'] ? 'hm-done' : 'hm-missed')));
                                         $state = $cell['future']
                                             ? 'Upcoming'
-                                            : (! $cell['occurs'] ? 'Not scheduled' : ($cell['completed'] ? 'Completed' : 'Missed'));
+                                            : (! $cell['occurs'] ? 'Not scheduled' : ($isV ? 'Slipped' : ($cell['completed'] ? (!empty($avoid) ? 'Clean' : 'Completed') : 'Missed')));
                                         $todayCls = $cell['date']->isToday() ? ' hm-today' : '';
                                     @endphp
                                     <span class="hm-cell {{ $cls }}{{ $todayCls }}"
@@ -242,7 +252,30 @@
         </div>
     @endif
 
+    {{-- Cravings & notes (avoid habits) — timestamped, report-ready --}}
+    @if(!empty($avoid))
+        <div class="rs-card" style="margin-top:14px;">
+            <div class="rs-card-head">
+                <i class="bi bi-journal-text" style="color:#b91c1c;"></i>
+                <span class="rs-card-title">Cravings &amp; notes</span>
+                <span class="rs-legend">latest first</span>
+            </div>
+            <div class="rs-card-body" style="padding-top:8px;padding-bottom:8px;">
+                @forelse($avoid['recent_notes'] as $n)
+                    <div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #f0f1f3;font-size:12px;align-items:baseline;">
+                        <span style="font-weight:700;color:{{ $n->kind === 'craving' ? '#b91c1c' : '#6b7280' }};white-space:nowrap;">{{ $n->kind === 'craving' ? 'وسوسه' : 'یادداشت' }}</span>
+                        <span style="color:#8a8f98;white-space:nowrap;">{{ $n->occurred_at ? $n->occurred_at->format('M d · H:i') : '' }}</span>
+                        <span style="color:#1a1d23;">{{ $n->note ?: '—' }}</span>
+                    </div>
+                @empty
+                    <div class="tr-empty">No cravings or notes logged yet.</div>
+                @endforelse
+            </div>
+        </div>
+    @endif
+
     {{-- Completion tracker --}}
+    @if(empty($avoid))
     <div class="rs-card" style="margin-top:14px;">        <div class="rs-card-head">
             <i class="bi bi-stopwatch" style="color:#7c3aed;"></i>
             <span class="rs-card-title">Completion Tracker</span>
@@ -298,6 +331,7 @@
             @endif
         </div>
     </div>
+    @endif
 
 </div>
 @endsection

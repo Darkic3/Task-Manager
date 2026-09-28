@@ -203,6 +203,7 @@
     .sq-missed{background:#e3e5e9;}
     .sq-na{background:#f2f3f5;}
     .sq-future,.sq-today{background:transparent;box-shadow:inset 0 0 0 1px #e8eaef;}
+    .sq-violated{background:#ef4444;}
 
     /* ── Routine steps (package: sub-items) ── */
     .pl-steps{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;}
@@ -226,6 +227,52 @@
         border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:1px;
     }
     .steps-count.all{color:#29774b;background:#e3f5ec;}
+    .steps-count.bad{color:#b91c1c;background:#fee2e2;}
+
+    /* ── Avoid habits (forbidden): shield, slip buttons, inline forms ── */
+    .pl-avoid-shield{
+        width:30px;height:30px;border-radius:50%;flex-shrink:0;
+        display:flex;align-items:center;justify-content:center;font-size:15px;
+    }
+    .pl-avoid-shield.ok{background:#dcfce7;color:#15803d;}
+    .pl-avoid-shield.bad{background:#fee2e2;color:#b91c1c;}
+    .pl-avoid-tag{
+        font-size:10.5px;font-weight:700;color:#b91c1c;background:#fee2e2;
+        border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:1px;white-space:nowrap;
+    }
+    .pl-avoid-actions{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;}
+    .pl-avoid-btn{
+        display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;
+        font-size:11.5px;font-weight:700;cursor:pointer;transition:all .12s;border:1px solid #e5e7eb;
+        background:#fafbfc;color:#6b6f78;
+    }
+    .pl-avoid-btn.slip{border-color:#fca5a5;background:#fef2f2;color:#b91c1c;}
+    .pl-avoid-btn.slip:hover{background:#fee2e2;}
+    .pl-avoid-btn.note:hover{border-color:#c4b5fd;color:#7c3aed;}
+    .pl-avoid-panel{margin-top:7px;}
+    .pl-avoid-panel form{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+    .pl-avoid-panel input,.pl-avoid-panel select{
+        padding:4px 9px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;
+        background:white;color:#1f2328;max-width:100%;
+    }
+    .pl-avoid-panel input:focus,.pl-avoid-panel select:focus{border-color:#c4b5fd;}
+    .pl-avoid-panel input[name=quantity]{width:64px;}
+    .pl-avoid-panel input[name=note]{flex:1;min-width:140px;}
+    .pl-avoid-panel button{
+        padding:4px 14px;border-radius:8px;border:none;background:#b91c1c;color:white;
+        font-size:12px;font-weight:700;cursor:pointer;
+    }
+    .pl-avoid-panel button:hover{background:#991b1b;}
+    .pl-step.avoid{cursor:default;}
+    .pl-step.avoid:hover{border-color:#e5e7eb;color:#6b6f78;}
+    .pl-step.avoid.violated{background:#fee2e2;border-color:#fca5a5;color:#b91c1c;}
+    .pl-step.avoid.violated i{color:#dc2626;}
+    .pl-step-slipcount{font-size:10px;font-weight:800;color:#b91c1c;}
+    .pl-step-slipbtn{
+        margin-left:2px;padding:2px 10px;border-radius:14px;border:1px solid #fca5a5;
+        background:white;color:#b91c1c;font-size:10.5px;font-weight:700;cursor:pointer;
+    }
+    .pl-step-slipbtn:hover{background:#fee2e2;}
 
     /* ── Routine metric logging (value + sets) ── */
     .pl-log{display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap;}
@@ -1014,6 +1061,135 @@
         const btn = box ? box.querySelector('button') : null;
         if (btn) btn.click();
     });
+
+    /* ── Avoid habits: slip / craving / note ── */
+    document.addEventListener('click', function (e) {
+        const slipBtn = e.target.closest('[data-avoid-slip]');
+        if (slipBtn) {
+            const row = slipBtn.closest('[data-routine-item]');
+            const panel = row ? row.querySelector('[data-slip-panel]') : null;
+            if (panel) panel.hidden = !panel.hidden;
+            return;
+        }
+        const noteBtn = e.target.closest('[data-avoid-note]');
+        if (noteBtn) {
+            const row = noteBtn.closest('[data-routine-item]');
+            const panel = row ? row.querySelector('[data-note-panel]') : null;
+            if (panel) panel.hidden = !panel.hidden;
+            return;
+        }
+        const stepSlipBtn = e.target.closest('[data-avoid-step-slip]');
+        if (stepSlipBtn) {
+            const wrap = stepSlipBtn.closest('.pl-avoid-steps') || stepSlipBtn.closest('[data-routine-item]');
+            const panels = wrap ? [...wrap.querySelectorAll('[data-step-slip-panel]')] : [];
+            const stepRow = stepSlipBtn.closest('[data-step-item]');
+            const idx = stepRow ? [...wrap.querySelectorAll('[data-step-item]')].indexOf(stepRow) : -1;
+            const panel = idx >= 0 ? panels[idx] : null;
+            if (panel) panel.hidden = !panel.hidden;
+            return;
+        }
+    });
+
+    function avoidPayload(form) {
+        const data = { date: form.dataset.date };
+        form.querySelectorAll('input, select').forEach(el => {
+            if (!el.name || el.value === '') return;
+            data[el.name] = el.type === 'number' ? Number(el.value) : el.value;
+        });
+        return data;
+    }
+
+    async function submitRoutineSlip(form) {
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+            const res = await plFetch(form.dataset.slipUrl + '?date=' + encodeURIComponent(form.dataset.date), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify(avoidPayload(form)),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            await res.json();
+            plShowToast('Slip logged');
+            /* Slips move the card to another slot — reload for correct order. */
+            location.reload();
+        } catch (e) {
+            console.error('[Planner] slip failed', e);
+            plShowToast('Could not log the slip');
+        } finally {
+            btn.disabled = false;
+        }
+        return false;
+    }
+
+    async function submitStepSlip(form) {
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+            const res = await plFetch(form.dataset.slipUrl + '?date=' + encodeURIComponent(form.dataset.date), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify(avoidPayload(form)),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            await res.json();
+            plShowToast('Slip logged');
+            location.reload();
+        } catch (e) {
+            console.error('[Planner] step slip failed', e);
+            plShowToast('Could not log the slip');
+        } finally {
+            btn.disabled = false;
+        }
+        return false;
+    }
+
+    async function submitRoutineNote(form) {
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+            const res = await plFetch(form.dataset.noteUrl + '?date=' + encodeURIComponent(form.dataset.date), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify(avoidPayload(form)),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            await res.json();
+            plShowToast('Saved ✓');
+            const panel = form.closest('[data-note-panel]');
+            if (panel) panel.hidden = true;
+            form.querySelector('input[name=note]').value = '';
+        } catch (e) {
+            console.error('[Planner] note failed', e);
+            plShowToast('Could not save');
+        } finally {
+            btn.disabled = false;
+        }
+        return false;
+    }
+
+    /* Next-up card for an avoid habit logs a slip on the guided step/routine. */
+    async function plSlipNext() {
+        const wrap = document.getElementById('plNextUp');
+        const card = wrap ? wrap.querySelector('.pl-next-card') : null;
+        if (!card) return;
+        const stepBox = card.querySelector('[data-next-step]');
+        const url = (stepBox && stepBox.dataset.slipUrl) || card.dataset.slipUrl;
+        if (!url) return;
+        try {
+            const res = await plFetch(url + '?date=' + encodeURIComponent(wrap.dataset.nextDate), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            plShowToast('Slip logged');
+            location.reload();
+        } catch (e) {
+            console.error('[Planner] next-up slip failed', e);
+            plShowToast('Could not log the slip');
+        }
+    }
 
     /* ── Routine details accordion (collapsed by default) ── */
     function toggleRoutineDetails(btn) {

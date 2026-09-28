@@ -6,6 +6,7 @@
     $stepsTotal = $nextUp['stepsTotal'] ?? 0;
     $nextStep = $nextUp['nextStep'] ?? null;
     $hasSteps = $stepsTotal > 0;
+    $isAvoid = ! empty($nextUp['is_avoid']);
     /* Routines that log a single value per day get a guided input too. */
     $valueGuide = $nextRoutine
         && $nextRoutine->tracking_mode === 'value'
@@ -16,7 +17,8 @@
         <div class="pl-next-card"
              data-next-type="{{ $nextUp['type'] }}"
              data-next-id="{{ $nextTask?->id ?? $nextRoutine?->id }}"
-             data-next-url="{{ $nextTask ? route('planner.tasks.toggle', $nextTask) : route('planner.routines.toggle', $nextRoutine) }}">
+             data-next-url="{{ $nextTask ? route('planner.tasks.toggle', $nextTask) : route('planner.routines.toggle', $nextRoutine) }}"
+             @if($isAvoid && $nextRoutine) data-slip-url="{{ $nextStep ? route('planner.check-items.slip', $nextStep['id']) : route('planner.routines.slip', $nextRoutine) }}"@endif>
             <span class="pl-next-label"><i class="bi bi-lightning-charge-fill"></i> Next up</span>
 
             <div class="pl-next-body">
@@ -54,12 +56,35 @@
                         @endif
                     @endif
                     @if($hasSteps)
-                        <span class="steps-count {{ $stepsDone === $stepsTotal ? 'all' : '' }}">{{ $stepsDone }}/{{ $stepsTotal }}</span>
+                        @if($isAvoid)
+                            @if($stepsDone > 0)
+                                <span class="steps-count bad">{{ $stepsDone }}/{{ $stepsTotal }} slips</span>
+                            @endif
+                        @else
+                            <span class="steps-count {{ $stepsDone === $stepsTotal ? 'all' : '' }}">{{ $stepsDone }}/{{ $stepsTotal }}</span>
+                        @endif
                     @endif
                 </div>
             </div>
 
-            @if($hasSteps && $nextStep)
+            @if($isAvoid && $nextRoutine)
+                {{-- Avoid habit: guide the first clean step, slips only — never a check. --}}
+                @if($nextStep)
+                <div class="pl-next-step" data-next-step
+                     data-step-id="{{ $nextStep['id'] }}"
+                     data-slip-url="{{ route('planner.check-items.slip', $nextStep['id']) }}">
+                    <i class="bi bi-shield"></i>
+                    <span class="pl-next-step-name">{{ $nextStep['name'] }}
+                        @if(!empty($nextStep['period_label']) || !empty($nextStep['time_label']))
+                            <span class="pl-step-schedule" style="color:{{ $nextStep['period_color'] ?: '#64748b' }};font-size:10.5px;">
+                                <i class="bi {{ $nextStep['period_icon'] ?: 'bi-clock' }}"></i>
+                                {{ $nextStep['period_label'] ?: $nextStep['time_label'] }}
+                            </span>
+                        @endif
+                    </span>
+                </div>
+                @endif
+            @elseif($hasSteps && $nextStep)
                 {{-- Point at the first unfinished step; mini set inputs when that step is tracked --}}
                 <div class="pl-next-step" data-next-step
                      data-step-id="{{ $nextStep['id'] }}"
@@ -111,21 +136,28 @@
             @endif
 
             <div class="pl-next-actions">
-                @if($nextTask)
-                    <button type="button" class="pl-next-start" onclick="plStartNext()">
-                        <i class="bi bi-play-fill"></i> Start
+                @if($isAvoid && $nextRoutine)
+                    <button type="button" class="pl-next-done" onclick="plSlipNext()" style="background:#b91c1c;">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        ثبت لغزش
+                    </button>
+                @else
+                    @if($nextTask)
+                        <button type="button" class="pl-next-start" onclick="plStartNext()">
+                            <i class="bi bi-play-fill"></i> Start
+                        </button>
+                    @endif
+                    <button type="button" class="pl-next-done" onclick="plCompleteNext()">
+                        <i class="bi bi-check-lg"></i>
+                        @if($hasSteps && $nextStep)
+                            Complete step
+                        @elseif($valueGuide)
+                            Log
+                        @else
+                            Complete
+                        @endif
                     </button>
                 @endif
-                <button type="button" class="pl-next-done" onclick="plCompleteNext()">
-                    <i class="bi bi-check-lg"></i>
-                    @if($hasSteps && $nextStep)
-                        Complete step
-                    @elseif($valueGuide)
-                        Log
-                    @else
-                        Complete
-                    @endif
-                </button>
             </div>
         </div>
     @endif

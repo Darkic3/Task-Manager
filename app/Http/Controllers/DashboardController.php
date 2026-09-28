@@ -47,11 +47,21 @@ class DashboardController extends Controller
                 ->map(fn ($id) => (int) $id)
                 ->flip()
             : collect();
+        $todayViolationIds = $todayRoutines->isNotEmpty()
+            ? \App\Models\RoutineViolation::where('user_id', $user->id)
+                ->whereIn('routine_id', $todayRoutines->pluck('id'))
+                ->where('occurred_date', $todayKey)
+                ->pluck('routine_id')
+                ->map(fn ($id) => (int) $id)
+                ->flip()
+            : collect();
         foreach ($todayRoutines as $routine) {
             $record = isset($todayCompletionIds[(int) $routine->id])
                 ? new \App\Models\RoutineCompletion(['routine_id' => $routine->id, 'completed_date' => $todayKey])
                 : null;
             $routine->setRelation('completions', collect($record ? [$record] : []));
+            // Avoid habits are never checked: clean counts as done.
+            $routine->avoidDayViolated = isset($todayViolationIds[(int) $routine->id]);
         }
         $todayRoutines = $todayRoutines
             ->filter(fn ($routine) => $routine->occursOn(now()))
@@ -59,7 +69,7 @@ class DashboardController extends Controller
             ->values();
 
         $routineTotalCount = $todayRoutines->count();
-        $routineDoneCount  = $todayRoutines->filter(fn ($r) => $r->completedOn(now()))->count();
+        $routineDoneCount  = $todayRoutines->filter(fn ($r) => $r->isAvoid() ? ! $r->avoidDayViolated : $r->completedOn(now()))->count();
 
         // Upcoming reminders
         $upcomingReminders = $user->reminders()

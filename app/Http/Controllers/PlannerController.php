@@ -56,9 +56,10 @@ class PlannerController extends Controller
         $this->preloadRoutineCompletions($user->id, $routines, $rangeStart, $selected);
         $stepMap = $this->preloadStepCompletions($routines, $selected, $selected);
         $this->preloadRoutineLogs($user->id, $routines, $selected, $selected);
+        $violationMap = $this->preloadRoutineViolations($user->id, $routines, $rangeStart, $selected);
 
         $routinesData = $this->splitRoutines($routines, $selected);
-        $this->decorateHabitMetricsBulk($routinesData['today'], $selected, $stepMap);
+        $this->decorateHabitMetricsBulk($routinesData['today'], $selected, $stepMap, $violationMap);
 
         // Sort today's routines by their current active step's schedule.
         $routinesData['today'] = $routinesData['today']
@@ -101,6 +102,7 @@ class PlannerController extends Controller
         $this->preloadRoutineCompletions($user->id, $routines, $rangeStart, $end);
         $stepMap = $this->preloadStepCompletions($routines, $start, $end);
         $this->preloadRoutineLogs($user->id, $routines, $start, $end);
+        $violationMap = $this->preloadRoutineViolations($user->id, $routines, $rangeStart, $end);
 
         $days = [];
         for ($i = 0; $i < 7; $i++) {
@@ -115,7 +117,7 @@ class PlannerController extends Controller
             // day column would render the LAST decorated day's state (e.g. Thu
             // showing Fri's empty steps even though Thu step 1 was logged).
             $todayRoutines = $dayRoutines['today']->map(fn ($r) => clone $r);
-            $this->decorateHabitMetricsBulk($todayRoutines, $day, $stepMap);
+            $this->decorateHabitMetricsBulk($todayRoutines, $day, $stepMap, $violationMap);
             $todayRoutines = $todayRoutines
                 ->sortBy(fn ($r) => $r->activeStepSortKey ?? $r->sortKey())
                 ->values();
@@ -278,6 +280,9 @@ class PlannerController extends Controller
     public function toggleRoutine(Request $request, Routine $routine)
     {
         abort_if($routine->user_id !== Auth::id(), 403);
+        // Avoid habits have no check: a tick would mean doing the forbidden
+        // thing. Slips are logged through the slip endpoint instead.
+        abort_if($routine->isAvoid(), 422, 'Avoid habits cannot be checked off.');
 
         $date = $this->parseDate($request->input('date'));
         $completed = $routine->toggleOn($date);
@@ -317,6 +322,7 @@ class PlannerController extends Controller
     public function toggleCheckItem(Request $request, RoutineChecklistItem $item)
     {
         abort_if($item->user_id !== Auth::id(), 403);
+        abort_if($item->routine->isAvoid(), 422, 'Avoid-habit steps cannot be checked off.');
 
         $date = $this->parseDate($request->input('date'));
         $itemCompleted = $item->toggleOn($date);
@@ -372,6 +378,133 @@ class PlannerController extends Controller
     }
 
     /**
+     * Log a slip for an avoid habit (routine-level: the whole day is lost at
+     * once when the habit has no steps).
+     */
+    public function logViolation(Request $request, Routine $routine)
+    {
+        abort_if($routine->user_id !== Auth::id(), 403);
+        abort_if(! $routine->isAvoid(), 422, 'Only avoid habits accept slips.');
+
+        $date = $this->parseDate($request->input('date'));
+        $data = $request->validate([
+            'quantity' => 'nullable|integer|min:1|max:100000',
+            'occurred_at' => 'nullable|date',
+            'trigger' => 'nullable|string|max:100',
+            'note' => 'nullable|string|max:2000',
+        ]);
+
+        $at = ! empty($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : now();
+        $violation = $routine->violations()->create([
+            'checklist_item_id' => null,
+            'user_id' => Auth::id(),
+            'occurred_at' => $at,
+            'occurred_date' => $date->toDateString(),
+            'quantity' => $routine->count_violations ? max(1, (int) ($data['quantity'] ?? 1)) : 1,
+            'trigger' => $data['trigger'] ?? null,
+            'note' => $data['note'] ?? null,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'violation_id' => $violation->id,
+            'routine_id' => $routine->id,
+            'date' => $date->toDateString(),
+            'violated' => true,
+            'day_qty' => $routine->fresh()->violationQtyOn($date),
+        ]);
+    }
+
+    /**
+     * Log a slip for one step of an avoid habit. Other steps stay open; only
+     * this step's slot takes the hit.
+     */
+    public function logStepViolation(Request $request, RoutineChecklistItem $item)
+    {
+        abort_if($item->user_id !== Auth::id(), 403);
+        abort_if(! $item->routine->isAvoid(), 422, 'Only avoid-habit steps accept slips.');
+
+        $routine = $item->routine;
+        $date = $this->parseDate($request->input('date'));
+        $data = $request->validate([
+            'quantity' => 'nullable|integer|min:1|max:100000',
+            'occurred_at' => 'nullable|date',
+            'trigger' => 'nullable|string|max:100',
+            'note' => 'nullable|string|max:2000',
+        ]);
+
+        $at = ! empty($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : now();
+        $violation = $routine->violations()->create([
+            'checklist_item_id' => $item->id,
+            'user_id' => Auth::id(),
+            'occurred_at' => $at,
+            'occurred_date' => $date->toDateString(),
+            'quantity' => $routine->count_violations ? max(1, (int) ($data['quantity'] ?? 1)) : 1,
+            'trigger' => $data['trigger'] ?? null,
+            'note' => $data['note'] ?? null,
+        ]);
+
+        $stepQty = (int) $routine->violations()
+            ->where('checklist_item_id', $item->id)
+            ->where('occurred_date', $date->toDateString())
+            ->sum('quantity');
+
+        return response()->json([
+            'ok' => true,
+            'violation_id' => $violation->id,
+            'routine_id' => $routine->id,
+            'item_id' => $item->id,
+            'date' => $date->toDateString(),
+            'violated' => true,
+            'step_qty' => $stepQty,
+            'day_qty' => $routine->violationQtyOn($date),
+        ]);
+    }
+
+    /**
+     * Log a craving or free note for a routine (optionally one step), with an
+     * exact timestamp so reports can use it later.
+     */
+    public function logRoutineNote(Request $request, Routine $routine)
+    {
+        abort_if($routine->user_id !== Auth::id(), 403);
+
+        $date = $this->parseDate($request->input('date'));
+        $data = $request->validate([
+            'kind' => 'nullable|in:craving,note',
+            'checklist_item_id' => 'nullable|integer|exists:routine_checklist_items,id',
+            'occurred_at' => 'nullable|date',
+            'note' => 'nullable|string|max:2000',
+        ]);
+
+        $itemId = null;
+        if (! empty($data['checklist_item_id'])) {
+            $item = RoutineChecklistItem::where('id', $data['checklist_item_id'])
+                ->where('routine_id', $routine->id)
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
+            $itemId = $item->id;
+        }
+
+        $at = ! empty($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : now();
+        $note = $routine->routineNotes()->create([
+            'checklist_item_id' => $itemId,
+            'user_id' => Auth::id(),
+            'kind' => $data['kind'] ?? \App\Models\RoutineNote::KIND_NOTE,
+            'occurred_at' => $at,
+            'note' => $data['note'] ?? null,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'note_id' => $note->id,
+            'routine_id' => $routine->id,
+            'kind' => $note->kind,
+            'date' => $date->toDateString(),
+        ]);
+    }
+
+    /**
      * Pick the single most important item for the "Next Up" card: the top
      * pending task (priority → time → due date), else the first undone routine.
      * Routines carry their steps so the card can point at the first unfinished
@@ -398,13 +531,20 @@ class PlannerController extends Controller
         $routine = $todayRoutines->first(fn ($r) => ! $r->completedOn($date));
         if ($routine) {
             $steps = collect($routine->ringSteps ?? []);
-            $nextStep = $steps->first(fn ($s) => empty($s['completed']));
+            $isAvoid = $routine->isAvoid();
+            // Avoid habits guide the first step without a slip, never a check.
+            $nextStep = $isAvoid
+                ? $steps->first(fn ($s) => empty($s['violated']))
+                : $steps->first(fn ($s) => empty($s['completed']));
 
             return [
                 'type' => 'routine',
                 'routine' => $routine,
                 'date' => $date,
-                'stepsDone' => $steps->where('completed', true)->count(),
+                'is_avoid' => $isAvoid,
+                'stepsDone' => $isAvoid
+                    ? $steps->where('violated', true)->count()
+                    : $steps->where('completed', true)->count(),
                 'stepsTotal' => $steps->count(),
                 'nextStep' => $nextStep,
             ];
@@ -436,10 +576,11 @@ class PlannerController extends Controller
         $this->preloadRoutineCompletions($user->id, $routines, $date, $date);
         $stepMap = $this->preloadStepCompletions($routines, $date, $date);
         $this->preloadRoutineLogs($user->id, $routines, $date, $date);
+        $violationMap = $this->preloadRoutineViolations($user->id, $routines, $date, $date);
         $today = $routines
             ->filter(fn ($r) => $r->occursOn($date))
             ->values();
-        $this->decorateNextUpRoutines($today, $date, $stepMap);
+        $this->decorateNextUpRoutines($today, $date, $stepMap, $violationMap);
         $today = $today
             ->sortBy(fn ($r) => $r->activeStepSortKey ?? $r->sortKey())
             ->values();
@@ -457,19 +598,25 @@ class PlannerController extends Controller
      * Habit rings and one-year streak metrics are intentionally excluded from
      * this refresh path because they are not rendered by the card.
      */
-    private function decorateNextUpRoutines($routines, Carbon $date, array $stepMap): void
+    private function decorateNextUpRoutines($routines, Carbon $date, array $stepMap, array $violationMap = []): void
     {
         $dayKey = $date->toDateString();
 
         foreach ($routines as $routine) {
+            $isAvoid = $routine->isAvoid();
             $steps = $routine->relationLoaded('checklistItems')
                 ? $routine->checklistItems->sortBy(fn ($s) => $s->sortKey())->values()
                 : collect();
 
-            $routine->ringSteps = $steps->map(fn ($s) => [
+            $routine->ringSteps = $steps->map(function ($s) use ($routine, $isAvoid, $stepMap, $violationMap, $dayKey) {
+                $violatedQty = $isAvoid ? (int) ($violationMap['step'][(int) $s->id][$dayKey] ?? 0) : 0;
+
+                return [
                 'id' => $s->id,
                 'name' => $s->name,
-                'completed' => isset($stepMap[(int) $s->id][$dayKey]),
+                'completed' => $isAvoid ? false : isset($stepMap[(int) $s->id][$dayKey]),
+                'violated' => $violatedQty > 0,
+                'violation_qty' => $violatedQty,
                 'target_sets' => (int) ($s->target_sets ?? 1),
                 'unit' => $s->unit,
                 'period_label' => $s->periodLabel(),
@@ -486,10 +633,14 @@ class PlannerController extends Controller
                         ->mapWithKeys(fn ($l) => [(int) $l->set_no => (float) $l->value])
                         ->all()
                     : [],
-            ])->values();
+                ];
+            })->values();
 
             $hasSchedule = fn ($s) => ! empty($s['period_label']) || ! empty($s['time_label']);
-            $activeStep = $routine->ringSteps->first(fn ($s) => ! $s['completed'] && $hasSchedule($s));
+            $isSettled = $isAvoid
+                ? fn ($s) => ! empty($s['violated'])
+                : fn ($s) => ! empty($s['completed']);
+            $activeStep = $routine->ringSteps->first(fn ($s) => ! $isSettled($s) && $hasSchedule($s));
             $activeStep ??= $routine->ringSteps->last(fn ($s) => $hasSchedule($s));
             $routine->activeStepSortKey = $activeStep['sort_key'] ?? null;
             $routine->activeStepSchedule = $activeStep ? [
@@ -498,6 +649,10 @@ class PlannerController extends Controller
                 'period_color' => $activeStep['period_color'],
                 'time_label' => $activeStep['time_label'],
             ] : null;
+            $routine->avoidDayQty = $isAvoid
+                ? (int) ($violationMap['routine'][(int) $routine->id][$dayKey] ?? 0)
+                : 0;
+            $routine->avoidDayViolated = $routine->avoidDayQty > 0;
             $routine->logValues = $routine->isTracked() ? $routine->loggedValues($date) : [];
         }
     }
@@ -680,6 +835,44 @@ class PlannerController extends Controller
     }
 
     /**
+     * Preload avoid-habit slips for [from..to] in ONE query: attach the loaded
+     * `violations` relation per routine and return quantity lookups
+     * [routine_id][date] and [item_id][date].
+     */
+    private function preloadRoutineViolations(int $userId, $routines, Carbon $from, Carbon $to): array
+    {
+        $map = ['routine' => [], 'step' => []];
+        if ($routines->isEmpty()) {
+            return $map;
+        }
+
+        $rows = \App\Models\RoutineViolation::where('user_id', $userId)
+            ->whereIn('routine_id', $routines->pluck('id'))
+            ->whereBetween('occurred_date', [$from->toDateString(), $to->toDateString()])
+            ->get()
+            ->groupBy('routine_id');
+
+        foreach ($routines as $routine) {
+            $list = $rows->get($routine->id, collect());
+            $routine->setRelation('violations', $list);
+            foreach ($list as $row) {
+                $key = $row->occurred_date instanceof Carbon
+                    ? $row->occurred_date->toDateString()
+                    : Carbon::parse($row->occurred_date)->toDateString();
+                $qty = (int) ($row->quantity ?? 1);
+                $map['routine'][(int) $routine->id][$key]
+                    = ($map['routine'][(int) $routine->id][$key] ?? 0) + $qty;
+                if ($row->checklist_item_id !== null) {
+                    $map['step'][(int) $row->checklist_item_id][$key]
+                        = ($map['step'][(int) $row->checklist_item_id][$key] ?? 0) + $qty;
+                }
+            }
+        }
+
+        return $map;
+    }
+
+    /**
      * Split routines into: occurring today, later-this-week, later-this-month,
      * plus completion counts for the selected date (pure PHP, no queries).
      */
@@ -755,31 +948,47 @@ class PlannerController extends Controller
      * Attach habit-ring data from already-loaded relations (no queries):
      * adherence %, streak, last-7 squares + per-day step states.
      */
-    private function decorateHabitMetricsBulk($routines, Carbon $date, array $stepMap): void
+    private function decorateHabitMetricsBulk($routines, Carbon $date, array $stepMap, array $violationMap = []): void
     {
         foreach ($routines as $routine) {
-            $completedSet = $routine->relationLoaded('completions')
-                ? $routine->completions
-                    ->map(fn ($c) => $c->completed_date instanceof Carbon
-                        ? $c->completed_date->toDateString()
-                        : Carbon::parse($c->completed_date)->toDateString())
-                    ->flip()
-                : [];
-
-            $m = $this->habitMetricsFromSet($routine, $completedSet, $date);
-            $routine->ringRate = $m['rate'];
-            $routine->ringStreak = $m['streak'];
-            $routine->ringLast7 = $m['last7'];
-
+            $isAvoid = $routine->isAvoid();
             $dayKey = $date->toDateString();
+
+            if ($isAvoid) {
+                // Clean-day metrics: today is excluded until violated.
+                $m = $routine->avoidMetrics($date);
+                $routine->ringRate = $m['rate'];
+                $routine->ringStreak = $m['current'];
+                $routine->ringBest = $m['best'];
+                $routine->ringLast7 = $m['last7'];
+            } else {
+                $completedSet = $routine->relationLoaded('completions')
+                    ? $routine->completions
+                        ->map(fn ($c) => $c->completed_date instanceof Carbon
+                            ? $c->completed_date->toDateString()
+                            : Carbon::parse($c->completed_date)->toDateString())
+                        ->flip()
+                    : [];
+
+                $m = $this->habitMetricsFromSet($routine, $completedSet, $date);
+                $routine->ringRate = $m['rate'];
+                $routine->ringStreak = $m['streak'];
+                $routine->ringLast7 = $m['last7'];
+            }
+
             $steps = $routine->relationLoaded('checklistItems')
                 ? $routine->checklistItems->sortBy(fn ($s) => $s->sortKey())->values()
                 : collect();
 
-            $routine->ringSteps = $steps->map(fn ($s) => [
+            $routine->ringSteps = $steps->map(function ($s) use ($routine, $isAvoid, $stepMap, $violationMap, $dayKey) {
+                $violatedQty = $isAvoid ? (int) ($violationMap['step'][(int) $s->id][$dayKey] ?? 0) : 0;
+
+                return [
                 'id' => $s->id,
                 'name' => $s->name,
-                'completed' => isset($stepMap[(int) $s->id][$dayKey]),
+                'completed' => $isAvoid ? false : isset($stepMap[(int) $s->id][$dayKey]),
+                'violated' => $violatedQty > 0,
+                'violation_qty' => $violatedQty,
                 'target_sets' => (int) ($s->target_sets ?? 1),
                 'unit' => $s->unit,
                 'period_label' => $s->periodLabel(),
@@ -796,11 +1005,17 @@ class PlannerController extends Controller
                         ->mapWithKeys(fn ($l) => [(int) $l->set_no => (float) $l->value])
                         ->all()
                     : [],
-            ])->values();
+                ];
+            })->values();
 
             $hasSchedule = fn ($s) => ! empty($s['period_label']) || ! empty($s['time_label']);
+            // Avoid habits resolve steps by violation, not by check: a violated
+            // step counts as settled for the day, the rest stay open.
+            $isSettled = $isAvoid
+                ? fn ($s) => ! empty($s['violated'])
+                : fn ($s) => ! empty($s['completed']);
 
-            $activeStep = $routine->ringSteps->first(fn ($s) => ! $s['completed'] && $hasSchedule($s));
+            $activeStep = $routine->ringSteps->first(fn ($s) => ! $isSettled($s) && $hasSchedule($s));
             if (! $activeStep) {
                 $activeStep = $routine->ringSteps->last(fn ($s) => $hasSchedule($s));
             }
@@ -817,6 +1032,12 @@ class PlannerController extends Controller
                 $routine->activeStepSchedule = null;
                 $routine->activeStepSortKey = null;
             }
+
+            // Avoid day state: total slips today (routine + steps).
+            $routine->avoidDayQty = $isAvoid
+                ? (int) ($violationMap['routine'][(int) $routine->id][$dayKey] ?? 0)
+                : 0;
+            $routine->avoidDayViolated = $routine->avoidDayQty > 0;
 
             $routine->logValues = $routine->isTracked() ? $routine->loggedValues($date) : [];
         }

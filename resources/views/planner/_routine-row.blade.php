@@ -10,6 +10,11 @@
     $fi          = $freqIcons[$routine->frequency] ?? 'bi-arrow-repeat';
     $active      = $routine->activeStepSchedule ?? null;
     $accent      = ($active['period_color'] ?? null) ?: $routine->periodColor() ?: $fc;
+    $isAvoid    = ($routine->behavior_type ?? 'build') === 'avoid';
+    $avoidQty   = $toggleable ? (int) ($routine->avoidDayQty ?? 0) : 0;
+    $avoidBad   = $avoidQty > 0;
+    $countMode  = ! empty($routine->count_violations);
+    $nowLocal   = now()->format('Y-m-d\TH:i');
 
     /* Habit Ring (package A): adherence ring + streak flame + last-7 dots */
     $ringRate    = $routine->ringRate ?? null;
@@ -51,6 +56,13 @@
      style="border-left:3px solid {{ $accent }};">
 
     @if($toggleable)
+        @if($isAvoid)
+            {{-- Avoid habits are never checked: shield shows clean vs slipped. --}}
+            <span class="pl-avoid-shield {{ $avoidBad ? 'bad' : 'ok' }}"
+                  title="{{ $avoidBad ? 'Slip logged today' : 'Clean so far' }}{{ $ringRate !== null ? ' · ' . $ringRate . '% clean (30d)' : '' }}">
+                <i class="bi {{ $avoidBad ? 'bi-shield-fill-exclamation' : 'bi-shield-fill-check' }}"></i>
+            </span>
+        @else
         <label class="pl-habit" title="{{ $isDone ? 'Mark as not done' : 'Mark as done' }}{{ $ringRate !== null ? ' · ' . $ringRate . '% adherence (30d)' : '' }}">
             <input type="checkbox"
                    {{ $isDone ? 'checked' : '' }}
@@ -71,6 +83,7 @@
                 <span class="routine-check-box"><i class="bi bi-check-lg"></i></span>
             @endif
         </label>
+        @endif
     @else
         <span class="pl-routine-static" title="Scheduled for another day">
             <i class="bi bi-calendar3"></i>
@@ -80,14 +93,27 @@
     <div class="pl-task-body">
         <div class="pl-task-title">
             {{ $routine->title }}
+            @if($isAvoid)
+                <span class="pl-avoid-tag" title="Forbidden habit — staying clean is the goal">🚫 ترک‌کردنی</span>
+            @endif
             @if($isDone && $toggleable && $ringStreak !== null && $ringStreak > 0)
                 <span class="flame" title="{{ $ringStreak }} in a row">🔥{{ $ringStreak }}</span>
             @endif
+            @if($isAvoid && $toggleable && ($ringStreak ?? 0) > 0)
+                <span class="flame" title="{{ $ringStreak }} clean days in a row">🛡️{{ $ringStreak }}</span>
+            @endif
             @if($toggleable && ! empty($routine->ringSteps) && $routine->ringSteps->count() > 0)
-                @php $stepsDone = $routine->ringSteps->where('completed', true)->count(); @endphp
-                <span class="steps-count {{ $stepsDone === $routine->ringSteps->count() ? 'all' : '' }}">
-                    {{ $stepsDone }}/{{ $routine->ringSteps->count() }}
-                </span>
+                @if($isAvoid)
+                    @php $slipped = $routine->ringSteps->where('violated', true)->count(); @endphp
+                    @if($slipped > 0)
+                        <span class="steps-count bad" title="Steps with a slip today">{{ $slipped }}/{{ $routine->ringSteps->count() }} slips</span>
+                    @endif
+                @else
+                    @php $stepsDone = $routine->ringSteps->where('completed', true)->count(); @endphp
+                    <span class="steps-count {{ $stepsDone === $routine->ringSteps->count() ? 'all' : '' }}">
+                        {{ $stepsDone }}/{{ $routine->ringSteps->count() }}
+                    </span>
+                @endif
             @endif
             @if($hasDetails)
                 @if($useModal)
@@ -102,6 +128,17 @@
             @endif
         </div>
         <div class="pl-task-meta">
+            @if($isAvoid)
+                @if($avoidBad)
+                    <span class="pl-priority" style="color:#b91c1c;background:#fee2e2;text-transform:none;">
+                        <i class="bi bi-exclamation-triangle"></i> لغزش ثبت شد{{ $countMode ? ' · ×'.$avoidQty : '' }}
+                    </span>
+                @else
+                    <span class="pl-priority" style="color:#15803d;background:#dcfce7;text-transform:none;">
+                        <i class="bi bi-shield-check"></i> پاک تا الان
+                    </span>
+                @endif
+            @endif
             @if($active)
                 <span class="pl-priority" style="color:{{ $accent }};background:{{ $accent }}1a;text-transform:none;">
                     <i class="bi {{ $active['period_icon'] ?: 'bi-clock' }}"></i> {{ $active['period_label'] ?: $active['time_label'] }}
@@ -134,6 +171,47 @@
         <div class="pl-details" data-details>
         @endif
         @if($toggleable && ! empty($routine->ringSteps) && count($routine->ringSteps) > 0)
+            @if($isAvoid)
+                {{-- Avoid steps: no check — a violated step turns red, the rest stay open. --}}
+                <div class="pl-steps pl-avoid-steps">
+                    @foreach($routine->ringSteps as $step)
+                        <div class="pl-step avoid {{ !empty($step['violated']) ? 'violated' : '' }}"
+                             data-step-item data-id="{{ $step['id'] }}"
+                             data-routine="{{ $routine->id }}"
+                             data-date="{{ $routineDate->toDateString() }}">
+                            <i class="bi {{ !empty($step['violated']) ? 'bi-x-circle-fill' : 'bi-shield' }}"></i>
+                            {{ $step['name'] }}
+                            @if(!empty($step['period_label']) || !empty($step['time_label']))
+                                <span class="pl-step-schedule" style="color:{{ $step['period_color'] ?: '#64748b' }};">
+                                    <i class="bi {{ $step['period_icon'] ?: 'bi-clock' }}"></i>
+                                    {{ $step['period_label'] ?: $step['time_label'] }}
+                                </span>
+                            @endif
+                            @if(!empty($step['violated']))
+                                <span class="pl-step-slipcount" title="Slips in this slot today">×{{ $step['violation_qty'] }}</span>
+                            @endif
+                            <button type="button" class="pl-step-slipbtn" data-avoid-step-slip
+                                    data-slip-url="{{ route('planner.check-items.slip', $step['id']) }}"
+                                    data-date="{{ $routineDate->toDateString() }}"
+                                    data-count-mode="{{ $countMode ? '1' : '0' }}"
+                                    title="Log a slip in this slot">لغزش</button>
+                        </div>
+                        <div class="pl-avoid-panel" data-step-slip-panel hidden>
+                            <form data-step-slip-form
+                                  data-slip-url="{{ route('planner.check-items.slip', $step['id']) }}"
+                                  data-date="{{ $routineDate->toDateString() }}"
+                                  onsubmit="return submitStepSlip(this)">
+                                @if($countMode)
+                                    <input type="number" name="quantity" min="1" value="1" title="Count" aria-label="Count">
+                                @endif
+                                <input type="datetime-local" name="occurred_at" value="{{ $nowLocal }}" title="Exact time" aria-label="Exact time">
+                                <input type="text" name="note" maxlength="2000" placeholder="Note (optional)" aria-label="Note">
+                                <button type="submit">ثبت</button>
+                            </form>
+                        </div>
+                    @endforeach
+                </div>
+            @else
             <div class="pl-steps">
                 @foreach($routine->ringSteps as $step)
                     <button type="button"
@@ -155,6 +233,42 @@
                         @endif
                     </button>
                 @endforeach
+            </div>
+            @endif
+        @endif
+
+        @if($isAvoid && $toggleable)
+            <div class="pl-avoid-actions">
+                <button type="button" class="pl-avoid-btn slip" data-avoid-slip>ثبت لغزش</button>
+                <button type="button" class="pl-avoid-btn note" data-avoid-note>وسوسه / یادداشت</button>
+            </div>
+            <div class="pl-avoid-panel" data-slip-panel hidden>
+                <form data-slip-form
+                      data-slip-url="{{ route('planner.routines.slip', $routine) }}"
+                      data-date="{{ $routineDate->toDateString() }}"
+                      onsubmit="return submitRoutineSlip(this)">
+                    @if($countMode)
+                        <input type="number" name="quantity" min="1" value="1" title="Count" aria-label="Count">
+                    @endif
+                    <input type="datetime-local" name="occurred_at" value="{{ $nowLocal }}" title="Exact time" aria-label="Exact time">
+                    <input type="text" name="trigger" maxlength="100" placeholder="Trigger (optional)" aria-label="Trigger">
+                    <input type="text" name="note" maxlength="2000" placeholder="Note (optional)" aria-label="Note">
+                    <button type="submit">ثبت لغزش</button>
+                </form>
+            </div>
+            <div class="pl-avoid-panel" data-note-panel hidden>
+                <form data-note-form
+                      data-note-url="{{ route('planner.routines.note', $routine) }}"
+                      data-date="{{ $routineDate->toDateString() }}"
+                      onsubmit="return submitRoutineNote(this)">
+                    <select name="kind" aria-label="Kind">
+                        <option value="craving">وسوسه</option>
+                        <option value="note">یادداشت</option>
+                    </select>
+                    <input type="datetime-local" name="occurred_at" value="{{ $nowLocal }}" title="Exact time" aria-label="Exact time">
+                    <input type="text" name="note" maxlength="2000" placeholder="Details…" aria-label="Details">
+                    <button type="submit">ثبت</button>
+                </form>
             </div>
         @endif
 

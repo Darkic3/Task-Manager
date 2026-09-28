@@ -342,11 +342,20 @@
                     </div>
                     <div class="activity-card-content" id="dbRoutineList">
                         @forelse($todayRoutines as $routine)
-                            @php $rDone = $routine->completedOn(now()); @endphp
+                            @php
+                                $rAvoid = ($routine->behavior_type ?? 'build') === 'avoid';
+                                $rBad = $rAvoid && ! empty($routine->avoidDayViolated);
+                                $rDone = $rAvoid ? false : $routine->completedOn(now());
+                            @endphp
                             <div class="activity-item {{ $rDone ? 'is-done' : '' }}"
                                  data-db-routine
                                  data-id="{{ $routine->id }}"
                                  data-completed="{{ $rDone ? 1 : 0 }}">
+                                @if($rAvoid)
+                                    <span class="db-routine-check" title="{{ $rBad ? 'Slip logged today' : 'Clean so far' }}">
+                                        <span class="db-check-box" style="{{ $rBad ? 'background:#fee2e2;color:#b91c1c;border-color:#fca5a5;' : 'background:#dcfce7;color:#15803d;border-color:#bbf7d0;' }}"><i class="bi {{ $rBad ? 'bi-exclamation' : 'bi-shield-check' }}"></i></span>
+                                    </span>
+                                @else
                                 <label class="db-routine-check" title="{{ $rDone ? 'Mark as not done' : 'Mark as done' }}">
                                     <input type="checkbox" {{ $rDone ? 'checked' : '' }}
                                            data-id="{{ $routine->id }}"
@@ -354,6 +363,7 @@
                                            onchange="dbToggleRoutine(this)">
                                     <span class="db-check-box"><i class="bi bi-check-lg"></i></span>
                                 </label>
+                                @endif
                                 <div class="activity-item-icon routine-frequency">
                                     <i class="bi bi-arrow-repeat"></i>
                                 </div>
