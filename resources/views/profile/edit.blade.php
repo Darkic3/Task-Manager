@@ -274,12 +274,22 @@
                                 @error('location')<p class="cu-err">{{ $message }}</p>@enderror
                             </div>
                         </div>
-                        <div class="cu-field">
-                            <label for="website" class="cu-label">Website</label>
-                            <input type="url" id="website" name="website"
-                                   class="cu-input @error('website') is-invalid @enderror"
-                                   value="{{ old('website', $user->website) }}" placeholder="https://example.com">
-                            @error('website')<p class="cu-err">{{ $message }}</p>@enderror
+                        <div class="cu-field-row">
+                            <div class="cu-field">
+                                <label for="website" class="cu-label">{{ __('Website') }}</label>
+                                <input type="url" id="website" name="website"
+                                       class="cu-input @error('website') is-invalid @enderror"
+                                       value="{{ old('website', $user->website) }}" placeholder="https://example.com">
+                                @error('website')<p class="cu-err">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="cu-field">
+                                <label for="locale" class="cu-label">{{ __('Language') }}</label>
+                                <select id="locale" name="locale" class="cu-input @error('locale') is-invalid @enderror">
+                                    <option value="en" {{ old('locale', $user->locale ?? 'en') === 'en' ? 'selected' : '' }}>🇬🇧 English</option>
+                                    <option value="fa" {{ old('locale', $user->locale ?? 'en') === 'fa' ? 'selected' : '' }}>🇮🇷 فارسی</option>
+                                </select>
+                                @error('locale')<p class="cu-err">{{ $message }}</p>@enderror
+                            </div>
                         </div>
                         <div class="cu-field">
                             <label for="bio" class="cu-label">Bio</label>

@@ -43,6 +43,7 @@ class ProfileController extends Controller
             'phone' => ['nullable', 'string', 'max:20'],
             'location' => ['nullable', 'string', 'max:255'],
             'website' => ['nullable', 'url', 'max:255'],
+            'locale' => ['nullable', 'string', 'in:en,fa'],
         ]);
 
         $updateData = [
@@ -53,6 +54,12 @@ class ProfileController extends Controller
             'location' => $request->location,
             'website' => $request->website,
         ];
+
+        if ($request->filled('locale')) {
+            $updateData['locale'] = $request->locale;
+            session(['locale' => $request->locale]);
+            cookie()->queue('locale', $request->locale, 60 * 24 * 365);
+        }
 
         // Handle avatar upload
         if ($request->hasFile('avatar')) {

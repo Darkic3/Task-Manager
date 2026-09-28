@@ -24,7 +24,10 @@ use App\Http\Controllers\WorkoutPlanController;
 use App\Http\Controllers\WorkoutSessionController;
 use App\Http\Controllers\WorkoutReportController;
 use App\Http\Controllers\WorkoutImportController;
+use App\Http\Controllers\LocaleController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
 
 Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('login', [LoginController::class, 'login']);

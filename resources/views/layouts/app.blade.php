@@ -1,16 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ app()->getLocale() === 'fa' ? 'rtl' : 'ltr' }}">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title> @yield('title') | Task Manager </title>
+    <title> @yield('title') | {{ __('TaskManager') }} </title>
     <link rel="shortcut icon" href="{{ asset('assets/img/logo-circle.png') }}" type="image/x-icon">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    @if(app()->getLocale() === 'fa')
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    @else
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    @endif
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -68,7 +75,7 @@
             margin: 0;
             overflow: hidden;
             background-color: var(--gray-25);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: {{ app()->getLocale() === 'fa' ? "'Vazirmatn', system-ui, -apple-system, sans-serif" : "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }};
             font-size: 14px;
             line-height: 1.5;
             color: var(--gray-700);
@@ -513,6 +520,30 @@
         }
         .sidebar-overlay.active { display: block; }
 
+        /* ── RTL Overrides & Typography ── */
+        html[dir="rtl"] .sidebar {
+            border-right: none;
+            border-left: 1px solid var(--gray-200);
+        }
+
+        html[dir="rtl"] .nav-link.active::before {
+            left: auto;
+            right: -0.875rem;
+            border-radius: 2px 0 0 2px;
+        }
+
+        html[dir="rtl"] .nav-badge {
+            margin-left: 0;
+            margin-right: auto;
+        }
+
+        html[dir="rtl"] .me-1 { margin-left: 0.25rem !important; margin-right: 0 !important; }
+        html[dir="rtl"] .me-2 { margin-left: 0.5rem !important; margin-right: 0 !important; }
+        html[dir="rtl"] .me-3 { margin-left: 1rem !important; margin-right: 0 !important; }
+        html[dir="rtl"] .ms-1 { margin-right: 0.25rem !important; margin-left: 0 !important; }
+        html[dir="rtl"] .ms-2 { margin-right: 0.5rem !important; margin-left: 0 !important; }
+        html[dir="rtl"] .ms-3 { margin-right: 1rem !important; margin-left: 0 !important; }
+
         /* ── Responsive Design ── */
         @media (max-width: 768px) {
             .sidebar-toggle { display: flex; }
@@ -524,7 +555,7 @@
                 height: 100vh;
                 width: 260px;
                 z-index: 1000;
-                transition: left 0.28s cubic-bezier(0.4,0,0.2,1);
+                transition: left 0.28s cubic-bezier(0.4,0,0.2,1), right 0.28s cubic-bezier(0.4,0,0.2,1);
                 box-shadow: none;
             }
             .sidebar.open {
@@ -532,7 +563,18 @@
                 box-shadow: 4px 0 24px rgba(0,0,0,0.12);
             }
 
-            .content { margin-left: 0; }
+            html[dir="rtl"] .sidebar {
+                left: auto;
+                right: -260px;
+            }
+
+            html[dir="rtl"] .sidebar.open {
+                left: auto;
+                right: 0;
+                box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+            }
+
+            .content { margin-left: 0; margin-right: 0; }
 
             main { padding: 0.75rem; }
 
@@ -547,25 +589,25 @@
         <div class="sidebar-header">
             <a href="{{ route('dashboard') }}" class="sidebar-brand">
                 <img src="{{ asset('assets/img/logo-circle.png') }}" alt="TaskManager">
-                TaskManager
+                <span>{{ __('TaskManager') }}</span>
             </a>
         </div>
 
         <div class="sidebar-nav">
             <div class="nav-section">
-                <div class="nav-section-title">Main</div>
+                <div class="nav-section-title">{{ __('Main') }}</div>
                 <ul class="nav flex-column">
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('/') ? 'active' : '' }}" href="{{ route('dashboard') }}">
                             <i class="bi bi-house-door-fill"></i>
-                            <span>Dashboard</span>
+                            <span>{{ __('Dashboard') }}</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('projects*') ? 'active' : '' }}"
                             href="{{ route('projects.index') }}">
                             <i class="bi bi-folder-fill"></i>
-                            <span>Projects</span>
+                            <span>{{ __('Projects') }}</span>
                             <span
                                 class="nav-badge">{{ \App\Models\Project::where('user_id', auth()->id())->count() }}</span>
                         </a>
@@ -584,7 +626,7 @@
                         <a class="nav-link {{ request()->is('tasks*') ? 'active' : '' }}"
                             href="{{ route('tasks.index') }}">
                             <i class="bi bi-check-square-fill"></i>
-                            <span>Tasks</span>
+                            <span>{{ __('Tasks') }}</span>
                             <span class="nav-badge">{{ $taskCount }}</span>
                         </a>
                     </li>
@@ -592,87 +634,87 @@
                         <a class="nav-link {{ request()->is('planner*') ? 'active' : '' }}"
                             href="{{ route('planner.index') }}">
                             <i class="bi bi-sun-fill"></i>
-                            <span>My Day</span>
+                            <span>{{ __('My Day') }}</span>
                         </a>
                     </li>
                 </ul>
             </div>
 
             <div class="nav-section">
-                <div class="nav-section-title">Organize</div>
+                <div class="nav-section-title">{{ __('Organize') }}</div>
                 <ul class="nav flex-column">
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('routines*') ? 'active' : '' }}"
                             href="{{ route('routines.index') }}">
                             <i class="bi bi-arrow-repeat"></i>
-                            <span>Routines</span>
+                            <span>{{ __('Routines') }}</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('workouts*') ? 'active' : '' }}"
                             href="{{ route('workouts.plans.index') }}">
                             <i class="bi bi-heart-pulse-fill"></i>
-                            <span>Workouts</span>
+                            <span>{{ __('Workouts') }}</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('track*') ? 'active' : '' }}"
                             href="{{ route('track.index') }}">
                             <i class="bi bi-graph-up"></i>
-                            <span>Track</span>
+                            <span>{{ __('Track') }}</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('time*') ? 'active' : '' }}"
                             href="{{ route('time.reports') }}">
                             <i class="bi bi-stopwatch"></i>
-                            <span>Time</span>
+                            <span>{{ __('Time') }}</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('reports*') ? 'active' : '' }}"
                             href="{{ route('reports.overview') }}">
                             <i class="bi bi-bar-chart"></i>
-                            <span>Reports</span>
+                            <span>{{ __('Reports') }}</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('notes*') ? 'active' : '' }}"
                             href="{{ route('notes.index') }}">
                             <i class="bi bi-journal-text"></i>
-                            <span>Notes</span>
+                            <span>{{ __('Notes') }}</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('reminders*') ? 'active' : '' }}"
                             href="{{ route('reminders.index') }}">
                             <i class="bi bi-bell-fill"></i>
-                            <span>Reminders</span>
+                            <span>{{ __('Reminders') }}</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('files*') ? 'active' : '' }}"
                             href="{{ route('files.index') }}">
                             <i class="bi bi-file-earmark-fill"></i>
-                            <span>Files</span>
+                            <span>{{ __('Files') }}</span>
                         </a>
                     </li>
                 </ul>
             </div>
 
             <div class="nav-section">
-                <div class="nav-section-title">Intelligence</div>
+                <div class="nav-section-title">{{ __('Intelligence') }}</div>
                 <ul class="nav flex-column">
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('ai') || request()->is('ai/conversations*') || request()->is('ai/chat*') || request()->is('ai/stream*') ? 'active' : '' }}" href="{{ route('ai.index') }}">
                             <i class="bi bi-stars"></i>
-                            <span>Lina AI</span>
+                            <span>{{ __('Lina AI') }}</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('ai/settings*') ? 'active' : '' }}" href="{{ route('ai.settings') }}">
                             <i class="bi bi-sliders"></i>
-                            <span>AI Settings</span>
+                            <span>{{ __('AI Settings') }}</span>
                         </a>
                     </li>
                 </ul>
@@ -695,17 +737,24 @@
                 <i class="bi bi-three-dots"></i>
             </div>
             <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="{{ route('profile.show') }}"><i class="bi bi-person me-2"></i>Profile</a></li>
-                <li><a class="dropdown-item" href="{{ route('profile.password') }}"><i class="bi bi-key me-2"></i>Change Password</a></li>
-                <li><a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                <li><a class="dropdown-item" href="{{ route('profile.show') }}"><i class="bi bi-person me-2"></i>{{ __('Profile') }}</a></li>
+                <li><a class="dropdown-item" href="{{ route('profile.password') }}"><i class="bi bi-key me-2"></i>{{ __('Change Password') }}</a></li>
+                <li>
+                    <hr class="dropdown-divider">
+                </li>
+                <li>
+                    <a class="dropdown-item d-flex align-items-center justify-content-between" href="{{ route('locale.switch', app()->getLocale() === 'fa' ? 'en' : 'fa') }}">
+                        <span><i class="bi bi-translate me-2"></i>{{ app()->getLocale() === 'fa' ? 'English (انگلیسی)' : 'فارسی (Persian)' }}</span>
+                    </a>
+                </li>
                 <li>
                     <hr class="dropdown-divider">
                 </li>
                 <li>
                     <form method="POST" action="{{ route('logout') }}" id="logout-form" class="d-inline">
                         @csrf
-                        <button type="submit" class="dropdown-item">
-                            <i class="bi bi-box-arrow-right me-2"></i>Logout
+                        <button type="submit" class="dropdown-item text-danger">
+                            <i class="bi bi-box-arrow-right me-2"></i>{{ __('Logout') }}
                         </button>
                     </form>
                 </li>
@@ -720,19 +769,42 @@
                 </button>
                 <div class="topnav-actions">
                     <span class="current-time" id="currentDateTime"></span>
+
+                    {{-- Language Switcher in Header --}}
+                    <div class="dropdown">
+                        <button class="btn btn-outline dropdown-toggle d-inline-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ __('Language') }}">
+                            <i class="bi bi-globe2 text-primary"></i>
+                            <span class="d-none d-sm-inline">{{ app()->getLocale() === 'fa' ? 'فارسی' : 'English' }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width: 140px;">
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center justify-content-between {{ app()->getLocale() === 'fa' ? 'active' : '' }}" href="{{ route('locale.switch', 'fa') }}">
+                                    <span>🇮🇷 فارسی</span>
+                                    @if(app()->getLocale() === 'fa') <i class="bi bi-check2"></i> @endif
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center justify-content-between {{ app()->getLocale() === 'en' ? 'active' : '' }}" href="{{ route('locale.switch', 'en') }}">
+                                    <span>🇬🇧 English</span>
+                                    @if(app()->getLocale() === 'en') <i class="bi bi-check2"></i> @endif
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
                     <div class="dropdown">
                         <button class="btn btn-outline dropdown-toggle" type="button" data-bs-toggle="dropdown"
                             aria-expanded="false">
                             <i class="bi bi-plus-lg"></i>
-                            <span class="d-none d-md-inline">Quick Add</span>
+                            <span class="d-none d-md-inline">{{ __('Quick Add') }}</span>
                         </button>
-                        <ul class="dropdown-menu">
+                        <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{{ route('projects.create') }}"><i
-                                        class="bi bi-folder-plus me-2"></i>New Project</a></li>
+                                        class="bi bi-folder-plus me-2"></i>{{ __('New Project') }}</a></li>
                             <li><a class="dropdown-item" href="{{ route('notes.create') }}"><i
-                                        class="bi bi-journal-plus me-2"></i>New Note</a></li>
+                                        class="bi bi-journal-plus me-2"></i>{{ __('New Note') }}</a></li>
                             <li><a class="dropdown-item" href="{{ route('reminders.create') }}"><i
-                                        class="bi bi-bell me-2"></i>New Reminder</a></li>
+                                        class="bi bi-bell me-2"></i>{{ __('New Reminder') }}</a></li>
                         </ul>
                     </div>
                 </div>

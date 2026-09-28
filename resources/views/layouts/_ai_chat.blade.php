@@ -31,6 +31,16 @@
 }
 #aiDrawer.open { transform: translateX(0); }
 
+html[dir="rtl"] #aiDrawer {
+    right: auto;
+    left: 0;
+    box-shadow: 8px 0 32px rgba(0,0,0,.14);
+    transform: translateX(-100%);
+}
+html[dir="rtl"] #aiDrawer.open {
+    transform: translateX(0);
+}
+
 /* ── Header ── */
 .ai-drawer-head {
     flex-shrink: 0;

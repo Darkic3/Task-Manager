@@ -1,19 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ app()->getLocale() === 'fa' ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In — Task Manager</title>
+    <title>{{ __('Sign In') }} — {{ __('Task Manager') }}</title>
     <link rel="shortcut icon" href="{{ asset('assets/img/logo-circle.png') }}" type="image/x-icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    @if(app()->getLocale() === 'fa')
+        <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    @else
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    @endif
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: {{ app()->getLocale() === 'fa' ? "'Vazirmatn', sans-serif" : "'Inter', sans-serif" }};
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -190,6 +194,20 @@
             text-transform: uppercase; color: #6366f1; opacity: .7;
         }
 
+        /* ── RTL Overrides ── */
+        html[dir="rtl"] .lc-input-icon {
+            left: auto;
+            right: 10px;
+        }
+        html[dir="rtl"] .lc-pw-toggle {
+            right: auto;
+            left: 9px;
+        }
+        html[dir="rtl"] .lc-check {
+            margin-right: 0;
+            margin-left: 8px;
+        }
+
         /* ── Mobile responsive ──────────────────────────── */
         @media (max-width: 420px) {
             body { padding: 12px; }
@@ -202,20 +220,25 @@
 <body>
 
 <div class="lc-wrap">
-    <div class="lc-app-tag"><i class="bi bi-check2-square"></i> &nbsp;Task Manager</div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div class="lc-app-tag" style="margin-bottom:0;"><i class="bi bi-check2-square"></i> &nbsp;{{ __('TaskManager') }}</div>
+        <a href="{{ route('locale.switch', app()->getLocale() === 'fa' ? 'en' : 'fa') }}" style="font-size:12px; color:#4f46e5; text-decoration:none; background:#fff; padding:4px 12px; border-radius:20px; border:1px solid #e0e7ff; font-weight:600; display:inline-flex; align-items:center; gap:5px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <i class="bi bi-globe2"></i> {{ app()->getLocale() === 'fa' ? 'English' : 'فارسی' }}
+        </a>
+    </div>
 
     <div class="lc-card">
         <div class="lc-header">
             <div class="lc-logo"><i class="bi bi-person-check"></i></div>
-            <h1 class="lc-title">Welcome back</h1>
-            <p class="lc-sub">Sign in to your account to continue</p>
+            <h1 class="lc-title">{{ __('Sign In') }}</h1>
+            <p class="lc-sub">{{ __('Sign in to your account to continue') }}</p>
         </div>
 
         <div class="lc-body">
             @if($errors->has('email') && $errors->first('email') === 'These credentials do not match our records.')
             <div class="lc-alert">
                 <i class="bi bi-exclamation-triangle-fill"></i>
-                Invalid email or password. Please try again.
+                {{ __('auth.failed') }}
             </div>
             @endif
 
@@ -223,7 +246,7 @@
                 @csrf
 
                 <div class="lc-field">
-                    <label for="email" class="lc-label">Email Address</label>
+                    <label for="email" class="lc-label">{{ __('Email') }}</label>
                     <div class="lc-input-wrap">
                         <i class="bi bi-envelope lc-input-icon"></i>
                         <input type="email" id="email" name="email"
@@ -238,7 +261,7 @@
                 </div>
 
                 <div class="lc-field">
-                    <label for="password" class="lc-label">Password</label>
+                    <label for="password" class="lc-label">{{ __('Password') }}</label>
                     <div class="lc-input-wrap">
                         <i class="bi bi-lock lc-input-icon"></i>
                         <input type="password" id="password" name="password"
@@ -257,11 +280,11 @@
                 <div class="lc-check-row">
                     <input type="checkbox" id="remember" name="remember" class="lc-check"
                            {{ old('remember') ? 'checked' : '' }}>
-                    <label for="remember" class="lc-check-lbl">Remember me for 30 days</label>
+                    <label for="remember" class="lc-check-lbl">{{ __('Remember me') }}</label>
                 </div>
 
                 <button type="submit" class="lc-btn">
-                    <i class="bi bi-arrow-right-circle"></i> Sign In
+                    <i class="bi {{ app()->getLocale() === 'fa' ? 'bi-arrow-left-circle' : 'bi-arrow-right-circle' }}"></i> {{ __('Sign In') }}
                 </button>
             </form>
         </div>
