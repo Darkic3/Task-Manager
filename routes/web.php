@@ -113,6 +113,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/planner/tasks/{task}/title', [PlannerController::class, 'renameTask'])->name('planner.tasks.title');
     Route::post('/planner/tasks/reorder', [PlannerController::class, 'reorderTasks'])->name('planner.tasks.reorder');
     Route::post('/planner/tasks/postpone-all', [PlannerController::class, 'postponeAllOverdue'])->name('planner.tasks.postpone-all');
+    Route::post('/planner/ai-optimize', [PlannerController::class, 'aiOptimize'])->name('planner.ai-optimize');
     Route::get('/planner/next-up', [PlannerController::class, 'nextUp'])->name('planner.next-up');
 
     // Time tracking

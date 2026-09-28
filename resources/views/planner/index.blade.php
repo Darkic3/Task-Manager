@@ -545,6 +545,9 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1" onclick="openEveningShutdown()" title="Evening shutdown ritual">
                         <i class="bi bi-moon-stars-fill text-primary"></i> Shutdown
                     </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 fw-semibold" onclick="openLinaScheduleModal()" title="Optimize schedule with Lina AI">
+                        <i class="bi bi-stars"></i> Lina AI
+                    </button>
                 </div>
             @endif
             <div class="pl-nav">
@@ -601,6 +604,9 @@
 
         {{-- Next Up --}}
         @include('planner._next-up', ['nextUp' => $nextUp ?? null, 'date' => $date])
+
+        {{-- Today's Workout Session Block --}}
+        @include('planner._workout-card')
 
         {{-- Routines for the selected day --}}
         <div class="pl-section">
@@ -816,6 +822,7 @@
 
     @include('planner._focus-modal')
     @include('planner._kickoff-modal')
+    @include('planner._ai-schedule-modal')
 @endsection
 
 @push('scripts')

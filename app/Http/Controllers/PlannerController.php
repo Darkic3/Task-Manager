@@ -70,6 +70,26 @@ class PlannerController extends Controller
         $dailyCapacityHours = 6.0;
         $capacityPercentage = min(round(($totalEstimatedHours / max($dailyCapacityHours, 0.1)) * 100), 150);
 
+        $todayWeekday = strtolower($selected->format('l'));
+        $activeWorkoutPlan = $user->workoutPlans()->where('status', 'active')->first()
+            ?? $user->workoutPlans()->latest()->first();
+
+        $todayWorkoutDay = null;
+        $todayWorkoutSession = null;
+        if ($activeWorkoutPlan) {
+            $todayWorkoutDay = $activeWorkoutPlan->days()
+                ->where('weekday', $todayWeekday)
+                ->with(['exercises.exercise'])
+                ->first();
+
+            if ($todayWorkoutDay) {
+                $todayWorkoutSession = \App\Models\WorkoutSession::where('user_id', $user->id)
+                    ->where('workout_day_id', $todayWorkoutDay->id)
+                    ->whereDate('workout_date', $selected->toDateString())
+                    ->first();
+            }
+        }
+
         return view('planner.index', [
             'view' => 'day',
             'date' => $selected,
@@ -85,11 +105,66 @@ class PlannerController extends Controller
             'totalEstimatedHours' => $totalEstimatedHours,
             'dailyCapacityHours' => $dailyCapacityHours,
             'capacityPercentage' => $capacityPercentage,
+            'activeWorkoutPlan' => $activeWorkoutPlan,
+            'todayWorkoutDay' => $todayWorkoutDay,
+            'todayWorkoutSession' => $todayWorkoutSession,
             'nextUp' => $this->buildNextUp($pending, $routinesData['today'], $selected),
             'quickProjects' => Project::where('user_id', $user->id)
                 ->whereNotIn('status', ['completed', 'closed'])
                 ->orderBy('name')
                 ->get(['id', 'name']),
+        ]);
+    }
+
+    /**
+     * AI Copilot: Optimize today's schedule across Morning, Afternoon, and Evening slots.
+     */
+    public function aiOptimize(Request $request)
+    {
+        $user = Auth::user();
+        $tasks = Task::where('user_id', $user->id)
+            ->where('status', '!=', 'completed')
+            ->where(function ($q) {
+                $q->whereDate('due_date', today())
+                  ->orWhereNull('due_date');
+            })
+            ->get();
+
+        if ($tasks->isEmpty()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'No open tasks found for today to optimize. Add some tasks first!',
+                'count' => 0,
+                'tasks' => []
+            ]);
+        }
+
+        $updates = [];
+        foreach ($tasks as $task) {
+            $task->due_date = today()->toDateString();
+            if ($task->priority === 'high' || ($task->estimated_hours ?? 0) >= 1.5) {
+                $task->time_period = 'morning';
+            } elseif ($task->priority === 'medium') {
+                $task->time_period = 'afternoon';
+            } else {
+                $task->time_period = 'evening';
+            }
+            $task->save();
+
+            $updates[] = [
+                'id' => $task->id,
+                'title' => $task->title,
+                'priority' => $task->priority,
+                'time_period' => $task->time_period
+            ];
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Lina successfully organized your tasks for peak focus!',
+            'briefing' => 'Prioritized ' . count($updates) . ' tasks: High-impact deep work assigned to Morning, execution to Afternoon, and light admin tasks to Evening.',
+            'count' => count($updates),
+            'tasks' => $updates
         ]);
     }
 
