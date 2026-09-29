@@ -20,7 +20,7 @@
      @if($canDrag) draggable="true" @endif
      style="border-left:3px solid {{ $pc }};">
 
-    <label class="pl-check" title="{{ $isDone ? 'Mark as not done' : 'Mark as done' }}">
+    <label class="pl-check" title="{{ $isDone ? __('Mark as not done') : __('Mark as done') }}">
         <input type="checkbox"
                {{ $isDone ? 'checked' : '' }}
                data-url="{{ route('planner.tasks.toggle', $task) }}"
@@ -32,13 +32,13 @@
     <div class="pl-task-body">
         <div class="pl-task-title">{{ $task->title }}</div>
         <div class="pl-task-meta">
-            <span class="pl-priority" style="color:{{ $pc }};background:{{ $pc }}1a;">{{ ucfirst($task->priority) }}</span>
+            <span class="pl-priority" style="color:{{ $pc }};background:{{ $pc }}1a;">{{ __(ucfirst($task->priority)) }}</span>
             @if($task->project)
                 <span class="pl-proj"><i class="bi bi-folder"></i> {{ $task->project->name }}</span>
             @endif
             @if($periodLabel)
                 <span class="pl-priority" data-period-chip style="color:{{ $periodColor ?: '#64748b' }};background:{{ $periodColor ?: '#64748b' }}1a;text-transform:none;">
-                    <i class="bi {{ $periodIcon ?: 'bi-clock' }}"></i> {{ $periodLabel }}
+                    <i class="bi {{ $periodIcon ?: 'bi-clock' }}"></i> {{ __($periodLabel) }}
                 </span>
             @endif
             @if($timeLabel)
@@ -51,7 +51,7 @@
                 <span class="pl-due {{ $isOverdue ? 'overdue' : '' }}">
                     <i class="bi bi-calendar-event"></i>
                     {{ $due->format('M d') }}
-                    @if($isOverdue) · Overdue @endif
+                    @if($isOverdue) · {{ __('Overdue') }} @endif
                 </span>
             @endif
         </div>
@@ -63,21 +63,21 @@
                     class="pl-task-act {{ $postponeMode === 'today' ? 'pl-task-act-pull' : 'pl-task-act-move' }}"
                     data-postpone="{{ $postponeMode }}"
                     data-id="{{ $task->id }}"
-                    title="{{ $postponeMode === 'today' ? 'Pull into today' : 'Postpone to tomorrow' }}"
-                    aria-label="{{ $postponeMode === 'today' ? 'Pull into today' : 'Postpone to tomorrow' }}">
+                    title="{{ $postponeMode === 'today' ? __('Pull into today') : __('Postpone to tomorrow') }}"
+                    aria-label="{{ $postponeMode === 'today' ? __('Pull into today') : __('Postpone to tomorrow') }}">
                 <i class="bi {{ $postponeMode === 'today' ? 'bi-arrow-counterclockwise' : 'bi-arrow-90deg-down' }}"></i>
             </button>
             <button type="button"
                     class="pl-task-act pl-task-act-danger"
                     data-clear-day
                     data-id="{{ $task->id }}"
-                    title="Remove from My Day"
-                    aria-label="Remove from My Day">
+                    title="{{ __('Remove from My Day') }}"
+                    aria-label="{{ __('Remove from My Day') }}">
                 <i class="bi bi-x-lg"></i>
             </button>
         @endif
-        <a href="{{ route('tasks.show', $task->id) }}" class="pl-task-open" title="Open task details">
-            <span>Open</span>
+        <a href="{{ route('tasks.show', $task->id) }}" class="pl-task-open" title="{{ __('Open task details') }}">
+            <span>{{ __('Open') }}</span>
             <i class="bi bi-arrow-up-right"></i>
         </a>
     </div>

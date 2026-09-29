@@ -654,14 +654,14 @@
         <div class="pl-section">
             <div class="pl-section-head">
                 <i class="bi bi-arrow-repeat" style="color:#7c3aed;"></i>
-                <span class="pl-section-title">{{ $isToday ? "Today's Routines" : 'Routines' }}</span>
+                <span class="pl-section-title">{{ $isToday ? __("Today's Routines") : __('Routines') }}</span>
                 <span class="pl-section-count" id="plRoutineSectionCount">{{ $routineTotal }}</span>
             </div>
             <div class="pl-section-body" id="plRoutinesBody">
                 @forelse($routines as $routine)
                     @include('planner._routine-row', ['routine' => $routine, 'routineDate' => $date, 'count' => true])
                 @empty
-                    <div class="pl-empty"><i class="bi bi-arrow-repeat"></i>No routines scheduled for this day.</div>
+                    <div class="pl-empty"><i class="bi bi-arrow-repeat"></i>{{ __('No routines scheduled for this day.') }}</div>
                 @endforelse
             </div>
         </div>
@@ -671,10 +671,10 @@
             <div class="pl-section">
                 <div class="pl-section-head">
                     <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;"></i>
-                    <span class="pl-section-title">Overdue</span>
+                    <span class="pl-section-title">{{ __('Overdue') }}</span>
                     <span class="pl-section-count" id="plOverdueCount">{{ $overdue->count() }}</span>
-                    <button type="button" class="pl-overdue-all" id="plPostponeAll" title="Move every overdue task to tomorrow">
-                        <i class="bi bi-arrow-90deg-down"></i> Postpone all to tomorrow
+                    <button type="button" class="pl-overdue-all" id="plPostponeAll" title="{{ __('Move every overdue task to tomorrow') }}">
+                        <i class="bi bi-arrow-90deg-down"></i> {{ __('Postpone all to tomorrow') }}
                     </button>
                 </div>
                 <div class="pl-section-body" id="plOverdueBody">
@@ -689,13 +689,13 @@
         <div class="pl-section">
             <div class="pl-section-head">
                 <i class="bi bi-check2-square" style="color:#7c3aed;"></i>
-                <span class="pl-section-title">{{ $isToday ? "Today's Tasks" : 'Tasks' }}</span>
+                <span class="pl-section-title">{{ $isToday ? __("Today's Tasks") : __('Tasks') }}</span>
                 <span class="pl-section-count" id="plTodaySectionCount">{{ $pending->count() }}</span>
             </div>
             <div class="pl-section-body" id="plPendingBody">
                 @php $groups = $pending->groupBy(fn ($t) => $t->time_period ?: 'anytime'); @endphp
                 @forelse($pending as $task)@empty
-                    <div class="pl-empty"><i class="bi bi-cup-hot"></i>Nothing scheduled for this day. Enjoy!</div>
+                    <div class="pl-empty"><i class="bi bi-cup-hot"></i>{{ __('Nothing scheduled for this day. Enjoy!') }}</div>
                 @endforelse
                 @foreach(config('routines.periods', []) as $key => $period)
                     @if($groups->has($key))
@@ -717,7 +717,7 @@
             <div class="pl-section">
                 <div class="pl-section-head">
                     <i class="bi bi-check-circle-fill" style="color:#16a34a;"></i>
-                    <span class="pl-section-title">Completed</span>
+                    <span class="pl-section-title">{{ __('Completed') }}</span>
                     <span class="pl-section-count">{{ $done->count() }}</span>
                 </div>
                 <div class="pl-section-body">

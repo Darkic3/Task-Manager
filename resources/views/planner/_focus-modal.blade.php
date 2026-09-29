@@ -5,17 +5,17 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div class="d-flex align-items-center gap-2">
                 <span class="focus-badge-pulse"></span>
-                <span class="text-uppercase fw-bold text-muted small" style="letter-spacing: 0.1em;">Focus Mode • Workstation</span>
+                <span class="text-uppercase fw-bold text-muted small" style="letter-spacing: 0.1em;">{{ __('Focus Mode • Workstation') }}</span>
             </div>
             <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="closeFocusWorkstation()">
-                Exit (Esc) <i class="bi bi-x-lg ms-1"></i>
+                {{ __('Exit (Esc)') }} <i class="bi bi-x-lg ms-1"></i>
             </button>
         </div>
 
         {{-- Active Task Title & Project --}}
         <div class="text-center mb-4">
-            <span class="badge bg-purple-subtle text-purple px-3 py-1 rounded-pill mb-2" id="focusProjectName">General Focus</span>
-            <h2 class="focus-task-title fw-bold" id="focusTaskTitle">Pick a task to focus on</h2>
+            <span class="badge bg-purple-subtle text-purple px-3 py-1 rounded-pill mb-2" id="focusProjectName">{{ __('General Focus') }}</span>
+            <h2 class="focus-task-title fw-bold" id="focusTaskTitle">{{ __('Pick a task to focus on') }}</h2>
         </div>
 
         {{-- Pomodoro Timer Dial --}}
@@ -30,9 +30,9 @@
 
             <div class="d-flex justify-content-center gap-3">
                 <button type="button" class="btn btn-lg btn-success rounded-pill px-4 d-inline-flex align-items-center gap-2 shadow" id="focusToggleTimerBtn" onclick="toggleFocusTimer()">
-                    <i class="bi bi-play-fill fs-5"></i> Start Focus
+                    <i class="bi bi-play-fill fs-5"></i> {{ __('Start Focus') }}
                 </button>
-                <button type="button" class="btn btn-lg btn-light border rounded-pill px-3" onclick="resetFocusTimer()" title="Reset Timer">
+                <button type="button" class="btn btn-lg btn-light border rounded-pill px-3" onclick="resetFocusTimer()" title="{{ __('Reset Timer') }}">
                     <i class="bi bi-arrow-counterclockwise"></i>
                 </button>
             </div>
@@ -41,18 +41,18 @@
         {{-- Subtasks Checklist in Focus Mode --}}
         <div class="focus-subtasks-card p-3 rounded-3 bg-light border mb-4 text-start">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="fw-semibold small text-uppercase text-muted"><i class="bi bi-check2-square text-primary"></i> Checklist</span>
+                <span class="fw-semibold small text-uppercase text-muted"><i class="bi bi-check2-square text-primary"></i> {{ __('Checklist') }}</span>
                 <span class="badge bg-white text-dark border small" id="focusChecklistRatio">0/0</span>
             </div>
             <div class="focus-checklist-items" id="focusChecklistItems" style="max-height: 140px; overflow-y: auto;">
-                <div class="text-muted small text-center py-2">No subtasks found for this task</div>
+                <div class="text-muted small text-center py-2">{{ __('No subtasks found for this task') }}</div>
             </div>
         </div>
 
         {{-- Bottom Action: Complete & Next --}}
         <div class="d-flex justify-content-center gap-3">
             <button type="button" class="btn btn-primary rounded-pill px-4 py-2 d-inline-flex align-items-center gap-2" id="focusCompleteBtn" onclick="completeFocusTaskAndNext()">
-                <i class="bi bi-check2-circle fs-5"></i> Complete & Next Task
+                <i class="bi bi-check2-circle fs-5"></i> {{ __('Complete & Next Task') }}
             </button>
         </div>
     </div>
