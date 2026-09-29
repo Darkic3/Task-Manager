@@ -309,6 +309,26 @@ class PlannerController extends Controller
     }
 
     /**
+     * Quick estimate update from task row quick actions.
+     */
+    public function updateEstimate(Request $request, Task $task)
+    {
+        abort_if($task->user_id !== Auth::id(), 403);
+
+        $data = $request->validate([
+            'estimated_hours' => ['required', 'numeric', 'min:0', 'max:999'],
+        ]);
+
+        $task->update(['estimated_hours' => (float) $data['estimated_hours']]);
+
+        return response()->json([
+            'ok' => true,
+            'estimated_hours' => $task->estimated_hours,
+            'estimated_label' => $task->estimatedLabel(),
+        ]);
+    }
+
+    /**
      * One click: move every overdue open task to tomorrow.
      */
     public function postponeAllOverdue()

@@ -198,4 +198,24 @@ class PlannerRescheduleTest extends TestCase
         $this->assertSame($routinesOrder, array_values($plannerOrder));
         $this->assertSame(['Stretch', 'Meditation', 'Journal', 'Evening Walk'], $routinesOrder);
     }
+
+    public function test_dynamic_date_navigation_label_shows_today_tomorrow_yesterday(): void
+    {
+        $user = User::factory()->create();
+
+        // Today in Persian
+        $resToday = $this->actingAs($user)->withSession(['locale' => 'fa'])->get(route('planner.index', ['view' => 'day', 'date' => now()->toDateString()]));
+        $resToday->assertOk();
+        $resToday->assertSee('امروز');
+
+        // Tomorrow in Persian
+        $resTomorrow = $this->actingAs($user)->withSession(['locale' => 'fa'])->get(route('planner.index', ['view' => 'day', 'date' => now()->addDay()->toDateString()]));
+        $resTomorrow->assertOk();
+        $resTomorrow->assertSee('فردا');
+
+        // Yesterday in Persian
+        $resYesterday = $this->actingAs($user)->withSession(['locale' => 'fa'])->get(route('planner.index', ['view' => 'day', 'date' => now()->subDay()->toDateString()]));
+        $resYesterday->assertOk();
+        $resYesterday->assertSee('دیروز');
+    }
 }

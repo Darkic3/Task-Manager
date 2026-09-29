@@ -565,20 +565,68 @@
         transform:translateY(-1px);box-shadow:0 5px 14px rgba(124,58,237,.38);
     }
 
-    /* ── Enhanced Daily Energy & Workload Capacity Widget ── */
-    .pl-capacity-bar{
-        background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%) !important;
-        border:1.5px solid #e2e8f0 !important;border-radius:14px !important;
-        box-shadow:0 2px 10px rgba(0,0,0,.03) !important;
+    /* ── Live Floating Focus Bar ── */
+    .pl-floating-focus-bar{
+        position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:1090;
+        width:min(720px,94vw);animation:plFloatUp .3s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .pl-capacity-bar:hover{border-color:#cbd5e1 !important;}
-    .pl-capacity-pill{
-        font-size:11.5px;font-weight:800;border-radius:20px;padding:4px 12px;
-        display:inline-flex;align-items:center;gap:6px;
+    @keyframes plFloatUp{from{opacity:0;transform:translate(-50%, 20px);}to{opacity:1;transform:translate(-50%, 0);}}
+    .pl-ffb-container{
+        display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+        background:linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+        border:1.5px solid rgba(139,92,246,.35);border-radius:20px;padding:12px 18px;
+        box-shadow:0 16px 40px -8px rgba(15,23,42,.6), 0 0 24px rgba(124,58,237,.25);
+        backdrop-filter:blur(10px);color:#fff;
     }
-    .pl-capacity-pill.optimal{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;}
-    .pl-capacity-pill.heavy{background:#fef3c7;color:#b45309;border:1px solid #fde68a;}
-    .pl-capacity-pill.overloaded{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;}
+    .pl-ffb-info{display:flex;align-items:center;gap:10px;min-width:180px;}
+    .pl-ffb-pulse{
+        width:12px;height:12px;border-radius:50%;background:#22c55e;flex-shrink:0;
+        box-shadow:0 0 0 0 rgba(34,197,94,.7);animation:plPulse 1.8s infinite;
+    }
+    @keyframes plPulse{0%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(34,197,94,.7);}70%{transform:scale(1);box-shadow:0 0 0 8px rgba(34,197,94,0);}100%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(34,197,94,0);}}
+    .pl-ffb-title{font-size:13.5px;font-weight:700;color:#f8fafc;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .pl-ffb-sub{font-size:11px;color:#94a3b8;font-weight:600;}
+    .pl-ffb-clock-wrap{display:flex;align-items:center;gap:8px;}
+    .pl-ffb-clock{font-size:20px;font-weight:800;color:#38bdf8;letter-spacing:1px;}
+    .pl-ffb-mode-badge{font-size:10.5px;font-weight:700;color:#c084fc;background:rgba(192,132,252,.15);border-radius:12px;padding:2px 8px;}
+    .pl-ffb-actions{display:flex;align-items:center;gap:6px;}
+    .pl-ffb-btn{
+        background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#f1f5f9;
+        border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;
+        display:inline-flex;align-items:center;justify-content:center;transition:all .15s;
+    }
+    .pl-ffb-btn:hover{background:rgba(255,255,255,.2);color:#fff;transform:translateY(-1px);}
+    .pl-ffb-btn-pause{background:#6366f1;border-color:#4f46e5;}
+    .pl-ffb-btn-pause:hover{background:#4f46e5;}
+    .pl-ffb-btn-stop{background:#ef4444;border-color:#dc2626;}
+    .pl-ffb-btn-stop:hover{background:#dc2626;}
+    .pl-ffb-btn-break{background:rgba(245,158,11,.2);color:#fbbf24;border-color:rgba(245,158,11,.4);}
+    .pl-ffb-btn-break:hover{background:rgba(245,158,11,.3);color:#fde68a;}
+    .pl-ffb-btn-fullscreen{background:rgba(124,58,237,.25);color:#c4b5fd;border-color:rgba(124,58,237,.5);}
+    .pl-ffb-btn-fullscreen:hover{background:rgba(124,58,237,.4);color:#fff;}
+    .pl-ffb-btn-close{background:transparent;border:none;color:#94a3b8;}
+    .pl-ffb-btn-close:hover{color:#f8fafc;background:rgba(255,255,255,.1);}
+
+    /* ── Task Row Quick Action Buttons ── */
+    .pl-task-act-play{background:#eff6ff !important;color:#2563eb !important;border-color:#bfdbfe !important;}
+    .pl-task-act-play:hover{background:#2563eb !important;color:#fff !important;border-color:#2563eb !important;}
+    .pl-task-act-focus{background:#f5f3ff !important;color:#7c3aed !important;border-color:#ddd6fe !important;}
+    .pl-task-act-focus:hover{background:#7c3aed !important;color:#fff !important;border-color:#7c3aed !important;}
+
+    /* ── Quick Estimate Popover ── */
+    .pl-task-estimate-wrapper{position:relative;display:inline-block;}
+    .pl-due-clickable{cursor:pointer;transition:all .15s;}
+    .pl-due-clickable:hover{background:#ede9fe;color:#6d28d9;border-color:#c4b5fd;}
+    .pl-estimate-popover{
+        position:absolute;top:calc(100% + 4px);right:0;z-index:100;
+        background:#ffffff;border:1.5px solid #e2e8f0;border-radius:12px;padding:8px 10px;
+        box-shadow:0 10px 25px -4px rgba(0,0,0,.15);min-width:160px;
+    }
+    .pl-est-btn{
+        border:1px solid #e2e8f0;background:#f8fafc;color:#334155;border-radius:6px;
+        padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;transition:all .12s;
+    }
+    .pl-est-btn:hover{background:#7c3aed;color:#fff;border-color:#7c3aed;}
 
     /* ── Quick add ── */
     .pl-toolbar-right{display:flex;align-items:center;gap:8px;}
@@ -675,8 +723,27 @@
 <div class="main-content">
 
     @php
+        $isFa = app()->getLocale() === 'fa';
+        $relativeLabel = '';
+        $navDateLabel = __('Today');
+        if ($view === 'day') {
+            if ($date->isToday()) {
+                $relativeLabel = ' · ' . __('Today');
+                $navDateLabel = __('Today');
+            } elseif ($date->isTomorrow()) {
+                $relativeLabel = ' · ' . __('Tomorrow');
+                $navDateLabel = __('Tomorrow');
+            } elseif ($date->isYesterday()) {
+                $relativeLabel = ' · ' . __('Yesterday');
+                $navDateLabel = __('Yesterday');
+            } else {
+                $navDateLabel = app_date($date, 'j F');
+            }
+        } else {
+            $navDateLabel = $date->isCurrentWeek() ? __('This Week') : __('Week');
+        }
         $rangeLabel = $view === 'week'
-            ? (app()->getLocale() === 'fa' ? app_date($start, 'd F') . ' – ' . app_date($end, 'd F Y') : $start->format('M j') . ' – ' . $end->format('M j, Y'))
+            ? ($isFa ? app_date($start, 'd F') . ' – ' . app_date($end, 'd F Y') : $start->format('M j') . ' – ' . $end->format('M j, Y'))
             : app_human_date($date);
         $prevDate = $view === 'week' ? $date->copy()->subWeek() : $date->copy()->subDay();
         $nextDate = $view === 'week' ? $date->copy()->addWeek() : $date->copy()->addDay();
@@ -685,7 +752,7 @@
     {{-- Header --}}
     <div class="pl-header">
         <h1 class="pl-header-title">{{ $view === 'week' ? __('My Week') : __('My Day') }}</h1>
-        <p class="pl-header-sub">{{ $rangeLabel }}{{ $isToday ? ' · ' . __('Today') : '' }}</p>
+        <p class="pl-header-sub">{{ $rangeLabel }}{{ $relativeLabel }}</p>
     </div>
 
     {{-- Toolbar --}}
@@ -717,13 +784,21 @@
                     </button>
                 </div>
             @endif
-            {{-- Navigation: arrows adapt to RTL/LTR --}}
+            {{-- Navigation: arrows adapt to RTL/LTR naturally --}}
             <div class="pl-nav">
                 <a href="{{ route('planner.index', ['view' => $view, 'date' => $prevDate->toDateString()]) }}"
-                   class="pl-nav-btn" title="{{ __('Previous') }}"><i class="bi {{ app()->getLocale() === 'fa' ? 'bi-chevron-right' : 'bi-chevron-left' }}"></i></a>
-                <a href="{{ route('planner.index', ['view' => $view]) }}" class="pl-today-btn">{{ __('Today') }}</a>
+                   class="pl-nav-btn" title="{{ __('Previous') }}">
+                    <i class="bi {{ $isFa ? 'bi-chevron-right' : 'bi-chevron-left' }}"></i>
+                </a>
+                <a href="{{ route('planner.index', ['view' => $view]) }}"
+                   class="pl-today-btn {{ $date->isToday() ? 'is-today' : '' }}"
+                   title="{{ __('Go to Today') }}">
+                    {{ $navDateLabel }}
+                </a>
                 <a href="{{ route('planner.index', ['view' => $view, 'date' => $nextDate->toDateString()]) }}"
-                   class="pl-nav-btn" title="{{ __('Next') }}"><i class="bi {{ app()->getLocale() === 'fa' ? 'bi-chevron-left' : 'bi-chevron-right' }}"></i></a>
+                   class="pl-nav-btn" title="{{ __('Next') }}">
+                    <i class="bi {{ $isFa ? 'bi-chevron-left' : 'bi-chevron-right' }}"></i>
+                </a>
             </div>
             @if($view === 'day')
                 <button type="button" class="pl-add-btn" onclick="openQuickAdd('task')">
@@ -744,28 +819,6 @@
             @endif
         </div>
 
-        {{-- Workload Capacity Bar --}}
-        <div class="pl-capacity-bar mb-3 p-2.5 px-3 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-2 shadow-sm">
-            <div class="d-flex align-items-center gap-2.5">
-                <div class="p-2 rounded-3 {{ ($totalEstimatedHours ?? 0) > 8 ? 'bg-danger-subtle text-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'bg-warning-subtle text-warning' : 'bg-success-subtle text-success') }}">
-                    <i class="bi bi-speedometer2 fs-5"></i>
-                </div>
-                <div>
-                    <span class="small fw-bold text-dark d-block">{{ __('Daily Workload Capacity') }}</span>
-                    <span class="small text-muted">{{ number_format($totalEstimatedHours ?? 0, 1) }}h / {{ $dailyCapacityHours ?? 6 }}h {{ __('focus capacity') }}</span>
-                </div>
-            </div>
-            <div class="d-flex align-items-center gap-2 flex-grow-1 mx-lg-3" style="max-width: 280px;">
-                <div class="progress w-100" style="height: 8px; border-radius: 6px; background-color: #e2e8f0;">
-                    <div class="progress-bar {{ ($totalEstimatedHours ?? 0) > 8 ? 'bg-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'bg-warning' : 'bg-success') }}" style="width: {{ $capacityPercentage ?? 0 }}%; border-radius: 6px; transition: width .4s ease;"></div>
-                </div>
-                <span class="small fw-bold {{ ($totalEstimatedHours ?? 0) > 8 ? 'text-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'text-warning' : 'text-success') }}">{{ $capacityPercentage ?? 0 }}%</span>
-            </div>
-            <span class="pl-capacity-pill {{ ($totalEstimatedHours ?? 0) > 8 ? 'overloaded' : (($totalEstimatedHours ?? 0) > 6 ? 'heavy' : 'optimal') }}">
-                <span class="spinner-grow spinner-grow-sm" style="width:6px;height:6px;" role="status" aria-hidden="true"></span>
-                {{ ($totalEstimatedHours ?? 0) > 8 ? __('⚠️ Overloaded') : (($totalEstimatedHours ?? 0) > 6 ? __('⚡ Heavy Day') : __('✅ Optimal Load')) }}
-            </span>
-        </div>
 
         {{-- Day progress (tasks + routines combined) --}}
         <div class="pl-daybar">
@@ -995,6 +1048,7 @@
     @include('planner._kickoff-modal')
     @include('planner._ai-schedule-modal')
     @include('planner._next-up-modal')
+    @include('planner._floating-focus-bar')
 @endsection
 
 @push('scripts')
@@ -2509,6 +2563,250 @@
         });
         input.addEventListener('blur', () => finish(true));
     });
+
+    /* ── Quick Estimate Popover & Updater ── */
+    window.toggleEstimatePicker = function(taskId, ev) {
+        if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+        const popover = document.getElementById('plEstimatePopover-' + taskId);
+        if (!popover) return;
+        const wasShowing = popover.classList.contains('show');
+        document.querySelectorAll('.pl-estimate-popover.show').forEach(p => p.classList.remove('show'));
+        if (!wasShowing) {
+            popover.classList.add('show');
+        }
+    };
+
+    window.setQuickEstimate = async function(taskId, hours, ev) {
+        if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+        const popover = document.getElementById('plEstimatePopover-' + taskId);
+        if (popover) popover.classList.remove('show');
+
+        try {
+            const res = await plFetch(`/planner/tasks/${taskId}/estimate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ estimated_hours: hours })
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            
+            // Update badge text across any instances of this task
+            document.querySelectorAll(`[data-task-item][data-id="${taskId}"] .pl-task-est-badge`).forEach(badge => {
+                badge.innerHTML = `<i class="bi bi-clock-history"></i> ${data.estimated_label}`;
+            });
+            plShowToast('{{ __("Estimated time updated") }}');
+        } catch (err) {
+            console.error('[Planner] update estimate failed', err);
+            plShowToast('{{ __("Error updating estimate") }}');
+        }
+    };
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.pl-task-estimate-wrapper')) {
+            document.querySelectorAll('.pl-estimate-popover.show').forEach(p => p.classList.remove('show'));
+        }
+    });
+
+    /* ── Live Floating Focus Bar & Timer Logic ── */
+    let plActiveTimeEntry = null;
+    let plTimerTicker = null;
+    let plElapsedSeconds = 0;
+    let plBreakMode = false;
+
+    function formatTimeDisplay(totalSeconds) {
+        const h = Math.floor(totalSeconds / 3600);
+        const m = Math.floor((totalSeconds % 3600) / 60);
+        const s = totalSeconds % 60;
+        return [
+            h > 0 ? String(h).padStart(2, '0') : null,
+            String(m).padStart(2, '0'),
+            String(s).padStart(2, '0')
+        ].filter(Boolean).join(':');
+    }
+
+    function updateFloatingClockDisplay() {
+        const clockEl = document.getElementById('plFfbClock');
+        if (clockEl) {
+            clockEl.textContent = formatTimeDisplay(plElapsedSeconds);
+        }
+    }
+
+    function renderFloatingBarState() {
+        const bar = document.getElementById('plFloatingFocusBar');
+        if (!bar) return;
+
+        if (!plActiveTimeEntry && !plBreakMode) {
+            bar.style.display = 'none';
+            if (plTimerTicker) clearInterval(plTimerTicker);
+            return;
+        }
+
+        bar.style.display = 'block';
+
+        const titleEl = document.getElementById('plFfbTaskTitle');
+        const projEl = document.getElementById('plFfbProject');
+        const badgeEl = document.getElementById('plFfbStatusBadge');
+        const pauseIcon = document.getElementById('plFfbPauseIcon');
+
+        if (plBreakMode) {
+            if (titleEl) titleEl.textContent = '☕ {{ __("Pomodoro Break") }}';
+            if (projEl) projEl.textContent = '{{ __("Rest & Recharge") }}';
+            if (badgeEl) {
+                badgeEl.textContent = '{{ __("Break") }}';
+                badgeEl.style.background = '#0284c7';
+            }
+            return;
+        }
+
+        if (titleEl) titleEl.textContent = plActiveTimeEntry.task?.title || plActiveTimeEntry.description || '{{ __("Active Focus Session") }}';
+        if (projEl) projEl.textContent = plActiveTimeEntry.project?.name || '{{ __("General") }}';
+        
+        if (badgeEl) {
+            if (plActiveTimeEntry.status === 'paused') {
+                badgeEl.textContent = '{{ __("Paused") }}';
+                badgeEl.style.background = '#64748b';
+            } else {
+                badgeEl.textContent = '{{ __("Focusing") }}';
+                badgeEl.style.background = '#6366f1';
+            }
+        }
+
+        if (pauseIcon) {
+            pauseIcon.className = plActiveTimeEntry.status === 'paused' ? 'bi bi-play-fill' : 'bi bi-pause-fill';
+        }
+    }
+
+    window.plStartTaskTimer = async function(taskId, title, project) {
+        try {
+            const res = await plFetch('/time/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ task_id: taskId })
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            
+            plBreakMode = false;
+            plActiveTimeEntry = data.active;
+            plElapsedSeconds = data.active.elapsed || 0;
+            renderFloatingBarState();
+            updateFloatingClockDisplay();
+
+            if (plTimerTicker) clearInterval(plTimerTicker);
+            plTimerTicker = setInterval(() => {
+                if (plActiveTimeEntry && plActiveTimeEntry.status === 'running') {
+                    plElapsedSeconds++;
+                    updateFloatingClockDisplay();
+                }
+            }, 1000);
+
+            plShowToast('{{ __("Timer started") }}: ' + (title || 'Task'));
+        } catch (err) {
+            console.error('[Planner] start timer failed', err);
+            plShowToast('{{ __("Error starting timer") }}');
+        }
+    };
+
+    window.plToggleFloatingPause = async function() {
+        if (!plActiveTimeEntry) return;
+        const isPaused = plActiveTimeEntry.status === 'paused';
+        const url = isPaused ? `/time/entries/${plActiveTimeEntry.id}/resume` : `/time/entries/${plActiveTimeEntry.id}/pause`;
+        
+        try {
+            const res = await plFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            plActiveTimeEntry = data.active;
+            renderFloatingBarState();
+        } catch (err) {
+            console.error('[Planner] pause/resume failed', err);
+        }
+    };
+
+    window.plStopFloatingTimer = async function() {
+        if (!plActiveTimeEntry) return;
+        try {
+            const res = await plFetch(`/time/entries/${plActiveTimeEntry.id}/stop`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            
+            if (plTimerTicker) clearInterval(plTimerTicker);
+            plActiveTimeEntry = null;
+            plBreakMode = false;
+            renderFloatingBarState();
+            plShowToast('{{ __("Timer stopped and time recorded") }}');
+        } catch (err) {
+            console.error('[Planner] stop timer failed', err);
+        }
+    };
+
+    window.plStartBreak = function(minutes = 5) {
+        if (plTimerTicker) clearInterval(plTimerTicker);
+        plBreakMode = true;
+        plElapsedSeconds = minutes * 60;
+        renderFloatingBarState();
+        updateFloatingClockDisplay();
+
+        plTimerTicker = setInterval(() => {
+            if (plElapsedSeconds > 0) {
+                plElapsedSeconds--;
+                updateFloatingClockDisplay();
+            } else {
+                clearInterval(plTimerTicker);
+                plBreakMode = false;
+                renderFloatingBarState();
+                plShowToast('{{ __("Break finished! Ready to focus?") }}');
+            }
+        }, 1000);
+    };
+
+    window.plExpandToFocusWorkstation = function() {
+        if (typeof openFocusWorkstation === 'function') {
+            openFocusWorkstation(
+                plActiveTimeEntry?.task?.id,
+                plActiveTimeEntry?.task?.title,
+                plActiveTimeEntry?.project?.name
+            );
+        }
+    };
+
+    window.plCloseFloatingBar = function() {
+        const bar = document.getElementById('plFloatingFocusBar');
+        if (bar) bar.style.display = 'none';
+    };
+
+    async function plInitActiveTimer() {
+        try {
+            const res = await plFetch('/time/active', {
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.active) {
+                plActiveTimeEntry = data.active;
+                plElapsedSeconds = data.active.elapsed || 0;
+                renderFloatingBarState();
+                updateFloatingClockDisplay();
+
+                if (plTimerTicker) clearInterval(plTimerTicker);
+                if (plActiveTimeEntry.status === 'running') {
+                    plTimerTicker = setInterval(() => {
+                        plElapsedSeconds++;
+                        updateFloatingClockDisplay();
+                    }, 1000);
+                }
+            }
+        } catch (e) {
+            /* silent */
+        }
+    }
+
+    plInitActiveTimer();
 })();
 </script>
 @endpush

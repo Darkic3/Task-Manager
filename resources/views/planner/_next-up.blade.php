@@ -70,6 +70,7 @@
              data-value-unit="{{ $nextRoutine ? ($nextRoutine->value_unit ?? '') : '' }}"
              data-value-label="{{ $nextRoutine ? ($nextRoutine->value_label ?: $nextRoutine->trackingLabel()) : '' }}"
              data-target-sets="{{ $nextStep['target_sets'] ?? ($isSets ? 3 : 1) }}"
+             @if($isSets) data-logsets="1" data-set="1" @endif
              data-logged-sets="{{ json_encode($nextStep['sets'] ?? []) }}"
              data-all-steps="{{ json_encode($allSteps) }}">
             
@@ -184,23 +185,17 @@
                     @endif
 
                     <button type="button" class="pl-action-btn pl-action-btn-primary" onclick="event.stopPropagation(); handleNextUpClick();">
-                        <i class="bi {{ $needsModal ? 'bi-pencil-square' : 'bi-check-lg' }}"></i>
-                        @if($needsModal)
-                            @if($isTime)
-                                {{ __('Log Time') }}
-                            @elseif($valueGuide)
-                                {{ __('Log Value') }}
-                            @elseif($isSets)
-                                {{ __('Log Sets') }}
-                            @else
-                                {{ __('Quick Action') }}
-                            @endif
+                        <i class="bi {{ ($needsModal && !$hasSteps) ? 'bi-pencil-square' : 'bi-check-lg' }}"></i>
+                        @if($isTime)
+                            {{ __('Log Time') }}
+                        @elseif($valueGuide)
+                            {{ __('Log Value') }}
+                        @elseif($isSets)
+                            {{ __('Log Sets') }}
+                        @elseif($hasSteps && $nextStep)
+                            {{ __('Complete step') }}
                         @else
-                            @if($hasSteps && $nextStep)
-                                {{ __('Complete step') }}
-                            @else
-                                {{ __('Complete') }}
-                            @endif
+                            {{ __('Complete') }}
                         @endif
                     </button>
                 @endif

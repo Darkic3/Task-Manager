@@ -34,7 +34,8 @@
                     <p class="text-muted small mb-3">{{ __('Focus on the highest leverage work first.') }}</p>
 
                     <div class="list-group">
-                        @forelse($pending->take(6) as $task)
+                        @php $pendingTasks = isset($pending) ? $pending : collect(); @endphp
+                        @forelse($pendingTasks->take(6) as $task)
                         <label class="list-group-item list-group-item-action d-flex align-items-center justify-content-between p-3 rounded-3 border mb-2 cursor-pointer">
                             <div class="d-flex align-items-center gap-3">
                                 <input type="checkbox" class="form-check-input kickoff-task-check" value="{{ $task->id }}" {{ $loop->index < 3 ? 'checked' : '' }}>

@@ -29,7 +29,7 @@
         <span class="pl-check-box"><i class="bi bi-check-lg"></i></span>
     </label>
 
-    <div class="pl-task-body">
+    <div class="pl-task-body" ondblclick="window.location='{{ route('tasks.show', $task->id) }}'">
         <div class="pl-task-title">{{ $task->title }}</div>
         <div class="pl-task-meta">
             <span class="pl-priority" style="color:{{ $pc }};background:{{ $pc }}1a;">{{ __(ucfirst($task->priority)) }}</span>
@@ -44,9 +44,25 @@
             @if($timeLabel)
                 <span class="pl-due"><i class="bi bi-clock"></i> {{ $timeLabel }}</span>
             @endif
-            @if($task->estimatedLabel())
-                <span class="pl-due"><i class="bi bi-hourglass-split"></i> {{ $task->estimatedLabel() }}</span>
-            @endif
+            
+            {{-- Interactive Estimate Badge / Quick Chips --}}
+            <div class="pl-task-estimate-wrapper" data-task-estimate-wrap>
+                <span class="pl-due pl-due-clickable" data-estimate-badge onclick="event.stopPropagation(); toggleEstimatePicker({{ $task->id }})" title="{{ __('Click to change estimated time') }}">
+                    <i class="bi bi-hourglass-split"></i>
+                    <span data-estimate-text>{{ $task->estimatedLabel() ?: __('Add Est') }}</span>
+                </span>
+                <div class="pl-estimate-popover" id="plEstimatePopover-{{ $task->id }}" style="display:none;">
+                    <span class="small text-muted fw-bold d-block mb-1">{{ __('Estimated Time') }}:</span>
+                    <div class="d-flex gap-1 flex-wrap">
+                        <button type="button" class="pl-est-btn" onclick="setQuickEstimate({{ $task->id }}, 0.25)">15m</button>
+                        <button type="button" class="pl-est-btn" onclick="setQuickEstimate({{ $task->id }}, 0.5)">30m</button>
+                        <button type="button" class="pl-est-btn" onclick="setQuickEstimate({{ $task->id }}, 1)">1h</button>
+                        <button type="button" class="pl-est-btn" onclick="setQuickEstimate({{ $task->id }}, 2)">2h</button>
+                        <button type="button" class="pl-est-btn" onclick="setQuickEstimate({{ $task->id }}, 3)">3h</button>
+                    </div>
+                </div>
+            </div>
+
             @if($due && empty($hideDue))
                 <span class="pl-due {{ $isOverdue ? 'overdue' : '' }}">
                     <i class="bi bi-calendar-event"></i>
@@ -57,8 +73,28 @@
         </div>
     </div>
 
+    {{-- Quick Actions Bar --}}
     <div class="pl-task-actions">
         @if(! $isDone)
+            {{-- Quick Start Timer --}}
+            <button type="button"
+                    class="pl-task-act pl-task-act-play"
+                    onclick="event.stopPropagation(); plStartTaskTimer({{ $task->id }}, '{{ addslashes($task->title) }}', '{{ addslashes($task->project->name ?? 'My Day') }}')"
+                    title="{{ __('Start Timer') }}"
+                    aria-label="{{ __('Start Timer') }}">
+                <i class="bi bi-play-fill"></i>
+            </button>
+
+            {{-- Focus Mode --}}
+            <button type="button"
+                    class="pl-task-act pl-task-act-focus"
+                    onclick="event.stopPropagation(); openFocusWorkstation({{ $task->id }}, '{{ addslashes($task->title) }}', '{{ addslashes($task->project->name ?? 'My Day') }}')"
+                    title="{{ __('Focus Mode • Workstation') }}"
+                    aria-label="{{ __('Focus Mode • Workstation') }}">
+                <i class="bi bi-bullseye"></i>
+            </button>
+
+            {{-- Postpone --}}
             <button type="button"
                     class="pl-task-act {{ $postponeMode === 'today' ? 'pl-task-act-pull' : 'pl-task-act-move' }}"
                     data-postpone="{{ $postponeMode }}"
@@ -67,6 +103,8 @@
                     aria-label="{{ $postponeMode === 'today' ? __('Pull into today') : __('Postpone to tomorrow') }}">
                 <i class="bi {{ $postponeMode === 'today' ? 'bi-arrow-counterclockwise' : 'bi-arrow-90deg-down' }}"></i>
             </button>
+
+            {{-- Clear Day --}}
             <button type="button"
                     class="pl-task-act pl-task-act-danger"
                     data-clear-day
