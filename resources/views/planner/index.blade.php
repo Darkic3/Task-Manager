@@ -60,42 +60,42 @@
     .pl-stat.overdue strong { color: #dc2626; }
 
     /* Section */
-    .pl-section { background: white; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03); }
+    .pl-section { background: white; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04); }
     .pl-section-head {
         display: flex; align-items: center; gap: 10px; padding: 12px 18px;
         background: #f8fafc; border-bottom: 1px solid #f1f5f9;
     }
     .pl-section-head i{font-size:14px;}
-    .pl-section-title{font-size:13px;font-weight:700;color:#1a1d23;}
+    .pl-section-title{font-size:13.5px;font-weight:700;color:#1a1d23;}
     .pl-section-count{
-        margin-left:auto;background:#f0f1f3;border-radius:20px;padding:1px 9px;
+        margin-inline-start:auto;background:#f0f1f3;border-radius:20px;padding:2px 10px;
         font-size:11px;font-weight:700;color:#8a8f98;
     }
     .pl-section-body{padding:8px;display:flex;flex-direction:column;gap:6px;}
-    .pl-empty{padding:22px;text-align:center;color:#adb0b8;font-size:12.5px;}
-    .pl-empty i{display:block;font-size:24px;margin-bottom:6px;color:#c4c9d4;}
+    .pl-empty{padding:26px 16px;text-align:center;color:#94a3b8;font-size:12.5px;font-weight:500;}
+    .pl-empty i{display:block;font-size:26px;margin-bottom:8px;color:#cbd5e1;}
 
     /* Task row */
     .pl-task{
         display:flex;align-items:flex-start;gap:10px;background:white;border:1px solid #eceef1;
-        border-radius:8px;padding:9px 11px;transition:all .15s;
+        border-radius:10px;padding:10px 12px;transition:all .15s ease;
     }
-    .pl-task:hover{box-shadow:0 3px 10px rgba(0,0,0,.07);border-color:#d8dae0;}
-    .pl-check{position:relative;flex-shrink:0;margin-top:1px;cursor:pointer;}
+    .pl-task:hover{box-shadow:0 3px 12px rgba(0,0,0,.06);border-color:#d8dae0;}
+    .pl-check{position:relative;flex-shrink:0;margin-top:2px;cursor:pointer;}
     .pl-check input{position:absolute;opacity:0;width:0;height:0;}
     .pl-check-box{
-        width:19px;height:19px;border:2px solid #c4c9d4;border-radius:6px;
+        width:20px;height:20px;border:2px solid #cbd5e1;border-radius:7px;
         display:flex;align-items:center;justify-content:center;color:transparent;
         font-size:11px;transition:all .15s;
     }
     .pl-check:hover .pl-check-box{border-color:#7c3aed;}
     .pl-check input:checked + .pl-check-box{background:#16a34a;border-color:#16a34a;color:white;}
     .pl-task-body{flex:1;min-width:0;}
-    .pl-task-title{font-size:13px;font-weight:600;color:#1a1d23;line-height:1.35;word-break:break-word;}
-    .pl-task.is-done .pl-task-title{text-decoration:line-through;color:#adb0b8;}
+    .pl-task-title{font-size:13.5px;font-weight:600;color:#1e293b;line-height:1.45;word-break:break-word;}
+    .pl-task.is-done .pl-task-title{text-decoration:line-through;color:#94a3b8;}
     .pl-expand{
-        margin-left:auto;flex-shrink:0;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;
-        border:none;background:transparent;color:#adb0b8;cursor:pointer;border-radius:6px;font-size:12px;
+        margin-inline-start:auto;flex-shrink:0;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;
+        border:none;background:transparent;color:#94a3b8;cursor:pointer;border-radius:6px;font-size:12px;
     }
     .pl-expand:hover{color:#7c3aed;background:#faf5ff;}
     .pl-expand i{transition:transform .15s;}
@@ -107,16 +107,16 @@
     /* ── Routine detail modal (big / tracked routines) ── */
     .pl-modal{position:fixed;inset:0;z-index:1090;display:flex;align-items:center;justify-content:center;padding:16px;}
     .pl-modal[hidden]{display:none;}
-    .pl-modal-backdrop{position:absolute;inset:0;background:rgba(17,20,26,.5);}
+    .pl-modal-backdrop{position:absolute;inset:0;background:rgba(17,20,26,.5);backdrop-filter:blur(4px);}
     .pl-modal-dialog{
-        position:relative;background:#fff;border-radius:14px;width:min(560px,96vw);max-height:88vh;
-        display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;
+        position:relative;background:#fff;border-radius:16px;width:min(560px,96vw);max-height:88vh;
+        display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;
     }
     .pl-modal-head{display:flex;align-items:flex-start;gap:10px;padding:16px 18px 12px;border-bottom:1px solid #eef0f3;}
     .pl-modal-title{font-size:15px;font-weight:800;color:#1a1d23;}
     .pl-modal-sub{font-size:12px;color:#8a8f98;margin-top:2px;}
     .pl-modal-x{
-        margin-left:auto;border:none;background:#f2f3f5;color:#6b7385;width:30px;height:30px;
+        margin-inline-start:auto;border:none;background:#f2f3f5;color:#6b7385;width:30px;height:30px;
         border-radius:8px;font-size:17px;line-height:1;cursor:pointer;flex-shrink:0;
     }
     .pl-modal-x:hover{background:#e6e8ec;color:#1a1d23;}
@@ -187,12 +187,21 @@
 
     /* Postpone-all button on the Overdue head */
     .pl-overdue-all{
-        display:inline-flex;align-items:center;gap:6px;margin-left:auto;
-        border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:8px;
-        font-size:10.5px;font-weight:800;padding:4px 10px;cursor:pointer;transition:all .15s;
+        display:inline-flex;align-items:center;gap:6px;margin-inline-start:auto;
+        border:1px solid #fecaca;background:linear-gradient(135deg, #fff 0%, #fff5f5 100%);
+        color:#dc2626;border-radius:20px;
+        font-size:11.5px;font-weight:700;padding:4px 12px;cursor:pointer;
+        box-shadow:0 1px 3px rgba(220,38,38,.08);transition:all .18s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .pl-overdue-all:hover{background:#dc2626;border-color:#dc2626;color:#fff;box-shadow:0 4px 10px rgba(220,38,38,.3);}
-    .pl-overdue-all:disabled{opacity:.5;cursor:default;}
+    .pl-overdue-all i{font-size:12px;transition:transform .18s ease;}
+    .pl-overdue-all:hover{
+        background:linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        border-color:#b91c1c;color:#fff;
+        box-shadow:0 4px 12px rgba(220,38,38,.25);transform:translateY(-1px);
+    }
+    .pl-overdue-all:hover i{transform:translateY(1px);}
+    .pl-overdue-all:active{transform:scale(0.97);}
+    .pl-overdue-all:disabled{opacity:.5;cursor:default;transform:none;}
 
     /* Inline title editing */
     .pl-task-title{cursor:text;border-radius:6px;padding:1px 4px;margin:-1px -4px;transition:background .15s;}
@@ -383,66 +392,77 @@
     #plToast button:hover{color:white;}
 
     /* ── Next Up card ── */
-    .pl-next-wrap{margin-bottom:14px;}
+    .pl-next-wrap{margin-bottom:18px;}
     .pl-next-wrap[hidden]{display:none;}
     .pl-next-card{
-        display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-        background:linear-gradient(135deg,#faf5ff 0%,#fff 60%);
-        border:1px solid #ddd6fe;border-radius:11px;padding:11px 14px;
-        box-shadow:0 2px 8px rgba(124,58,237,.08);
+        display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+        background:linear-gradient(135deg,#ffffff 0%,#f8f7ff 50%,#faf5ff 100%);
+        border:1.5px solid #ddd6fe;border-radius:14px;padding:14px 18px;
+        box-shadow:0 4px 18px -2px rgba(124,58,237,.1), 0 2px 6px -1px rgba(0,0,0,.04);
+        position:relative;overflow:hidden;transition:all .2s ease;
+    }
+    .pl-next-card:hover{
+        border-color:#c4b5fd;box-shadow:0 6px 22px -2px rgba(124,58,237,.16), 0 3px 8px -1px rgba(0,0,0,.05);
     }
     .pl-next-label{
-        display:inline-flex;align-items:center;gap:5px;flex-shrink:0;
-        font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
-        color:#7c3aed;background:#ede9fe;border-radius:20px;padding:3px 10px;
+        display:inline-flex;align-items:center;gap:6px;flex-shrink:0;
+        font-size:11.5px;font-weight:700;letter-spacing:normal;
+        color:#ffffff;background:linear-gradient(135deg,#7c3aed 0%,#8b5cf6 100%);
+        border-radius:24px;padding:4px 12px;box-shadow:0 2px 8px rgba(124,58,237,.35);
     }
-    .pl-next-body{flex:1;min-width:180px;}
-    .pl-next-title{font-size:14px;font-weight:700;color:#1a1d23;display:flex;align-items:center;gap:7px;}
-    .pl-next-title i{color:#7c3aed;font-size:15px;}
-    .pl-next-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;}
-    .pl-next-actions{display:flex;align-items:center;gap:7px;margin-inline-start:auto;}
+    .pl-next-label i{font-size:12px;color:#fde047;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));}
+    .pl-next-body{flex:1;min-width:200px;}
+    .pl-next-title{font-size:15px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px;}
+    .pl-next-title i{color:#7c3aed;font-size:16px;}
+    .pl-next-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px;}
+    .pl-next-actions{display:flex;align-items:center;gap:8px;margin-inline-start:auto;}
     .pl-next-actions button{
-        display:inline-flex;align-items:center;gap:5px;border-radius:8px;
-        font-size:12.5px;font-weight:700;cursor:pointer;padding:6px 13px;transition:all .15s;
+        display:inline-flex;align-items:center;gap:6px;border-radius:10px;
+        font-size:12.5px;font-weight:700;cursor:pointer;padding:7px 16px;
+        transition:all .18s cubic-bezier(0.4, 0, 0.2, 1);
     }
+    .pl-next-actions button:active{transform:scale(0.97);}
     .pl-next-step{
-        display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-        width:100%;background:#fafbfc;border:1px dashed #ddd6fe;border-radius:9px;
-        padding:7px 11px;margin-top:1px;
+        display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+        width:100%;background:#ffffff;border:1.5px solid #ede9fe;border-radius:11px;
+        padding:9px 14px;margin-top:4px;box-shadow:0 1px 3px rgba(124,58,237,.04);
     }
-    .pl-next-step > i{color:#7c3aed;font-size:13px;flex-shrink:0;}
-    .pl-next-step-name{font-size:12.5px;font-weight:700;color:#3d4149;}
-    .pl-next-set-inputs{display:inline-flex;align-items:center;gap:5px;margin-inline-start:auto;}
+    .pl-next-step > i{
+        color:#7c3aed;font-size:14px;flex-shrink:0;background:#f5f3ff;
+        width:26px;height:26px;border-radius:7px;display:grid;place-items:center;
+    }
+    .pl-next-step-name{font-size:13px;font-weight:700;color:#1e293b;}
+    .pl-next-set-inputs{display:inline-flex;align-items:center;gap:6px;margin-inline-start:auto;}
     .pl-next-set-inputs input{
-        width:74px;padding:4px 8px;border:1px solid #e5e7eb;border-radius:7px;
-        font-size:12px;outline:none;font-variant-numeric:tabular-nums;
+        width:78px;padding:5px 9px;border:1.5px solid #e2e8f0;border-radius:8px;
+        font-size:12.5px;outline:none;font-variant-numeric:tabular-nums;transition:all .15s ease;
     }
-    .pl-next-set-inputs input:focus{border-color:#c4b5fd;}
+    .pl-next-set-inputs input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
     
     /* Modern Custom Time Picker */
     .pl-time-picker-custom{
-        display:inline-flex;align-items:center;gap:6px;
-        background:#ffffff;border:1.5px solid #c4b5fd;border-radius:9px;
-        padding:3px 8px 3px 10px;box-shadow:0 1px 4px rgba(124,58,237,.08);
+        display:inline-flex;align-items:center;gap:7px;
+        background:#ffffff;border:1.5px solid #c4b5fd;border-radius:10px;
+        padding:4px 10px 4px 12px;box-shadow:0 1px 4px rgba(124,58,237,.08);
         transition:all .2s ease;
     }
     .pl-time-picker-custom:hover{
-        border-color:#a855f7;box-shadow:0 2px 8px rgba(124,58,237,.14);
+        border-color:#a855f7;box-shadow:0 2px 8px rgba(124,58,237,.16);
     }
     .pl-time-picker-custom:focus-within{
         border-color:#7c3aed;background:#faf5ff;
-        box-shadow:0 0 0 3px rgba(124,58,237,.18);
+        box-shadow:0 0 0 3.5px rgba(124,58,237,.18);
     }
     .pl-time-picker-custom .pl-time-icon{
-        color:#7c3aed;font-size:13px;flex-shrink:0;transition:transform .2s ease;
+        color:#7c3aed;font-size:14px;flex-shrink:0;transition:transform .2s ease;
     }
     .pl-time-picker-custom:focus-within .pl-time-icon{
         transform:scale(1.15);color:#6d28d9;
     }
     .pl-modern-time-input{
         border:none !important;background:transparent !important;padding:2px 0 !important;
-        font-family:inherit;font-size:13px !important;font-weight:700;color:#1e1b4b;
-        outline:none !important;width:82px !important;cursor:pointer;
+        font-family:inherit;font-size:13.5px !important;font-weight:700;color:#1e1b4b;
+        outline:none !important;width:86px !important;cursor:pointer;
         font-variant-numeric:tabular-nums;direction:ltr;text-align:center;
     }
     .pl-modern-time-input::-webkit-calendar-picker-indicator{
@@ -455,23 +475,41 @@
     }
 
     .pl-start-hint{font-size:11px;font-weight:600;color:#8a8f98;}
-    .pl-next-start{background:#7c3aed;color:#fff;border:1px solid #7c3aed;}
-    .pl-next-start:hover{background:#6d28d9;}
-    .pl-next-done{background:#fff;color:#16a34a;border:1px solid #bbf7d0;}
-    .pl-next-done:hover{background:#f0fdf4;}
+    .pl-next-start{
+        background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);color:#fff;border:1px solid #6d28d9;
+        box-shadow:0 2px 6px rgba(124,58,237,.25);
+    }
+    .pl-next-start:hover{
+        background:linear-gradient(135deg,#6d28d9 0%,#5b21b6 100%);
+        transform:translateY(-1px);box-shadow:0 4px 10px rgba(124,58,237,.35);
+    }
+    .pl-next-done{
+        background:#ffffff;color:#15803d;border:1.5px solid #86efac;
+        box-shadow:0 1px 3px rgba(22,163,74,.1);
+    }
+    .pl-next-done:hover{
+        background:#f0fdf4;border-color:#4ade80;color:#166534;
+        transform:translateY(-1px);box-shadow:0 3px 8px rgba(22,163,74,.18);
+    }
 
     /* ── Quick add ── */
     .pl-toolbar-right{display:flex;align-items:center;gap:8px;}
     .pl-add-btn{
         display:inline-flex;align-items:center;gap:6px;
-        background:#7c3aed;color:#fff;border:1px solid #7c3aed;border-radius:7px;
-        padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer;transition:all .15s;
+        background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);
+        color:#fff;border:1px solid #6d28d9;border-radius:9px;
+        padding:7px 16px;font-size:12.5px;font-weight:700;cursor:pointer;
+        box-shadow:0 2px 6px rgba(124,58,237,.22);transition:all .15s;
     }
-    .pl-add-btn:hover{background:#6d28d9;}
+    .pl-add-btn:hover{
+        background:linear-gradient(135deg,#6d28d9 0%,#5b21b6 100%);
+        transform:translateY(-1px);box-shadow:0 4px 10px rgba(124,58,237,.32);
+    }
     .pl-fab{
         display:none;position:fixed;right:18px;bottom:18px;z-index:1000;
         width:52px;height:52px;border-radius:50%;border:none;
-        background:#7c3aed;color:#fff;font-size:22px;cursor:pointer;
+        background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);
+        color:#fff;font-size:22px;cursor:pointer;
         box-shadow:0 6px 18px rgba(124,58,237,.4);
         align-items:center;justify-content:center;
     }
@@ -591,13 +629,13 @@
                     </button>
                 </div>
             @endif
-            {{-- dir=ltr keeps Previous on the left / Next on the right in every locale --}}
-            <div class="pl-nav" dir="ltr">
+            {{-- Navigation: arrows adapt to RTL/LTR --}}
+            <div class="pl-nav">
                 <a href="{{ route('planner.index', ['view' => $view, 'date' => $prevDate->toDateString()]) }}"
-                   class="pl-nav-btn" title="{{ __('Previous') }}"><i class="bi bi-chevron-left"></i></a>
+                   class="pl-nav-btn" title="{{ __('Previous') }}"><i class="bi {{ app()->getLocale() === 'fa' ? 'bi-chevron-right' : 'bi-chevron-left' }}"></i></a>
                 <a href="{{ route('planner.index', ['view' => $view]) }}" class="pl-today-btn">{{ __('Today') }}</a>
                 <a href="{{ route('planner.index', ['view' => $view, 'date' => $nextDate->toDateString()]) }}"
-                   class="pl-nav-btn" title="{{ __('Next') }}"><i class="bi bi-chevron-right"></i></a>
+                   class="pl-nav-btn" title="{{ __('Next') }}"><i class="bi {{ app()->getLocale() === 'fa' ? 'bi-chevron-left' : 'bi-chevron-right' }}"></i></a>
             </div>
             @if($view === 'day')
                 <button type="button" class="pl-add-btn" onclick="openQuickAdd('task')">
@@ -668,11 +706,11 @@
 
         {{-- Overdue --}}
         @if($overdue->count())
-            <div class="pl-section">
-                <div class="pl-section-head">
+            <div class="pl-section" style="border-color: #fecaca; box-shadow: 0 2px 10px rgba(220, 38, 38, 0.05);">
+                <div class="pl-section-head" style="background: linear-gradient(135deg, #fffafb 0%, #fff1f2 100%); border-bottom: 1px solid #fee2e2;">
                     <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;"></i>
-                    <span class="pl-section-title">{{ __('Overdue') }}</span>
-                    <span class="pl-section-count" id="plOverdueCount">{{ $overdue->count() }}</span>
+                    <span class="pl-section-title" style="color:#991b1b;">{{ __('Overdue') }}</span>
+                    <span class="pl-section-count" id="plOverdueCount" style="background:#fee2e2;color:#b91c1c;">{{ $overdue->count() }}</span>
                     <button type="button" class="pl-overdue-all" id="plPostponeAll" title="{{ __('Move every overdue task to tomorrow') }}">
                         <i class="bi bi-arrow-90deg-down"></i> {{ __('Postpone all to tomorrow') }}
                     </button>

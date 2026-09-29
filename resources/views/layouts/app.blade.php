@@ -75,16 +75,36 @@
             margin: 0;
             overflow: hidden;
             background-color: var(--gray-25);
-            font-family: {{ app()->getLocale() === 'fa' ? "'Vazirmatn', system-ui, -apple-system, sans-serif" : "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }};
+            font-family: {{ app()->getLocale() === 'fa' ? "'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }};
             font-size: 14px;
-            line-height: 1.5;
+            line-height: {{ app()->getLocale() === 'fa' ? '1.6' : '1.5' }};
             color: var(--gray-700);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
 
+        /* ── Global RTL & Persian Typography Polish ── */
+        [dir="rtl"] {
+            letter-spacing: normal !important;
+        }
+        [dir="rtl"] *, [dir="rtl"] .text-uppercase, [dir="rtl"] .badge, [dir="rtl"] button {
+            letter-spacing: normal !important;
+            text-transform: none !important;
+        }
+        [dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] h4, [dir="rtl"] h5, [dir="rtl"] h6 {
+            font-weight: 700;
+            line-height: 1.45;
+        }
+        [dir="rtl"] .badge {
+            font-weight: 600;
+            padding: 0.35em 0.75em;
+        }
+        [dir="rtl"] .btn {
+            font-weight: 600;
+        }
+
         .btn {
-            padding: 0.3rem 0.7rem;
+            padding: 0.35rem 0.8rem;
             font-size: 0.8125rem;
             font-weight: 500;
             border-radius: var(--radius-md);
