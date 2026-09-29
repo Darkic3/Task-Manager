@@ -220,7 +220,7 @@ class DashboardController extends Controller
                     ->pluck('c', 'd');
                 for ($i = 0; $i < 7; $i++) {
                     $date = $startDate->copy()->addDays($i);
-                    $labels[] = $date->format('M j');
+                    $labels[] = app_date($date, app()->getLocale() === 'fa' ? '%d %B' : 'M j');
                     $data[] = (int) ($rows[$date->toDateString()] ?? 0);
                 }
                 break;
@@ -236,7 +236,7 @@ class DashboardController extends Controller
                     ->pluck('c', 'd');
                 for ($i = 0; $i < $daysInMonth; $i++) {
                     $date = $startDate->copy()->addDays($i);
-                    $labels[] = $date->format('j');
+                    $labels[] = app_date($date, 'j');
                     $data[] = (int) ($rows[$date->toDateString()] ?? 0);
                 }
                 break;
@@ -250,7 +250,7 @@ class DashboardController extends Controller
                     ->pluck('c', 'm');
                 for ($i = 0; $i < 12; $i++) {
                     $date = now()->startOfYear()->addMonths($i);
-                    $labels[] = $date->format('M');
+                    $labels[] = app_date($date, app()->getLocale() === 'fa' ? '%B' : 'M');
                     $data[] = (int) ($rows[$date->month] ?? 0);
                 }
                 break;

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', isset($project) ? $project->name . ' — Tasks' : 'My Tasks')
+@section('title', isset($project) ? $project->name . ' — ' . __('Tasks') : __('Tasks'))
 
 @push('styles')
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
@@ -431,8 +431,8 @@
                 </a>
             @endif
             <div>
-                <div class="cu-header-title">{{ isset($project) ? $project->name . ' — Tasks' : 'My Tasks' }}</div>
-                <div class="cu-header-sub">{{ isset($project) ? 'Manage and track tasks for this project' : 'All active tasks across your projects' }}</div>
+                <div class="cu-header-title">{{ isset($project) ? $project->name . ' — ' . __('Tasks') : __('Tasks') }}</div>
+                <div class="cu-header-sub">{{ isset($project) ? __('Manage and track tasks for this project') : __('All active tasks across your projects') }}</div>
             </div>
         </div>
     </div>
@@ -450,56 +450,56 @@
     <div class="cu-toolbar">
         <div class="cu-toolbar-left">
             <div class="cu-view-toggle">
-                <button class="cu-view-btn active" data-view="kanban"><i class="bi bi-kanban"></i> Board</button>
+                <button class="cu-view-btn active" data-view="kanban"><i class="bi bi-kanban"></i> {{ __('Board') }}</button>
                 @if(!isset($project))
-                    <button class="cu-view-btn" data-view="projects"><i class="bi bi-folder"></i> Projects</button>
+                    <button class="cu-view-btn" data-view="projects"><i class="bi bi-folder"></i> {{ __('Projects') }}</button>
                 @endif
-                <button class="cu-view-btn" data-view="chapters"><i class="bi bi-collection"></i> Chapters</button>
-                <button class="cu-view-btn" data-view="list"><i class="bi bi-list-ul"></i> List</button>
-                <button class="cu-view-btn" data-view="tree"><i class="bi bi-diagram-3"></i> Tree</button>
+                <button class="cu-view-btn" data-view="chapters"><i class="bi bi-collection"></i> {{ __('Chapters') }}</button>
+                <button class="cu-view-btn" data-view="list"><i class="bi bi-list-ul"></i> {{ __('List') }}</button>
+                <button class="cu-view-btn" data-view="tree"><i class="bi bi-diagram-3"></i> {{ __('Tree') }}</button>
             </div>
-            <input type="text" class="cu-search-input" id="cuSearch" placeholder="Search tasks…">
+            <input type="text" class="cu-search-input" id="cuSearch" placeholder="{{ __('Search') }}">
             <select class="cu-filter-select" id="cuPriority">
-                <option value="">All priorities</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
+                <option value="">{{ __('All') }} {{ __('Priority') }}</option>
+                <option value="high">{{ __('High') }}</option>
+                <option value="medium">{{ __('Medium') }}</option>
+                <option value="low">{{ __('Low') }}</option>
             </select>
             <select class="cu-filter-select" id="cuProject">
-                <option value="">All projects</option>
+                <option value="">{{ __('All') }} {{ __('Projects') }}</option>
                 @foreach($projects as $proj)
                     <option value="{{ $proj->id }}">{{ $proj->name }}</option>
                 @endforeach
             </select>
             <select class="cu-filter-select" id="cuStatus">
-                <option value="">All statuses</option>
-                <option value="to_do">To Do</option>
-                <option value="in_progress">In Progress</option>
-                <option value="on_hold">On Hold</option>
-                <option value="in_review">In Review</option>
-                <option value="completed">Completed</option>
+                <option value="">{{ __('All') }} {{ __('Status') }}</option>
+                <option value="to_do">{{ __('To Do') }}</option>
+                <option value="in_progress">{{ __('In Progress') }}</option>
+                <option value="on_hold">{{ __('On Hold') }}</option>
+                <option value="in_review">{{ __('In Review') }}</option>
+                <option value="completed">{{ __('Completed') }}</option>
             </select>
-            <select class="cu-filter-select" id="cuSort" title="Sort tasks">
-                <option value="">Sort: manual</option>
-                <option value="due">Due date</option>
-                <option value="priority">Priority</option>
-                <option value="title">Title</option>
+            <select class="cu-filter-select" id="cuSort" title="{{ __('Sort') }}">
+                <option value="">{{ __('Sort') }}: {{ __('Manual') }}</option>
+                <option value="due">{{ __('Due Date') }}</option>
+                <option value="priority">{{ __('Priority') }}</option>
+                <option value="title">{{ __('Title') }}</option>
             </select>
-            <label class="cu-checkline" id="cuUnfinishedWrap" title="Show only unfinished tasks" style="display:none;">
-                <input type="checkbox" id="cuUnfinished"> Unfinished only
+            <label class="cu-checkline" id="cuUnfinishedWrap" title="{{ __('Show only unfinished tasks') }}" style="display:none;">
+                <input type="checkbox" id="cuUnfinished"> {{ __('Unfinished only') }}
             </label>
             <span id="cuChapterExpandWrap" style="display:none;gap:4px;">
-                <button class="cu-mini-btn" id="cuExpandAll" title="Expand all chapters">Expand all</button>
-                <button class="cu-mini-btn" id="cuCollapseAll" title="Collapse all chapters">Collapse all</button>
+                <button class="cu-mini-btn" id="cuExpandAll" title="{{ __('Expand all chapters') }}">{{ __('Expand all') }}</button>
+                <button class="cu-mini-btn" id="cuCollapseAll" title="{{ __('Collapse all chapters') }}">{{ __('Collapse all') }}</button>
             </span>
         </div>
         <div class="cu-toolbar-right">
-            <span style="font-size:12px;color:#8b8d98;">{{ $totalCnt }} task{{ $totalCnt != 1 ? 's' : '' }}</span>
-            <button class="cu-mini-btn" id="cuSelectMode" title="Select multiple tasks (Shift+click for range)">
-                <i class="bi bi-check2-square"></i> Select
+            <span style="font-size:12px;color:#8b8d98;">{{ $totalCnt }} {{ __('Tasks') }}</span>
+            <button class="cu-mini-btn" id="cuSelectMode" title="{{ __('Select multiple tasks') }}">
+                <i class="bi bi-check2-square"></i> {{ __('Select') }}
             </button>
             <button class="cu-btn-new" data-bs-toggle="modal" data-bs-target="#createTaskModal">
-                <i class="bi bi-plus-lg"></i> New Task
+                <i class="bi bi-plus-lg"></i> {{ __('New Task') }}
             </button>
         </div>
     </div>
@@ -507,10 +507,10 @@
     @if(!$hasAny)
         <div class="cu-empty">
             <div class="cu-empty-icon"><i class="bi bi-list-task"></i></div>
-            <h5>No tasks yet</h5>
-            <p>{{ isset($project) ? 'Create the first task for ' . $project->name . '.' : 'No tasks found. Create one to get started.' }}</p>
+            <h5>{{ __('No tasks yet') }}</h5>
+            <p>{{ isset($project) ? __('Manage and track tasks for this project') : __('No tasks found. Create one to get started.') }}</p>
             <button class="cu-btn-new" data-bs-toggle="modal" data-bs-target="#createTaskModal">
-                <i class="bi bi-plus-lg"></i> Create Task
+                <i class="bi bi-plus-lg"></i> {{ __('Create Task') }}
             </button>
         </div>
     @else

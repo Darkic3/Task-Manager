@@ -514,16 +514,16 @@
 
     @php
         $rangeLabel = $view === 'week'
-            ? $start->format('M j') . ' – ' . $end->format('M j, Y')
-            : $date->format('l, F j, Y');
+            ? (app()->getLocale() === 'fa' ? app_date($start, 'd F') . ' – ' . app_date($end, 'd F Y') : $start->format('M j') . ' – ' . $end->format('M j, Y'))
+            : app_human_date($date);
         $prevDate = $view === 'week' ? $date->copy()->subWeek() : $date->copy()->subDay();
         $nextDate = $view === 'week' ? $date->copy()->addWeek() : $date->copy()->addDay();
     @endphp
 
     {{-- Header --}}
     <div class="pl-header">
-        <h1 class="pl-header-title">{{ $view === 'week' ? 'My Week' : 'My Day' }}</h1>
-        <p class="pl-header-sub">{{ $rangeLabel }}{{ $isToday ? ' · Today' : '' }}</p>
+        <h1 class="pl-header-title">{{ $view === 'week' ? __('My Week') : __('My Day') }}</h1>
+        <p class="pl-header-sub">{{ $rangeLabel }}{{ $isToday ? ' · ' . __('Today') : '' }}</p>
     </div>
 
     {{-- Toolbar --}}
@@ -531,40 +531,40 @@
         <div class="pl-toggle">
             <a href="{{ route('planner.index', ['view' => 'day', 'date' => $date->toDateString()]) }}"
                class="pl-toggle-btn {{ $view === 'day' ? 'active' : '' }}">
-                <i class="bi bi-sun"></i> Day
+                <i class="bi bi-sun"></i> {{ __('Day') }}
             </a>
             <a href="{{ route('planner.index', ['view' => 'week', 'date' => $date->toDateString()]) }}"
                class="pl-toggle-btn {{ $view === 'week' ? 'active' : '' }}">
-                <i class="bi bi-calendar-week"></i> Week
+                <i class="bi bi-calendar-week"></i> {{ __('Week') }}
             </a>
         </div>
         <div class="pl-toolbar-right">
             @if($view === 'day')
                 <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-semibold d-inline-flex align-items-center gap-1" onclick="openMorningKickoff()" title="Morning kickoff ritual">
-                        <i class="bi bi-sunrise-fill text-warning"></i> Kickoff
+                    <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-semibold d-inline-flex align-items-center gap-1" onclick="openMorningKickoff()" title="{{ __('Morning kickoff ritual') }}">
+                        <i class="bi bi-sunrise-fill text-warning"></i> {{ __('Kickoff') }}
                     </button>
-                    <button type="button" class="btn btn-sm btn-primary fw-semibold d-inline-flex align-items-center gap-1 shadow-sm" onclick="openFocusWorkstation()" title="Enter full-screen distraction-free focus mode">
-                        <i class="bi bi-bullseye"></i> Focus
+                    <button type="button" class="btn btn-sm btn-primary fw-semibold d-inline-flex align-items-center gap-1 shadow-sm" onclick="openFocusWorkstation()" title="{{ __('Enter full-screen focus mode') }}">
+                        <i class="bi bi-bullseye"></i> {{ __('Focus') }}
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1" onclick="openEveningShutdown()" title="Evening shutdown ritual">
-                        <i class="bi bi-moon-stars-fill text-primary"></i> Shutdown
+                    <button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1" onclick="openEveningShutdown()" title="{{ __('Evening shutdown ritual') }}">
+                        <i class="bi bi-moon-stars-fill text-primary"></i> {{ __('Shutdown') }}
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 fw-semibold" onclick="openLinaScheduleModal()" title="Optimize schedule with Lina AI">
-                        <i class="bi bi-stars"></i> Lina AI
+                    <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 fw-semibold" onclick="openLinaScheduleModal()" title="{{ __('Optimize schedule with Lina AI') }}">
+                        <i class="bi bi-stars"></i> {{ __('Lina AI') }}
                     </button>
                 </div>
             @endif
             <div class="pl-nav">
                 <a href="{{ route('planner.index', ['view' => $view, 'date' => $prevDate->toDateString()]) }}"
-                   class="pl-nav-btn" title="Previous"><i class="bi bi-chevron-left"></i></a>
-                <a href="{{ route('planner.index', ['view' => $view]) }}" class="pl-today-btn">Today</a>
+                   class="pl-nav-btn" title="{{ __('Previous') }}"><i class="bi {{ app()->getLocale() === 'fa' ? 'bi-chevron-right' : 'bi-chevron-left' }}"></i></a>
+                <a href="{{ route('planner.index', ['view' => $view]) }}" class="pl-today-btn">{{ __('Today') }}</a>
                 <a href="{{ route('planner.index', ['view' => $view, 'date' => $nextDate->toDateString()]) }}"
-                   class="pl-nav-btn" title="Next"><i class="bi bi-chevron-right"></i></a>
+                   class="pl-nav-btn" title="{{ __('Next') }}"><i class="bi {{ app()->getLocale() === 'fa' ? 'bi-chevron-left' : 'bi-chevron-right' }}"></i></a>
             </div>
             @if($view === 'day')
                 <button type="button" class="pl-add-btn" onclick="openQuickAdd('task')">
-                    <i class="bi bi-plus-lg"></i> Add
+                    <i class="bi bi-plus-lg"></i> {{ __('Add') }}
                 </button>
             @endif
         </div>
@@ -573,11 +573,11 @@
     @if($view === 'day')
         {{-- Stats --}}
         <div class="pl-stats">
-            <div class="pl-stat"><i class="bi bi-arrow-repeat"></i> Routines <strong><span id="plRoutineDone">{{ $routineDone }}</span><span style="color:#adb0b8;font-weight:600;">/{{ $routineTotal }}</span></strong></div>
-            <div class="pl-stat"><i class="bi bi-list-check"></i> Pending <strong id="plPendingCount">{{ $pending->count() }}</strong></div>
-            <div class="pl-stat"><i class="bi bi-check-circle"></i> Done <strong id="plDoneCount">{{ $done->count() }}</strong></div>
+            <div class="pl-stat"><i class="bi bi-arrow-repeat"></i> {{ __('Routines') }} <strong><span id="plRoutineDone">{{ $routineDone }}</span><span style="color:#adb0b8;font-weight:600;">/{{ $routineTotal }}</span></strong></div>
+            <div class="pl-stat"><i class="bi bi-list-check"></i> {{ __('Pending') }} <strong id="plPendingCount">{{ $pending->count() }}</strong></div>
+            <div class="pl-stat"><i class="bi bi-check-circle"></i> {{ __('Completed') }} <strong id="plDoneCount">{{ $done->count() }}</strong></div>
             @if($overdue->count())
-                <div class="pl-stat overdue"><i class="bi bi-exclamation-triangle"></i> Overdue <strong id="plOverdueStat">{{ $overdue->count() }}</strong></div>
+                <div class="pl-stat overdue"><i class="bi bi-exclamation-triangle"></i> {{ __('Overdue') }} <strong id="plOverdueStat">{{ $overdue->count() }}</strong></div>
             @endif
         </div>
 
@@ -586,8 +586,8 @@
             <div class="d-flex align-items-center gap-2">
                 <i class="bi bi-speedometer2 {{ ($totalEstimatedHours ?? 0) > 8 ? 'text-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'text-warning' : 'text-success') }} fs-5"></i>
                 <div>
-                    <span class="small fw-semibold text-dark">Daily Workload Capacity:</span>
-                    <span class="small text-muted">{{ number_format($totalEstimatedHours ?? 0, 1) }}h / {{ $dailyCapacityHours ?? 6 }}h focus capacity</span>
+                    <span class="small fw-semibold text-dark">{{ __('Daily Workload Capacity') }}:</span>
+                    <span class="small text-muted">{{ number_format($totalEstimatedHours ?? 0, 1) }}h / {{ $dailyCapacityHours ?? 6 }}h {{ __('focus capacity') }}</span>
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2 flex-grow-1 mx-lg-3" style="max-width: 280px;">
@@ -597,7 +597,7 @@
                 <span class="small fw-bold {{ ($totalEstimatedHours ?? 0) > 8 ? 'text-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'text-warning' : 'text-success') }}">{{ $capacityPercentage ?? 0 }}%</span>
             </div>
             <span class="badge {{ ($totalEstimatedHours ?? 0) > 8 ? 'bg-danger-subtle text-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'bg-warning-subtle text-warning' : 'bg-success-subtle text-success') }} rounded-pill px-3 py-1 small">
-                {{ ($totalEstimatedHours ?? 0) > 8 ? '⚠️ Overloaded' : (($totalEstimatedHours ?? 0) > 6 ? '⚡ Heavy Day' : '✅ Optimal Load') }}
+                {{ ($totalEstimatedHours ?? 0) > 8 ? __('⚠️ Overloaded') : (($totalEstimatedHours ?? 0) > 6 ? __('⚡ Heavy Day') : __('✅ Optimal Load')) }}
             </span>
         </div>
 

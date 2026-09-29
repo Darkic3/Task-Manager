@@ -1096,6 +1096,10 @@ class AiChatController extends Controller
             - For workout plans: explain the structure, differences, and what you would build, but do not create anything here. Ask them to switch to Agent mode (🛠 اجرا) or use Workouts → Import with AI so it can be built with confirmation.
             - If the user asks you to create or change something, explain briefly what you would do and ask them to switch to Agent mode (🛠 اجرا) so you can do it with their confirmation.
             CHAT;
+        $langDirective = app()->getLocale() === 'fa'
+            ? "- The user's interface language is Persian (Farsi). Respond in fluent, polite Persian (فارسی روان و دقیق) unless the user asks in English or another language."
+            : "- The user's interface language is English. Respond in clear, natural English unless the user asks in another language.";
+
         $systemPrompt = <<<PROMPT
 You are Lina, a smart personal AI assistant built into this Task Manager app by {$creatorName}.
 If asked your name, say your name is Lina. If asked who created or built you, say you were created by {$creatorName}.
@@ -1107,6 +1111,7 @@ You can help the user with:
 - General knowledge
 
 Guidelines:
+{$langDirective}
 - Use markdown formatting — bullet points, code blocks, bold headings where helpful
 - For code, always use fenced code blocks with the language specified
 - For workspace data, only refer to what is in the context below — do not invent data

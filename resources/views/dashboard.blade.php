@@ -1,8 +1,8 @@
 @extends('layouts.app')
 
-@section('title', 'Daily Command Center | Task Manager')
+@section('title', __('Daily Command Center') . ' | ' . __('TaskManager'))
 
-@section('page-title', 'Daily Command Center')
+@section('page-title', __('Daily Command Center'))
 
 @section('content')
 <div class="container-fluid px-3 px-lg-4 py-3">
@@ -14,9 +14,9 @@
             <div class="d-flex align-items-center gap-3">
                 <span class="timer-pulse-dot"></span>
                 <div>
-                    <div class="timer-banner-label">Active Time Tracking</div>
+                    <div class="timer-banner-label">{{ __('Active Time Tracking') }}</div>
                     <div class="timer-banner-task font-monospace fw-bold">
-                        {{ $activeTimeEntry->task->title ?? ($activeTimeEntry->description ?: 'Untracked Activity') }}
+                        {{ $activeTimeEntry->task->title ?? ($activeTimeEntry->description ?: __('Untracked Activity')) }}
                         @if($activeTimeEntry->project)
                             <span class="badge bg-white text-dark ms-2 opacity-75 font-sans">{{ $activeTimeEntry->project->name }}</span>
                         @endif
@@ -28,7 +28,7 @@
                 <form action="{{ route('time.stop', $activeTimeEntry) }}" method="POST" class="m-0">
                     @csrf
                     <button type="submit" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1">
-                        <i class="bi bi-stop-fill"></i> Stop
+                        <i class="bi bi-stop-fill"></i> {{ __('Stop') }}
                     </button>
                 </form>
             </div>
@@ -40,19 +40,19 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
             <h2 class="welcome-heading mb-1">
-                Good {{ now()->format('A') === 'AM' ? 'morning' : (now()->format('H') < 18 ? 'afternoon' : 'evening') }}, {{ Auth::user()->name }} 👋
+                {{ app_greeting() }}, {{ Auth::user()->name }} 👋
             </h2>
             <div class="text-muted small d-flex align-items-center gap-3 flex-wrap">
-                <span><i class="bi bi-calendar3 me-1 text-primary"></i> {{ now()->format('l, F j, Y') }}</span>
+                <span><i class="bi bi-calendar3 me-1 text-primary"></i> {{ app_human_date() }}</span>
                 <span>•</span>
-                <span><i class="bi bi-check-circle me-1 text-success"></i> <strong>{{ $tasksCompletedToday }}</strong> tasks done today</span>
+                <span><i class="bi bi-check-circle me-1 text-success"></i> <strong>{{ $tasksCompletedToday }}</strong> {{ __('tasks done today') }}</span>
                 <span>•</span>
-                <span><i class="bi bi-arrow-repeat me-1 text-warning"></i> <strong>{{ $routineDoneCount }}/{{ $routineTotalCount }}</strong> routines checked</span>
+                <span><i class="bi bi-arrow-repeat me-1 text-warning"></i> <strong>{{ $routineDoneCount }}/{{ $routineTotalCount }}</strong> {{ __('routines checked') }}</span>
             </div>
         </div>
         <div class="d-flex align-items-center gap-2">
             <a href="{{ route('planner.index') }}" class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm">
-                <i class="bi bi-calendar-check"></i> Open My Day
+                <i class="bi bi-calendar-check"></i> {{ __('Open My Day') }}
             </a>
         </div>
     </div>
@@ -61,27 +61,27 @@
     <div class="quick-hub-bar mb-4">
         <a href="{{ route('tasks.create') }}" class="quick-hub-btn">
             <span class="quick-hub-icon bg-primary-subtle text-primary"><i class="bi bi-plus-lg"></i></span>
-            <span>New Task</span>
+            <span>{{ __('New Task') }}</span>
         </a>
         <a href="{{ route('workouts.plans.index') }}" class="quick-hub-btn">
             <span class="quick-hub-icon bg-danger-subtle text-danger"><i class="bi bi-activity"></i></span>
-            <span>Workouts</span>
+            <span>{{ __('Workouts') }}</span>
         </a>
         <a href="{{ route('planner.index') }}" class="quick-hub-btn">
             <span class="quick-hub-icon bg-warning-subtle text-warning"><i class="bi bi-calendar-day"></i></span>
-            <span>Daily Planner</span>
+            <span>{{ __('Daily Planner') }}</span>
         </a>
         <a href="{{ route('notes.create') }}" class="quick-hub-btn">
             <span class="quick-hub-icon bg-success-subtle text-success"><i class="bi bi-journal-plus"></i></span>
-            <span>Quick Note</span>
+            <span>{{ __('Quick Note') }}</span>
         </a>
         <a href="{{ route('reminders.create') }}" class="quick-hub-btn">
             <span class="quick-hub-icon bg-info-subtle text-info"><i class="bi bi-bell-fill"></i></span>
-            <span>Set Reminder</span>
+            <span>{{ __('Set Reminder') }}</span>
         </a>
         <a href="{{ route('ai.index') }}" class="quick-hub-btn">
             <span class="quick-hub-icon bg-purple-subtle text-purple"><i class="bi bi-stars"></i></span>
-            <span>Ask Lina</span>
+            <span>{{ __('Ask Lina') }}</span>
         </a>
     </div>
 
@@ -94,9 +94,9 @@
                 <div class="hq-card-header d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-2">
                         <span class="hq-badge-icon bg-danger-subtle text-danger"><i class="bi bi-bullseye"></i></span>
-                        <h3 class="hq-title m-0">Today's Focus</h3>
+                        <h3 class="hq-title m-0">{{ __("Today's Focus") }}</h3>
                     </div>
-                    <a href="{{ route('tasks.index') }}" class="hq-link">View All <i class="bi bi-arrow-right"></i></a>
+                    <a href="{{ route('tasks.index') }}" class="hq-link">{{ __('View All') }} <i class="bi bi-arrow-right"></i></a>
                 </div>
                 <div class="hq-card-body p-0">
                     <div class="focus-task-list">
@@ -125,7 +125,7 @@
                                     @endif
                                     @if($task->due_date)
                                     <span class="{{ \Carbon\Carbon::parse($task->due_date)->isPast() && !\Carbon\Carbon::parse($task->due_date)->isToday() ? 'text-danger fw-medium' : '' }}">
-                                        <i class="bi bi-clock"></i> {{ \Carbon\Carbon::parse($task->due_date)->isToday() ? 'Today' : \Carbon\Carbon::parse($task->due_date)->format('M d') }}
+                                        <i class="bi bi-clock"></i> {{ \Carbon\Carbon::parse($task->due_date)->isToday() ? __('Today') : app_date($task->due_date, 'M d') }}
                                     </span>
                                     @endif
                                     @if($task->checklistItems->isNotEmpty())
@@ -136,7 +136,7 @@
                                 </div>
                             </div>
                             <div class="task-actions-wrap pt-1">
-                                <button type="button" class="btn btn-sm btn-light border p-1 text-muted hover-primary" title="Start timer for this task" onclick="startTimerForTask({{ $task->id }}, {{ $task->project_id ?? 'null' }}, '{{ addslashes($task->title) }}')">
+                                <button type="button" class="btn btn-sm btn-light border p-1 text-muted hover-primary" title="{{ __('Start') }}" onclick="startTimerForTask({{ $task->id }}, {{ $task->project_id ?? 'null' }}, '{{ addslashes($task->title) }}')">
                                     <i class="bi bi-play-fill text-success fs-6"></i>
                                 </button>
                             </div>
@@ -146,9 +146,9 @@
                             <div class="empty-icon-circle mx-auto mb-3 bg-success-subtle text-success">
                                 <i class="bi bi-check2-all fs-4"></i>
                             </div>
-                            <h6 class="fw-bold mb-1">All Clear for Today!</h6>
-                            <p class="text-muted small mb-3">No urgent or high priority tasks remaining.</p>
-                            <a href="{{ route('tasks.create') }}" class="btn btn-sm btn-outline-primary">+ Add New Task</a>
+                            <h6 class="fw-bold mb-1">{{ __('All Clear for Today!') }}</h6>
+                            <p class="text-muted small mb-3">{{ __('No urgent or high priority tasks remaining.') }}</p>
+                            <a href="{{ route('tasks.create') }}" class="btn btn-sm btn-outline-primary">{{ __('+ Add New Task') }}</a>
                         </div>
                         @endforelse
                     </div>
@@ -162,20 +162,20 @@
                 <div class="hq-card-header d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-2">
                         <span class="hq-badge-icon bg-primary-subtle text-primary"><i class="bi bi-activity"></i></span>
-                        <h3 class="hq-title m-0">Today's Workout</h3>
+                        <h3 class="hq-title m-0">{{ __("Today's Workout") }}</h3>
                     </div>
-                    <a href="{{ route('workouts.plans.index') }}" class="hq-link">Workout Hub <i class="bi bi-arrow-right"></i></a>
+                    <a href="{{ route('workouts.plans.index') }}" class="hq-link">{{ __('Workout Hub') }} <i class="bi bi-arrow-right"></i></a>
                 </div>
                 <div class="hq-card-body p-3">
                     @if($todayWorkoutDay)
                         <div class="workout-plan-preview mb-3 p-3 rounded-3 bg-light border">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <div>
-                                    <span class="badge bg-dark text-white text-uppercase" style="font-size:10px;">{{ $activeWorkoutPlan->title ?? 'Current Plan' }}</span>
+                                    <span class="badge bg-dark text-white text-uppercase" style="font-size:10px;">{{ $activeWorkoutPlan->title ?? __('Current Plan') }}</span>
                                     <h5 class="fw-bold mt-1 mb-0">{{ $todayWorkoutDay->title ?: ucfirst($todayWorkoutDay->weekday) }}</h5>
                                 </div>
                                 <span class="badge {{ $todayWorkoutDay->isTraining() ? 'bg-primary text-white' : 'bg-secondary text-white' }}">
-                                    {{ $todayWorkoutDay->isTraining() ? 'Training Day' : 'Rest Day' }}
+                                    {{ $todayWorkoutDay->isTraining() ? __('Training Day') : __('Rest Day') }}
                                 </span>
                             </div>
 
@@ -183,13 +183,13 @@
                                 <div class="exercise-chip-list d-flex flex-wrap gap-1 my-3">
                                     @forelse($todayWorkoutDay->exercises->take(5) as $we)
                                     <span class="badge bg-white text-dark border fw-normal" style="font-size:11px;">
-                                        {{ $we->exercise->name ?? 'Exercise' }} ({{ $we->target_sets }}s)
+                                        {{ $we->exercise->name ?? __('Exercise') }} ({{ $we->target_sets }}s)
                                     </span>
                                     @empty
-                                    <span class="text-muted small">No specific exercises configured.</span>
+                                    <span class="text-muted small">{{ __('No specific exercises configured.') }}</span>
                                     @endforelse
                                     @if($todayWorkoutDay->exercises->count() > 5)
-                                    <span class="badge bg-light text-muted border" style="font-size:11px;">+{{ $todayWorkoutDay->exercises->count() - 5 }} more</span>
+                                    <span class="badge bg-light text-muted border" style="font-size:11px;">+{{ $todayWorkoutDay->exercises->count() - 5 }} {{ __('more') }}</span>
                                     @endif
                                 </div>
 
@@ -197,19 +197,19 @@
                                     @if($todayWorkoutSession && $todayWorkoutSession->status === 'completed')
                                         <div class="alert alert-success d-flex align-items-center justify-content-between py-2 px-3 m-0 rounded-3">
                                             <span class="d-flex align-items-center gap-2 small fw-medium">
-                                                <i class="bi bi-check-circle-fill text-success fs-5"></i> Session Completed Today!
+                                                <i class="bi bi-check-circle-fill text-success fs-5"></i> {{ __('Session Completed Today!') }}
                                             </span>
-                                            <a href="{{ route('workouts.sessions.show', $todayWorkoutSession) }}" class="btn btn-sm btn-outline-success">View Log</a>
+                                            <a href="{{ route('workouts.sessions.show', $todayWorkoutSession) }}" class="btn btn-sm btn-outline-success">{{ __('View Log') }}</a>
                                         </div>
                                     @elseif($todayWorkoutSession && $todayWorkoutSession->status === 'in_progress')
                                         <a href="{{ route('workouts.sessions.show', $todayWorkoutSession) }}" class="btn btn-warning w-100 d-flex align-items-center justify-content-center gap-2 py-2 fw-semibold">
-                                            <i class="bi bi-play-circle-fill"></i> Continue Workout Session
+                                            <i class="bi bi-play-circle-fill"></i> {{ __('Continue Workout Session') }}
                                         </a>
                                     @else
                                         <form action="{{ route('workouts.sessions.start', $todayWorkoutDay) }}" method="POST">
                                             @csrf
                                             <button type="submit" class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2 fw-semibold shadow-sm">
-                                                <i class="bi bi-lightning-charge-fill"></i> Start Workout Session
+                                                <i class="bi bi-lightning-charge-fill"></i> {{ __('Start Workout Session') }}
                                             </button>
                                         </form>
                                     @endif
@@ -217,7 +217,7 @@
                             @else
                                 <div class="p-3 text-center text-muted">
                                     <i class="bi bi-cup-hot text-warning fs-3 mb-2 d-block"></i>
-                                    <p class="small mb-0">Active rest day. Focus on hydration, stretching, and nutrition!</p>
+                                    <p class="small mb-0">{{ __('Active rest day. Focus on hydration, stretching, and nutrition!') }}</p>
                                 </div>
                             @endif
                         </div>
@@ -226,9 +226,9 @@
                             <div class="empty-icon-circle mx-auto mb-3 bg-primary-subtle text-primary">
                                 <i class="bi bi-heart-pulse fs-4"></i>
                             </div>
-                            <h6 class="fw-bold mb-1">No Active Workout Plan</h6>
-                            <p class="text-muted small mb-3">Set up a training plan to track exercises and daily cycles.</p>
-                            <a href="{{ route('workouts.plans.create') }}" class="btn btn-sm btn-outline-primary">+ Create Workout Plan</a>
+                            <h6 class="fw-bold mb-1">{{ __('No Active Workout Plan') }}</h6>
+                            <p class="text-muted small mb-3">{{ __('Set up a training plan to track exercises and daily cycles.') }}</p>
+                            <a href="{{ route('workouts.plans.create') }}" class="btn btn-sm btn-outline-primary">{{ __('+ Create Workout Plan') }}</a>
                         </div>
                     @endif
                 </div>
@@ -241,11 +241,11 @@
                 <div class="hq-card-header d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-2">
                         <span class="hq-badge-icon bg-warning-subtle text-warning"><i class="bi bi-arrow-repeat"></i></span>
-                        <h3 class="hq-title m-0">Habits & Routines</h3>
+                        <h3 class="hq-title m-0">{{ __('Habits & Routines') }}</h3>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge rounded-pill bg-light text-dark border px-2" id="dbRoutineCount">{{ $routineDoneCount }}/{{ $routineTotalCount }}</span>
-                        <a href="{{ route('planner.index') }}" class="hq-link">Planner <i class="bi bi-arrow-right"></i></a>
+                        <a href="{{ route('planner.index') }}" class="hq-link">{{ __('Planner') }} <i class="bi bi-arrow-right"></i></a>
                     </div>
                 </div>
                 <div class="hq-card-body p-0">
@@ -262,13 +262,13 @@
                                  data-completed="{{ $rDone ? 1 : 0 }}">
                                 <div class="d-flex align-items-center gap-3">
                                     @if($rAvoid)
-                                        <span class="db-routine-check" title="{{ $rBad ? 'Slip logged today' : 'Clean so far' }}">
+                                        <span class="db-routine-check" title="{{ $rBad ? __('Slip logged today') : __('Clean so far') }}">
                                             <span class="db-check-box" style="{{ $rBad ? 'background:#fee2e2;color:#b91c1c;border-color:#fca5a5;' : 'background:#dcfce7;color:#15803d;border-color:#bbf7d0;' }}">
                                                 <i class="bi {{ $rBad ? 'bi-exclamation' : 'bi-shield-check' }}"></i>
                                             </span>
                                         </span>
                                     @else
-                                        <label class="db-routine-check" title="{{ $rDone ? 'Mark as not done' : 'Mark as done' }}">
+                                        <label class="db-routine-check" title="{{ $rDone ? __('Mark as not done') : __('Mark as done') }}">
                                             <input type="checkbox" {{ $rDone ? 'checked' : '' }}
                                                    data-id="{{ $routine->id }}"
                                                    data-url="{{ route('planner.routines.toggle', $routine) }}"
@@ -287,7 +287,7 @@
                                     </div>
                                 </div>
                                 <span class="badge {{ $rAvoid ? 'bg-danger-subtle text-danger' : 'bg-primary-subtle text-primary' }} rounded-pill" style="font-size:10px;">
-                                    {{ $rAvoid ? 'Avoid' : 'Habit' }}
+                                    {{ $rAvoid ? __('Avoid') : __('Habit') }}
                                 </span>
                             </div>
                         @empty
@@ -295,9 +295,9 @@
                                 <div class="empty-icon-circle mx-auto mb-3 bg-warning-subtle text-warning">
                                     <i class="bi bi-sun fs-4"></i>
                                 </div>
-                                <h6 class="fw-bold mb-1">No Routines Scheduled</h6>
-                                <p class="text-muted small mb-3">Add daily or weekly habits to build your discipline.</p>
-                                <a href="{{ route('routines.create') }}" class="btn btn-sm btn-outline-warning">+ Add Routine</a>
+                                <h6 class="fw-bold mb-1">{{ __('No Routines Scheduled') }}</h6>
+                                <p class="text-muted small mb-3">{{ __('Add daily or weekly habits to build your discipline.') }}</p>
+                                <a href="{{ route('routines.create') }}" class="btn btn-sm btn-outline-warning">{{ __('+ Add Routine') }}</a>
                             </div>
                         @endforelse
                     </div>
@@ -316,9 +316,9 @@
                 <div class="hq-card-header d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-2">
                         <span class="hq-badge-icon bg-success-subtle text-success"><i class="bi bi-graph-up"></i></span>
-                        <h3 class="hq-title m-0">Productivity Pulse (14 Days)</h3>
+                        <h3 class="hq-title m-0">{{ __('Productivity Pulse (14 Days)') }}</h3>
                     </div>
-                    <span class="badge bg-light text-dark border">{{ $completedTasksThisWeek }} completed this week</span>
+                    <span class="badge bg-light text-dark border">{{ $completedTasksThisWeek }} {{ __('completed this week') }}</span>
                 </div>
                 <div class="hq-card-body p-3">
                     <div class="chart-container" style="position: relative; height:240px;">
@@ -334,9 +334,9 @@
                 <div class="hq-card-header d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-2">
                         <span class="hq-badge-icon bg-info-subtle text-info"><i class="bi bi-pie-chart"></i></span>
-                        <h3 class="hq-title m-0">Task Health & Status</h3>
+                        <h3 class="hq-title m-0">{{ __('Task Health & Status') }}</h3>
                     </div>
-                    <span class="small text-muted">{{ $tasksCount }} total</span>
+                    <span class="small text-muted">{{ $tasksCount }} {{ __('total') }}</span>
                 </div>
                 <div class="hq-card-body p-3">
                     <div class="d-flex align-items-center justify-content-center mb-3">
@@ -346,15 +346,15 @@
                     </div>
                     <div class="d-flex justify-content-around text-center border-top pt-3">
                         <div>
-                            <div class="small text-muted">To Do</div>
+                            <div class="small text-muted">{{ __('To Do') }}</div>
                             <div class="fw-bold text-primary">{{ $taskStatusDistribution['to_do'] }}</div>
                         </div>
                         <div>
-                            <div class="small text-muted">In Progress</div>
+                            <div class="small text-muted">{{ __('In Progress') }}</div>
                             <div class="fw-bold text-warning">{{ $taskStatusDistribution['in_progress'] }}</div>
                         </div>
                         <div>
-                            <div class="small text-muted">Completed</div>
+                            <div class="small text-muted">{{ __('Completed') }}</div>
                             <div class="fw-bold text-success">{{ $taskStatusDistribution['completed'] }}</div>
                         </div>
                     </div>
@@ -373,9 +373,9 @@
                 <div class="hq-card-header d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-2">
                         <span class="hq-badge-icon bg-warning-subtle text-warning"><i class="bi bi-bell"></i></span>
-                        <h3 class="hq-title m-0">Upcoming Reminders</h3>
+                        <h3 class="hq-title m-0">{{ __('Upcoming Reminders') }}</h3>
                     </div>
-                    <a href="{{ route('reminders.index') }}" class="hq-link">View All <i class="bi bi-arrow-right"></i></a>
+                    <a href="{{ route('reminders.index') }}" class="hq-link">{{ __('View All') }} <i class="bi bi-arrow-right"></i></a>
                 </div>
                 <div class="hq-card-body p-0">
                     <div class="list-group list-group-flush">
@@ -388,7 +388,7 @@
                                 <div>
                                     <div class="fw-medium">{{ $reminder->title }}</div>
                                     <div class="small text-muted">
-                                        {{ $reminder->date->isToday() ? 'Today' : ($reminder->date->isPast() ? 'Overdue' : $reminder->date->format('M d, Y')) }}
+                                        {{ $reminder->date->isToday() ? __('Today') : ($reminder->date->isPast() ? __('Overdue') : app_date($reminder->date, 'M d, Y')) }}
                                         @if($reminder->time)
                                             • {{ \Carbon\Carbon::parse($reminder->time)->format('H:i') }}
                                         @endif
@@ -396,11 +396,11 @@
                                 </div>
                             </div>
                             <span class="badge {{ $reminder->priority === 'urgent' ? 'bg-danger' : ($reminder->priority === 'high' ? 'bg-warning text-dark' : 'bg-light text-secondary border') }}">
-                                {{ ucfirst($reminder->priority ?? 'normal') }}
+                                {{ __(ucfirst($reminder->priority ?? 'normal')) }}
                             </span>
                         </div>
                         @empty
-                        <div class="text-center py-4 text-muted small">No upcoming reminders</div>
+                        <div class="text-center py-4 text-muted small">{{ __('No upcoming reminders') }}</div>
                         @endforelse
                     </div>
                 </div>
@@ -413,9 +413,9 @@
                 <div class="hq-card-header d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-2">
                         <span class="hq-badge-icon bg-success-subtle text-success"><i class="bi bi-journal-text"></i></span>
-                        <h3 class="hq-title m-0">Recent Notes</h3>
+                        <h3 class="hq-title m-0">{{ __('Recent Notes') }}</h3>
                     </div>
-                    <a href="{{ route('notes.index') }}" class="hq-link">View All <i class="bi bi-arrow-right"></i></a>
+                    <a href="{{ route('notes.index') }}" class="hq-link">{{ __('View All') }} <i class="bi bi-arrow-right"></i></a>
                 </div>
                 <div class="hq-card-body p-0">
                     <div class="list-group list-group-flush">
@@ -427,13 +427,13 @@
                                 </span>
                                 <div>
                                     <div class="fw-medium text-dark">{{ $note->title }}</div>
-                                    <div class="small text-muted">{{ $note->created_at->diffForHumans() }}</div>
+                                    <div class="small text-muted">{{ app_diff_for_humans($note->created_at) }}</div>
                                 </div>
                             </div>
-                            <i class="bi bi-chevron-right text-muted small"></i>
+                            <i class="bi {{ app()->getLocale() === 'fa' ? 'bi-chevron-left' : 'bi-chevron-right' }} text-muted small"></i>
                         </a>
                         @empty
-                        <div class="text-center py-4 text-muted small">No notes saved yet</div>
+                        <div class="text-center py-4 text-muted small">{{ __('No notes saved yet') }}</div>
                         @endforelse
                     </div>
                 </div>

@@ -591,11 +591,11 @@
     <div class="content-header">
         <div class="d-flex justify-content-between align-items-center" style="position:relative;z-index:1;">
             <div>
-                <h1 class="content-title">Projects</h1>
-                <p class="content-subtitle">Manage and track your project progress</p>
+                <h1 class="content-title">{{ __('Projects') }}</h1>
+                <p class="content-subtitle">{{ __('Manage and track your project progress') }}</p>
             </div>
             <a href="{{ route('projects.create') }}" class="cu-new-btn">
-                <i class="bi bi-plus-lg"></i>New Project
+                <i class="bi bi-plus-lg"></i>{{ __('New Project') }}
             </a>
         </div>
     </div>
@@ -610,19 +610,19 @@
     <div class="cu-stats">
         <div class="cu-stat">
             <div class="cu-stat-icon total"><i class="bi bi-folder2"></i></div>
-            <div><div class="cu-stat-num">{{ $totalProjects }}</div><div class="cu-stat-label">Total</div></div>
+            <div><div class="cu-stat-num">{{ $totalProjects }}</div><div class="cu-stat-label">{{ __('Total') }}</div></div>
         </div>
         <div class="cu-stat">
             <div class="cu-stat-icon active"><i class="bi bi-lightning-charge"></i></div>
-            <div><div class="cu-stat-num">{{ $activeProjects }}</div><div class="cu-stat-label">Active</div></div>
+            <div><div class="cu-stat-num">{{ $activeProjects }}</div><div class="cu-stat-label">{{ __('Active') }}</div></div>
         </div>
         <div class="cu-stat">
             <div class="cu-stat-icon done"><i class="bi bi-check-circle"></i></div>
-            <div><div class="cu-stat-num">{{ $doneProjects }}</div><div class="cu-stat-label">Completed</div></div>
+            <div><div class="cu-stat-num">{{ $doneProjects }}</div><div class="cu-stat-label">{{ __('Completed') }}</div></div>
         </div>
         <div class="cu-stat">
             <div class="cu-stat-icon overdue"><i class="bi bi-exclamation-circle"></i></div>
-            <div><div class="cu-stat-num">{{ $overdueProjects }}</div><div class="cu-stat-label">Overdue</div></div>
+            <div><div class="cu-stat-num">{{ $overdueProjects }}</div><div class="cu-stat-label">{{ __('Overdue') }}</div></div>
         </div>
     </div>
 
@@ -630,24 +630,24 @@
     <div class="cu-toolbar">
         <div class="cu-search-wrap">
             <i class="bi bi-search"></i>
-            <input type="text" class="cu-search" id="projectSearch" placeholder="Search projects…" autocomplete="off">
+            <input type="text" class="cu-search" id="projectSearch" placeholder="{{ __('Search') }}" autocomplete="off">
         </div>
         <select class="cu-filter" id="statusFilter">
-            <option value="">All Status</option>
-            <option value="not_started">Not Started</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-            <option value="closed">Closed</option>
+            <option value="">{{ __('All') }} {{ __('Status') }}</option>
+            <option value="not_started">{{ __('Pending') }}</option>
+            <option value="in_progress">{{ __('In Progress') }}</option>
+            <option value="completed">{{ __('Completed') }}</option>
+            <option value="closed">{{ __('Archived') }}</option>
         </select>
         <select class="cu-filter" id="sortFilter">
-            <option value="name">Name A–Z</option>
-            <option value="created_at">Newest</option>
-            <option value="progress">Progress</option>
+            <option value="name">{{ __('Title') }}</option>
+            <option value="created_at">{{ __('Newest') }}</option>
+            <option value="progress">{{ __('Progress') }}</option>
         </select>
         <div class="cu-view-toggle">
-            <button class="cu-view-btn active" data-view="grid" title="Grid"><i class="bi bi-grid-3x3-gap"></i></button>
-            <button class="cu-view-btn" data-view="list" title="List"><i class="bi bi-list-ul"></i></button>
-            <button class="cu-view-btn" data-view="tree" title="Tree"><i class="bi bi-diagram-3"></i></button>
+            <button class="cu-view-btn active" data-view="grid" title="{{ __('Grid') }}"><i class="bi bi-grid-3x3-gap"></i></button>
+            <button class="cu-view-btn" data-view="list" title="{{ __('List') }}"><i class="bi bi-list-ul"></i></button>
+            <button class="cu-view-btn" data-view="tree" title="{{ __('Tree') }}"><i class="bi bi-diagram-3"></i></button>
         </div>
     </div>
 
