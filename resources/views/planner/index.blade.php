@@ -391,106 +391,194 @@
     }
     #plToast button:hover{color:white;}
 
-    /* ── Next Up card ── */
-    .pl-next-wrap{margin-bottom:18px;}
+    /* ── Minimalist Hero Next Up Card ── */
+    .pl-next-wrap{margin-bottom:20px;}
     .pl-next-wrap[hidden]{display:none;}
     .pl-next-card{
-        display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-        background:linear-gradient(135deg,#ffffff 0%,#f8f7ff 50%,#faf5ff 100%);
-        border:1.5px solid #ddd6fe;border-radius:14px;padding:14px 18px;
-        box-shadow:0 4px 18px -2px rgba(124,58,237,.1), 0 2px 6px -1px rgba(0,0,0,.04);
-        position:relative;overflow:hidden;transition:all .2s ease;
+        display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+        background:linear-gradient(135deg, #ffffff 0%, #fbfaff 45%, #f5f3ff 100%);
+        border:1.5px solid #e0e7ff;border-radius:18px;padding:16px 20px;
+        box-shadow:0 8px 24px -4px rgba(124,58,237,.08), 0 2px 8px -2px rgba(0,0,0,.04);
+        position:relative;overflow:hidden;transition:all .22s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor:pointer;
     }
     .pl-next-card:hover{
-        border-color:#c4b5fd;box-shadow:0 6px 22px -2px rgba(124,58,237,.16), 0 3px 8px -1px rgba(0,0,0,.05);
+        border-color:#c4b5fd;transform:translateY(-2px);
+        box-shadow:0 12px 30px -4px rgba(124,58,237,.16), 0 4px 12px -2px rgba(0,0,0,.06);
+    }
+    .pl-next-card-avoid{
+        background:linear-gradient(135deg, #ffffff 0%, #fff5f5 45%, #fef2f2 100%);
+        border-color:#fecaca;
+    }
+    .pl-next-card-avoid:hover{
+        border-color:#f87171;box-shadow:0 12px 30px -4px rgba(220,38,38,.14);
+    }
+    .pl-next-top-badge{
+        display:flex;align-items:center;gap:8px;width:100%;margin-bottom:2px;
     }
     .pl-next-label{
-        display:inline-flex;align-items:center;gap:6px;flex-shrink:0;
-        font-size:11.5px;font-weight:700;letter-spacing:normal;
+        display:inline-flex;align-items:center;gap:6px;
+        font-size:11px;font-weight:800;letter-spacing:normal;
         color:#ffffff;background:linear-gradient(135deg,#7c3aed 0%,#8b5cf6 100%);
-        border-radius:24px;padding:4px 12px;box-shadow:0 2px 8px rgba(124,58,237,.35);
+        border-radius:20px;padding:3.5px 11px;box-shadow:0 2px 8px rgba(124,58,237,.3);
     }
-    .pl-next-label i{font-size:12px;color:#fde047;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));}
-    .pl-next-body{flex:1;min-width:200px;}
-    .pl-next-title{font-size:15px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px;}
-    .pl-next-title i{color:#7c3aed;font-size:16px;}
-    .pl-next-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px;}
-    .pl-next-actions{display:flex;align-items:center;gap:8px;margin-inline-start:auto;}
-    .pl-next-actions button{
-        display:inline-flex;align-items:center;gap:6px;border-radius:10px;
-        font-size:12.5px;font-weight:700;cursor:pointer;padding:7px 16px;
-        transition:all .18s cubic-bezier(0.4, 0, 0.2, 1);
+    .pl-next-label i{font-size:11px;color:#fde047;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2));}
+    .pl-next-step-indicator{
+        font-size:11px;font-weight:700;color:#6d28d9;background:#ede9fe;
+        border-radius:20px;padding:3.5px 10px;display:inline-flex;align-items:center;gap:4px;
     }
-    .pl-next-actions button:active{transform:scale(0.97);}
-    .pl-next-step{
-        display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-        width:100%;background:#ffffff;border:1.5px solid #ede9fe;border-radius:11px;
-        padding:9px 14px;margin-top:4px;box-shadow:0 1px 3px rgba(124,58,237,.04);
-    }
-    .pl-next-step > i{
-        color:#7c3aed;font-size:14px;flex-shrink:0;background:#f5f3ff;
-        width:26px;height:26px;border-radius:7px;display:grid;place-items:center;
-    }
-    .pl-next-step-name{font-size:13px;font-weight:700;color:#1e293b;}
-    .pl-next-set-inputs{display:inline-flex;align-items:center;gap:6px;margin-inline-start:auto;}
-    .pl-next-set-inputs input{
-        width:78px;padding:5px 9px;border:1.5px solid #e2e8f0;border-radius:8px;
-        font-size:12.5px;outline:none;font-variant-numeric:tabular-nums;transition:all .15s ease;
-    }
-    .pl-next-set-inputs input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    .pl-next-step-indicator.all-done{background:#dcfce7;color:#16a34a;}
     
-    /* Modern Custom Time Picker */
-    .pl-time-picker-custom{
-        display:inline-flex;align-items:center;gap:7px;
-        background:#ffffff;border:1.5px solid #c4b5fd;border-radius:10px;
-        padding:4px 10px 4px 12px;box-shadow:0 1px 4px rgba(124,58,237,.08);
-        transition:all .2s ease;
+    .pl-next-body{flex:1;min-width:240px;}
+    .pl-next-title-row{display:flex;align-items:flex-start;gap:12px;}
+    .pl-next-icon-wrap{
+        width:38px;height:38px;border-radius:12px;display:grid;place-items:center;
+        font-size:18px;flex-shrink:0;transition:transform .2s ease;
     }
-    .pl-time-picker-custom:hover{
-        border-color:#a855f7;box-shadow:0 2px 8px rgba(124,58,237,.16);
+    .pl-next-card:hover .pl-next-icon-wrap{transform:scale(1.08);}
+    .pl-next-icon-wrap.is-task{background:#eff6ff;color:#2563eb;}
+    .pl-next-icon-wrap.is-routine{background:#f5f3ff;color:#7c3aed;}
+    .pl-next-icon-wrap.is-avoid{background:#fee2e2;color:#dc2626;}
+    .pl-next-title-content{flex:1;}
+    .pl-next-title{font-size:16px;font-weight:800;color:#0f172a;line-height:1.35;margin-bottom:4px;}
+    .pl-next-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+    .pl-priority-pill{
+        font-size:11.5px;font-weight:700;border-radius:8px;padding:2px 8px;border:1px solid transparent;
     }
-    .pl-time-picker-custom:focus-within{
-        border-color:#7c3aed;background:#faf5ff;
-        box-shadow:0 0 0 3.5px rgba(124,58,237,.18);
+    .pl-period-pill{
+        font-size:11.5px;font-weight:700;border-radius:8px;padding:2px 8px;border:1px solid transparent;
+        display:inline-flex;align-items:center;gap:4px;
     }
-    .pl-time-picker-custom .pl-time-icon{
-        color:#7c3aed;font-size:14px;flex-shrink:0;transition:transform .2s ease;
+    .pl-meta-tag{
+        font-size:11.5px;color:#64748b;font-weight:600;display:inline-flex;align-items:center;gap:4px;
+        background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:2px 7px;
     }
-    .pl-time-picker-custom:focus-within .pl-time-icon{
-        transform:scale(1.15);color:#6d28d9;
+    .pl-streak-tag{
+        font-size:11.5px;font-weight:700;color:#d97706;background:#fef3c7;border:1px solid #fde68a;
+        border-radius:7px;padding:2px 7px;display:inline-flex;align-items:center;gap:3px;
     }
-    .pl-modern-time-input{
-        border:none !important;background:transparent !important;padding:2px 0 !important;
-        font-family:inherit;font-size:13.5px !important;font-weight:700;color:#1e1b4b;
-        outline:none !important;width:86px !important;cursor:pointer;
-        font-variant-numeric:tabular-nums;direction:ltr;text-align:center;
+    
+    .pl-next-prompt-pill{
+        display:inline-flex;align-items:center;gap:8px;margin-top:9px;
+        background:#ffffff;border:1.5px solid #ede9fe;border-radius:10px;
+        padding:5px 12px;font-size:12.5px;color:#334155;box-shadow:0 1px 3px rgba(124,58,237,.05);
     }
-    .pl-modern-time-input::-webkit-calendar-picker-indicator{
-        cursor:pointer;
-        filter:invert(26%) sepia(80%) saturate(3000%) hue-rotate(256deg) brightness(92%) contrast(98%);
-        opacity:.85;transition:transform .15s ease,opacity .15s ease;
+    .pl-next-prompt-pill.value{border-color:#ddd6fe;background:#faf5ff;color:#6b21a8;}
+    .pl-next-prompt-pill.step{border-color:#e0e7ff;background:#f8faff;color:#1e3a8a;}
+    .pl-next-prompt-pill.avoid{border-color:#fecaca;background:#fff5f5;color:#991b1b;}
+    .pl-step-schedule-mini{font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:3px;}
+
+    .pl-next-actions{display:flex;align-items:center;gap:8px;margin-inline-start:auto;}
+    .pl-action-btn{
+        display:inline-flex;align-items:center;gap:6px;border-radius:11px;
+        font-size:12.5px;font-weight:700;cursor:pointer;padding:8px 18px;
+        transition:all .18s cubic-bezier(0.4, 0, 0.2, 1);border:1px solid transparent;
     }
-    .pl-modern-time-input::-webkit-calendar-picker-indicator:hover{
-        transform:scale(1.2);opacity:1;
+    .pl-action-btn:active{transform:scale(0.96);}
+    .pl-action-btn-primary{
+        background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);color:#fff;
+        border-color:#6d28d9;box-shadow:0 3px 10px rgba(124,58,237,.28);
+    }
+    .pl-action-btn-primary:hover{
+        background:linear-gradient(135deg,#6d28d9 0%,#5b21b6 100%);
+        transform:translateY(-1px);box-shadow:0 5px 14px rgba(124,58,237,.38);color:#fff;
+    }
+    .pl-action-btn-start{
+        background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe;
+    }
+    .pl-action-btn-start:hover{
+        background:#ede9fe;color:#5b21b6;transform:translateY(-1px);
+    }
+    .pl-action-btn-focus{
+        background:#f8fafc;color:#334155;border-color:#cbd5e1;
+    }
+    .pl-action-btn-focus:hover{
+        background:#f1f5f9;color:#0f172a;transform:translateY(-1px);
+    }
+    .pl-action-btn-slip{
+        background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);color:#fff;
+        border-color:#b91c1c;box-shadow:0 3px 10px rgba(220,38,38,.25);
+    }
+    .pl-action-btn-slip:hover{
+        background:linear-gradient(135deg,#b91c1c 0%,#991b1b 100%);color:#fff;
+        transform:translateY(-1px);box-shadow:0 5px 14px rgba(220,38,38,.35);
     }
 
-    .pl-start-hint{font-size:11px;font-weight:600;color:#8a8f98;}
-    .pl-next-start{
-        background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);color:#fff;border:1px solid #6d28d9;
-        box-shadow:0 2px 6px rgba(124,58,237,.25);
+    /* ── Quick Action Mini-Modal (#plNextUpModal) ── */
+    .pl-qa-modal{position:fixed;inset:0;z-index:1099;display:flex;align-items:center;justify-content:center;padding:16px;}
+    .pl-qa-modal[hidden]{display:none;}
+    .pl-qa-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(4px);animation:plFadeIn .2s ease-out;}
+    .pl-qa-modal-dialog{
+        position:relative;background:#ffffff;border-radius:20px;width:min(460px,94vw);
+        box-shadow:0 24px 60px -12px rgba(15,23,42,.35), 0 0 0 1px rgba(226,232,240,.8);
+        display:flex;flex-direction:column;overflow:hidden;animation:plScaleUp .22s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .pl-next-start:hover{
+    @keyframes plFadeIn{from{opacity:0;}to{opacity:1;}}
+    @keyframes plScaleUp{from{opacity:0;transform:scale(.92) translateY(10px);}to{opacity:1;transform:scale(1) translateY(0);}}
+    
+    .pl-qa-modal-head{
+        display:flex;align-items:center;justify-content:space-between;
+        padding:16px 20px 14px;border-bottom:1px solid #f1f5f9;background:#faf5ff;
+    }
+    .pl-qa-modal-icon{
+        width:36px;height:36px;border-radius:10px;background:#7c3aed;color:#fff;
+        display:grid;place-items:center;font-size:16px;box-shadow:0 2px 8px rgba(124,58,237,.3);
+    }
+    .pl-qa-modal-title{font-size:15px;font-weight:800;color:#0f172a;}
+    .pl-qa-modal-sub{font-size:11.5px;color:#64748b;font-weight:600;}
+    .pl-qa-modal-close{
+        border:none;background:#f1f5f9;color:#64748b;width:30px;height:30px;
+        border-radius:50%;display:grid;place-items:center;cursor:pointer;transition:all .15s;
+    }
+    .pl-qa-modal-close:hover{background:#e2e8f0;color:#0f172a;}
+    .pl-qa-modal-body{padding:18px 20px;max-height:calc(85vh - 140px);overflow-y:auto;}
+    .pl-qa-modal-foot{
+        display:flex;align-items:center;justify-content:space-between;gap:12px;
+        padding:14px 20px;border-top:1px solid #f1f5f9;background:#f8fafc;
+    }
+    .pl-qa-hero-chip{
+        background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border:1.5px solid #e2e8f0;border-radius:13px;padding:12px 14px;
+    }
+    .pl-qa-time-box{
+        display:flex;align-items:center;gap:12px;background:#fdf4ff;
+        border:2px solid #e879f9;border-radius:14px;padding:10px 16px;
+    }
+    .pl-time-modal-input{
+        border:none !important;background:transparent !important;font-size:26px !important;
+        color:#701a75 !important;letter-spacing:1px;
+    }
+    .pl-time-modal-input:focus{box-shadow:none !important;}
+    .pl-preset-chip{
+        border:1.5px solid #e2e8f0;background:#ffffff;color:#334155;border-radius:18px;
+        padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;
+    }
+    .pl-preset-chip:hover{border-color:#a855f7;background:#faf5ff;color:#7c3aed;transform:translateY(-1px);}
+    .pl-stepper-wrap input{border-color:#cbd5e1;color:#0f172a;}
+    .pl-stepper-wrap input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.15);}
+    .pl-qa-submit-btn{
+        background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);border-color:#6d28d9;
+        box-shadow:0 3px 10px rgba(124,58,237,.28);
+    }
+    .pl-qa-submit-btn:hover{
         background:linear-gradient(135deg,#6d28d9 0%,#5b21b6 100%);
-        transform:translateY(-1px);box-shadow:0 4px 10px rgba(124,58,237,.35);
+        transform:translateY(-1px);box-shadow:0 5px 14px rgba(124,58,237,.38);
     }
-    .pl-next-done{
-        background:#ffffff;color:#15803d;border:1.5px solid #86efac;
-        box-shadow:0 1px 3px rgba(22,163,74,.1);
+
+    /* ── Enhanced Daily Energy & Workload Capacity Widget ── */
+    .pl-capacity-bar{
+        background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%) !important;
+        border:1.5px solid #e2e8f0 !important;border-radius:14px !important;
+        box-shadow:0 2px 10px rgba(0,0,0,.03) !important;
     }
-    .pl-next-done:hover{
-        background:#f0fdf4;border-color:#4ade80;color:#166534;
-        transform:translateY(-1px);box-shadow:0 3px 8px rgba(22,163,74,.18);
+    .pl-capacity-bar:hover{border-color:#cbd5e1 !important;}
+    .pl-capacity-pill{
+        font-size:11.5px;font-weight:800;border-radius:20px;padding:4px 12px;
+        display:inline-flex;align-items:center;gap:6px;
     }
+    .pl-capacity-pill.optimal{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;}
+    .pl-capacity-pill.heavy{background:#fef3c7;color:#b45309;border:1px solid #fde68a;}
+    .pl-capacity-pill.overloaded{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;}
 
     /* ── Quick add ── */
     .pl-toolbar-right{display:flex;align-items:center;gap:8px;}
@@ -657,21 +745,24 @@
         </div>
 
         {{-- Workload Capacity Bar --}}
-        <div class="pl-capacity-bar mb-3 p-2 px-3 rounded-3 bg-white border d-flex align-items-center justify-content-between flex-wrap gap-2 shadow-sm">
-            <div class="d-flex align-items-center gap-2">
-                <i class="bi bi-speedometer2 {{ ($totalEstimatedHours ?? 0) > 8 ? 'text-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'text-warning' : 'text-success') }} fs-5"></i>
+        <div class="pl-capacity-bar mb-3 p-2.5 px-3 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-2 shadow-sm">
+            <div class="d-flex align-items-center gap-2.5">
+                <div class="p-2 rounded-3 {{ ($totalEstimatedHours ?? 0) > 8 ? 'bg-danger-subtle text-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'bg-warning-subtle text-warning' : 'bg-success-subtle text-success') }}">
+                    <i class="bi bi-speedometer2 fs-5"></i>
+                </div>
                 <div>
-                    <span class="small fw-semibold text-dark">{{ __('Daily Workload Capacity') }}:</span>
+                    <span class="small fw-bold text-dark d-block">{{ __('Daily Workload Capacity') }}</span>
                     <span class="small text-muted">{{ number_format($totalEstimatedHours ?? 0, 1) }}h / {{ $dailyCapacityHours ?? 6 }}h {{ __('focus capacity') }}</span>
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2 flex-grow-1 mx-lg-3" style="max-width: 280px;">
-                <div class="progress w-100" style="height: 7px;">
-                    <div class="progress-bar {{ ($totalEstimatedHours ?? 0) > 8 ? 'bg-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'bg-warning' : 'bg-success') }}" style="width: {{ $capacityPercentage ?? 0 }}%"></div>
+                <div class="progress w-100" style="height: 8px; border-radius: 6px; background-color: #e2e8f0;">
+                    <div class="progress-bar {{ ($totalEstimatedHours ?? 0) > 8 ? 'bg-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'bg-warning' : 'bg-success') }}" style="width: {{ $capacityPercentage ?? 0 }}%; border-radius: 6px; transition: width .4s ease;"></div>
                 </div>
                 <span class="small fw-bold {{ ($totalEstimatedHours ?? 0) > 8 ? 'text-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'text-warning' : 'text-success') }}">{{ $capacityPercentage ?? 0 }}%</span>
             </div>
-            <span class="badge {{ ($totalEstimatedHours ?? 0) > 8 ? 'bg-danger-subtle text-danger' : (($totalEstimatedHours ?? 0) > 6 ? 'bg-warning-subtle text-warning' : 'bg-success-subtle text-success') }} rounded-pill px-3 py-1 small">
+            <span class="pl-capacity-pill {{ ($totalEstimatedHours ?? 0) > 8 ? 'overloaded' : (($totalEstimatedHours ?? 0) > 6 ? 'heavy' : 'optimal') }}">
+                <span class="spinner-grow spinner-grow-sm" style="width:6px;height:6px;" role="status" aria-hidden="true"></span>
                 {{ ($totalEstimatedHours ?? 0) > 8 ? __('⚠️ Overloaded') : (($totalEstimatedHours ?? 0) > 6 ? __('⚡ Heavy Day') : __('✅ Optimal Load')) }}
             </span>
         </div>
@@ -903,6 +994,7 @@
     @include('planner._focus-modal')
     @include('planner._kickoff-modal')
     @include('planner._ai-schedule-modal')
+    @include('planner._next-up-modal')
 @endsection
 
 @push('scripts')
@@ -1743,6 +1835,302 @@
         if (kind === 'task') refreshCounters(); else refreshRoutineCounters();
     }
 
+    /* ── Quick Action Mini-Modal & Next Up Handlers ── */
+    const plNextUpModal = document.getElementById('plNextUpModal');
+    let plNextUpActiveData = null;
+
+    function handleNextUpCardClick(e) {
+        if (e.target.closest('button, a, input, select, label')) return;
+        const wrap = document.getElementById('plNextUp');
+        const card = wrap ? wrap.querySelector('.pl-next-card') : null;
+        if (!card) return;
+        if (card.dataset.needsModal === '1') {
+            openNextUpModal();
+        } else {
+            plCompleteNext();
+        }
+    }
+
+    function handleNextUpClick() {
+        const wrap = document.getElementById('plNextUp');
+        const card = wrap ? wrap.querySelector('.pl-next-card') : null;
+        if (!card) return;
+        if (card.dataset.needsModal === '1') {
+            openNextUpModal();
+        } else {
+            plCompleteNext();
+        }
+    }
+
+    function openNextUpModal() {
+        const wrap = document.getElementById('plNextUp');
+        const card = wrap ? wrap.querySelector('.pl-next-card') : null;
+        if (!card || !plNextUpModal) return;
+
+        const d = card.dataset;
+        plNextUpActiveData = {
+            type: d.nextType,
+            id: d.nextId,
+            title: d.nextTitle,
+            url: d.nextUrl,
+            hasSteps: d.hasSteps === '1',
+            stepsDone: parseInt(d.stepsDone || '0'),
+            stepsTotal: parseInt(d.stepsTotal || '0'),
+            stepId: d.stepId,
+            stepName: d.stepName,
+            stepUrl: d.stepUrl,
+            slipUrl: d.slipUrl,
+            isAvoid: d.isAvoid === '1',
+            trackMode: d.trackMode,
+            logUrl: d.logUrl,
+            valueKind: d.valueKind,
+            valueUnit: d.valueUnit,
+            valueLabel: d.valueLabel,
+            targetSets: parseInt(d.targetSets || '1'),
+            loggedSets: d.loggedSets ? JSON.parse(d.loggedSets) : {},
+            allSteps: d.allSteps ? JSON.parse(d.allSteps) : [],
+            date: wrap.dataset.nextDate
+        };
+
+        // Header & Hero Chip setup
+        document.getElementById('plNextUpHeroTitle').textContent = plNextUpActiveData.title;
+        const heroIcon = document.getElementById('plNextUpHeroIcon');
+        heroIcon.className = 'bi fs-5 ' + (plNextUpActiveData.isAvoid ? 'bi-shield-exclamation text-danger' : (plNextUpActiveData.type === 'task' ? 'bi-check2-square text-primary' : 'bi-arrow-repeat text-purple'));
+        
+        // Modal sub text
+        document.getElementById('plNextUpModalSub').textContent = plNextUpActiveData.type === 'task' ? '{{ __('Task') }}' : '{{ __('Routine') }}';
+
+        // Reset panels
+        ['plModalPanelTime', 'plModalPanelValue', 'plModalPanelSets', 'plModalPanelAvoid', 'plModalPanelSteps'].forEach(id => {
+            const p = document.getElementById(id);
+            if (p) p.style.display = 'none';
+        });
+
+        const btnText = document.getElementById('plModalBtnText');
+        const btnIcon = document.getElementById('plModalBtnIcon');
+
+        // Panel activation
+        if (plNextUpActiveData.trackMode === 'value') {
+            if (plNextUpActiveData.valueKind === 'time') {
+                const panel = document.getElementById('plModalPanelTime');
+                panel.style.display = 'block';
+                document.getElementById('plModalTimeLabel').textContent = plNextUpActiveData.valueLabel || '{{ __('Wake-up Time') }}';
+                const timeInp = document.getElementById('plModalTimeInput');
+                timeInp.value = formatNowTime();
+                if (btnText) btnText.textContent = '{{ __('Log Time') }}';
+            } else {
+                const panel = document.getElementById('plModalPanelValue');
+                panel.style.display = 'block';
+                document.getElementById('plModalValueLabel').textContent = plNextUpActiveData.valueLabel || '{{ __('Value') }}';
+                document.getElementById('plModalValueUnit').textContent = plNextUpActiveData.valueUnit || '';
+                document.getElementById('plModalValueInput').value = '1';
+                if (btnText) btnText.textContent = '{{ __('Log Value') }}';
+            }
+        } else if (plNextUpActiveData.trackMode === 'sets') {
+            const panel = document.getElementById('plModalPanelSets');
+            panel.style.display = 'block';
+            document.getElementById('plModalSetsStepName').textContent = plNextUpActiveData.stepName ? (plNextUpActiveData.stepName + ' • ' + '{{ __('Sets') }}') : '{{ __('Sets') }}';
+            
+            const grid = document.getElementById('plModalSetsGrid');
+            grid.innerHTML = '';
+            for (let s = 1; s <= plNextUpActiveData.targetSets; s++) {
+                const loggedVal = plNextUpActiveData.loggedSets[s] || '';
+                const row = document.createElement('div');
+                row.className = 'd-flex align-items-center gap-2 bg-light p-2 rounded-3 border';
+                row.innerHTML = `
+                    <span class="badge bg-purple text-white px-2 py-1">${'{{ __('Set') }} ' + s}</span>
+                    <input type="number" min="0" step="any" class="form-control form-control-sm text-center fw-bold" 
+                           data-modal-set="${s}" value="${loggedVal}" placeholder="${plNextUpActiveData.valueUnit || '0'}">
+                    <span class="small text-muted fw-semibold">${plNextUpActiveData.valueUnit || ''}</span>
+                `;
+                grid.appendChild(row);
+            }
+            if (btnText) btnText.textContent = '{{ __('Log Sets') }}';
+        } else if (plNextUpActiveData.isAvoid) {
+            const panel = document.getElementById('plModalPanelAvoid');
+            panel.style.display = 'block';
+            document.getElementById('plModalAvoidNote').value = '';
+            if (btnText) btnText.textContent = '{{ __('Log Slip') }}';
+        } else if (plNextUpActiveData.allSteps && plNextUpActiveData.allSteps.length > 0) {
+            const panel = document.getElementById('plModalPanelSteps');
+            panel.style.display = 'block';
+            const list = document.getElementById('plModalStepsList');
+            list.innerHTML = '';
+            plNextUpActiveData.allSteps.forEach((st, idx) => {
+                const stepRow = document.createElement('div');
+                stepRow.className = 'd-flex align-items-center justify-content-between p-2 rounded-3 border ' + (st.completed ? 'bg-success-subtle border-success-subtle' : 'bg-white');
+                stepRow.innerHTML = `
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi ${st.completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted'} fs-6"></i>
+                        <span class="small fw-bold ${st.completed ? 'text-decoration-line-through text-muted' : 'text-dark'}">${st.name}</span>
+                    </div>
+                    ${st.period_label ? `<span class="badge bg-light text-muted border small">${st.period_label}</span>` : ''}
+                `;
+                list.appendChild(stepRow);
+            });
+            if (btnText) btnText.textContent = '{{ __('Complete step') }}';
+        } else {
+            if (btnText) btnText.textContent = '{{ __('Save & Complete') }}';
+        }
+
+        plNextUpModal.hidden = false;
+        document.body.classList.add('pl-modal-open');
+
+        setTimeout(() => {
+            const firstInput = plNextUpModal.querySelector('input:not([type="hidden"]):not([disabled])');
+            if (firstInput) firstInput.focus();
+        }, 80);
+    }
+
+    function closeNextUpModal() {
+        if (!plNextUpModal) return;
+        plNextUpModal.hidden = true;
+        document.body.classList.remove('pl-modal-open');
+        plNextUpActiveData = null;
+    }
+
+    function formatNowTime() {
+        const now = new Date();
+        return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    }
+
+    function plSetTimePreset(val) {
+        const inp = document.getElementById('plModalTimeInput');
+        if (!inp) return;
+        inp.value = val === 'now' ? formatNowTime() : val;
+    }
+
+    function plAdjustTimeMinutes(delta) {
+        const inp = document.getElementById('plModalTimeInput');
+        if (!inp) return;
+        const cur = inp.value || formatNowTime();
+        const parts = cur.split(':');
+        let total = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0) + delta;
+        if (total < 0) total += 1440;
+        total = total % 1440;
+        const h = Math.floor(total / 60);
+        const m = total % 60;
+        inp.value = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    }
+
+    function plAdjustValue(delta) {
+        const inp = document.getElementById('plModalValueInput');
+        if (!inp) return;
+        let cur = parseFloat(inp.value) || 0;
+        cur = Math.max(0, cur + delta);
+        inp.value = cur;
+    }
+
+    function plFillAllSetsFromFirst() {
+        const first = plNextUpModal.querySelector('[data-modal-set="1"]');
+        if (!first || first.value === '') return;
+        const val = first.value;
+        plNextUpModal.querySelectorAll('[data-modal-set]').forEach(inp => {
+            inp.value = val;
+        });
+    }
+
+    async function plSubmitNextUpModal() {
+        if (!plNextUpActiveData) return;
+        const spinner = document.getElementById('plModalSpinner');
+        const submitBtn = document.getElementById('plModalSubmitBtn');
+        if (spinner) spinner.classList.remove('d-none');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            const d = plNextUpActiveData;
+            if (d.trackMode === 'value') {
+                let val = null;
+                if (d.valueKind === 'time') {
+                    const timeInp = document.getElementById('plModalTimeInput');
+                    if (timeInp && timeInp.value) {
+                        val = timeInp.value.split(':').reduce((a, p) => a * 60 + Number(p), 0);
+                    }
+                } else {
+                    const numInp = document.getElementById('plModalValueInput');
+                    if (numInp) val = parseFloat(numInp.value);
+                }
+                if (val !== null && !isNaN(val)) {
+                    const res = await plFetch(d.logUrl + '?date=' + encodeURIComponent(d.date), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ value: val }),
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const logJson = await res.json();
+                    if (logJson.routine_completed) {
+                        applyRoutineToggle(d.id, d.date, true);
+                        if (logJson.streak != null) setStreak(d.id, logJson.streak);
+                        refreshRoutineCounters();
+                        maybeCelebrate();
+                    }
+                }
+            } else if (d.trackMode === 'sets') {
+                const sets = {};
+                plNextUpModal.querySelectorAll('[data-modal-set]').forEach(inp => {
+                    if (inp.value !== '' && !isNaN(parseFloat(inp.value))) sets[inp.dataset.modalSet] = parseFloat(inp.value);
+                });
+                const res = await plFetch(d.logUrl + '?date=' + encodeURIComponent(d.date), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ item_id: d.stepId, sets: sets }),
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const logJson = await res.json();
+                if (logJson.steps_done) {
+                    const ids = Object.keys(logJson.steps_done);
+                    const doneCount = ids.filter(k => logJson.steps_done[k]).length;
+                    ids.forEach(itemId => setStepChip(itemId, d.date, logJson.steps_done[itemId], true));
+                    setTaskRowStepProgress(d.id, doneCount, ids.length, logJson.routine_completed, 'routine');
+                }
+                if (logJson.routine_completed) {
+                    applyRoutineToggle(d.id, d.date, true);
+                    refreshRoutineCounters();
+                    maybeCelebrate();
+                }
+            } else if (d.isAvoid) {
+                const noteVal = document.getElementById('plModalAvoidNote')?.value || '';
+                const slipUrl = d.slipUrl;
+                if (slipUrl) {
+                    const res = await plFetch(slipUrl + '?date=' + encodeURIComponent(d.date), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ note: noteVal }),
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                }
+            } else if (d.hasSteps && d.stepId) {
+                const res = await plFetch(d.stepUrl + '?date=' + encodeURIComponent(d.date), {
+                    method: 'POST', headers: { 'Accept': 'application/json' }
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const json = await res.json();
+                if (d.type === 'task') {
+                    setTaskRowStepProgress(json.task_id, json.steps_done, json.steps_total, json.completed);
+                } else {
+                    setStepChip(json.item_id, d.date, json.completed);
+                    refreshStepCounts();
+                    if (json.routine_completed !== undefined) {
+                        applyRoutineToggle(json.routine_id, d.date, !!json.routine_completed);
+                        if (json.routine_completed && json.streak != null) setStreak(json.routine_id, json.streak);
+                        refreshRoutineCounters();
+                        if (json.routine_completed) maybeCelebrate();
+                    }
+                }
+            } else {
+                await plCompleteNext();
+            }
+
+            closeNextUpModal();
+            await refreshNextUp();
+        } catch (err) {
+            console.error('[Planner] submit next up modal failed', err);
+        } finally {
+            if (spinner) spinner.classList.add('d-none');
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    }
+
     async function plCompleteNext() {
         const wrap = document.getElementById('plNextUp');
         const card = wrap ? wrap.querySelector('.pl-next-card') : null;
@@ -1751,14 +2139,13 @@
         const id = card.dataset.nextId;
         const url = card.dataset.nextUrl;
         const date = wrap.dataset.nextDate;
-        const stepBox = card.querySelector('[data-next-step]');
-        const allDone = card.dataset.nextAllDone === '1';
+        const stepId = card.dataset.stepId;
+        const stepUrl = card.dataset.stepUrl;
 
         try {
             if (type === 'task') {
-                /* With open steps: tick just the first unfinished step (+ note it). */
-                if (stepBox && stepBox.dataset.stepId) {
-                    const res = await plFetch(stepBox.dataset.stepUrl, { method: 'POST', headers: { 'Accept': 'application/json' } });
+                if (stepId && stepUrl) {
+                    const res = await plFetch(stepUrl, { method: 'POST', headers: { 'Accept': 'application/json' } });
                     if (!res.ok) throw new Error('HTTP ' + res.status);
                     const json = await res.json();
                     setTaskRowStepProgress(json.task_id, json.steps_done, json.steps_total, json.completed);
@@ -1772,107 +2159,10 @@
                     });
                     refreshCounters();
                 }
-            } else if (stepBox && stepBox.dataset.logvalue === '1') {
-                /* Value-tracked routine: log the guided input — the log itself completes the routine. */
-                const input = stepBox.querySelector('[data-next-value-input]');
-                let value = null;
-                if (input && input.value) {
-                    value = input.type === 'time'
-                        ? (input.value.split(':').reduce((a, p) => a * 60 + Number(p), 0))
-                        : parseFloat(input.value);
-                }
-                if (value === null || isNaN(value)) {
-                    if (input) {
-                        input.classList.remove('pl-flash');
-                        void input.offsetWidth;
-                        input.classList.add('pl-flash');
-                        input.focus();
-                    }
-                    return;
-                }
-                const logRes = await plFetch(stepBox.dataset.logUrl + '?date=' + encodeURIComponent(date), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ value: value }),
-                });
-                if (!logRes.ok) throw new Error('HTTP ' + logRes.status);
-                const logJson = await logRes.json();
-                if (logJson.routine_completed) {
-                    applyRoutineToggle(id, date, true);
-                    if (logJson.streak != null) setStreak(id, logJson.streak);
-                    refreshRoutineCounters();
-                    maybeCelebrate();
-                }
-            } else if (stepBox && stepBox.dataset.logsets === '1' && stepBox.dataset.stepId) {
-                /* Tracked sets step: log the typed numbers — the server auto-ticks the step, no extra toggle. */
-                const sets = {};
-                stepBox.querySelectorAll('[data-set]').forEach(inp => {
-                    if (inp.value !== '' && !isNaN(parseFloat(inp.value))) sets[inp.dataset.set] = parseFloat(inp.value);
-                });
-                if (!Object.keys(sets).length && stepBox.dataset.logged !== '1') {
-                    /* No numbers typed — flash the inputs and stop. */
-                    stepBox.querySelectorAll('[data-set]').forEach(inp => {
-                        inp.classList.remove('pl-flash');
-                        void inp.offsetWidth;
-                        inp.classList.add('pl-flash');
-                    });
-                    const first = stepBox.querySelector('[data-set]');
-                    if (first) first.focus();
-                    return;
-                }
-                if (!Object.keys(sets).length) {
-                    /* Numbers already logged before (unticked from elsewhere) — the plain tick is allowed. */
-                    const res = await plFetch(stepBox.dataset.stepUrl + '?date=' + encodeURIComponent(date), {
-                        method: 'POST', headers: { 'Accept': 'application/json' },
-                    });
-                    if (!res.ok) throw new Error('HTTP ' + res.status);
-                    const tickJson = await res.json();
-                    setStepChip(tickJson.item_id, date, tickJson.completed);
-                    refreshStepCounts();
-                    if (tickJson.routine_completed !== undefined) {
-                        applyRoutineToggle(tickJson.routine_id, date, !!tickJson.routine_completed);
-                        if (tickJson.routine_completed && tickJson.streak != null) setStreak(tickJson.routine_id, tickJson.streak);
-                        refreshRoutineCounters();
-                        if (tickJson.routine_completed) maybeCelebrate();
-                    }
-                    await refreshNextUp();
-                    return;
-                }
-                const logRes = await plFetch(stepBox.dataset.logUrl + '?date=' + encodeURIComponent(date), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ item_id: stepBox.dataset.stepId, sets: sets }),
-                });
-                if (!logRes.ok) throw new Error('HTTP ' + logRes.status);
-                const logJson = await logRes.json();
-                /* Sync the list-row chips with what the log actually did. */
-                if (logJson.steps_done) {
-                    const ids = Object.keys(logJson.steps_done);
-                    const doneCount = ids.filter(k => logJson.steps_done[k]).length;
-                    ids.forEach(itemId => setStepChip(itemId, date, logJson.steps_done[itemId], true));
-                    setTaskRowStepProgress(id, doneCount, ids.length, logJson.routine_completed, 'routine');
-                } else {
-                    setStepChip(stepBox.dataset.stepId, date, true, true);
-                }
-                if (logJson.routine_completed) {
-                    applyRoutineToggle(id, date, true);
-                    refreshRoutineCounters();
-                    maybeCelebrate();
-                }
-            } else if (stepBox && stepBox.dataset.stepId && !allDone) {
-                /* Tick only the first unfinished step; full toggle only when every step is done. */
-                const res = await plFetch(stepBox.dataset.stepUrl + '?date=' + encodeURIComponent(date), {
+            } else if (stepId && stepUrl) {
+                const res = await plFetch(stepUrl + '?date=' + encodeURIComponent(date), {
                     method: 'POST', headers: { 'Accept': 'application/json' },
                 });
-                if (res.status === 422) {
-                    /* Server needs a logged number first (tracked step). */
-                    stepBox.querySelectorAll('[data-set]').forEach(inp => {
-                        inp.classList.remove('pl-flash');
-                        void inp.offsetWidth;
-                        inp.classList.add('pl-flash');
-                    });
-                    return;
-                }
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const json = await res.json();
                 setStepChip(json.item_id, date, json.completed);
@@ -1916,11 +2206,16 @@
         }
     }
 
-    /* Enter inside the Next Up card inputs submits like "Complete step". */
+    /* Modal Keyboard shortcuts: Enter submits, Escape closes */
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' && e.target.matches('#plNextUp [data-set], #plNextUp [data-next-value-input]')) {
-            e.preventDefault();
-            plCompleteNext();
+        if (plNextUpModal && !plNextUpModal.hidden) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closeNextUpModal();
+            } else if (e.key === 'Enter' && !e.target.matches('textarea')) {
+                e.preventDefault();
+                plSubmitNextUpModal();
+            }
         }
     });
 
