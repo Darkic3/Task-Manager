@@ -751,40 +751,40 @@
             <div class="pl-qa-backdrop" data-qa-close></div>
             <div class="pl-qa-dialog" role="dialog" aria-modal="true" aria-labelledby="plQaTitle">
                 <div class="pl-qa-head">
-                    <span class="pl-qa-title" id="plQaTitle">Quick add</span>
-                    <button type="button" class="pl-qa-x" data-qa-close aria-label="Close">&times;</button>
+                    <span class="pl-qa-title" id="plQaTitle">{{ __('Quick Add') }}</span>
+                    <button type="button" class="pl-qa-x" data-qa-close aria-label="{{ __('Close') }}">&times;</button>
                 </div>
                 <div class="pl-qa-tabs" role="tablist">
-                    <button type="button" class="pl-qa-tab active" data-qa-tab="task">Task</button>
-                    <button type="button" class="pl-qa-tab" data-qa-tab="routine">Routine</button>
+                    <button type="button" class="pl-qa-tab active" data-qa-tab="task">{{ __('Task') }}</button>
+                    <button type="button" class="pl-qa-tab" data-qa-tab="routine">{{ __('Routine') }}</button>
                 </div>
 
                 <form class="pl-qa-form" data-qa-panel="task"
                       data-url="{{ route('planner.quick-add.task') }}"
                       onsubmit="return submitQuickTask(this)">
                     <input type="hidden" name="date" value="{{ $date->toDateString() }}">
-                    <input type="text" name="title" class="pl-qa-input" placeholder="What needs to be done?" autocomplete="off">
+                    <input type="text" name="title" class="pl-qa-input" placeholder="{{ __('What needs to be done?') }}" autocomplete="off">
                     <div class="pl-qa-row">
-                        <select name="priority" aria-label="Priority">
-                            <option value="low">Low</option>
-                            <option value="medium" selected>Medium</option>
-                            <option value="high">High</option>
+                        <select name="priority" aria-label="{{ __('Priority') }}">
+                            <option value="low">{{ __('Low') }}</option>
+                            <option value="medium" selected>{{ __('Medium') }}</option>
+                            <option value="high">{{ __('High') }}</option>
                         </select>
-                        <select name="project_id" aria-label="Project">
-                            <option value="">No project</option>
+                        <select name="project_id" aria-label="{{ __('Project') }}">
+                            <option value="">{{ __('No Project') }}</option>
                             @foreach(($quickProjects ?? []) as $proj)
                                 <option value="{{ $proj->id }}">{{ $proj->name }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div class="pl-qa-row">
-                        <select name="time_period" aria-label="Time of day">
-                            <option value="">Anytime</option>
+                        <select name="time_period" aria-label="{{ __('Time of day') }}">
+                            <option value="">{{ __('Anytime') }}</option>
                             @foreach(config('routines.periods', []) as $key => $period)
-                                <option value="{{ $key }}">{{ $period['label'] }}</option>
+                                <option value="{{ $key }}">{{ __($period['label']) }}</option>
                             @endforeach
                         </select>
-                        <input type="time" name="due_time" aria-label="Exact time">
+                        <input type="time" name="due_time" aria-label="{{ __('Exact time') }}">
                     </div>
                     <div class="pl-qa-chips" data-qa-minutes>
                         <button type="button" data-min="15">15m</button>
@@ -794,7 +794,7 @@
                     </div>
                     <input type="hidden" name="estimated_minutes" value="">
                     <div class="pl-qa-actions">
-                        <button type="submit">Add task</button>
+                        <button type="submit">{{ __('Add task') }}</button>
                     </div>
                 </form>
 
@@ -802,23 +802,23 @@
                       data-url="{{ route('planner.quick-add.routine') }}"
                       onsubmit="return submitQuickRoutine(this)">
                     <input type="hidden" name="date" value="{{ $date->toDateString() }}">
-                    <input type="text" name="title" class="pl-qa-input" placeholder="Routine name" autocomplete="off">
+                    <input type="text" name="title" class="pl-qa-input" placeholder="{{ __('Routine name') }}" autocomplete="off">
                     <div class="pl-qa-row">
-                        <select name="frequency" aria-label="Frequency">
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                            <option value="every_n_days">Every other day</option>
+                        <select name="frequency" aria-label="{{ __('Frequency') }}">
+                            <option value="daily">{{ __('Daily') }}</option>
+                            <option value="weekly">{{ __('Weekly') }}</option>
+                            <option value="monthly">{{ __('Monthly') }}</option>
+                            <option value="every_n_days">{{ __('Every other day') }}</option>
                         </select>
-                        <select name="time_period" aria-label="Time of day">
-                            <option value="">Anytime</option>
+                        <select name="time_period" aria-label="{{ __('Time of day') }}">
+                            <option value="">{{ __('Anytime') }}</option>
                             @foreach(config('routines.periods', []) as $key => $period)
-                                <option value="{{ $key }}">{{ $period['label'] }}</option>
+                                <option value="{{ $key }}">{{ __($period['label']) }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div class="pl-qa-actions">
-                        <button type="submit">Add routine</button>
+                        <button type="submit">{{ __('Add routine') }}</button>
                     </div>
                 </form>
             </div>

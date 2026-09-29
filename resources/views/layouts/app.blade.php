@@ -544,6 +544,25 @@
         html[dir="rtl"] .ms-2 { margin-right: 0.5rem !important; margin-left: 0 !important; }
         html[dir="rtl"] .ms-3 { margin-right: 1rem !important; margin-left: 0 !important; }
 
+        /* RTL Directional Icon Mirroring */
+        html[dir="rtl"] .bi-arrow-right:not(.no-rtl),
+        html[dir="rtl"] .bi-arrow-left:not(.no-rtl),
+        html[dir="rtl"] .bi-chevron-right:not(.no-rtl),
+        html[dir="rtl"] .bi-chevron-left:not(.no-rtl),
+        html[dir="rtl"] .bi-arrow-right-short:not(.no-rtl),
+        html[dir="rtl"] .bi-arrow-left-short:not(.no-rtl),
+        html[dir="rtl"] .bi-arrow-right-circle:not(.no-rtl),
+        html[dir="rtl"] .bi-arrow-left-circle:not(.no-rtl),
+        html[dir="rtl"] .bi-box-arrow-right:not(.no-rtl),
+        html[dir="rtl"] .bi-box-arrow-left:not(.no-rtl),
+        html[dir="rtl"] .bi-caret-right-fill:not(.no-rtl),
+        html[dir="rtl"] .bi-caret-left-fill:not(.no-rtl),
+        html[dir="rtl"] .bi-chevron-double-right:not(.no-rtl),
+        html[dir="rtl"] .bi-chevron-double-left:not(.no-rtl) {
+            transform: scaleX(-1);
+            display: inline-block;
+        }
+
         /* ── Responsive Design ── */
         @media (max-width: 768px) {
             .sidebar-toggle { display: flex; }
@@ -852,7 +871,8 @@
                 minute: '2-digit',
                 second: '2-digit'
             };
-            document.getElementById('currentDateTime').innerText = now.toLocaleDateString('en-US', options);
+            const locale = '{{ app()->getLocale() === 'fa' ? 'fa-IR' : 'en-US' }}';
+            document.getElementById('currentDateTime').innerText = now.toLocaleDateString(locale, options);
         }
 
         updateDateTime();

@@ -206,17 +206,17 @@
     <h1 class="ts-title {{ $task->status === 'completed' ? 'is-done' : '' }}">{{ $task->title }}</h1>
 
     <div class="ts-attr-line">
-        <button class="ts-chip {{ $task->status }}" onclick="openStatusModal()" title="Change status">
+        <button class="ts-chip {{ $task->status }}" onclick="openStatusModal()" title="{{ __('Change status') }}">
             <span class="ts-dot"></span>{{ $statusLabel }}
         </button>
-        <span class="ts-prio {{ $task->priority }}">{{ $task->priority }}</span>
+        <span class="ts-prio {{ $task->priority }}">{{ __(ucfirst($task->priority)) }}</span>
         @if($task->due_date)
             <span class="ts-attr-sep">·</span>
-            <span class="ts-attr {{ $overdue ? 'overdue' : '' }}" title="{{ \Carbon\Carbon::parse($task->due_date)->format('M d, Y') }}">
+            <span class="ts-attr {{ $overdue ? 'overdue' : '' }}" title="{{ app_date(\Carbon\Carbon::parse($task->due_date)) }}">
                 <i class="bi bi-calendar-event"></i>
-                {{ \Carbon\Carbon::parse($task->due_date)->format('M d') }}
+                {{ app_date(\Carbon\Carbon::parse($task->due_date)) }}
                 @if($overdue)
-                    · Overdue
+                    · {{ __('Overdue') }}
                 @endif
             </span>
         @endif
@@ -226,7 +226,7 @@
         @endif
         @if($task->parent)
             <span class="ts-attr-sep">·</span>
-            <span class="ts-attr">Subtask of <a href="{{ route('tasks.show', $task->parent) }}">{{ $task->parent->title }}</a></span>
+            <span class="ts-attr">{{ __('Subtask of') }} <a href="{{ route('tasks.show', $task->parent) }}">{{ $task->parent->title }}</a></span>
         @endif
     </div>
 
@@ -242,7 +242,7 @@
 
     @if($task->children->count() > 0)
         <hr class="ts-divider">
-        <h2 class="ts-h">Subtasks ({{ $task->children->where('status', 'completed')->count() }}/{{ $task->children->count() }})</h2>
+        <h2 class="ts-h">{{ __('Subtasks') }} ({{ $task->children->where('status', 'completed')->count() }}/{{ $task->children->count() }})</h2>
         <div>
             @foreach($task->children as $child)
                 <a href="{{ route('tasks.show', $child) }}" class="ts-sub-row {{ $child->status === 'completed' ? 'is-done' : '' }}">
@@ -257,7 +257,7 @@
 
     <hr class="ts-divider">
     <h2 class="ts-h">
-        Checklist
+        {{ __('Checklist') }}
         @if($checklistTotal > 0)
             <span style="font-weight:400; text-transform:none; letter-spacing:0;">· {{ $checklistDone }}/{{ $checklistTotal }}</span>
         @endif
@@ -271,56 +271,56 @@
                         <i class="bi bi-check" style="font-size:11px;"></i>
                     @endif
                 </button>
-                <div class="ts-cl-text" onclick="editChecklistItem(this)" title="Click to edit">{{ $item->name }}</div>
-                <button class="ts-cl-del" onclick="deleteChecklistItem({{ $item->id }})" title="Delete">
+                <div class="ts-cl-text" onclick="editChecklistItem(this)" title="{{ __('Click to edit') }}">{{ $item->name }}</div>
+                <button class="ts-cl-del" onclick="deleteChecklistItem({{ $item->id }})" title="{{ __('Delete') }}">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
         @empty
-            <div id="cl-empty" class="ts-empty">No checklist items yet.</div>
+            <div id="cl-empty" class="ts-empty">{{ __('No checklist items yet.') }}</div>
         @endforelse
     </div>
     <form class="ts-cl-add" onsubmit="addChecklistItem(event)">
-        <input type="text" class="ts-cl-input" id="cl-input" placeholder="Add checklist item…" required>
-        <button type="submit" class="ts-cl-btn"><i class="bi bi-plus"></i> Add</button>
+        <input type="text" class="ts-cl-input" id="cl-input" placeholder="{{ __('Add checklist item…') }}" required>
+        <button type="submit" class="ts-cl-btn"><i class="bi bi-plus"></i> {{ __('Add') }}</button>
     </form>
 
     <hr class="ts-divider">
-    <h2 class="ts-h">Details</h2>
+    <h2 class="ts-h">{{ __('Details') }}</h2>
     <div class="ts-details">
         @if($task->project)
             <div>
-                <div class="ts-detail-lbl">Project</div>
+                <div class="ts-detail-lbl">{{ __('Project') }}</div>
                 <div class="ts-detail-val"><a href="{{ route('projects.show', $task->project) }}" style="color:#7c3aed;text-decoration:none;">{{ $task->project->name }}</a></div>
             </div>
         @endif
         @if($task->estimated_hours)
             <div>
-                <div class="ts-detail-lbl">Estimated</div>
+                <div class="ts-detail-lbl">{{ __('Estimated') }}</div>
                 <div class="ts-detail-val">{{ $task->estimatedLabel() }}</div>
             </div>
         @endif
         @if(((float) ($task->weight ?? 1)) !== 1.0 || $task->auto_weight)
             <div>
-                <div class="ts-detail-lbl">Weight</div>
-                <div class="ts-detail-val">×{{ $wFmt($wEff) }} <span style="color:#8b8d98;font-size:11.5px;">({{ $task->auto_weight ? 'auto' : 'manual' }})</span></div>
+                <div class="ts-detail-lbl">{{ __('Weight') }}</div>
+                <div class="ts-detail-val">×{{ $wFmt($wEff) }} <span style="color:#8b8d98;font-size:11.5px;">({{ $task->auto_weight ? __('auto') : __('manual') }})</span></div>
             </div>
         @endif
         @php $spent = $task->totalTimeSeconds(); @endphp
         @if($spent > 0)
             <div>
-                <div class="ts-detail-lbl">Time spent</div>
+                <div class="ts-detail-lbl">{{ __('Time spent') }}</div>
                 <div class="ts-detail-val">{{ \App\Models\TimeEntry::formatDuration($spent) }}</div>
             </div>
         @endif
         <div>
-            <div class="ts-detail-lbl">Created</div>
-            <div class="ts-detail-val">{{ $task->created_at->format('M d, Y') }}</div>
+            <div class="ts-detail-lbl">{{ __('Created') }}</div>
+            <div class="ts-detail-val">{{ app_date($task->created_at) }}</div>
         </div>
         @if($task->updated_at->ne($task->created_at))
             <div>
-                <div class="ts-detail-lbl">Updated</div>
-                <div class="ts-detail-val">{{ $task->updated_at->format('M d, Y') }}</div>
+                <div class="ts-detail-lbl">{{ __('Updated') }}</div>
+                <div class="ts-detail-val">{{ app_date($task->updated_at) }}</div>
             </div>
         @endif
     </div>
@@ -336,16 +336,16 @@
 <div id="statusModal" class="ts-modal-overlay" style="display:none;" onclick="if(event.target===this)closeStatusModal()">
     <div class="ts-modal-box">
         <div class="ts-modal-head">
-            <h5>Change status</h5>
+            <h5>{{ __('Change status') }}</h5>
             <button class="ts-modal-x" onclick="closeStatusModal()"><i class="bi bi-x"></i></button>
         </div>
         <div class="ts-modal-body">
             @foreach([
-                'to_do'       => 'To Do',
-                'in_progress' => 'In Progress',
-                'on_hold'     => 'On Hold',
-                'in_review'   => 'In Review',
-                'completed'   => 'Completed',
+                'to_do'       => __('To Do'),
+                'in_progress' => __('In Progress'),
+                'on_hold'     => __('On Hold'),
+                'in_review'   => __('In Review'),
+                'completed'   => __('Completed'),
             ] as $val => $label)
             <div class="ts-status-opt {{ $task->status === $val ? 'selected' : '' }}" onclick="selectStatus('{{ $val }}', this)">
                 <span class="ts-chip {{ $val }}"><span class="ts-dot"></span>{{ $label }}</span>

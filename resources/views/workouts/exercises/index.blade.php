@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Exercise Library')
+@section('title', __('Exercise Library'))
 
 @push('styles')
 <style>
@@ -13,15 +13,15 @@
 @section('content')
 <div class="wk-shell"><div class="wk-wrap">
     <div class="wk-head">
-        <div class="wk-head-main"><h1>Exercise Library</h1><p>Define each movement once, then reuse it across every workout plan.</p></div>
-        <a href="{{ route('workouts.plans.index') }}" class="wk-btn"><i class="bi bi-calendar3"></i><span>Plans</span></a>
-        <a href="{{ route('workouts.exercises.create') }}" class="wk-btn primary"><i class="bi bi-plus-lg"></i><span>New exercise</span></a>
+        <div class="wk-head-main"><h1>{{ __('Exercise Library') }}</h1><p>{{ __('Define each movement once, then reuse it across every workout plan.') }}</p></div>
+        <a href="{{ route('workouts.plans.index') }}" class="wk-btn"><i class="bi bi-calendar3"></i><span>{{ __('Plans') }}</span></a>
+        <a href="{{ route('workouts.exercises.create') }}" class="wk-btn primary"><i class="bi bi-plus-lg"></i><span>{{ __('New Exercise') }}</span></a>
     </div>
     @if(session('success'))<div class="alert alert-success py-2 small">{{ session('success') }}</div>@endif
     <form class="wk-card wk-toolbar" method="GET">
-        <input class="wk-input wk-search" name="q" value="{{ request('q') }}" placeholder="Search exercises or aliases...">
-        <select class="wk-input" name="category"><option value="">All categories</option>@foreach($categories as $category)<option value="{{ $category }}" @selected(request('category') === $category)>{{ $category }}</option>@endforeach</select>
-        <button class="wk-btn primary" type="submit"><i class="bi bi-search"></i>Filter</button>
+        <input class="wk-input wk-search" name="q" value="{{ request('q') }}" placeholder="{{ __('Search exercises or aliases...') }}">
+        <select class="wk-input" name="category"><option value="">{{ __('All categories') }}</option>@foreach($categories as $category)<option value="{{ $category }}" @selected(request('category') === $category)>{{ $category }}</option>@endforeach</select>
+        <button class="wk-btn primary" type="submit"><i class="bi bi-search"></i>{{ __('Filter') }}</button>
     </form>
     <div class="wk-card">
         @if($exercises->count())
@@ -33,14 +33,14 @@
                             @if($exercise->category)<span class="wk-pill">{{ $exercise->category }}</span>@endif
                             @foreach(array_slice($exercise->equipment ?? [], 0, 2) as $equipment)<span class="wk-pill gray">{{ $equipment }}</span>@endforeach
                         </div>
-                        <div class="wk-ex-note">{{ $exercise->instructions ?: 'No form notes yet.' }}</div>
-                        <div class="wk-ex-foot"><span><i class="bi bi-arrow-repeat"></i> {{ $exercise->workout_exercises_count }} plan uses</span><span class="wk-actions"><a class="wk-icon" href="{{ route('workouts.reports.exercise', $exercise) }}" title="History"><i class="bi bi-graph-up"></i></a><a class="wk-icon" href="{{ route('workouts.exercises.edit', $exercise) }}" title="Edit"><i class="bi bi-pencil"></i></a><form method="POST" action="{{ route('workouts.exercises.destroy', $exercise) }}" onsubmit="return confirm('Archive this exercise?')">@csrf @method('DELETE')<button class="wk-icon border-0 bg-transparent" title="Archive"><i class="bi bi-archive"></i></button></form></span></div>
+                        <div class="wk-ex-note">{{ $exercise->instructions ?: __('No form notes yet.') }}</div>
+                        <div class="wk-ex-foot"><span><i class="bi bi-arrow-repeat"></i> {{ $exercise->workout_exercises_count }} {{ __('plan uses') }}</span><span class="wk-actions"><a class="wk-icon" href="{{ route('workouts.reports.exercise', $exercise) }}" title="{{ __('History') }}"><i class="bi bi-graph-up"></i></a><a class="wk-icon" href="{{ route('workouts.exercises.edit', $exercise) }}" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a><form method="POST" action="{{ route('workouts.exercises.destroy', $exercise) }}" onsubmit="return confirm('{{ __('Archive this exercise?') }}')">@csrf @method('DELETE')<button class="wk-icon border-0 bg-transparent" title="{{ __('Archive') }}"><i class="bi bi-archive"></i></button></form></span></div>
                     </article>
                 @endforeach
             </div>
             {{ $exercises->links() }}
         @else
-            <div class="wk-empty"><i class="bi bi-heart-pulse"></i><strong>No exercises yet</strong><p class="mb-3">Create your first movement and reuse it in your weekly plans.</p><a href="{{ route('workouts.exercises.create') }}" class="wk-btn primary">Add exercise</a></div>
+            <div class="wk-empty"><i class="bi bi-heart-pulse"></i><strong>{{ __('No exercises yet') }}</strong><p class="mb-3">{{ __('Create your first movement and reuse it in your weekly plans.') }}</p><a href="{{ route('workouts.exercises.create') }}" class="wk-btn primary">{{ __('Add Exercise') }}</a></div>
         @endif
     </div>
 </div></div>

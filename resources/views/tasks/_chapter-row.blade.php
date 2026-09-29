@@ -8,13 +8,21 @@
     $chDueRel = null;
     if ($task->due_date) {
         $d = \Carbon\Carbon::parse($task->due_date)->startOfDay();
-        $dd = (int) round(now()->copy()->startOfDay()->diffInDays($d));
-        $chDueRel = $dd === 0 ? 'Today'
-            : ($dd === 1 ? 'Tomorrow'
-            : ($dd === -1 ? '1d late'
-            : ($dd < 0 ? abs($dd) . 'd late' : $dd . 'd left')));
+        $dd = (int) round(now()->copy()->startOfDay()->diffInDays($d, false));
+        if ($dd === 0) {
+            $chDueRel = __('Today');
+        } elseif ($dd === 1) {
+            $chDueRel = __('Tomorrow');
+        } elseif ($dd === -1) {
+            $chDueRel = __('1d late');
+        } elseif ($dd < 0) {
+            $chDueRel = __(':days d late', ['days' => abs($dd)]);
+        } elseif ($dd > 1) {
+            $chDueRel = __(':days d left', ['days' => $dd]);
+        }
     }
     $kids = $grouped->get($task->id, collect());
+    $padProp = app()->getLocale() === 'fa' ? 'padding-right' : 'padding-left';
 @endphp
 <div class="cu-ch-row {{ $isDone ? 'is-done' : '' }}"
      data-id="{{ $task->id }}"
@@ -24,22 +32,22 @@
      data-project="{{ $task->project_id }}"
      data-status="{{ $task->status }}"
      data-due="{{ $task->due_date ?? '' }}"
-     style="padding-left:calc(10px + {{ $depth }} * 20px);">
-    <input type="checkbox" class="cu-select-box" data-id="{{ $task->id }}" title="Select task">
+     style="{{ $padProp }}:calc(10px + {{ $depth }} * 20px);">
+    <input type="checkbox" class="cu-select-box" data-id="{{ $task->id }}" title="{{ __('Select task') }}">
     <button class="cu-check {{ $isDone ? 'done' : '' }}"
-            title="{{ $isDone ? 'Mark as To Do' : 'Mark as Completed' }}">
+            title="{{ $isDone ? __('Mark as To Do') : __('Mark as Completed') }}">
         <i class="bi {{ $isDone ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
     </button>
     <a href="{{ route('tasks.show', $task->id) }}" class="cu-task-title" title="{{ $task->title }}">
         {{ $task->title }}
     </a>
     @if($task->due_date)
-        <span class="cu-due {{ $chOverdue ? 'overdue' : '' }}" title="{{ $d->format('M d, Y') }}">
+        <span class="cu-due {{ $chOverdue ? 'overdue' : '' }}" title="{{ app_date($d) }}">
             {{ $chDueRel }}
         </span>
     @endif
     @if($kids->count() > 0)
-        <span class="cu-mini" title="{{ $kids->count() }} sub-items">
+        <span class="cu-mini" title="{{ $kids->count() }} {{ __('Subtasks') }}">
             <i class="bi bi-diagram-3"></i>{{ $kids->count() }}
         </span>
     @endif
@@ -49,13 +57,13 @@
         </button>
         <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size:13px;border-radius:8px;">
             @if(! $isDone)
-                <li><button type="button" class="dropdown-item" data-add-day data-id="{{ $task->id }}" data-title="{{ $task->title }}" data-period="{{ $task->time_period }}"><i class="bi bi-calendar-plus me-2"></i>Add to today's plan</button></li>
+                <li><button type="button" class="dropdown-item" data-add-day data-id="{{ $task->id }}" data-title="{{ $task->title }}" data-period="{{ $task->time_period }}"><i class="bi bi-calendar-plus me-2"></i>{{ __('Add to today\'s plan') }}</button></li>
                 <li><hr class="dropdown-divider"></li>
             @endif
-            <li><a class="dropdown-item" href="{{ route('tasks.show', $task->id) }}"><i class="bi bi-eye me-2"></i>View</a></li>
-            <li><a class="dropdown-item" href="{{ route('tasks.edit', $task->id) }}"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+            <li><a class="dropdown-item" href="{{ route('tasks.show', $task->id) }}"><i class="bi bi-eye me-2"></i>{{ __('View') }}</a></li>
+            <li><a class="dropdown-item" href="{{ route('tasks.edit', $task->id) }}"><i class="bi bi-pencil me-2"></i>{{ __('Edit') }}</a></li>
             <li><hr class="dropdown-divider"></li>
-            <li><button class="dropdown-item text-danger cu-del-task" data-id="{{ $task->id }}"><i class="bi bi-trash me-2"></i>Delete</button></li>
+            <li><button class="dropdown-item text-danger cu-del-task" data-id="{{ $task->id }}"><i class="bi bi-trash me-2"></i>{{ __('Delete') }}</button></li>
         </ul>
     </div>
 </div>

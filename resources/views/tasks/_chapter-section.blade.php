@@ -27,9 +27,9 @@
         @endif
         <span class="cu-chapter-progress">
             <span class="cu-chapter-pb"><span class="cu-chapter-pb-fill" style="width:{{ $secPct }}%;"></span></span>
-            <span class="cu-chapter-count" title="{{ $secDone }} of {{ $secTotal }} done">{{ $secDone }}/{{ $secTotal }}</span>
+            <span class="cu-chapter-count" title="{{ __(':done of :total done', ['done' => $secDone, 'total' => $secTotal]) }}">{{ $secDone }}/{{ $secTotal }}</span>
         </span>
-        <span class="cu-col-count cu-chapter-open" title="Unfinished">{{ $secOpen }} open</span>
+        <span class="cu-col-count cu-chapter-open" title="{{ __('Unfinished') }}">{{ $secOpen }} {{ __('open') }}</span>
     </div>
     <div class="cu-chapter-body">
         @foreach($tasks as $t)

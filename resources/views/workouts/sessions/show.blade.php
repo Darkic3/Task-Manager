@@ -205,15 +205,15 @@
 
                     <div class="d-flex align-items-center gap-2">
                         <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" onclick="startRestCountdown({{ $workoutExercise->rest_seconds ?: 90 }})">
-                            <i class="bi bi-stopwatch"></i> Rest
+                            <i class="bi bi-stopwatch"></i> {{ __('Rest') }}
                         </button>
                         @if($previous)
-                            <button type="button" class="btn btn-sm btn-light border text-primary rounded-pill use-previous-btn" data-previous="{{ json_encode($previous['sets']) }}" title="Copy last session values">
-                                <i class="bi bi-copy"></i> Autofill
+                            <button type="button" class="btn btn-sm btn-light border text-primary rounded-pill use-previous-btn" data-previous="{{ json_encode($previous['sets']) }}" title="{{ __('Copy last session values') }}">
+                                <i class="bi bi-copy"></i> {{ __('Autofill') }}
                             </button>
                         @endif
-                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" onclick="openSkipModal({{ $workoutExercise->id }}, '{{ addslashes($workoutExercise->exercise->name) }}')" title="Skip this entire exercise">
-                            <i class="bi bi-skip-forward"></i> Skip
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" onclick="openSkipModal({{ $workoutExercise->id }}, '{{ addslashes($workoutExercise->exercise->name) }}')" title="{{ __('Skip this entire exercise') }}">
+                            <i class="bi bi-skip-forward"></i> {{ __('Skip') }}
                         </button>
                     </div>
                 </div>
@@ -222,7 +222,7 @@
                 @if($previous)
                 <div class="bg-light px-3 py-2 border-bottom d-flex align-items-center justify-content-between text-muted small" style="font-size:11px;">
                     <div>
-                        <i class="bi bi-clock-history me-1"></i> Last session ({{ $previous['date'] }}): 
+                        <i class="bi bi-clock-history me-1"></i> {{ __('Last session') }} ({{ $previous['date'] }}): 
                         @foreach($previous['sets'] as $ps)
                             @if($isTimedMovement)
                                 <span class="badge bg-white text-dark border ms-1">{{ $ps['duration_seconds'] ?? 45 }}s</span>
@@ -238,16 +238,16 @@
                 <div class="p-2 set-list">
                     {{-- Headers --}}
                     <div class="set-row-clean {{ $isTimedMovement ? 'time-mode' : '' }} text-muted small fw-bold px-3 py-1" style="font-size:10px; text-transform:uppercase;">
-                        <span>Set</span>
+                        <span>{{ __('Set') }}</span>
                         @if($isTimedMovement)
-                            <span>Duration (Seconds / Mins)</span>
-                            <span>RIR / Effort</span>
+                            <span>{{ __('Duration (Seconds / Mins)') }}</span>
+                            <span>{{ __('RIR / Effort') }}</span>
                         @else
-                            <span>Weight (kg)</span>
-                            <span>Reps</span>
+                            <span>{{ __('Weight (kg)') }}</span>
+                            <span>{{ __('Reps') }}</span>
                         @endif
                         <span></span>
-                        <span class="text-center">Action</span>
+                        <span class="text-center">{{ __('Action') }}</span>
                     </div>
 
                     @for($setNumber = 1; $setNumber <= $setRows; $setNumber++)

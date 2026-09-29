@@ -11,7 +11,7 @@
     <!-- Back Link -->
     <a href="{{ route('tasks.index') }}" class="back-link">
         <i class="bi bi-arrow-left"></i>
-        Back to Tasks
+        {{ __('Back to Tasks') }}
     </a>
 
     <div class="form-container">
@@ -20,8 +20,8 @@
                 <div class="task-icon">
                     <i class="bi bi-plus-circle"></i>
                 </div>
-                <h2>Create New Task</h2>
-                <p>Define task requirements and assign to team members</p>
+                <h2>{{ __('Create New Task') }}</h2>
+                <p>{{ __('Define task requirements and assign to team members') }}</p>
             </div>
 
             <div class="form-body">
@@ -29,7 +29,7 @@
                     @csrf
 
                     <div class="form-group">
-                        <label for="title" class="form-label">Task Title *</label>
+                        <label for="title" class="form-label">{{ __('Task Title') }} *</label>
                         <div class="input-icon">
                             <i class="bi bi-card-text"></i>
                             <input type="text"
@@ -37,7 +37,7 @@
                                    id="title"
                                    class="form-control {{ $errors->has('title') ? 'is-invalid' : '' }}"
                                    value="{{ old('title') }}"
-                                   placeholder="Enter task title"
+                                   placeholder="{{ __('Enter task title') }}"
                                    required>
                         </div>
                         @error('title')
@@ -46,7 +46,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="description" class="form-label">Description</label>
+                        <label for="description" class="form-label">{{ __('Description') }}</label>
                         <div class="editor-container">
                             <div id="quill-editor" style="height: 150px;"></div>
                             <textarea name="description" id="description" style="display: none;">{{ old('description') }}</textarea>
@@ -58,7 +58,7 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="due_date" class="form-label">Due Date</label>
+                            <label for="due_date" class="form-label">{{ __('Due Date') }}</label>
                             <div class="input-icon">
                                 <i class="bi bi-calendar-event"></i>
                                 <input type="date"
@@ -73,7 +73,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Estimated Time</label>
+                            <label class="form-label">{{ __('Estimated Time') }}</label>
                             <div style="display:flex; gap:8px;">
                                 <div class="input-icon" style="flex:1;">
                                     <i class="bi bi-clock"></i>
@@ -85,7 +85,7 @@
                                            min="0"
                                            max="999"
                                            step="1"
-                                           placeholder="Hrs">
+                                           placeholder="{{ __('Hrs') }}">
                                 </div>
                                 <div style="flex:1;">
                                     <input type="number"
@@ -96,7 +96,7 @@
                                            min="0"
                                            max="59"
                                            step="1"
-                                           placeholder="Min">
+                                           placeholder="{{ __('Min') }}">
                                 </div>
                             </div>
                             @error('est_hours')
@@ -109,7 +109,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Priority *</label>
+                        <label class="form-label">{{ __('Priority') }} *</label>
                         <div class="priority-options">
                             <div class="priority-option">
                                 <input type="radio"
@@ -119,7 +119,7 @@
                                        {{ old('priority') == 'low' ? 'checked' : '' }}>
                                 <label for="priority_low" class="priority-low">
                                     <span class="priority-dot"></span>
-                                    Low Priority
+                                    {{ __('Low Priority') }}
                                 </label>
                             </div>
 
@@ -131,7 +131,7 @@
                                        {{ old('priority') == 'medium' || !old('priority') ? 'checked' : '' }}>
                                 <label for="priority_medium" class="priority-medium">
                                     <span class="priority-dot"></span>
-                                    Medium Priority
+                                    {{ __('Medium Priority') }}
                                 </label>
                             </div>
 
@@ -143,7 +143,7 @@
                                        {{ old('priority') == 'high' ? 'checked' : '' }}>
                                 <label for="priority_high" class="priority-high">
                                     <span class="priority-dot"></span>
-                                    High Priority
+                                    {{ __('High Priority') }}
                                 </label>
                             </div>
                         </div>
@@ -154,10 +154,10 @@
 
                     <div class="form-actions">
                         <a href="{{ route('tasks.index') }}" class="btn-secondary">
-                            Cancel
+                            {{ __('Cancel') }}
                         </a>
                         <button type="submit" class="btn-primary">
-                            <i class="bi bi-check-lg me-2"></i>Create Task
+                            <i class="bi bi-check-lg me-2"></i>{{ __('Create Task') }}
                         </button>
                     </div>
                 </form>

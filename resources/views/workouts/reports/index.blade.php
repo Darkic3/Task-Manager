@@ -74,38 +74,38 @@
         {{-- Header --}}
         <div class="wr-head">
             <div class="wr-head-main">
-                <h1>Workout Reports & Muscle Analytics</h1>
-                <p>Track weekly volume, muscle distribution, progressive overload, and session adherence.</p>
+                <h1>{{ __('Workout Reports & Muscle Analytics') }}</h1>
+                <p>{{ __('Track weekly volume, muscle distribution, progressive overload, and session adherence.') }}</p>
             </div>
-            <a class="wr-btn" href="{{ route('workouts.plans.index') }}"><i class="bi bi-calendar3"></i><span>Plans</span></a>
-            <a class="wr-btn" href="{{ route('workouts.exercises.index') }}"><i class="bi bi-heart-pulse"></i><span>Exercises</span></a>
+            <a class="wr-btn" href="{{ route('workouts.plans.index') }}"><i class="bi bi-calendar3"></i><span>{{ __('Plans') }}</span></a>
+            <a class="wr-btn" href="{{ route('workouts.exercises.index') }}"><i class="bi bi-heart-pulse"></i><span>{{ __('Exercises') }}</span></a>
         </div>
 
         {{-- Toolbar --}}
         <div class="wr-card wr-toolbar">
             <div class="wr-toggle">
-                <a class="{{ $mode === 'day' ? 'active' : '' }}" href="{{ route('workouts.reports.index', ['view' => 'day', 'date' => $date->toDateString()]) }}">Daily</a>
-                <a class="{{ $mode === 'week' ? 'active' : '' }}" href="{{ route('workouts.reports.index', ['view' => 'week', 'date' => $date->toDateString()]) }}">Weekly</a>
+                <a class="{{ $mode === 'day' ? 'active' : '' }}" href="{{ route('workouts.reports.index', ['view' => 'day', 'date' => $date->toDateString()]) }}">{{ __('Daily') }}</a>
+                <a class="{{ $mode === 'week' ? 'active' : '' }}" href="{{ route('workouts.reports.index', ['view' => 'week', 'date' => $date->toDateString()]) }}">{{ __('Weekly') }}</a>
             </div>
-            <a class="wr-btn" href="{{ route('workouts.reports.index', ['view' => $mode, 'date' => $previousDate->toDateString()]) }}"><i class="bi bi-chevron-left"></i></a>
+            <a class="wr-btn" href="{{ route('workouts.reports.index', ['view' => $mode, 'date' => $previousDate->toDateString()]) }}" title="{{ __('Previous') }}"><i class="bi bi-chevron-left"></i></a>
             <div class="wr-date">{{ $label }}</div>
-            <a class="wr-btn" href="{{ route('workouts.reports.index', ['view' => $mode, 'date' => $nextDate->toDateString()]) }}"><i class="bi bi-chevron-right"></i></a>
-            <a class="wr-btn" href="{{ route('workouts.reports.index', ['view' => $mode]) }}">Today</a>
+            <a class="wr-btn" href="{{ route('workouts.reports.index', ['view' => $mode, 'date' => $nextDate->toDateString()]) }}" title="{{ __('Next') }}"><i class="bi bi-chevron-right"></i></a>
+            <a class="wr-btn" href="{{ route('workouts.reports.index', ['view' => $mode]) }}">{{ __('Today') }}</a>
         </div>
 
         {{-- Top Summary Stats --}}
         <div class="wr-stats">
             <div class="wr-stat">
                 <div class="wr-stat-value">{{ $summary['completed_sessions'] }}/{{ $summary['scheduled'] ?: $summary['sessions'] }}</div>
-                <div class="wr-stat-label">Sessions Done</div>
+                <div class="wr-stat-label">{{ __('Sessions Done') }}</div>
             </div>
             <div class="wr-stat">
                 <div class="wr-stat-value">{{ $summary['completed_exercises'] }}/{{ $summary['exercises'] }}</div>
-                <div class="wr-stat-label">Exercises</div>
+                <div class="wr-stat-label">{{ __('Exercises') }}</div>
             </div>
             <div class="wr-stat">
                 <div class="wr-stat-value text-primary">{{ $summary['sets'] }}</div>
-                <div class="wr-stat-label">Total Sets</div>
+                <div class="wr-stat-label">{{ __('Total Sets') }}</div>
             </div>
             <div class="wr-stat">
                 <div class="wr-stat-value">{{ $summary['reps'] }}</div>

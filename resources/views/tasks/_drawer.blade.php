@@ -5,7 +5,7 @@
     {{-- Drawer Loading State --}}
     <div class="drawer-loading-indicator" id="drawerLoading">
         <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
-        <span class="small text-muted">Loading task details…</span>
+        <span class="small text-muted">{{ __('Loading task details…') }}</span>
     </div>
 
     <form id="taskDrawerForm" onsubmit="saveTaskDrawer(event)">
@@ -17,34 +17,34 @@
             <div class="d-flex align-items-center gap-2">
                 {{-- Quick Status Selector --}}
                 <select id="drawerTaskStatus" name="status" class="form-select form-select-sm drawer-status-select" onchange="saveTaskDrawerField('status')">
-                    <option value="to_do">⚪ To Do</option>
-                    <option value="in_progress">🟡 In Progress</option>
-                    <option value="on_hold">🟠 On Hold</option>
-                    <option value="in_review">🔵 In Review</option>
-                    <option value="completed">🟢 Completed</option>
+                    <option value="to_do">⚪ {{ __('To Do') }}</option>
+                    <option value="in_progress">🟡 {{ __('In Progress') }}</option>
+                    <option value="on_hold">🟠 {{ __('On Hold') }}</option>
+                    <option value="in_review">🔵 {{ __('In Review') }}</option>
+                    <option value="completed">🟢 {{ __('Completed') }}</option>
                 </select>
 
                 {{-- Quick Priority Selector --}}
                 <select id="drawerTaskPriority" name="priority" class="form-select form-select-sm drawer-priority-select" onchange="saveTaskDrawerField('priority')">
-                    <option value="low">🟢 Low</option>
-                    <option value="medium">🟡 Medium</option>
-                    <option value="high">🔴 High</option>
+                    <option value="low">🟢 {{ __('Low') }}</option>
+                    <option value="medium">🟡 {{ __('Medium') }}</option>
+                    <option value="high">🔴 {{ __('High') }}</option>
                 </select>
             </div>
 
             <div class="d-flex align-items-center gap-2">
                 {{-- Start Timer for this task --}}
-                <button type="button" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1" id="drawerTimerBtn" onclick="startDrawerTaskTimer()" title="Start tracking time on this task">
-                    <i class="bi bi-play-fill"></i> Track Time
+                <button type="button" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1" id="drawerTimerBtn" onclick="startDrawerTaskTimer()" title="{{ __('Start tracking time on this task') }}">
+                    <i class="bi bi-play-fill"></i> {{ __('Track Time') }}
                 </button>
 
                 {{-- Full View Link --}}
-                <a href="#" id="drawerFullViewLink" class="btn btn-sm btn-light border text-muted" title="Open full details page">
+                <a href="#" id="drawerFullViewLink" class="btn btn-sm btn-light border text-muted" title="{{ __('Open full details page') }}">
                     <i class="bi bi-box-arrow-up-right"></i>
                 </a>
 
                 {{-- Close Button --}}
-                <button type="button" class="btn-close ms-1" onclick="closeTaskDrawer()" aria-label="Close"></button>
+                <button type="button" class="btn-close ms-1" onclick="closeTaskDrawer()" aria-label="{{ __('Close') }}"></button>
             </div>
         </div>
 
@@ -53,16 +53,16 @@
             
             {{-- Title Input --}}
             <div class="mb-4">
-                <input type="text" id="drawerTaskTitle" name="title" class="form-control form-control-lg drawer-title-input" placeholder="Task title…" required onblur="saveTaskDrawerField('title')">
+                <input type="text" id="drawerTaskTitle" name="title" class="form-control form-control-lg drawer-title-input" placeholder="{{ __('Task title…') }}" required onblur="saveTaskDrawerField('title')">
             </div>
 
             {{-- Meta Grid --}}
             <div class="drawer-meta-grid p-3 rounded-3 bg-light border mb-4">
                 <div class="row g-3">
                     <div class="col-sm-6">
-                        <label class="drawer-meta-label">Project</label>
+                        <label class="drawer-meta-label">{{ __('Project') }}</label>
                         <select id="drawerTaskProject" name="project_id" class="form-select form-select-sm" onchange="saveTaskDrawerField('project_id')">
-                            <option value="">No Project</option>
+                            <option value="">{{ __('No Project') }}</option>
                             @if(isset($projects))
                                 @foreach($projects as $p)
                                     <option value="{{ $p->id }}">{{ $p->name }}</option>
@@ -72,21 +72,21 @@
                     </div>
 
                     <div class="col-sm-6">
-                        <label class="drawer-meta-label">Due Date</label>
+                        <label class="drawer-meta-label">{{ __('Due Date') }}</label>
                         <input type="date" id="drawerTaskDueDate" name="due_date" class="form-control form-control-sm" onchange="saveTaskDrawerField('due_date')">
                     </div>
 
                     <div class="col-sm-6">
-                        <label class="drawer-meta-label">Estimate (Hrs / Mins)</label>
+                        <label class="drawer-meta-label">{{ __('Estimate (Hrs / Mins)') }}</label>
                         <div class="d-flex gap-2">
-                            <input type="number" id="drawerTaskEstHours" name="est_hours" class="form-control form-control-sm" placeholder="Hrs" min="0" max="999" onchange="saveTaskDrawerField('estimate')">
-                            <input type="number" id="drawerTaskEstMins" name="est_minutes" class="form-control form-control-sm" placeholder="Min" min="0" max="59" onchange="saveTaskDrawerField('estimate')">
+                            <input type="number" id="drawerTaskEstHours" name="est_hours" class="form-control form-control-sm" placeholder="{{ __('Hrs') }}" min="0" max="999" onchange="saveTaskDrawerField('estimate')">
+                            <input type="number" id="drawerTaskEstMins" name="est_minutes" class="form-control form-control-sm" placeholder="{{ __('Min') }}" min="0" max="59" onchange="saveTaskDrawerField('estimate')">
                         </div>
                     </div>
 
                     <div class="col-sm-6">
-                        <label class="drawer-meta-label">Created</label>
-                        <div class="small text-muted pt-1" id="drawerTaskCreated">Just now</div>
+                        <label class="drawer-meta-label">{{ __('Created') }}</label>
+                        <div class="small text-muted pt-1" id="drawerTaskCreated">{{ __('Just now') }}</div>
                     </div>
                 </div>
             </div>
@@ -96,7 +96,7 @@
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <div class="d-flex align-items-center gap-2">
                         <i class="bi bi-check2-square text-primary"></i>
-                        <span class="fw-semibold small text-uppercase">Checklist & Subtasks</span>
+                        <span class="fw-semibold small text-uppercase">{{ __('Checklist & Subtasks') }}</span>
                     </div>
                     <span class="badge bg-light text-dark border small" id="drawerChecklistProgress">0%</span>
                 </div>
@@ -113,8 +113,8 @@
 
                 {{-- Add New Checklist Item Input --}}
                 <div class="input-group input-group-sm">
-                    <input type="text" id="drawerNewCheckItemName" class="form-control" placeholder="+ Add a subtask or checklist item… (Press Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();addDrawerChecklistItem();}">
-                    <button type="button" class="btn btn-outline-primary" onclick="addDrawerChecklistItem()">Add</button>
+                    <input type="text" id="drawerNewCheckItemName" class="form-control" placeholder="{{ __('+ Add a subtask or checklist item… (Press Enter)') }}" onkeydown="if(event.key==='Enter'){event.preventDefault();addDrawerChecklistItem();}">
+                    <button type="button" class="btn btn-outline-primary" onclick="addDrawerChecklistItem()">{{ __('Add') }}</button>
                 </div>
             </div>
 
@@ -122,9 +122,9 @@
             <div class="drawer-section mb-4">
                 <div class="d-flex align-items-center gap-2 mb-2">
                     <i class="bi bi-text-paragraph text-secondary"></i>
-                    <span class="fw-semibold small text-uppercase">Description / Notes</span>
+                    <span class="fw-semibold small text-uppercase">{{ __('Description / Notes') }}</span>
                 </div>
-                <textarea id="drawerTaskDescription" name="description" class="form-control drawer-desc-textarea" rows="4" placeholder="Add detailed notes or requirements for this task…" onblur="saveTaskDrawerField('description')"></textarea>
+                <textarea id="drawerTaskDescription" name="description" class="form-control drawer-desc-textarea" rows="4" placeholder="{{ __('Add detailed notes or requirements for this task…') }}" onblur="saveTaskDrawerField('description')"></textarea>
             </div>
 
         </div>
@@ -132,11 +132,11 @@
         {{-- Drawer Footer --}}
         <div class="drawer-footer d-flex align-items-center justify-content-between p-3 border-top bg-light">
             <button type="button" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1" onclick="deleteDrawerTask()">
-                <i class="bi bi-trash"></i> Delete
+                <i class="bi bi-trash"></i> {{ __('Delete') }}
             </button>
             <div class="d-flex align-items-center gap-2">
-                <span class="small text-muted" id="drawerSaveStatus">All changes saved</span>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="closeTaskDrawer()">Close</button>
+                <span class="small text-muted" id="drawerSaveStatus">{{ __('All changes saved') }}</span>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="closeTaskDrawer()">{{ __('Close') }}</button>
             </div>
         </div>
     </form>
@@ -173,6 +173,16 @@
         flex-direction: column;
     }
     .task-drawer.open {
+        transform: translateX(0);
+    }
+
+    html[dir="rtl"] .task-drawer {
+        right: auto;
+        left: 0;
+        box-shadow: 10px 0 30px rgba(0,0,0,0.15);
+        transform: translateX(-100%);
+    }
+    html[dir="rtl"] .task-drawer.open {
         transform: translateX(0);
     }
 

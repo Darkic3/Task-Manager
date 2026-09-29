@@ -519,11 +519,11 @@
     <div class="cu-kanban" id="cuKanban">
         @php
             $columns = [
-                'to_do'      => ['label' => 'To Do',        'dot' => '#94a3b8',            'empty' => 'No tasks here',     'icon' => 'bi-circle',           'collapsed' => false],
-                'in_progress'=> ['label' => 'In Progress',   'dot' => '#7c3aed',            'empty' => 'Nothing active',    'icon' => 'bi-arrow-clockwise',  'collapsed' => false],
-                'on_hold'    => ['label' => 'On Hold',       'dot' => '#ad6800',            'empty' => 'None on hold',      'icon' => 'bi-pause-circle',     'collapsed' => true],
-                'in_review'  => ['label' => 'In Review',     'dot' => '#0b6bcb',            'empty' => 'Nothing to review', 'icon' => 'bi-eye',              'collapsed' => true],
-                'completed'  => ['label' => 'Completed',     'dot' => '#29774b',            'empty' => 'Nothing done yet',  'icon' => 'bi-check-circle',     'collapsed' => true],
+                'to_do'      => ['label' => __('To Do'),        'dot' => '#94a3b8',            'empty' => __('No tasks here'),     'icon' => 'bi-circle',           'collapsed' => false],
+                'in_progress'=> ['label' => __('In Progress'),   'dot' => '#7c3aed',            'empty' => __('Nothing active'),    'icon' => 'bi-arrow-clockwise',  'collapsed' => false],
+                'on_hold'    => ['label' => __('On Hold'),       'dot' => '#ad6800',            'empty' => __('None on hold'),      'icon' => 'bi-pause-circle',     'collapsed' => true],
+                'in_review'  => ['label' => __('In Review'),     'dot' => '#0b6bcb',            'empty' => __('Nothing to review'), 'icon' => 'bi-eye',              'collapsed' => true],
+                'completed'  => ['label' => __('Completed'),     'dot' => '#29774b',            'empty' => __('Nothing done yet'),  'icon' => 'bi-check-circle',     'collapsed' => true],
             ];
             $colCounts = [
                 'to_do' => $todoCnt, 'in_progress' => $progressCnt, 'on_hold' => $onHoldCnt,
@@ -539,10 +539,10 @@
                         <span class="cu-col-count" id="cnt-{{ $statusKey }}">{{ $colCounts[$statusKey] }}</span>
                     </span>
                     <div class="cu-col-actions">
-                        <button class="cu-col-add" data-bs-toggle="modal" data-bs-target="#createTaskModal" data-status="{{ $statusKey }}" title="New task in this column">
+                        <button class="cu-col-add" data-bs-toggle="modal" data-bs-target="#createTaskModal" data-status="{{ $statusKey }}" title="{{ __('New task in this column') }}">
                             <i class="bi bi-plus-lg"></i>
                         </button>
-                        <button type="button" class="cu-col-chevron-btn" data-chevron="{{ $statusKey }}" title="Collapse / expand">
+                        <button type="button" class="cu-col-chevron-btn" data-chevron="{{ $statusKey }}" title="{{ __('Collapse / expand') }}">
                             <i class="bi bi-chevron-down"></i>
                         </button>
                     </div>
@@ -556,7 +556,7 @@
                     </div>
                     <form class="cu-quickadd" data-quickadd="{{ $statusKey }}">
                         <i class="bi bi-plus-lg"></i>
-                        <input type="text" placeholder="Add task…" data-status="{{ $statusKey }}">
+                        <input type="text" placeholder="{{ __('Add task…') }}" data-status="{{ $statusKey }}">
                     </form>
                 </div>
             </div>
@@ -566,8 +566,8 @@
     {{-- LIST VIEW --}}
     <div class="cu-list-view" id="cuList">
         <div class="cu-list-head">
-            <div>Task</div><div>Project</div><div>Priority</div>
-            <div>Assignee</div><div>Due Date</div><div></div>
+            <div>{{ __('Task') }}</div><div>{{ __('Project') }}</div><div>{{ __('Priority') }}</div>
+            <div>{{ __('Assignee') }}</div><div>{{ __('Due Date') }}</div><div></div>
         </div>
         @foreach(collect($tasks)->flatten() as $task)
         <div class="cu-list-row" data-title="{{ strtolower($task->title) }}" data-priority="{{ $task->priority }}" data-project="{{ $task->project_id }}" data-status="{{ $task->status }}" data-due="{{ $task->due_date ?? '' }}">
@@ -710,8 +710,8 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>New Task</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>{{ __('New Task') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ __('Close') }}"></button>
             </div>
             <form action="{{ isset($project) ? route('projects.tasks.store', $project) : route('tasks.store') }}" method="POST">
                 @csrf
@@ -719,32 +719,32 @@
                     <div class="row g-3">
                         <div class="col-md-8">
                             <div class="cu-field">
-                                <label class="cu-label">Title <span style="color:#e5484d;">*</span></label>
-                                <input type="text" name="title" class="cu-input" placeholder="Task title…" required>
+                                <label class="cu-label">{{ __('Title') }} <span style="color:#e5484d;">*</span></label>
+                                <input type="text" name="title" class="cu-input" placeholder="{{ __('Task title…') }}" required>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="cu-field">
-                                <label class="cu-label">Priority <span style="color:#e5484d;">*</span></label>
+                                <label class="cu-label">{{ __('Priority') }} <span style="color:#e5484d;">*</span></label>
                                 <select name="priority" class="cu-input cu-select" required>
-                                    <option value="low">Low</option>
-                                    <option value="medium" selected>Medium</option>
-                                    <option value="high">High</option>
+                                    <option value="low">{{ __('Low') }}</option>
+                                    <option value="medium" selected>{{ __('Medium') }}</option>
+                                    <option value="high">{{ __('High') }}</option>
                                 </select>
                             </div>
                         </div>
                     </div>
                     <div class="cu-field">
-                        <label class="cu-label">Description</label>
+                        <label class="cu-label">{{ __('Description') }}</label>
                         <div id="task-quill-editor"></div>
                         <textarea name="description" id="task_description" style="display:none;"></textarea>
                     </div>
                     <div class="row g-3">
                         <div class="col-md-4">
                             <div class="cu-field">
-                                <label class="cu-label">Project</label>
+                                <label class="cu-label">{{ __('Project') }}</label>
                                 <select name="project_id" class="cu-input cu-select">
-                                    <option value="">No project</option>
+                                    <option value="">{{ __('No Project') }}</option>
                                     @foreach($projects as $proj)
                                         <option value="{{ $proj->id }}" {{ isset($project) && $project->id == $proj->id ? 'selected' : '' }}>{{ $proj->name }}</option>
                                     @endforeach
@@ -753,15 +753,15 @@
                         </div>
                         <div class="col-md-4">
                             <div class="cu-field">
-                                <label class="cu-label">Due Date</label>
+                                <label class="cu-label">{{ __('Due Date') }}</label>
                                 <input type="date" name="due_date" class="cu-input">
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="cu-field">
-                                <label class="cu-label">Assign To <span style="color:#e5484d;">*</span></label>
+                                <label class="cu-label">{{ __('Assign To') }} <span style="color:#e5484d;">*</span></label>
                                 <select name="user_id" class="cu-input cu-select" required>
-                                    <option value="{{ auth()->id() }}" selected>Me</option>
+                                    <option value="{{ auth()->id() }}" selected>{{ __('Me') }}</option>
                                     @foreach($users as $u)
                                         @if($u->id !== auth()->id())
                                             <option value="{{ $u->id }}">{{ $u->name }}</option>
@@ -772,22 +772,22 @@
                         </div>
                     </div>
                     <details class="cu-more">
-                        <summary>More options</summary>
+                        <summary>{{ __('More options') }}</summary>
                         <div class="row g-3 mt-0">
                             <div class="col-md-4">
                                 <div class="cu-field">
-                                    <label class="cu-label">Est. Time</label>
+                                    <label class="cu-label">{{ __('Est. Time') }}</label>
                                     <div style="display:flex; gap:6px;">
-                                        <input type="number" name="est_hours" class="cu-input" min="0" max="999" step="1" placeholder="Hrs" title="Hours">
-                                        <input type="number" name="est_minutes" class="cu-input" min="0" max="59" step="1" placeholder="Min" title="Minutes">
+                                        <input type="number" name="est_hours" class="cu-input" min="0" max="999" step="1" placeholder="{{ __('Hrs') }}" title="{{ __('Hours') }}">
+                                        <input type="number" name="est_minutes" class="cu-input" min="0" max="59" step="1" placeholder="{{ __('Min') }}" title="{{ __('Minutes') }}">
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-5">
                                 <div class="cu-field">
-                                    <label class="cu-label">Parent Task</label>
+                                    <label class="cu-label">{{ __('Parent Task') }}</label>
                                     <select name="parent_id" class="cu-input cu-select">
-                                        <option value="">None (top-level)</option>
+                                        <option value="">{{ __('None (top-level)') }}</option>
                                         @foreach(collect($tasks)->flatten()->sortBy('title') as $pt)
                                             <option value="{{ $pt->id }}">{{ $pt->title }}</option>
                                         @endforeach
@@ -796,12 +796,12 @@
                             </div>
                             <div class="col-md-3">
                                 <div class="cu-field">
-                                    <label class="cu-label">Weight</label>
+                                    <label class="cu-label">{{ __('Weight') }}</label>
                                     <input type="number" name="weight" class="cu-input" min="0" step="0.25" value="1">
                                     <div class="form-check mt-1">
                                         <input type="hidden" name="auto_weight" value="0">
                                         <input type="checkbox" name="auto_weight" value="1" class="form-check-input" checked id="autoWeight">
-                                        <label class="form-check-label" for="autoWeight" style="font-size:12px;">Auto weight</label>
+                                        <label class="form-check-label" for="autoWeight" style="font-size:12px;">{{ __('Auto weight') }}</label>
                                     </div>
                                 </div>
                             </div>
@@ -810,9 +810,9 @@
                     <input type="hidden" name="status" id="task_status" value="to_do">
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">{{ __('Cancel') }}</button>
                     <button type="submit" class="cu-btn-new" style="border-radius:6px;">
-                        <i class="bi bi-check-lg"></i> Create Task
+                        <i class="bi bi-check-lg"></i> {{ __('Create Task') }}
                     </button>
                 </div>
             </form>
@@ -828,40 +828,40 @@
     <div class="cud-box" role="dialog" aria-modal="true" aria-labelledby="addToDayTitle">
         <div class="cud-head">
             <div style="min-width:0;">
-                <div class="cud-eyebrow"><i class="bi bi-calendar-plus"></i> Add to today's plan</div>
+                <div class="cud-eyebrow"><i class="bi bi-calendar-plus"></i> {{ __('Add to today\'s plan') }}</div>
                 <div class="cud-title" data-add-day-title>&nbsp;</div>
             </div>
-            <button type="button" class="cud-x" data-add-day-close aria-label="Close">&times;</button>
+            <button type="button" class="cud-x" data-add-day-close aria-label="{{ __('Close') }}">&times;</button>
         </div>
         <div class="cud-chips">
-            <button type="button" class="cud-chip" data-period=""><i class="bi bi-infinity"></i> Anytime</button>
+            <button type="button" class="cud-chip" data-period=""><i class="bi bi-infinity"></i> {{ __('Anytime') }}</button>
             @foreach(config('routines.periods', []) as $key => $p)
                 <button type="button" class="cud-chip" data-period="{{ $key }}">
-                    <i class="bi {{ $p['icon'] }}" style="color:{{ $p['color'] }};"></i> {{ $p['label'] }}
+                    <i class="bi {{ $p['icon'] }}" style="color:{{ $p['color'] }};"></i> {{ __($p['label']) }}
                 </button>
             @endforeach
         </div>
         <div class="cud-foot">
-            <span class="cud-hint">Moves to today's plan</span>
-            <a href="{{ route('planner.index') }}" class="cud-link" target="_blank" rel="noopener">Open My Day →</a>
+            <span class="cud-hint">{{ __('Moves to today\'s plan') }}</span>
+            <a href="{{ route('planner.index') }}" class="cud-link" target="_blank" rel="noopener">{{ __('Open My Day') }} &rarr;</a>
         </div>
     </div>
 </div>
 
 {{-- Bulk action bar --}}
 <div id="cuBulkBar" style="display:none;">
-    <span id="cuBulkCount">0 selected</span>
-    <select id="cuBulkStatus" title="Move to status">
-        <option value="to_do">To Do</option>
-        <option value="in_progress">In Progress</option>
-        <option value="on_hold">On Hold</option>
-        <option value="in_review">In Review</option>
-        <option value="completed">Completed</option>
+    <span id="cuBulkCount">0 {{ __('selected') }}</span>
+    <select id="cuBulkStatus" title="{{ __('Move to status') }}">
+        <option value="to_do">{{ __('To Do') }}</option>
+        <option value="in_progress">{{ __('In Progress') }}</option>
+        <option value="on_hold">{{ __('On Hold') }}</option>
+        <option value="in_review">{{ __('In Review') }}</option>
+        <option value="completed">{{ __('Completed') }}</option>
     </select>
-    <button id="cuBulkApply">Move</button>
-    <button id="cuBulkDone" title="Mark selected as completed">Done ✓</button>
-    <button id="cuBulkDelete" class="danger">Delete</button>
-    <button id="cuBulkCancel" title="Cancel selection">✕</button>
+    <button id="cuBulkApply">{{ __('Move') }}</button>
+    <button id="cuBulkDone" title="{{ __('Mark selected as completed') }}">{{ __('Done') }} ✓</button>
+    <button id="cuBulkDelete" class="danger">{{ __('Delete') }}</button>
+    <button id="cuBulkCancel" title="{{ __('Cancel selection') }}">✕</button>
 </div>
 @endsection
 

@@ -4,6 +4,7 @@
 @endphp
 <style>
     #tt-root { position: fixed; right: 16px; bottom: 16px; z-index: 1040; font-size: 13px; }
+    html[dir="rtl"] #tt-root { right: auto; left: 16px; }
     #tt-fab {
         width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
         background: linear-gradient(135deg, #7c3aed, #5b21b6); color: white;
@@ -11,12 +12,14 @@
         align-items: center; justify-content: center; font-size: 20px;
         position: relative; margin-left: auto;
     }
+    html[dir="rtl"] #tt-fab { margin-left: 0; margin-right: auto; }
     #tt-fab.tt-running { background: linear-gradient(135deg, #16a34a, #15803d); }
     #tt-fab.tt-paused { background: linear-gradient(135deg, #d97706, #b45309); }
     #tt-fab .tt-dot {
         position: absolute; top: 2px; right: 2px; width: 12px; height: 12px;
         border-radius: 50%; background: #22c55e; border: 2px solid white; display: none;
     }
+    html[dir="rtl"] #tt-fab .tt-dot { right: auto; left: 2px; }
     #tt-fab.tt-running .tt-dot, #tt-fab.tt-paused .tt-dot { display: block; }
     #tt-fab.tt-paused .tt-dot { background: #f59e0b; }
     #tt-panel {
@@ -31,6 +34,7 @@
         font-weight: 700; font-size: 12px; color: #1a1d23;
     }
     .tt-head a { margin-left: auto; font-size: 11px; color: #7c3aed; text-decoration: none; font-weight: 600; }
+    html[dir="rtl"] .tt-head a { margin-left: 0; margin-right: auto; }
     .tt-body { padding: 12px; }
     .tt-elapsed { font-size: 26px; font-weight: 800; color: #1a1d23; text-align: center; font-variant-numeric: tabular-nums; }
     .tt-sub { font-size: 11px; color: #8a8f98; text-align: center; margin-bottom: 10px; word-break: break-word; }
@@ -54,56 +58,56 @@
 <div id="tt-root">
     <div id="tt-panel">
         <div class="tt-head">
-            <i class="bi bi-stopwatch"></i> Time Tracker
-            <a href="{{ route('time.reports') }}">Reports</a>
+            <i class="bi bi-stopwatch"></i> {{ __('Time Tracker') }}
+            <a href="{{ route('time.reports') }}">{{ __('Reports') }}</a>
         </div>
         <div class="tt-body">
             <div id="tt-active" style="display:none;">
                 <div class="tt-elapsed" id="tt-elapsed">00:00</div>
                 <div class="tt-sub" id="tt-sub"></div>
                 <div class="tt-row">
-                    <button type="button" class="tt-btn" id="tt-pause"><i class="bi bi-pause-fill"></i><span>Pause</span></button>
-                    <button type="button" class="tt-btn danger" id="tt-stop"><i class="bi bi-stop-fill"></i>Stop</button>
+                    <button type="button" class="tt-btn" id="tt-pause"><i class="bi bi-pause-fill"></i><span>{{ __('Pause') }}</span></button>
+                    <button type="button" class="tt-btn danger" id="tt-stop"><i class="bi bi-stop-fill"></i>{{ __('Stop') }}</button>
                 </div>
             </div>
             <div id="tt-form">
                 <div class="tt-field">
-                    <label>Project</label>
+                    <label>{{ __('Project') }}</label>
                     <select class="tt-input" id="tt-project">
-                        <option value="">No project</option>
+                        <option value="">{{ __('No Project') }}</option>
                         @foreach($ttProjects as $p)
                             <option value="{{ $p->id }}">{{ $p->name }}</option>
                         @endforeach
                     </select>
                 </div>
                 <div class="tt-field">
-                    <label>Task</label>
+                    <label>{{ __('Task') }}</label>
                     <select class="tt-input" id="tt-task" disabled>
-                        <option value="">Select a project first</option>
+                        <option value="">{{ __('Select a project first') }}</option>
                     </select>
                 </div>
                 <div class="tt-field">
-                    <label>What are you working on?</label>
-                    <input type="text" class="tt-input" id="tt-desc" placeholder="e.g. Chapter 2 exercises" maxlength="500">
+                    <label>{{ __('What are you working on?') }}</label>
+                    <input type="text" class="tt-input" id="tt-desc" placeholder="{{ __('e.g. Chapter 2 exercises') }}" maxlength="500">
                 </div>
                 <div class="tt-field">
-                    <label>Category</label>
+                    <label>{{ __('Category') }}</label>
                     <select class="tt-input" id="tt-category">
                         <option value="">—</option>
-                        <option value="study">Study</option>
-                        <option value="coding">Coding</option>
-                        <option value="review">Review</option>
-                        <option value="meeting">Meeting</option>
-                        <option value="other">Other</option>
+                        <option value="study">{{ __('Study') }}</option>
+                        <option value="coding">{{ __('Coding') }}</option>
+                        <option value="review">{{ __('Review') }}</option>
+                        <option value="meeting">{{ __('Meeting') }}</option>
+                        <option value="other">{{ __('Other') }}</option>
                     </select>
                 </div>
                 <button type="button" class="tt-btn primary" id="tt-start" style="width:100%;">
-                    <i class="bi bi-play-fill"></i> Start Timer
+                    <i class="bi bi-play-fill"></i> {{ __('Start Timer') }}
                 </button>
             </div>
         </div>
     </div>
-    <button type="button" id="tt-fab" title="Time tracker">
+    <button type="button" id="tt-fab" title="{{ __('Time Tracker') }}">
         <i class="bi bi-stopwatch" id="tt-fab-icon"></i>
         <span class="tt-dot"></span>
     </button>

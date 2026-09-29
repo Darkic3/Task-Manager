@@ -150,11 +150,11 @@
 
     @php
         $statusMap = [
-            'to_do'       => ['label'=>'To Do',       'class'=>'to-do',       'ini'=>'to_do'],
-            'in_progress' => ['label'=>'In Progress', 'class'=>'in-progress', 'ini'=>'in_progress'],
-            'on_hold'     => ['label'=>'On Hold',     'class'=>'on-hold',     'ini'=>'on_hold'],
-            'in_review'   => ['label'=>'In Review',   'class'=>'in-review',   'ini'=>'in_review'],
-            'completed'   => ['label'=>'Completed',   'class'=>'completed',   'ini'=>'completed'],
+            'to_do'       => ['label'=>__('To Do'),       'class'=>'to-do',       'ini'=>'to_do'],
+            'in_progress' => ['label'=>__('In Progress'), 'class'=>'in-progress', 'ini'=>'in_progress'],
+            'on_hold'     => ['label'=>__('On Hold'),     'class'=>'on-hold',     'ini'=>'on_hold'],
+            'in_review'   => ['label'=>__('In Review'),   'class'=>'in-review',   'ini'=>'in_review'],
+            'completed'   => ['label'=>__('Completed'),   'class'=>'completed',   'ini'=>'completed'],
         ];
         $priorityMap = ['low','medium','high'];
         [$estH, $estM] = \App\Models\Task::splitHours(old('estimated_hours', $task->estimated_hours));
@@ -171,15 +171,15 @@
         @method('PUT')
 
         {{-- Title --}}
-        <label for="title" class="te-inline-lbl">Task title</label>
+        <label for="title" class="te-inline-lbl">{{ __('Task title') }}</label>
         <input type="text" name="title" id="title"
                class="te-title-input {{ $errors->has('title') ? 'is-invalid' : '' }}"
-               value="{{ old('title', $task->title) }}" placeholder="Task title" required>
+               value="{{ old('title', $task->title) }}" placeholder="{{ __('Task title') }}" required>
         @error('title')<div class="invalid-feedback">{{ $message }}</div>@enderror
 
         {{-- Status + Priority chips --}}
         <div class="te-chip-row">
-            <span class="te-inline-lbl">Status</span>
+            <span class="te-inline-lbl">{{ __('Status') }}</span>
             @foreach($statusMap as $key => $info)
                 <span class="te-chip-opt chip-{{ $info['class'] }}">
                     <input type="radio" name="status" id="status_{{ $key }}" value="{{ $key }}"
@@ -192,13 +192,13 @@
             @error('status')<div class="invalid-feedback">{{ $message }}</div>@enderror
         </div>
         <div class="te-chip-row">
-            <span class="te-inline-lbl">Priority</span>
+            <span class="te-inline-lbl">{{ __('Priority') }}</span>
             @foreach($priorityMap as $key)
                 <span class="te-chip-opt chip-{{ $key }}">
                     <input type="radio" name="priority" id="priority_{{ $key }}" value="{{ $key }}"
                         {{ old('priority', $task->priority) == $key ? 'checked' : '' }}>
                     <label for="priority_{{ $key }}" class="te-chip">
-                        <span class="te-dot"></span> {{ ucfirst($key) }}
+                        <span class="te-dot"></span> {{ __(ucfirst($key)) }}
                     </label>
                 </span>
             @endforeach
@@ -215,30 +215,30 @@
         {{-- Schedule / Assignment grid --}}
         <div class="te-grid">
             <div class="te-field">
-                <label for="due_date">Due date</label>
+                <label for="due_date">{{ __('Due Date') }}</label>
                 <input type="date" name="due_date" id="due_date"
                        class="te-input {{ $errors->has('due_date') ? 'is-invalid' : '' }}"
                        value="{{ old('due_date', $task->due_date ? $task->due_date->format('Y-m-d') : '') }}">
                 @error('due_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="te-field">
-                <label>Estimated time</label>
+                <label>{{ __('Estimated Time') }}</label>
                 <div style="display:flex; gap:6px;">
                     <input type="number" name="est_hours" id="est_hours"
                            class="te-input {{ $errors->has('est_hours') ? 'is-invalid' : '' }}"
-                           value="{{ $estH }}" min="0" max="999" step="1" placeholder="Hrs" title="Hours">
+                           value="{{ $estH }}" min="0" max="999" step="1" placeholder="{{ __('Hrs') }}" title="{{ __('Hours') }}">
                     <input type="number" name="est_minutes" id="est_minutes"
                            class="te-input {{ $errors->has('est_minutes') ? 'is-invalid' : '' }}"
-                           value="{{ $estM }}" min="0" max="59" step="1" placeholder="Min" title="Minutes">
+                           value="{{ $estM }}" min="0" max="59" step="1" placeholder="{{ __('Min') }}" title="{{ __('Minutes') }}">
                 </div>
                 @error('est_hours')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 @error('est_minutes')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="te-field">
-                <label for="project_id">Project</label>
+                <label for="project_id">{{ __('Project') }}</label>
                 <select name="project_id" id="project_id"
                         class="te-input {{ $errors->has('project_id') ? 'is-invalid' : '' }}">
-                    <option value="" {{ old('project_id', $task->project_id) ? '' : 'selected' }}>No project</option>
+                    <option value="" {{ old('project_id', $task->project_id) ? '' : 'selected' }}>{{ __('No Project') }}</option>
                     @foreach($projects as $project)
                         <option value="{{ $project->id }}"
                             {{ old('project_id', $task->project_id) == $project->id ? 'selected' : '' }}>
@@ -249,7 +249,7 @@
                 @error('project_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="te-field">
-                <label for="user_id">Assigned to</label>
+                <label for="user_id">{{ __('Assigned to') }}</label>
                 <select name="user_id" id="user_id"
                         class="te-input {{ $errors->has('user_id') ? 'is-invalid' : '' }}">
                     @foreach($users as $user)
@@ -265,13 +265,13 @@
 
         {{-- Advanced options (collapsed) --}}
         <details class="te-more">
-            <summary>More options</summary>
+            <summary>{{ __('More options') }}</summary>
             <div class="te-grid te-grid-3" style="margin-top:12px;">
                 <div class="te-field">
-                    <label for="parent_id">Parent task</label>
+                    <label for="parent_id">{{ __('Parent Task') }}</label>
                     <select name="parent_id" id="parent_id"
                             class="te-input {{ $errors->has('parent_id') ? 'is-invalid' : '' }}">
-                        <option value="">None (top-level)</option>
+                        <option value="">{{ __('None (top-level)') }}</option>
                         @foreach($parentOptions as $opt)
                             <option value="{{ $opt->id }}"
                                 {{ (string) old('parent_id', $task->parent_id ?? '') === (string) $opt->id ? 'selected' : '' }}>
@@ -282,25 +282,25 @@
                     @error('parent_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="te-field">
-                    <label for="weight">Weight</label>
+                    <label for="weight">{{ __('Weight') }}</label>
                     <input type="number" name="weight" id="weight"
                            class="te-input {{ $errors->has('weight') ? 'is-invalid' : '' }}"
                            value="{{ old('weight', $task->weight ?? 1) }}" min="0" max="99" step="0.25">
                     @error('weight')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                    <div class="te-hint">Effective now: <strong>×{{ $wFmtNow }}</strong>
+                    <div class="te-hint">{{ __('Effective now:') }} <strong>×{{ $wFmtNow }}</strong>
                         @if($task->auto_weight && $task->ownTimeSeconds() > 0)
-                            (auto-boosted by tracked time)
+                            ({{ __('auto-boosted by tracked time') }})
                         @endif
                     </div>
                 </div>
                 <div class="te-field">
-                    <label>Auto weight</label>
+                    <label>{{ __('Auto weight') }}</label>
                     <div class="form-check" style="padding-top:6px;">
                         <input type="hidden" name="auto_weight" value="0">
                         <input type="checkbox" name="auto_weight" value="1" class="form-check-input" id="autoWeight"
                             {{ old('auto_weight', $task->auto_weight ?? true) ? 'checked' : '' }}>
                         <label class="form-check-label" for="autoWeight" style="font-size:12px;color:#3d4149;">
-                            Increases with time spent
+                            {{ __('Increases with time spent') }}
                         </label>
                     </div>
                 </div>
@@ -309,24 +309,24 @@
 
         {{-- Action bar --}}
         <div class="te-actions-bar">
-            <a href="{{ route('tasks.show', $task->id) }}" class="te-cancel">Cancel</a>
+            <a href="{{ route('tasks.show', $task->id) }}" class="te-cancel">{{ __('Cancel') }}</a>
             <button type="submit" class="te-save">
-                <i class="bi bi-check-lg"></i>Save changes
+                <i class="bi bi-check-lg"></i>{{ __('Save Changes') }}
             </button>
         </div>
     </form>
 
-    {{-- Danger Zone — minimal red row (kept per user choice) --}}
+    {{-- Danger Zone --}}
     <div class="te-danger">
         <div class="te-danger-text">
-            <h6>Delete this task</h6>
-            <p>Permanently removes this task and its checklist items. This cannot be undone.</p>
+            <h6>{{ __('Delete this task') }}</h6>
+            <p>{{ __('Permanently removes this task and its checklist items. This cannot be undone.') }}</p>
         </div>
         <form action="{{ route('tasks.destroy', $task->id) }}" method="POST" id="deleteForm">
             @csrf
             @method('DELETE')
             <button type="button" class="te-btn-danger" onclick="confirmDelete()">
-                <i class="bi bi-trash"></i>Delete task
+                <i class="bi bi-trash"></i>{{ __('Delete') }}
             </button>
         </form>
     </div>
