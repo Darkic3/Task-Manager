@@ -236,6 +236,57 @@ class PlannerNextUpTest extends TestCase
         $response->assertSeeInOrder(['Exact routine', 'Morning routine', 'Night routine']);
     }
 
+    public function test_next_up_prioritizes_morning_routine_over_partially_completed_multi_step_routine(): void
+    {
+        $user = User::factory()->create();
+
+        // Multi-step routine created first (would otherwise appear first by ID/sort)
+        $cobra = Routine::factory()->create([
+            'user_id' => $user->id,
+            'frequency' => 'daily',
+            'title' => 'Cobra Pose',
+            'time_period' => 'morning',
+        ]);
+        $morningStep = RoutineChecklistItem::create([
+            'user_id' => $user->id,
+            'routine_id' => $cobra->id,
+            'name' => 'Morning Pose',
+            'sort_order' => 0,
+            'time_period' => 'morning',
+        ]);
+        $noonStep = RoutineChecklistItem::create([
+            'user_id' => $user->id,
+            'routine_id' => $cobra->id,
+            'name' => 'Noon Pose',
+            'sort_order' => 1,
+            'time_period' => 'noon',
+        ]);
+
+        // Standalone morning routine created second
+        $morningPills = Routine::factory()->create([
+            'user_id' => $user->id,
+            'frequency' => 'daily',
+            'title' => 'Morning Pills',
+            'time_period' => 'morning',
+        ]);
+
+        // Complete the morning step of Cobra Pose
+        $morningStep->toggleOn(now());
+
+        // Next Up MUST pick Morning Pills because Cobra Pose's active step is now Noon!
+        $html = $this->nextUpHtml($user);
+        $this->assertStringContainsString('Morning Pills', $html);
+        $this->assertStringNotContainsString('Cobra Pose', $html);
+
+        // Now complete Morning Pills
+        $morningPills->toggleOn(now());
+
+        // Now Next Up should advance to Cobra Pose (Noon Pose)
+        $html = $this->nextUpHtml($user);
+        $this->assertStringContainsString('Cobra Pose', $html);
+        $this->assertStringContainsString('Noon Pose', $html);
+    }
+
     public function test_task_with_open_steps_shows_progress_and_next_step(): void
     {
         $user = User::factory()->create();

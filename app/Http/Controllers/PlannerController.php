@@ -737,6 +737,8 @@ class PlannerController extends Controller
                 'violation_qty' => $violatedQty,
                 'target_sets' => (int) ($s->target_sets ?? 1),
                 'unit' => $s->unit,
+                'time_period' => $s->time_period,
+                'scheduled_time' => $s->scheduled_time,
                 'period_label' => $s->periodLabel(),
                 'period_icon' => $s->periodIcon(),
                 'period_color' => $s->periodColor(),
@@ -766,6 +768,8 @@ class PlannerController extends Controller
                 'period_icon' => $activeStep['period_icon'],
                 'period_color' => $activeStep['period_color'],
                 'time_label' => $activeStep['time_label'],
+                'time_period' => $activeStep['time_period'] ?? null,
+                'scheduled_time' => $activeStep['scheduled_time'] ?? null,
             ] : null;
             $routine->avoidDayQty = $isAvoid
                 ? (int) ($violationMap['routine'][(int) $routine->id][$dayKey] ?? 0)
@@ -1109,6 +1113,8 @@ class PlannerController extends Controller
                 'violation_qty' => $violatedQty,
                 'target_sets' => (int) ($s->target_sets ?? 1),
                 'unit' => $s->unit,
+                'time_period' => $s->time_period,
+                'scheduled_time' => $s->scheduled_time,
                 'period_label' => $s->periodLabel(),
                 'period_icon' => $s->periodIcon(),
                 'period_color' => $s->periodColor(),
@@ -1144,6 +1150,8 @@ class PlannerController extends Controller
                     'period_icon' => $activeStep['period_icon'],
                     'period_color' => $activeStep['period_color'],
                     'time_label' => $activeStep['time_label'],
+                    'time_period' => $activeStep['time_period'] ?? null,
+                    'scheduled_time' => $activeStep['scheduled_time'] ?? null,
                 ];
                 $routine->activeStepSortKey = $activeStep['sort_key'];
             } else {

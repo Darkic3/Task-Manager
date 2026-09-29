@@ -352,24 +352,61 @@ class Routine extends Model
         return $this->time_period !== null || ($this->start_time && $this->end_time);
     }
 
-        /**
+    /**
      * The single ordering used everywhere (Routines page, My Day, Dashboard):
      * time-period slot -> manual drag order -> exact start time -> title.
+     * When steps have schedules and an active step is resolved, its schedule is used.
      * Fixed-width pieces keep plain string comparison byte-wise correct.
      */
     public function sortKey(): string
     {
-        $slot = $this->time_period
-            ? (int) config("routines.periods.{$this->time_period}.order", 99)
-            : 99;
-        $time = $this->start_time
-            ? Carbon::parse($this->start_time)->format('H:i')
+        $period = $this->time_period;
+        $startTime = $this->start_time;
+
+        if (! empty($this->activeStepSchedule)) {
+            if (! empty($this->activeStepSchedule['time_period'])) {
+                $period = $this->activeStepSchedule['time_period'];
+            }
+            if (! empty($this->activeStepSchedule['scheduled_time'])) {
+                $startTime = $this->activeStepSchedule['scheduled_time'];
+            }
+        }
+
+        $slot = $period
+            ? (int) config("routines.periods.{$period}.order", 99)
+            : ($startTime ? $this->hourToPeriodSlot($startTime) : 99);
+
+        $time = $startTime
+            ? Carbon::parse($startTime)->format('H:i')
             : '99:99';
 
         return str_pad((string) $slot, 2, '0', STR_PAD_LEFT)
             . str_pad((string) (int) $this->sort_order, 4, '0', STR_PAD_LEFT)
             . $time
             . '-' . mb_strtolower((string) $this->title);
+    }
+
+    private function hourToPeriodSlot(string $time): int
+    {
+        try {
+            $h = (int) Carbon::parse($time)->format('G');
+            if ($h < 12) {
+                return 1;
+            }
+            if ($h < 14) {
+                return 2;
+            }
+            if ($h < 18) {
+                return 3;
+            }
+            if ($h < 21) {
+                return 4;
+            }
+
+            return 5;
+        } catch (\Exception $e) {
+            return 99;
+        }
     }
 
     /**

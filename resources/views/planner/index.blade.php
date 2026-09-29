@@ -400,7 +400,7 @@
     .pl-next-title{font-size:14px;font-weight:700;color:#1a1d23;display:flex;align-items:center;gap:7px;}
     .pl-next-title i{color:#7c3aed;font-size:15px;}
     .pl-next-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;}
-    .pl-next-actions{display:flex;align-items:center;gap:7px;margin-left:auto;}
+    .pl-next-actions{display:flex;align-items:center;gap:7px;margin-inline-start:auto;}
     .pl-next-actions button{
         display:inline-flex;align-items:center;gap:5px;border-radius:8px;
         font-size:12.5px;font-weight:700;cursor:pointer;padding:6px 13px;transition:all .15s;
@@ -412,12 +412,48 @@
     }
     .pl-next-step > i{color:#7c3aed;font-size:13px;flex-shrink:0;}
     .pl-next-step-name{font-size:12.5px;font-weight:700;color:#3d4149;}
-    .pl-next-set-inputs{display:inline-flex;gap:5px;margin-left:auto;}
+    .pl-next-set-inputs{display:inline-flex;align-items:center;gap:5px;margin-inline-start:auto;}
     .pl-next-set-inputs input{
         width:74px;padding:4px 8px;border:1px solid #e5e7eb;border-radius:7px;
         font-size:12px;outline:none;font-variant-numeric:tabular-nums;
     }
     .pl-next-set-inputs input:focus{border-color:#c4b5fd;}
+    
+    /* Modern Custom Time Picker */
+    .pl-time-picker-custom{
+        display:inline-flex;align-items:center;gap:6px;
+        background:#ffffff;border:1.5px solid #c4b5fd;border-radius:9px;
+        padding:3px 8px 3px 10px;box-shadow:0 1px 4px rgba(124,58,237,.08);
+        transition:all .2s ease;
+    }
+    .pl-time-picker-custom:hover{
+        border-color:#a855f7;box-shadow:0 2px 8px rgba(124,58,237,.14);
+    }
+    .pl-time-picker-custom:focus-within{
+        border-color:#7c3aed;background:#faf5ff;
+        box-shadow:0 0 0 3px rgba(124,58,237,.18);
+    }
+    .pl-time-picker-custom .pl-time-icon{
+        color:#7c3aed;font-size:13px;flex-shrink:0;transition:transform .2s ease;
+    }
+    .pl-time-picker-custom:focus-within .pl-time-icon{
+        transform:scale(1.15);color:#6d28d9;
+    }
+    .pl-modern-time-input{
+        border:none !important;background:transparent !important;padding:2px 0 !important;
+        font-family:inherit;font-size:13px !important;font-weight:700;color:#1e1b4b;
+        outline:none !important;width:82px !important;cursor:pointer;
+        font-variant-numeric:tabular-nums;direction:ltr;text-align:center;
+    }
+    .pl-modern-time-input::-webkit-calendar-picker-indicator{
+        cursor:pointer;
+        filter:invert(26%) sepia(80%) saturate(3000%) hue-rotate(256deg) brightness(92%) contrast(98%);
+        opacity:.85;transition:transform .15s ease,opacity .15s ease;
+    }
+    .pl-modern-time-input::-webkit-calendar-picker-indicator:hover{
+        transform:scale(1.2);opacity:1;
+    }
+
     .pl-start-hint{font-size:11px;font-weight:600;color:#8a8f98;}
     .pl-next-start{background:#7c3aed;color:#fff;border:1px solid #7c3aed;}
     .pl-next-start:hover{background:#6d28d9;}
@@ -555,12 +591,13 @@
                     </button>
                 </div>
             @endif
-            <div class="pl-nav">
+            {{-- dir=ltr keeps Previous on the left / Next on the right in every locale --}}
+            <div class="pl-nav" dir="ltr">
                 <a href="{{ route('planner.index', ['view' => $view, 'date' => $prevDate->toDateString()]) }}"
-                   class="pl-nav-btn" title="{{ __('Previous') }}"><i class="bi {{ app()->getLocale() === 'fa' ? 'bi-chevron-right' : 'bi-chevron-left' }}"></i></a>
+                   class="pl-nav-btn" title="{{ __('Previous') }}"><i class="bi bi-chevron-left"></i></a>
                 <a href="{{ route('planner.index', ['view' => $view]) }}" class="pl-today-btn">{{ __('Today') }}</a>
                 <a href="{{ route('planner.index', ['view' => $view, 'date' => $nextDate->toDateString()]) }}"
-                   class="pl-nav-btn" title="{{ __('Next') }}"><i class="bi {{ app()->getLocale() === 'fa' ? 'bi-chevron-left' : 'bi-chevron-right' }}"></i></a>
+                   class="pl-nav-btn" title="{{ __('Next') }}"><i class="bi bi-chevron-right"></i></a>
             </div>
             @if($view === 'day')
                 <button type="button" class="pl-add-btn" onclick="openQuickAdd('task')">

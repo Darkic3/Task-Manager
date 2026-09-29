@@ -252,8 +252,8 @@
                     @endif
                     <input type="datetime-local" name="occurred_at" value="{{ $nowLocal }}" title="Exact time" aria-label="Exact time">
                     <input type="text" name="trigger" maxlength="100" placeholder="Trigger (optional)" aria-label="Trigger">
-                    <input type="text" name="note" maxlength="2000" placeholder="Note (optional)" aria-label="Note">
-                    <button type="submit">ثبت لغزش</button>
+                    <input type="text" name="note" maxlength="2000" placeholder="{{ __('Note (optional)') }}" aria-label="{{ __('Note') }}">
+                    <button type="submit">{{ __('Log Slip') }}</button>
                 </form>
             </div>
             <div class="pl-avoid-panel" data-note-panel hidden>
@@ -261,13 +261,13 @@
                       data-note-url="{{ route('planner.routines.note', $routine) }}"
                       data-date="{{ $routineDate->toDateString() }}"
                       onsubmit="return submitRoutineNote(this)">
-                    <select name="kind" aria-label="Kind">
-                        <option value="craving">وسوسه</option>
-                        <option value="note">یادداشت</option>
+                    <select name="kind" aria-label="{{ __('Kind') }}">
+                        <option value="craving">{{ __('Craving') }}</option>
+                        <option value="note">{{ __('Note') }}</option>
                     </select>
-                    <input type="datetime-local" name="occurred_at" value="{{ $nowLocal }}" title="Exact time" aria-label="Exact time">
-                    <input type="text" name="note" maxlength="2000" placeholder="Details…" aria-label="Details">
-                    <button type="submit">ثبت</button>
+                    <input type="datetime-local" name="occurred_at" value="{{ $nowLocal }}" title="{{ __('Exact time') }}" aria-label="{{ __('Exact time') }}">
+                    <input type="text" name="note" maxlength="2000" placeholder="{{ __('Details…') }}" aria-label="{{ __('Details') }}">
+                    <button type="submit">{{ __('Log') }}</button>
                 </form>
             </div>
         @endif
@@ -279,13 +279,13 @@
                     <div class="pl-time-field">
                         <i class="bi bi-alarm-fill"></i>
                         <input type="time" step="60"
-                               value="{{ \App\Models\Routine::minutesToTimeValue($logVal) }}" aria-label="{{ $routine->trackingLabel() }}">
+                               value="{{ \App\Models\Routine::minutesToTimeValue($logVal) }}" aria-label="{{ __($routine->value_label ?: $routine->trackingLabel()) }}">
                     </div>
                 @else
-                    <input type="number" step="any" min="0" placeholder="{{ $routine->trackingLabel() }}"
-                           value="{{ $logVal }}" aria-label="{{ $routine->trackingLabel() }}">
+                    <input type="number" step="any" min="0" placeholder="{{ __($routine->value_label ?: $routine->trackingLabel()) }}"
+                           value="{{ $logVal }}" aria-label="{{ __($routine->value_label ?: $routine->trackingLabel()) }}">
                 @endif
-                <button type="button" onclick="logRoutineValue(this)"><i class="bi bi-check2"></i> ثبت</button>
+                <button type="button" onclick="logRoutineValue(this)"><i class="bi bi-check2"></i> {{ __('Log') }}</button>
                 @if($logVal !== null && $logVal !== '')<span class="pl-log-saved">✓ {{ $isTimeLog ? \App\Models\Routine::minutesToTimeValue($logVal) : $logVal }}</span>@endif
             </div>
         @endif
@@ -295,19 +295,19 @@
                 @foreach($routine->ringSteps as $step)
                     @php $logged = $step['sets'] ?? []; $target = max(1, (int) ($step['target_sets'] ?? 1)); @endphp
                     <div class="pl-logset" data-log-sets data-item="{{ $step['id'] }}" data-routine="{{ $routine->id }}" data-date="{{ $routineDate->toDateString() }}" data-url="{{ $logUrl }}">
-                        <span class="pl-logset-name">{{ $step['name'] }}{{ $step['unit'] ? ' (' . $step['unit'] . ')' : '' }}
+                        <span class="pl-logset-name">{{ __($step['name']) }}{{ $step['unit'] ? ' (' . $step['unit'] . ')' : '' }}
                             @if(!empty($step['period_label']) || !empty($step['time_label']))
                                 <span class="pl-step-schedule" style="color:{{ $step['period_color'] ?: '#64748b' }};">
                                     <i class="bi {{ $step['period_icon'] ?: 'bi-clock' }}"></i>
-                                    {{ $step['period_label'] ?: $step['time_label'] }}
+                                    {{ $step['period_label'] ? __($step['period_label']) : $step['time_label'] }}
                                 </span>
                             @endif
                         </span>
                         @for($s = 1; $s <= $target; $s++)
                             <input type="number" step="any" min="0" data-set="{{ $s }}" placeholder="S{{ $s }}"
-                                   value="{{ $logged[$s] ?? '' }}" aria-label="{{ $step['name'] }} set {{ $s }}">
+                                   value="{{ $logged[$s] ?? '' }}" aria-label="{{ __($step['name']) }} {{ __('Set') }} {{ $s }}">
                         @endfor
-                        <button type="button" onclick="logRoutineSets(this)">ثبت</button>
+                        <button type="button" onclick="logRoutineSets(this)">{{ __('Log') }}</button>
                     </div>
                 @endforeach
             </div>
