@@ -1151,6 +1151,7 @@
         if (t) t.textContent = pending;
         if (window.plRefreshDayProgress) window.plRefreshDayProgress();
     }
+    window.refreshCounters = refreshCounters;
 
     async function toggleRoutine(cb) {
         const url = cb.dataset.url;
@@ -2288,6 +2289,7 @@
             console.error('[Planner] next up refresh failed', e);
         }
     }
+    window.refreshNextUp = refreshNextUp;
 </script>
 @endpush
 
@@ -2430,6 +2432,14 @@
         btn.dataset.busy = '1';
         const id = Number(btn.dataset.id);
         const action = btn.hasAttribute('data-clear-day') ? 'clear' : btn.dataset.postpone;
+        
+        const rows = document.querySelectorAll(`[data-task-item][data-id="${id}"]`);
+        rows.forEach(r => {
+            r.style.transition = 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+            r.style.opacity = '0.4';
+            r.style.transform = 'scale(0.98)';
+        });
+
         try {
             const res = await plFetch(POSTPONE_URL(id), {
                 method: 'POST',
@@ -2439,7 +2449,23 @@
             if (!res.ok) { throw new Error('HTTP ' + res.status); }
             const json = await res.json();
 
-            document.querySelectorAll(`[data-task-item][data-id="${id}"]`).forEach(r => r.remove());
+            // Smoothly remove task rows
+            rows.forEach(r => {
+                const parentGroupBody = r.closest('[data-period-body]');
+                r.remove();
+                if (parentGroupBody && parentGroupBody.querySelectorAll('.pl-task').length === 0) {
+                    const pGroup = parentGroupBody.closest('.pl-period-group');
+                    if (pGroup) pGroup.remove();
+                }
+            });
+
+            // If all tasks in pending body are gone, display empty message
+            if (body && body.querySelectorAll('.pl-task').length === 0 && !body.querySelector('.pl-empty')) {
+                const emptyEl = document.createElement('div');
+                emptyEl.className = 'pl-empty';
+                emptyEl.textContent = '{{ __("Nothing scheduled for this day. Enjoy!") }}';
+                body.appendChild(emptyEl);
+            }
 
             if (action === 'today' && json.row_html) {
                 const wrap = document.createElement('div');
@@ -2461,9 +2487,16 @@
                     if (stat) stat.textContent = overdueLeft;
                 }
             }
-            refreshCounters();
+            
+            if (window.refreshCounters) window.refreshCounters();
+            if (window.refreshNextUp) window.refreshNextUp();
+            if (window.plRefreshDayProgress) window.plRefreshDayProgress();
 
-            const msgs = { tomorrow: 'Postponed to tomorrow', today: 'Pulled into today', clear: 'Removed from My Day' };
+            const msgs = { 
+                tomorrow: '{{ __("Postponed to tomorrow") }}', 
+                today: '{{ __("Pulled into today") }}', 
+                clear: '{{ __("Removed from My Day") }}' 
+            };
             if (msgs[action]) {
                 plShowToast(msgs[action], () => {
                     plFetch(POSTPONE_URL(id), {
@@ -2475,7 +2508,12 @@
             }
         } catch (err) {
             console.error('[Planner] postpone failed', err);
+            rows.forEach(r => {
+                r.style.opacity = '1';
+                r.style.transform = 'none';
+            });
             delete btn.dataset.busy;
+            plShowToast('{{ __("Error performing action") }}');
         }
     });
 

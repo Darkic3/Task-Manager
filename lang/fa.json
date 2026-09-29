@@ -463,5 +463,10 @@
     "Value": "مقدار",
     "Done": "انجام شد",
     "This Week": "این هفته",
-    "Go to Today": "برو به امروز"
+    "Go to Today": "برو به امروز",
+    "Postponed to tomorrow": "به فردا منتقل شد",
+    "Pulled into today": "به امروز اضافه شد",
+    "Removed from My Day": "از روز من حذف شد",
+    "Error performing action": "خطا در انجام عملیات",
+    "Nothing scheduled for this day. Enjoy!": "هیچ برنامه‌ای برای این روز تنظیم نشده است. لذت ببرید!"
 }

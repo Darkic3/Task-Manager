@@ -47,7 +47,7 @@
                 <span>•</span>
                 <span><i class="bi bi-check-circle me-1 text-success"></i> <strong>{{ $tasksCompletedToday }}</strong> {{ __('tasks done today') }}</span>
                 <span>•</span>
-                <span><i class="bi bi-arrow-repeat me-1 text-warning"></i> <strong>{{ $routineDoneCount }}/{{ $routineTotalCount }}</strong> {{ __('routines checked') }}</span>
+                <span><i class="bi bi-arrow-repeat me-1 text-warning"></i> <strong id="headerRoutineCount">{{ $routineDoneCount }}/{{ $routineTotalCount }}</strong> {{ __('routines checked') }}</span>
             </div>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -244,52 +244,21 @@
                         <h3 class="hq-title m-0">{{ __('Habits & Routines') }}</h3>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge rounded-pill bg-light text-dark border px-2" id="dbRoutineCount">{{ $routineDoneCount }}/{{ $routineTotalCount }}</span>
-                        <a href="{{ route('planner.index') }}" class="hq-link">{{ __('Planner') }} <i class="bi bi-arrow-right"></i></a>
+                        <span class="badge rounded-pill bg-light text-dark border px-2 font-monospace" id="dbRoutineCount">{{ $routineDoneCount }}/{{ $routineTotalCount }}</span>
+                        <a href="{{ route('planner.index') }}" class="hq-link d-inline-flex align-items-center gap-1">
+                            <i class="bi bi-calendar-day"></i> {{ __('Daily Planner') }} <i class="bi bi-arrow-right"></i>
+                        </a>
                     </div>
                 </div>
-                <div class="hq-card-body p-0">
-                    <div class="routine-quick-list" id="dbRoutineList">
+                <div class="hq-card-body p-2">
+                    <div class="routine-quick-list d-flex flex-column gap-2" id="dbRoutineList">
                         @forelse($todayRoutines as $routine)
-                            @php
-                                $rAvoid = ($routine->behavior_type ?? 'build') === 'avoid';
-                                $rBad = $rAvoid && ! empty($routine->avoidDayViolated);
-                                $rDone = $rAvoid ? false : $routine->completedOn(now());
-                            @endphp
-                            <div class="routine-quick-item d-flex align-items-center justify-content-between p-3 border-bottom {{ $rDone ? 'is-done' : '' }}"
-                                 data-db-routine
-                                 data-id="{{ $routine->id }}"
-                                 data-completed="{{ $rDone ? 1 : 0 }}">
-                                <div class="d-flex align-items-center gap-3">
-                                    @if($rAvoid)
-                                        <span class="db-routine-check" title="{{ $rBad ? __('Slip logged today') : __('Clean so far') }}">
-                                            <span class="db-check-box" style="{{ $rBad ? 'background:#fee2e2;color:#b91c1c;border-color:#fca5a5;' : 'background:#dcfce7;color:#15803d;border-color:#bbf7d0;' }}">
-                                                <i class="bi {{ $rBad ? 'bi-exclamation' : 'bi-shield-check' }}"></i>
-                                            </span>
-                                        </span>
-                                    @else
-                                        <label class="db-routine-check" title="{{ $rDone ? __('Mark as not done') : __('Mark as done') }}">
-                                            <input type="checkbox" {{ $rDone ? 'checked' : '' }}
-                                                   data-id="{{ $routine->id }}"
-                                                   data-url="{{ route('planner.routines.toggle', $routine) }}"
-                                                   onchange="dbToggleRoutine(this)">
-                                            <span class="db-check-box"><i class="bi bi-check-lg"></i></span>
-                                        </label>
-                                    @endif
-                                    <div>
-                                        <div class="activity-item-title fw-medium">{{ $routine->title }}</div>
-                                        <div class="text-muted small" style="font-size:11px;">
-                                            {{ $routine->recurrenceLabel() }}
-                                            @if($routine->timeLabel())
-                                                • <i class="bi bi-clock"></i> {{ $routine->timeLabel() }}
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
-                                <span class="badge {{ $rAvoid ? 'bg-danger-subtle text-danger' : 'bg-primary-subtle text-primary' }} rounded-pill" style="font-size:10px;">
-                                    {{ $rAvoid ? __('Avoid') : __('Habit') }}
-                                </span>
-                            </div>
+                            @include('planner._routine-row', [
+                                'routine' => $routine,
+                                'routineDate' => now(),
+                                'toggleable' => true,
+                                'count' => true,
+                            ])
                         @empty
                             <div class="text-center py-5 px-3">
                                 <div class="empty-icon-circle mx-auto mb-3 bg-warning-subtle text-warning">
@@ -442,6 +411,24 @@
 
     </div>
 
+    {{-- Routine Detail Modal (for big or tracked routines) --}}
+    <div class="pl-modal" id="plRoutineModal" hidden>
+        <div class="pl-modal-backdrop" data-modal-close></div>
+        <div class="pl-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="plModalTitle">
+            <div class="pl-modal-head">
+                <div>
+                    <div class="pl-modal-title" id="plModalTitle" data-modal-title></div>
+                    <div class="pl-modal-sub" data-modal-sub></div>
+                </div>
+                <button type="button" class="pl-modal-x" data-modal-close aria-label="{{ __('Close') }}">&times;</button>
+            </div>
+            <div class="pl-modal-body" data-modal-body></div>
+        </div>
+    </div>
+
+    <div id="plConfetti" aria-hidden="true"></div>
+    <div id="plToast" role="status"></div>
+
 </div>
 @endsection
 
@@ -541,24 +528,282 @@
     .project-tag { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
     .empty-icon-circle { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
-    /* Dashboard routines quick-check */
-    .db-routine-check { position: relative; flex-shrink: 0; cursor: pointer; display: inline-flex; }
-    .db-routine-check input { position: absolute; opacity: 0; width: 0; height: 0; }
-    .db-check-box {
-        width: 20px; height: 20px; border: 2px solid #cbd5e1; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center; color: transparent;
-        font-size: 11px; transition: all .15s; background: white;
+    /* ─── Planner Habit & Routine Row Styling ─── */
+    .pl-task {
+        display: flex; align-items: flex-start; gap: 10px; background: white;
+        border: 1px solid #eceef1; border-radius: 10px; padding: 9px 12px;
+        transition: all .15s ease;
     }
-    .db-routine-check:hover .db-check-box { border-color: var(--primary-600); }
-    .db-routine-check input:checked + .db-check-box { background: #16a34a; border-color: #16a34a; color: white; }
-    .routine-quick-item.is-done .activity-item-title { text-decoration: line-through; color: #94a3b8; }
+    .pl-task:hover { box-shadow: 0 2px 8px rgba(0,0,0,.05); border-color: #d8dae0; }
+    .pl-task.is-done { background: #fafdfb; }
+    .pl-task.is-done .pl-task-title { text-decoration: line-through; color: #94a3b8; }
+    .pl-task-body { flex: 1; min-width: 0; }
+    .pl-task-title {
+        font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.45;
+        display: flex; align-items: center; gap: 4px; flex-wrap: wrap; cursor: pointer;
+    }
+    .pl-task-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+    .pl-priority {
+        font-size: 10.5px; font-weight: 700; padding: 1px 8px; border-radius: 20px;
+        text-transform: uppercase; letter-spacing: .3px; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .pl-due { font-size: 11px; color: #8a8f98; display: inline-flex; align-items: center; gap: 4px; }
+    
+    .pl-expand {
+        margin-inline-start: auto; flex-shrink: 0; width: 24px; height: 24px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border: none; background: transparent; color: #94a3b8; cursor: pointer;
+        border-radius: 6px; font-size: 12px; transition: all .15s;
+    }
+    .pl-expand:hover { color: #7c3aed; background: #faf5ff; }
+    .pl-expand i { transition: transform .15s; }
+    .pl-expand.open i { transform: rotate(180deg); }
+
+    /* ── Habit Ring ── */
+    .pl-habit { position: relative; flex-shrink: 0; margin-top: 1px; cursor: pointer; display: inline-flex; }
+    .pl-habit input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .routine-check-box {
+        width: 19px; height: 19px; border: 2px solid #c4c9d4; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; color: transparent;
+        font-size: 10px; transition: all .15s; background: white; position: absolute;
+        top: 50%; left: 50%; transform: translate(-50%, -50%);
+    }
+    .pl-habit:hover .routine-check-box { border-color: #7c3aed; }
+    .pl-habit input:checked + .habit-ring .routine-check-box,
+    .pl-habit input:checked + .routine-check-box { background: #16a34a; border-color: #16a34a; color: white; }
+    .habit-ring { position: relative; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; }
+    .habit-ring svg { width: 30px; height: 30px; transform: rotate(-90deg); }
+    .habit-ring .ring-bg { fill: none; stroke: #eef0f2; stroke-width: 3.5; }
+    .habit-ring .ring-fg { fill: none; stroke: #b9a5f5; stroke-width: 3.5; stroke-linecap: round; transition: stroke-dashoffset .4s; }
+    .pl-task.is-done .habit-ring .ring-fg { stroke: #16a34a; }
+    .pl-habit input:checked + .habit-ring .ring-fg { stroke: #16a34a; }
+    .flame {
+        font-size: 11px; font-weight: 700; color: #d97706; background: #fdf4de;
+        border-radius: 20px; padding: 0 7px; margin-inline-start: 4px; white-space: nowrap; vertical-align: 1px;
+    }
+    .last7 { display: inline-flex; gap: 3px; align-items: center; }
+    .last7 .sq { width: 7px; height: 7px; border-radius: 2.5px; display: inline-block; }
+    .sq-done { background: #30a46c; }
+    .sq-missed { background: #e3e5e9; }
+    .sq-na { background: #f2f3f5; }
+    .sq-future, .sq-today { background: transparent; box-shadow: inset 0 0 0 1px #e8eaef; }
+    .sq-violated { background: #ef4444; }
+
+    /* ── Routine steps (sub-items) ── */
+    .pl-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .pl-step {
+        display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px;
+        border: 1px solid #e5e7eb; background: #fafbfc; color: #6b6f78; font-size: 11.5px; font-weight: 600;
+        cursor: pointer; transition: all .12s;
+    }
+    .pl-step:hover { border-color: #c4b5fd; color: #7c3aed; }
+    .pl-step i { font-size: 13px; color: #c1c4cc; transition: color .12s; }
+    .pl-step.done { background: #e3f5ec; border-color: #a9dfbf; color: #29774b; }
+    .pl-step.done i { color: #30a46c; }
+    .pl-step-schedule {
+        display: inline-flex; align-items: center; gap: 3px; margin-inline-start: 2px;
+        font-size: 10px; font-weight: 700; text-transform: none; white-space: nowrap;
+    }
+    .pl-step-schedule i { font-size: 11px; color: inherit; }
+    .steps-count {
+        font-size: 10.5px; font-weight: 700; color: #8a8f98; background: #f2f3f5;
+        border-radius: 20px; padding: 1px 7px; margin-inline-start: 4px; vertical-align: 1px;
+    }
+    .steps-count.all { color: #29774b; background: #e3f5ec; }
+    .steps-count.bad { color: #b91c1c; background: #fee2e2; }
+
+    /* ── Avoid habits ── */
+    .pl-avoid-shield {
+        width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center; font-size: 15px;
+    }
+    .pl-avoid-shield.ok { background: #dcfce7; color: #15803d; }
+    .pl-avoid-shield.bad { background: #fee2e2; color: #b91c1c; }
+    .pl-avoid-tag {
+        font-size: 10.5px; font-weight: 700; color: #b91c1c; background: #fee2e2;
+        border-radius: 20px; padding: 1px 7px; margin-inline-start: 4px; vertical-align: 1px; white-space: nowrap;
+    }
+    .pl-avoid-actions { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+    .pl-avoid-btn {
+        display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px;
+        font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all .12s; border: 1px solid #e5e7eb;
+        background: #fafbfc; color: #6b6f78;
+    }
+    .pl-avoid-btn.slip { border-color: #fca5a5; background: #fef2f2; color: #b91c1c; }
+    .pl-avoid-btn.slip:hover { background: #fee2e2; }
+    .pl-avoid-btn.note:hover { border-color: #c4b5fd; color: #7c3aed; }
+    .pl-avoid-panel { margin-top: 7px; }
+    .pl-avoid-panel form { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .pl-avoid-panel input, .pl-avoid-panel select {
+        padding: 4px 9px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 12px; outline: none;
+        background: white; color: #1f2328; max-width: 100%;
+    }
+    .pl-avoid-panel input:focus, .pl-avoid-panel select:focus { border-color: #c4b5fd; }
+    .pl-avoid-panel input[name=quantity] { width: 64px; }
+    .pl-avoid-panel input[name=note] { flex: 1; min-width: 140px; }
+    .pl-avoid-panel button {
+        padding: 4px 14px; border-radius: 8px; border: none; background: #b91c1c; color: white;
+        font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .pl-avoid-panel button:hover { background: #991b1b; }
+    .pl-step.avoid { cursor: default; }
+    .pl-step.avoid:hover { border-color: #e5e7eb; color: #6b6f78; }
+    .pl-step.avoid.violated { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+    .pl-step.avoid.violated i { color: #dc2626; }
+    .pl-step-slipcount { font-size: 10px; font-weight: 800; color: #b91c1c; }
+    .pl-step-slipbtn {
+        margin-inline-start: 2px; padding: 2px 10px; border-radius: 14px; border: 1px solid #fca5a5;
+        background: white; color: #b91c1c; font-size: 10.5px; font-weight: 700; cursor: pointer;
+    }
+    .pl-step-slipbtn:hover { background: #fee2e2; }
+
+    /* ── Metric logging ── */
+    .pl-details { display: none; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #eef0f3; }
+    .pl-details.open { display: block; }
+    .pl-log { display: flex; align-items: center; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+    .pl-log input { width: 110px; padding: 4px 9px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 12px; outline: none; }
+    .pl-log input:focus { border-color: #c4b5fd; }
+    .pl-time-field {
+        display: inline-flex; align-items: center; gap: 7px; padding: 0 11px;
+        border: 1.5px solid #ddd6fe; border-radius: 11px;
+        background: linear-gradient(180deg, #fdfcff 0%, #f6f3ff 100%);
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .pl-time-field > i { color: #7c3aed; font-size: 13px; }
+    .pl-time-field:hover { border-color: #c4b5fd; }
+    .pl-time-field:focus-within { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.14); }
+    .pl-time-field input[type="time"] {
+        border: none; background: transparent; outline: none; box-shadow: none;
+        width: 90px; padding: 6px 0; font-size: 13.5px; font-weight: 700; color: #1a1d23;
+        letter-spacing: .6px; font-variant-numeric: tabular-nums; color-scheme: light;
+    }
+    .pl-log button, .pl-logset button {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 4px 12px; border-radius: 8px; border: 1px solid #c4b5fd; background: #faf5ff;
+        color: #7c3aed; font-size: 11.5px; font-weight: 700; cursor: pointer;
+    }
+    .pl-log button:hover, .pl-logset button:hover { background: #ede9fe; }
+    .pl-log button:disabled, .pl-logset button:disabled { opacity: .5; cursor: wait; }
+    .pl-log-saved {
+        font-size: 11px; font-weight: 700; color: #15803d; background: #e9f9f0;
+        border: 1px solid #bbf7d0; border-radius: 20px; padding: 2px 10px; font-variant-numeric: tabular-nums;
+    }
+    .pl-logsets { display: flex; flex-direction: column; gap: 6px; margin-top: 7px; }
+    .pl-logset { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; background: #fafbfc; border: 1px solid #eef0f3; border-radius: 8px; padding: 5px 8px; }
+    .pl-logset-name { font-size: 11.5px; font-weight: 700; color: #3d4149; flex: 1; min-width: 90px; }
+    .pl-logset input { width: 64px; padding: 3px 7px; border: 1px solid #e5e7eb; border-radius: 7px; font-size: 11.5px; outline: none; }
+    .pl-logset input:focus { border-color: #c4b5fd; }
+    .pl-logset input.has-val { border-color: #a9dfbf; background: #f3fbf6; }
+
+    /* ── Routine detail modal ── */
+    .pl-modal { position: fixed; inset: 0; z-index: 1090; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .pl-modal[hidden] { display: none; }
+    .pl-modal-backdrop { position: absolute; inset: 0; background: rgba(17,20,26,.5); backdrop-filter: blur(4px); }
+    .pl-modal-dialog {
+        position: relative; background: #fff; border-radius: 16px; width: min(560px, 96vw); max-height: 88vh;
+        display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden;
+    }
+    .pl-modal-head { display: flex; align-items: flex-start; gap: 10px; padding: 16px 18px 12px; border-bottom: 1px solid #eef0f3; }
+    .pl-modal-title { font-size: 15px; font-weight: 800; color: #1a1d23; }
+    .pl-modal-sub { font-size: 12px; color: #8a8f98; margin-top: 2px; }
+    .pl-modal-x {
+        margin-inline-start: auto; border: none; background: #f2f3f5; color: #6b7385; width: 30px; height: 30px;
+        border-radius: 8px; font-size: 17px; line-height: 1; cursor: pointer; flex-shrink: 0;
+    }
+    .pl-modal-x:hover { background: #e6e8ec; color: #1a1d23; }
+    .pl-modal-body { padding: 14px 18px; overflow-y: auto; }
+    .pl-modal-body .pl-details { display: block; border-top: none; padding-top: 0; margin-top: 0; }
+    .pl-modal-body .pl-logsets { gap: 9px; }
+    .pl-modal-body .pl-logset { padding: 9px 11px; }
+    .pl-modal-body .pl-logset-name { font-size: 12.5px; }
+    .pl-modal-body .pl-logset input { width: 76px; padding: 5px 9px; font-size: 12.5px; }
+    .pl-modal-body .pl-steps { gap: 7px; }
+    .pl-modal-body .pl-step { font-size: 12px; padding: 4px 12px; }
+    .pl-modal-body .pl-time-field { width: 100%; justify-content: flex-start; }
+    .pl-modal-body .pl-time-field input[type="time"] { flex: 1; width: auto; font-size: 15px; padding: 8px 0; }
+    body.pl-modal-open { overflow: hidden; }
+
+    /* Toast & Confetti */
+    #plToast {
+        position: fixed; bottom: 24px; inset-inline-end: 24px; background: #0f172a; color: #fff;
+        padding: 10px 18px; border-radius: 12px; font-size: 13px; font-weight: 600; box-shadow: 0 10px 25px rgba(0,0,0,.2);
+        z-index: 1100; opacity: 0; transform: translateY(12px); transition: all .25s ease; pointer-events: none;
+    }
+    #plToast.show { opacity: 1; transform: translateY(0); }
+    #plConfetti { position: fixed; inset: 0; pointer-events: none; z-index: 1080; overflow: hidden; }
+    #plConfetti i { position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; opacity: 0; animation: plFall 1.4s ease-in forwards; }
+    @keyframes plFall {
+        0% { opacity: 1; transform: translateY(0) rotate(0); }
+        100% { opacity: 0; transform: translateY(70vh) rotate(540deg); }
+    }
 </style>
 @endpush
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    let PL_CSRF = '{{ csrf_token() }}';
     const DB_CSRF = '{{ csrf_token() }}';
+    const plRawFetch = window.fetch.bind(window);
+
+    /* Wrapper sending CSRF token with automatic 419 session refresh */
+    async function plFetch(url, init = {}) {
+        init.headers = Object.assign({ 'X-CSRF-TOKEN': PL_CSRF }, init.headers || {});
+        let res = await plRawFetch(url, init);
+        if (res.status === 419) {
+            const fresh = await plRefreshCsrf();
+            if (fresh) {
+                init.headers['X-CSRF-TOKEN'] = fresh;
+                res = await plRawFetch(url, init);
+            }
+            if (res.status === 419 || res.status === 401) {
+                window.location.reload();
+                return new Response(null, { status: 419 });
+            }
+        }
+        return res;
+    }
+
+    async function plRefreshCsrf() {
+        try {
+            const page = await plRawFetch(window.location.href, {
+                headers: { 'Accept': 'text/html' },
+                credentials: 'same-origin',
+                cache: 'no-store',
+            });
+            const m = (await page.text()).match(/<meta\s+name=["']csrf-token["']\s+content=["']([^"']+)["']/i);
+            if (m) {
+                PL_CSRF = m[1];
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) meta.content = m[1];
+                return m[1];
+            }
+        } catch (e) { }
+        return null;
+    }
+
+    function plShowToast(msg) {
+        const toast = document.getElementById('plToast');
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    function maybeCelebrate() {
+        const c = document.getElementById('plConfetti');
+        if (!c) return;
+        c.innerHTML = '';
+        const colors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
+        for (let i = 0; i < 28; i++) {
+            const el = document.createElement('i');
+            el.style.left = Math.random() * 100 + 'vw';
+            el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            el.style.animationDelay = (Math.random() * 0.4) + 's';
+            c.appendChild(el);
+        }
+        setTimeout(() => { if (c) c.innerHTML = ''; }, 2000);
+    }
 
     // Live ticking timer
     const liveTimerEl = document.getElementById('dashboardLiveTimer');
@@ -582,13 +827,9 @@
         const row = document.getElementById('dash-task-' + taskId);
 
         try {
-            const res = await fetch(url, {
+            const res = await plFetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': DB_CSRF,
-                    'Accept': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
             });
             if (row) {
@@ -603,17 +844,10 @@
     // Start timer for a specific task
     async function startTimerForTask(taskId, projectId, taskTitle) {
         try {
-            const res = await fetch('{{ route("time.start") }}', {
+            const res = await plFetch('{{ route("time.start") }}', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': DB_CSRF,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    task_id: taskId,
-                    project_id: projectId
-                })
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ task_id: taskId, project_id: projectId })
             });
             if (res.ok) {
                 window.location.reload();
@@ -623,38 +857,423 @@
         }
     }
 
-    // Routine quick toggle
-    async function dbToggleRoutine(box) {
-        box.disabled = true;
-        const id = box.dataset.id;
-        const url = box.dataset.url;
+    /* ─── Routine & Habit Interactions (Full Planner Logic) ─── */
+    window.dbToggleRoutine = toggleRoutine;
+    function dbToggleRoutine(cb) {
+        return toggleRoutine(cb);
+    }
+
+    async function toggleRoutine(cb) {
+        const url = cb.dataset.url;
+        const id  = cb.dataset.id;
+        const date = cb.dataset.date;
+        cb.disabled = true;
         try {
-            const res = await fetch(url + '?date=' + encodeURIComponent(new Date().toISOString().slice(0, 10)), {
+            const res = await plFetch(url + (url.includes('?') ? '&' : '?') + 'date=' + encodeURIComponent(date), {
                 method: 'POST',
-                headers: { 'X-CSRF-TOKEN': DB_CSRF, 'Accept': 'application/json' },
+                headers: { 'Accept': 'application/json' },
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const json = await res.json();
-            document.querySelectorAll('[data-db-routine][data-id="' + id + '"]').forEach(el => {
-                el.classList.toggle('is-done', !!json.completed);
-                el.dataset.completed = json.completed ? '1' : '0';
-            });
-            dbRefreshCount();
+            
+            applyRoutineToggle(id, date, !!json.completed);
+            if (json.items && json.items.length) syncStepButtons(id, date, !!json.completed);
+            if (json.completed) {
+                setStreak(id, json.streak ?? null);
+                plShowToast('Done ✓');
+                maybeCelebrate();
+            } else {
+                setStreak(id, json.streak ?? 0, true);
+            }
+            refreshRoutineCounters();
         } catch (e) {
-            box.checked = !box.checked;
-            console.error('Routine toggle failed', e);
+            cb.checked = !cb.checked;
+            console.error('[Dashboard] routine toggle failed', e);
         } finally {
-            box.disabled = false;
+            cb.disabled = false;
         }
     }
 
-    function dbRefreshCount() {
-        const items = document.querySelectorAll('[data-db-routine]');
+    function applyRoutineToggle(id, date, completed) {
+        document.querySelectorAll('[data-routine-item][data-id="' + id + '"]').forEach(row => {
+            row.classList.toggle('is-done', completed);
+            row.dataset.completed = completed ? '1' : '0';
+            const box = row.querySelector('input[type="checkbox"]');
+            if (box) box.checked = completed;
+        });
+    }
+
+    function syncStepButtons(id, date, completed) {
+        document.querySelectorAll('[data-step-item][data-routine="' + id + '"]').forEach(btn => {
+            btn.classList.toggle('done', completed);
+            const i = btn.querySelector('i');
+            if (i) i.className = 'bi ' + (completed ? 'bi-check-circle-fill' : 'bi-circle');
+        });
+        refreshStepCounts();
+    }
+
+    function refreshStepCounts() {
+        document.querySelectorAll('[data-routine-item]').forEach(row => {
+            const steps = row.querySelectorAll('[data-step-item]');
+            if (!steps.length) return;
+            const done = [...steps].filter(s => s.classList.contains('done')).length;
+            const badge = row.querySelector('.steps-count');
+            if (badge) {
+                badge.textContent = done + '/' + steps.length;
+                badge.classList.toggle('all', done === steps.length);
+            }
+        });
+    }
+
+    function setStreak(id, count, isUndo = false) {
+        document.querySelectorAll('[data-routine-item][data-id="' + id + '"]').forEach(row => {
+            let flame = row.querySelector('.flame');
+            if (count && count > 0) {
+                if (!flame) {
+                    flame = document.createElement('span');
+                    flame.className = 'flame';
+                    const title = row.querySelector('.pl-task-title');
+                    if (title) title.appendChild(flame);
+                }
+                if (flame) {
+                    const isAvoid = row.querySelector('.pl-avoid-shield') !== null;
+                    flame.textContent = (isAvoid ? '🛡️' : '🔥') + count;
+                    flame.title = count + ' in a row';
+                }
+            } else if (flame && isUndo) {
+                flame.remove();
+            }
+        });
+    }
+
+    async function toggleCheckItem(btn) {
+        btn.disabled = true;
+        try {
+            const res = await plFetch(btn.dataset.url + '?date=' + encodeURIComponent(btn.dataset.date), {
+                method: 'POST',
+                headers: { 'Accept': 'application/json' },
+            });
+            if (res.status === 422) {
+                expandRoutineDetails(btn);
+                return;
+            }
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+
+            btn.classList.toggle('done', !!json.completed);
+            const i = btn.querySelector('i');
+            if (i) i.className = 'bi ' + (json.completed ? 'bi-check-circle-fill' : 'bi-circle');
+            refreshStepCounts();
+
+            if (json.routine_completed !== undefined) {
+                applyRoutineToggle(json.routine_id, btn.dataset.date, !!json.routine_completed);
+                if (json.routine_completed && json.streak != null) setStreak(json.routine_id, json.streak);
+                refreshRoutineCounters();
+                if (json.routine_completed) {
+                    plShowToast('Routine Completed ✓');
+                    maybeCelebrate();
+                }
+            }
+        } catch (e) {
+            console.error('[Dashboard] step toggle failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function refreshRoutineCounters() {
+        const items = document.querySelectorAll('[data-routine-item][data-count="1"]');
         let done = 0;
-        items.forEach(el => { if (el.dataset.completed === '1') done++; });
+        items.forEach(el => {
+            if (el.dataset.completed === '1') done++;
+        });
         const badge = document.getElementById('dbRoutineCount');
         if (badge && items.length) badge.textContent = done + '/' + items.length;
+        
+        const heroCounter = document.getElementById('headerRoutineCount');
+        if (heroCounter && items.length) heroCounter.textContent = done + '/' + items.length;
     }
+
+    /* ── Metric logging ── */
+    function fmtLogValue(kind, v) {
+        if (v === null || v === undefined || v === '') return '';
+        if (kind !== 'time') return v;
+        const m = ((Math.round(Number(v)) % 1440) + 1440) % 1440;
+        return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    }
+
+    async function logRoutineValue(btn) {
+        const box = btn.closest('[data-log-value]');
+        const input = box.querySelector('input');
+        const isTime = input.type === 'time';
+        let value;
+        if (isTime) {
+            if (!input.value) { input.focus(); return; }
+            const [h, m] = input.value.split(':').map(Number);
+            value = h * 60 + (m || 0);
+        } else {
+            value = parseFloat(input.value);
+            if (isNaN(value)) { input.focus(); return; }
+        }
+        btn.disabled = true;
+        try {
+            const res = await plFetch(box.dataset.url + '?date=' + encodeURIComponent(box.dataset.date), {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value }),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            let saved = box.querySelector('.pl-log-saved');
+            if (!saved) { saved = document.createElement('span'); saved.className = 'pl-log-saved'; box.appendChild(saved); }
+            saved.textContent = '✓ ' + fmtLogValue(box.dataset.kind, json.values?.value ?? value);
+            if (json.routine_completed) {
+                applyRoutineToggle(box.dataset.routine, box.dataset.date, true);
+                if (json.streak != null) setStreak(box.dataset.routine, json.streak);
+                refreshRoutineCounters();
+                maybeCelebrate();
+            }
+            if (box.closest('#plRoutineModal')) {
+                closeRoutineModal();
+            }
+            plShowToast('Logged ✓');
+        } catch (e) {
+            console.error('[Dashboard] log value failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function logRoutineSets(btn) {
+        const box = btn.closest('[data-log-sets]');
+        const sets = {};
+        box.querySelectorAll('input[data-set]').forEach(inp => {
+            if (inp.value !== '' && !isNaN(parseFloat(inp.value))) sets[inp.dataset.set] = parseFloat(inp.value);
+        });
+        if (!Object.keys(sets).length) { box.querySelector('input[data-set]')?.focus(); return; }
+        btn.disabled = true;
+        try {
+            const res = await plFetch(box.dataset.url + '?date=' + encodeURIComponent(box.dataset.date), {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ item_id: box.dataset.item, sets }),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            const saved = json.values?.[box.dataset.item] || {};
+            box.querySelectorAll('input[data-set]').forEach(inp => {
+                inp.classList.toggle('has-val', saved[inp.dataset.set] !== undefined);
+            });
+            if (json.steps_done) {
+                Object.entries(json.steps_done).forEach(([itemId, done]) => {
+                    const chip = document.querySelector(`[data-step-item][data-id="${itemId}"]`);
+                    if (chip) {
+                        chip.classList.toggle('done', done);
+                        const i = chip.querySelector('i');
+                        if (i) i.className = 'bi ' + (done ? 'bi-check-circle-fill' : 'bi-circle');
+                    }
+                });
+            }
+            if (json.routine_completed) {
+                applyRoutineToggle(box.dataset.routine, box.dataset.date, true);
+                refreshRoutineCounters();
+                maybeCelebrate();
+            }
+            if (box.closest('#plRoutineModal')) {
+                closeRoutineModal();
+            }
+            plShowToast('Logged ✓');
+        } catch (e) {
+            console.error('[Dashboard] log sets failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    /* ── Avoid habits: slip / craving / note ── */
+    document.addEventListener('click', function (e) {
+        const slipBtn = e.target.closest('[data-avoid-slip]');
+        if (slipBtn) {
+            const row = slipBtn.closest('[data-routine-item]');
+            const panel = row ? row.querySelector('[data-slip-panel]') : null;
+            if (panel) panel.hidden = !panel.hidden;
+            return;
+        }
+        const noteBtn = e.target.closest('[data-avoid-note]');
+        if (noteBtn) {
+            const row = noteBtn.closest('[data-routine-item]');
+            const panel = row ? row.querySelector('[data-note-panel]') : null;
+            if (panel) panel.hidden = !panel.hidden;
+            return;
+        }
+        const stepSlipBtn = e.target.closest('[data-avoid-step-slip]');
+        if (stepSlipBtn) {
+            const wrap = stepSlipBtn.closest('.pl-avoid-steps') || stepSlipBtn.closest('[data-routine-item]');
+            const panels = wrap ? [...wrap.querySelectorAll('[data-step-slip-panel]')] : [];
+            const stepRow = stepSlipBtn.closest('[data-step-item]');
+            const idx = stepRow ? [...wrap.querySelectorAll('[data-step-item]')].indexOf(stepRow) : -1;
+            const panel = idx >= 0 ? panels[idx] : null;
+            if (panel) panel.hidden = !panel.hidden;
+            return;
+        }
+    });
+
+    function avoidPayload(form) {
+        const data = { date: form.dataset.date };
+        form.querySelectorAll('input, select').forEach(el => {
+            if (!el.name || el.value === '') return;
+            data[el.name] = el.type === 'number' ? Number(el.value) : el.value;
+        });
+        return data;
+    }
+
+    async function submitRoutineSlip(form) {
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+            const res = await plFetch(form.dataset.slipUrl + '?date=' + encodeURIComponent(form.dataset.date), {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify(avoidPayload(form)),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            await res.json();
+            plShowToast('Slip logged');
+            window.location.reload();
+        } catch (e) {
+            console.error('[Dashboard] slip failed', e);
+            plShowToast('Could not log slip');
+        } finally {
+            btn.disabled = false;
+        }
+        return false;
+    }
+
+    async function submitStepSlip(form) {
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+            const res = await plFetch(form.dataset.slipUrl + '?date=' + encodeURIComponent(form.dataset.date), {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify(avoidPayload(form)),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            await res.json();
+            plShowToast('Slip logged');
+            window.location.reload();
+        } catch (e) {
+            console.error('[Dashboard] step slip failed', e);
+            plShowToast('Could not log step slip');
+        } finally {
+            btn.disabled = false;
+        }
+        return false;
+    }
+
+    async function submitRoutineNote(form) {
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+            const res = await plFetch(form.dataset.noteUrl + '?date=' + encodeURIComponent(form.dataset.date), {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify(avoidPayload(form)),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            await res.json();
+            plShowToast('Saved ✓');
+            const panel = form.closest('[data-note-panel]');
+            if (panel) panel.hidden = true;
+            form.reset();
+        } catch (e) {
+            console.error('[Dashboard] note failed', e);
+            plShowToast('Could not save');
+        } finally {
+            btn.disabled = false;
+        }
+        return false;
+    }
+
+    /* ── Details Expansion & Modal ── */
+    function toggleRoutineDetails(btn) {
+        const row = btn.closest('[data-routine-item]');
+        if (row) toggleRoutineDetailsRow(row);
+    }
+
+    function toggleRoutineDetailsRow(row) {
+        const details = row.querySelector('[data-details]');
+        if (!details) return;
+        const open = details.classList.toggle('open');
+        const chev = row.querySelector('.pl-expand');
+        if (chev) {
+            chev.classList.toggle('open', open);
+            chev.title = open ? 'Hide details' : 'Show details';
+        }
+    }
+
+    function expandRoutineDetails(el) {
+        const row = el.closest('[data-routine-item]');
+        const details = row ? row.querySelector('[data-details]') : null;
+        if (details && !details.classList.contains('open')) {
+            toggleRoutineDetailsRow(row);
+        }
+    }
+
+    const plModal = document.getElementById('plRoutineModal');
+    const plModalBody = plModal ? plModal.querySelector('[data-modal-body]') : null;
+    let plModalState = null;
+
+    function openRoutineModal(el) {
+        const row = el.closest && el.closest('[data-routine-item]') ? el.closest('[data-routine-item]') : el;
+        const details = row.querySelector('[data-details]');
+        if (!details || !plModal) return;
+        if (plModalState) closeRoutineModal();
+
+        const placeholder = document.createComment('pl-details');
+        details.parentNode.insertBefore(placeholder, details);
+        details.classList.add('open');
+        plModalBody.appendChild(details);
+
+        plModal.querySelector('[data-modal-title]').textContent = row.dataset.modalTitle || '';
+        plModal.querySelector('[data-modal-sub]').textContent = row.dataset.modalSub || '';
+        plModal.hidden = false;
+        document.body.classList.add('pl-modal-open');
+        plModalState = { details, placeholder };
+
+        const firstInput = plModalBody.querySelector('input');
+        if (firstInput) setTimeout(() => firstInput.focus(), 60);
+    }
+
+    function closeRoutineModal() {
+        if (!plModalState) return;
+        const { details, placeholder } = plModalState;
+        details.classList.remove('open');
+        if (placeholder.parentNode) placeholder.parentNode.insertBefore(details, placeholder);
+        placeholder.remove();
+        plModal.hidden = true;
+        document.body.classList.remove('pl-modal-open');
+        plModalState = null;
+        refreshStepCounts();
+    }
+
+    if (plModal) {
+        plModal.querySelectorAll('[data-modal-close]').forEach(b => b.addEventListener('click', closeRoutineModal));
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeRoutineModal();
+        });
+    }
+
+    // Enter key in routine log input triggers submit
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        const inp = e.target instanceof Element ? e.target.closest('.pl-log input, .pl-logset input') : null;
+        if (!inp) return;
+        e.preventDefault();
+        const box = inp.closest('[data-log-value], [data-log-sets]');
+        const btn = box ? box.querySelector('button') : null;
+        if (btn) btn.click();
+    });
 
     // Charts Initialization
     document.addEventListener('DOMContentLoaded', function() {

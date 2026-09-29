@@ -35,41 +35,11 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        // Today's routines (with done counter for the quick-check widget)
-        // Batched: one routines query + one completions query, no per-row completedOn().
-        $todayKey = now()->toDateString();
-        $todayRoutines = $user->routines()->get();
-        $todayCompletionIds = $todayRoutines->isNotEmpty()
-            ? \App\Models\RoutineCompletion::where('user_id', $user->id)
-                ->whereIn('routine_id', $todayRoutines->pluck('id'))
-                ->where('completed_date', $todayKey)
-                ->pluck('routine_id')
-                ->map(fn ($id) => (int) $id)
-                ->flip()
-            : collect();
-        $todayViolationIds = $todayRoutines->isNotEmpty()
-            ? \App\Models\RoutineViolation::where('user_id', $user->id)
-                ->whereIn('routine_id', $todayRoutines->pluck('id'))
-                ->where('occurred_date', $todayKey)
-                ->pluck('routine_id')
-                ->map(fn ($id) => (int) $id)
-                ->flip()
-            : collect();
-        foreach ($todayRoutines as $routine) {
-            $record = isset($todayCompletionIds[(int) $routine->id])
-                ? new \App\Models\RoutineCompletion(['routine_id' => $routine->id, 'completed_date' => $todayKey])
-                : null;
-            $routine->setRelation('completions', collect($record ? [$record] : []));
-            // Avoid habits are never checked: clean counts as done.
-            $routine->avoidDayViolated = isset($todayViolationIds[(int) $routine->id]);
-        }
-        $todayRoutines = $todayRoutines
-            ->filter(fn ($routine) => $routine->occursOn(now()))
-            ->sortBy(fn ($r) => $r->sortKey())
-            ->values();
-
-        $routineTotalCount = $todayRoutines->count();
-        $routineDoneCount  = $todayRoutines->filter(fn ($r) => $r->isAvoid() ? ! $r->avoidDayViolated : $r->completedOn(now()))->count();
+        // Today's routines with full habit rings, adherence metrics, step completions, and avoid habit tracking
+        $routinesData = app(\App\Services\RoutinePlannerService::class)->getDayRoutinesData($user, now());
+        $todayRoutines     = $routinesData['today'];
+        $routineTotalCount = $routinesData['total'];
+        $routineDoneCount  = $routinesData['done'];
 
         // Upcoming reminders
         $upcomingReminders = $user->reminders()
