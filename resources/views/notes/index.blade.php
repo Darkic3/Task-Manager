@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Notes')
+@section('title', __('Notes'))
 
 @push('styles')
 <style>
@@ -162,11 +162,11 @@
     <div class="cu-header">
         <div class="d-flex align-items-center justify-content-between" style="position:relative;z-index:1;">
             <div>
-                <h1 class="cu-header-title"><i class="bi bi-journal-text me-2"></i>Notes</h1>
-                <p class="cu-header-sub">Organize your thoughts and ideas</p>
+                <h1 class="cu-header-title"><i class="bi bi-journal-text me-2"></i>{{ __('Notes') }}</h1>
+                <p class="cu-header-sub">{{ __('Organize your thoughts and ideas') }}</p>
             </div>
             <a href="{{ route('notes.create') }}" class="cu-btn-new">
-                <i class="bi bi-plus-lg"></i> New Note
+                <i class="bi bi-plus-lg"></i> {{ __('New Note') }}
             </a>
         </div>
     </div>
@@ -177,28 +177,28 @@
             <div class="cu-stat-icon" style="background:#ede9fe;color:#7c3aed;"><i class="bi bi-journal-text"></i></div>
             <div>
                 <div class="cu-stat-val" id="stat-total">{{ $notes->count() }}</div>
-                <div class="cu-stat-label">Total Notes</div>
+                <div class="cu-stat-label">{{ __('Total Notes') }}</div>
             </div>
         </div>
         <div class="cu-stat">
             <div class="cu-stat-icon" style="background:#fef3c7;color:#d97706;"><i class="bi bi-star-fill"></i></div>
             <div>
                 <div class="cu-stat-val">{{ $notes->where('is_favorite', true)->count() }}</div>
-                <div class="cu-stat-label">Favorites</div>
+                <div class="cu-stat-label">{{ __('Favorites') }}</div>
             </div>
         </div>
         <div class="cu-stat">
             <div class="cu-stat-icon" style="background:#dbeafe;color:#2563eb;"><i class="bi bi-tag"></i></div>
             <div>
                 <div class="cu-stat-val">{{ $categories->count() }}</div>
-                <div class="cu-stat-label">Categories</div>
+                <div class="cu-stat-label">{{ __('Categories') }}</div>
             </div>
         </div>
         <div class="cu-stat">
             <div class="cu-stat-icon" style="background:#dcfce7;color:#16a34a;"><i class="bi bi-file-text"></i></div>
             <div>
                 <div class="cu-stat-val">{{ number_format($notes->sum('word_count')) }}</div>
-                <div class="cu-stat-label">Total Words</div>
+                <div class="cu-stat-label">{{ __('Total Words') }}</div>
             </div>
         </div>
     </div>
@@ -207,18 +207,18 @@
     <div class="cu-filter-bar">
         <div class="cu-search-wrap">
             <i class="bi bi-search"></i>
-            <input type="text" class="cu-search" id="search" placeholder="Search notes..." value="{{ request('search') }}">
+            <input type="text" class="cu-search" id="search" placeholder="{{ __('Search notes...') }}" value="{{ request('search') }}">
         </div>
         <select class="cu-select" id="category">
-            <option value="all">All Categories</option>
+            <option value="all">{{ __('All Categories') }}</option>
             @foreach($categories as $cat)
                 <option value="{{ $cat }}" {{ request('category') == $cat ? 'selected' : '' }}>{{ $cat }}</option>
             @endforeach
         </select>
         <button type="button" class="cu-fav-toggle {{ request('favorites') == '1' ? 'active' : '' }}" id="fav-toggle">
-            <i class="bi bi-star-fill"></i> Favorites
+            <i class="bi bi-star-fill"></i> {{ __('Favorites') }}
         </button>
-        <span class="cu-count-badge" id="notes-count">{{ $notes->count() }} notes</span>
+        <span class="cu-count-badge" id="notes-count">{{ $notes->count() }} {{ __('notes') }}</span>
     </div>
 
     {{-- Notes container --}}
@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(r => r.json())
         .then(data => {
             container.innerHTML = data.html;
-            countBadge.textContent = data.count + ' note' + (data.count !== 1 ? 's' : '');
+            countBadge.textContent = data.count + ' {{ __('notes') }}';
             attachListeners();
         })
         .catch(console.error);

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'My Profile')
+@section('title', __('My Profile'))
 @push('styles')
 <style>
 
@@ -159,11 +159,11 @@
     <div class="cu-header">
         <div class="cu-header-inner">
             <div>
-                <h1 class="cu-header-title"><i class="bi bi-person-circle me-2"></i>My Profile</h1>
-                <p class="cu-header-sub">View and manage your account details</p>
+                <h1 class="cu-header-title"><i class="bi bi-person-circle me-2"></i>{{ __('My Profile') }}</h1>
+                <p class="cu-header-sub">{{ __('View and manage your account details') }}</p>
             </div>
             <a href="{{ route('profile.edit') }}" class="cu-btn-hdr">
-                <i class="bi bi-pencil"></i> Edit Profile
+                <i class="bi bi-pencil"></i> {{ __('Edit Profile') }}
             </a>
         </div>
     </div>
@@ -175,7 +175,7 @@
     <div class="cu-layout">
         {{-- Left panel --}}
         <div class="cu-info-panel">
-            <div class="cu-info-panel-header"><span>Account</span></div>
+            <div class="cu-info-panel-header"><span>{{ __('Account') }}</span></div>
             <div class="cu-info-body">
                 <div class="cu-avatar-wrap">
                     @if($user->avatar)
@@ -196,12 +196,12 @@
                 @if($user->website)
                 <div class="cu-meta-row"><i class="bi bi-globe"></i><a href="{{ $user->website }}" target="_blank" style="color:#6366f1;font-size:11px;word-break:break-all;">{{ Str::limit($user->website,30) }}</a></div>
                 @endif
-                <div class="cu-meta-row"><i class="bi bi-calendar3"></i><span>Joined <strong>{{ $user->created_at->format('M Y') }}</strong></span></div>
+                <div class="cu-meta-row"><i class="bi bi-calendar3"></i><span>{{ __('Joined') }} <strong>{{ $user->created_at->format('M Y') }}</strong></span></div>
 
                 <div class="cu-panel-nav">
-                    <a href="{{ route('profile.show') }}" class="cu-nav-link active"><i class="bi bi-person"></i> Profile</a>
-                    <a href="{{ route('profile.edit') }}" class="cu-nav-link"><i class="bi bi-pencil"></i> Edit Info</a>
-                    <a href="{{ route('profile.password') }}" class="cu-nav-link"><i class="bi bi-key"></i> Password</a>
+                    <a href="{{ route('profile.show') }}" class="cu-nav-link active"><i class="bi bi-person"></i> {{ __('Profile') }}</a>
+                    <a href="{{ route('profile.edit') }}" class="cu-nav-link"><i class="bi bi-pencil"></i> {{ __('Edit Info') }}</a>
+                    <a href="{{ route('profile.password') }}" class="cu-nav-link"><i class="bi bi-key"></i> {{ __('Password') }}</a>
                 </div>
             </div>
         </div>
@@ -213,33 +213,33 @@
             <div class="cu-section">
                 <div class="cu-section-header">
                     <span class="cu-section-icon violet"><i class="bi bi-bar-chart"></i></span>
-                    <span class="cu-section-title">Activity Overview</span>
+                    <span class="cu-section-title">{{ __('Activity Overview') }}</span>
                 </div>
                 <div class="cu-section-body">
                     <div class="cu-stat-row">
                         <div class="cu-stat-box">
                             <div class="cu-stat-box-num">{{ $user->tasks()->count() }}</div>
-                            <div class="cu-stat-box-lbl">Tasks</div>
+                            <div class="cu-stat-box-lbl">{{ __('Tasks') }}</div>
                         </div>
                         <div class="cu-stat-box">
                             <div class="cu-stat-box-num">{{ $user->projects()->count() }}</div>
-                            <div class="cu-stat-box-lbl">Projects</div>
+                            <div class="cu-stat-box-lbl">{{ __('Projects') }}</div>
                         </div>
                         <div class="cu-stat-box">
                             <div class="cu-stat-box-num">{{ $user->reminders()->count() }}</div>
-                            <div class="cu-stat-box-lbl">Reminders</div>
+                            <div class="cu-stat-box-lbl">{{ __('Reminders') }}</div>
                         </div>
                         <div class="cu-stat-box">
                             <div class="cu-stat-box-num">{{ $user->notes()->count() }}</div>
-                            <div class="cu-stat-box-lbl">Notes</div>
+                            <div class="cu-stat-box-lbl">{{ __('Notes') }}</div>
                         </div>
                         <div class="cu-stat-box">
                             <div class="cu-stat-box-num">{{ $user->files()->count() }}</div>
-                            <div class="cu-stat-box-lbl">Files</div>
+                            <div class="cu-stat-box-lbl">{{ __('Files') }}</div>
                         </div>
                         <div class="cu-stat-box">
                             <div class="cu-stat-box-num">{{ $user->routines()->count() }}</div>
-                            <div class="cu-stat-box-lbl">Routines</div>
+                            <div class="cu-stat-box-lbl">{{ __('Routines') }}</div>
                         </div>
                     </div>
                 </div>
@@ -249,29 +249,29 @@
             <div class="cu-section">
                 <div class="cu-section-header">
                     <span class="cu-section-icon blue"><i class="bi bi-person-lines-fill"></i></span>
-                    <span class="cu-section-title">Personal Information</span>
-                    <a href="{{ route('profile.edit') }}" style="margin-left:auto;font-size:11px;color:#6366f1;font-weight:600;text-decoration:none;">Edit</a>
+                    <span class="cu-section-title">{{ __('Personal Information') }}</span>
+                    <a href="{{ route('profile.edit') }}" style="margin-left:auto;font-size:11px;color:#6366f1;font-weight:600;text-decoration:none;">{{ __('Edit') }}</a>
                 </div>
                 <div class="cu-section-body">
                     <table class="cu-detail-table">
                         <tr>
-                            <td><i class="bi bi-person text-muted"></i> Name</td>
+                            <td><i class="bi bi-person text-muted"></i> {{ __('Name') }}</td>
                             <td>{{ $user->name }}</td>
                         </tr>
                         <tr>
-                            <td><i class="bi bi-envelope text-muted"></i> Email</td>
+                            <td><i class="bi bi-envelope text-muted"></i> {{ __('Email') }}</td>
                             <td>{{ $user->email }}</td>
                         </tr>
                         <tr>
-                            <td><i class="bi bi-telephone text-muted"></i> Phone</td>
+                            <td><i class="bi bi-telephone text-muted"></i> {{ __('Phone') }}</td>
                             <td>{{ $user->phone ?: '—' }}</td>
                         </tr>
                         <tr>
-                            <td><i class="bi bi-geo-alt text-muted"></i> Location</td>
+                            <td><i class="bi bi-geo-alt text-muted"></i> {{ __('Location') }}</td>
                             <td>{{ $user->location ?: '—' }}</td>
                         </tr>
                         <tr>
-                            <td><i class="bi bi-globe text-muted"></i> Website</td>
+                            <td><i class="bi bi-globe text-muted"></i> {{ __('Website') }}</td>
                             <td>
                                 @if($user->website)
                                     <a href="{{ $user->website }}" target="_blank" style="color:#6366f1;">{{ Str::limit($user->website,40) }}</a>
@@ -281,7 +281,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td><i class="bi bi-calendar3 text-muted"></i> Member Since</td>
+                            <td><i class="bi bi-calendar3 text-muted"></i> {{ __('Member Since') }}</td>
                             <td>{{ $user->created_at->format('F d, Y') }}</td>
                         </tr>
                     </table>
@@ -293,7 +293,7 @@
             <div class="cu-section">
                 <div class="cu-section-header">
                     <span class="cu-section-icon amber"><i class="bi bi-chat-quote"></i></span>
-                    <span class="cu-section-title">Bio</span>
+                    <span class="cu-section-title">{{ __('Bio') }}</span>
                 </div>
                 <div class="cu-section-body">
                     <p style="font-size:13px;color:#374151;line-height:1.7;margin:0;">{{ $user->bio }}</p>
@@ -305,15 +305,15 @@
             <div class="cu-section">
                 <div class="cu-section-header">
                     <span class="cu-section-icon red"><i class="bi bi-shield-lock"></i></span>
-                    <span class="cu-section-title">Security</span>
+                    <span class="cu-section-title">{{ __('Security') }}</span>
                 </div>
                 <div class="cu-section-body" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
                     <div style="font-size:13px;color:#374151;">
-                        <strong>Password</strong><br>
-                        <span style="font-size:11px;color:#9ca3af;">Last updated {{ $user->updated_at->diffForHumans() }}</span>
+                        <strong>{{ __('Password') }}</strong><br>
+                        <span style="font-size:11px;color:#9ca3af;">{{ __('Last updated') }} {{ $user->updated_at->diffForHumans() }}</span>
                     </div>
                     <a href="{{ route('profile.password') }}" class="cu-btn-save" style="text-decoration:none;">
-                        <i class="bi bi-key"></i> Change Password
+                        <i class="bi bi-key"></i> {{ __('Change Password') }}
                     </a>
                 </div>
             </div>

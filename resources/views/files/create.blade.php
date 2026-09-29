@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Upload File')
+@section('title', __('Upload File'))
 
 @push('styles')
 <style>
@@ -174,8 +174,8 @@
                 <i class="bi bi-arrow-left fs-5" style="color:rgba(255,255,255,.8);"></i>
             </a>
             <div>
-                <h1 class="cu-header-title">Upload File</h1>
-                <p class="cu-header-sub">Add a new file to your collection</p>
+                <h1 class="cu-header-title">{{ __('Upload File') }}</h1>
+                <p class="cu-header-sub">{{ __('Add a new file to your collection') }}</p>
             </div>
         </div>
     </div>
@@ -184,20 +184,20 @@
 
         {{-- Left info panel --}}
         <div class="cu-info-panel">
-            <div class="cu-info-panel-header"><span>Upload Info</span></div>
+            <div class="cu-info-panel-header"><span>{{ __('Upload Info') }}</span></div>
             <div class="cu-info-body">
                 <div class="cu-avatar"><i class="bi bi-cloud-upload"></i></div>
                 <div class="cu-panel-name">{{ auth()->user()->name }}</div>
-                <div class="cu-panel-sub">Uploading on {{ now()->format('M d, Y') }}</div>
+                <div class="cu-panel-sub">{{ __('Uploading on :date', ['date' => now()->format('M d, Y')]) }}</div>
 
                 <div class="cu-meta-row">
                     <i class="bi bi-info-circle"></i>
-                    <span>Files are stored securely and only visible to you.</span>
+                    <span>{{ __('Files are stored securely and only visible to you.') }}</span>
                 </div>
 
                 <div class="cu-meta-row" style="margin-top:6px; border-top: none;">
                     <i class="bi bi-paperclip"></i>
-                    <span><strong>Accepted formats</strong></span>
+                    <span><strong>{{ __('Accepted formats') }}</strong></span>
                 </div>
                 <ul class="cu-fmt-list" style="margin-top:4px;">
                     <li><i class="bi bi-image"></i> jpg, png, gif, svg</li>
@@ -217,15 +217,15 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon green"><i class="bi bi-tag"></i></span>
-                        <span class="cu-section-title">File Name</span>
+                        <span class="cu-section-title">{{ __('File Name') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field">
-                            <label for="name" class="cu-label">Display Name <span style="color:#dc2626;">*</span></label>
+                            <label for="name" class="cu-label">{{ __('Display Name') }} <span style="color:#dc2626;">*</span></label>
                             <input type="text" id="name" name="name"
                                    class="cu-input @error('name') is-invalid @enderror"
                                    value="{{ old('name') }}"
-                                   placeholder="Enter a descriptive name for this file…"
+                                   placeholder="{{ __('Enter a descriptive name for this file…') }}"
                                    required autofocus>
                             @error('name')<p class="cu-err">{{ $message }}</p>@enderror
                         </div>
@@ -236,24 +236,24 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon blue"><i class="bi bi-cloud-upload"></i></span>
-                        <span class="cu-section-title">Choose File</span>
-                        <span class="cu-section-sub">Required</span>
+                        <span class="cu-section-title">{{ __('Choose File') }}</span>
+                        <span class="cu-section-sub">{{ __('Required') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-drop-zone" id="drop-zone">
                             <i class="bi bi-cloud-arrow-up cu-drop-icon"></i>
-                            <div class="cu-drop-text">Drag &amp; drop a file here</div>
-                            <div class="cu-drop-hint">or click anywhere in this area to browse</div>
+                            <div class="cu-drop-text">{{ __('Drag & drop a file here') }}</div>
+                            <div class="cu-drop-hint">{{ __('or click anywhere in this area to browse') }}</div>
                             <input type="file" name="file" id="file-input"
                                    class="@error('file') is-invalid @enderror" required>
                         </div>
                         <div class="cu-selected-file" id="selected-file">
                             <i class="bi bi-file-earmark-check" style="font-size:15px;"></i>
                             <span id="selected-filename" style="font-weight:600;"></span>
-                            <button type="button" onclick="clearFile()" title="Remove">&times;</button>
+                            <button type="button" onclick="clearFile()" title="{{ __('Remove') }}">&times;</button>
                         </div>
                         @error('file')<p class="cu-err" style="margin-top:6px;">{{ $message }}</p>@enderror
-                        <p class="cu-hint">Max file size depends on your server configuration</p>
+                        <p class="cu-hint">{{ __('Max file size depends on your server configuration') }}</p>
                     </div>
                 </div>
 
@@ -261,31 +261,31 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon violet"><i class="bi bi-grid-3x3-gap"></i></span>
-                        <span class="cu-section-title">File Type</span>
-                        <span class="cu-section-sub">Required</span>
+                        <span class="cu-section-title">{{ __('File Type') }}</span>
+                        <span class="cu-section-sub">{{ __('Required') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <input type="hidden" name="type" id="type-hidden" value="{{ old('type', 'project') }}">
                         <div class="cu-type-grid">
                             <div class="cu-type-chip selected" data-type="project">
                                 <i class="bi bi-kanban"></i>
-                                <span>Project</span>
+                                <span>{{ __('Project') }}</span>
                             </div>
                             <div class="cu-type-chip" data-type="docs">
                                 <i class="bi bi-file-earmark-text"></i>
-                                <span>Docs</span>
+                                <span>{{ __('Docs') }}</span>
                             </div>
                             <div class="cu-type-chip" data-type="txt">
                                 <i class="bi bi-file-earmark"></i>
-                                <span>Text</span>
+                                <span>{{ __('Text') }}</span>
                             </div>
                             <div class="cu-type-chip" data-type="code">
                                 <i class="bi bi-code-slash"></i>
-                                <span>Code</span>
+                                <span>{{ __('Code') }}</span>
                             </div>
                             <div class="cu-type-chip" data-type="image">
                                 <i class="bi bi-image"></i>
-                                <span>Image</span>
+                                <span>{{ __('Image') }}</span>
                             </div>
                         </div>
                         @error('type')<p class="cu-err" style="margin-top:8px;">{{ $message }}</p>@enderror
@@ -295,10 +295,10 @@
                 {{-- Action bar --}}
                 <div class="cu-action-bar">
                     <a href="{{ route('files.index') }}" class="cu-btn-cancel">
-                        <i class="bi bi-x-lg"></i> Cancel
+                        <i class="bi bi-x-lg"></i> {{ __('Cancel') }}
                     </a>
                     <button type="submit" class="cu-btn-save">
-                        <i class="bi bi-cloud-upload"></i> Upload File
+                        <i class="bi bi-cloud-upload"></i> {{ __('Upload File') }}
                     </button>
                 </div>
 

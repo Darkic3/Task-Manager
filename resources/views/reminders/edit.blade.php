@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Reminder')
+@section('title', __('Edit Reminder'))
 
 @push('styles')
 <style>
@@ -223,7 +223,7 @@
                 <i class="bi bi-arrow-left fs-5" style="color:rgba(255,255,255,.8);"></i>
             </a>
             <div>
-                <h1 class="cu-header-title">Edit Reminder</h1>
+                <h1 class="cu-header-title">{{ __('Edit Reminder') }}</h1>
                 <p class="cu-header-sub">{{ Str::limit($reminder->title, 60) }}</p>
             </div>
         </div>
@@ -233,15 +233,15 @@
 
         {{-- Left info panel --}}
         <div class="cu-info-panel">
-            <div class="cu-info-panel-header"><span>Reminder Info</span></div>
+            <div class="cu-info-panel-header"><span>{{ __('Reminder Info') }}</span></div>
             <div class="cu-info-body">
                 <div class="cu-avatar"><i class="bi bi-bell-fill"></i></div>
                 <div class="cu-panel-name">{{ Str::limit($reminder->title, 36) }}</div>
-                <div class="cu-panel-sub">Last edited {{ $reminder->updated_at->diffForHumans() }}</div>
+                <div class="cu-panel-sub">{{ __('Last edited') }} {{ $reminder->updated_at->diffForHumans() }}</div>
 
                 <div class="cu-pri-row">
                     <span class="cu-pri-badge cu-pri-{{ $reminder->priority }}">
-                        {{ ucfirst($reminder->priority) }} Priority
+                        {{ __(ucfirst($reminder->priority)) }} {{ __('Priority') }}
                     </span>
                 </div>
 
@@ -251,12 +251,12 @@
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-calendar3"></i>
-                    <span>Created <strong>{{ $reminder->created_at->format('M d, Y') }}</strong></span>
+                    <span>{{ __('Created') }} <strong>{{ $reminder->created_at->format('M d, Y') }}</strong></span>
                 </div>
                 @if($reminder->formatted_date_time)
                 <div class="cu-meta-row">
                     <i class="bi bi-bell"></i>
-                    <span>Due <strong>{{ $reminder->formatted_date_time->format('M j, Y') }}</strong></span>
+                    <span>{{ __('Due') }} <strong>{{ $reminder->formatted_date_time->format('M j, Y') }}</strong></span>
                 </div>
                 @endif
                 @if($reminder->category)
@@ -278,11 +278,11 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon amber"><i class="bi bi-card-text"></i></span>
-                        <span class="cu-section-title">Basic Info</span>
+                        <span class="cu-section-title">{{ __('Basic Info') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field">
-                            <label for="title" class="cu-label">Title <span style="color:#dc2626;">*</span></label>
+                            <label for="title" class="cu-label">{{ __('Title') }} <span style="color:#dc2626;">*</span></label>
                             <input type="text" id="title" name="title"
                                    class="cu-input @error('title') is-invalid @enderror"
                                    value="{{ old('title', $reminder->title) }}"
@@ -290,7 +290,7 @@
                             @error('title')<p class="cu-err">{{ $message }}</p>@enderror
                         </div>
                         <div class="cu-field">
-                            <label for="description" class="cu-label">Description</label>
+                            <label for="description" class="cu-label">{{ __('Description') }}</label>
                             <textarea id="description" name="description" rows="3"
                                       class="cu-textarea @error('description') is-invalid @enderror">{{ old('description', $reminder->description) }}</textarea>
                             @error('description')<p class="cu-err">{{ $message }}</p>@enderror
@@ -302,20 +302,20 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon blue"><i class="bi bi-calendar-event"></i></span>
-                        <span class="cu-section-title">Date &amp; Time</span>
-                        <span class="cu-section-sub">Optional</span>
+                        <span class="cu-section-title">{{ __('Date & Time') }}</span>
+                        <span class="cu-section-sub">{{ __('Optional') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field-row">
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="date" class="cu-label">Date</label>
+                                <label for="date" class="cu-label">{{ __('Date') }}</label>
                                 <input type="date" id="date" name="date"
                                        class="cu-input @error('date') is-invalid @enderror"
                                        value="{{ old('date', $reminder->date?->format('Y-m-d')) }}">
                                 @error('date')<p class="cu-err">{{ $message }}</p>@enderror
                             </div>
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="time" class="cu-label">Time</label>
+                                <label for="time" class="cu-label">{{ __('Time') }}</label>
                                 <input type="time" id="time" name="time"
                                        class="cu-input @error('time') is-invalid @enderror"
                                        value="{{ old('time', $reminder->time) }}">
@@ -329,8 +329,8 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon red"><i class="bi bi-flag-fill"></i></span>
-                        <span class="cu-section-title">Priority</span>
-                        <span class="cu-section-sub">Required</span>
+                        <span class="cu-section-title">{{ __('Priority') }}</span>
+                        <span class="cu-section-sub">{{ __('Required') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-pri-grid">
@@ -340,7 +340,7 @@
                                        value="{{ $key }}"
                                        {{ old('priority', $reminder->priority) === $key ? 'checked' : '' }}
                                        required>
-                                <label for="pri_{{ $key }}">{{ $label }}</label>
+                                <label for="pri_{{ $key }}">{{ __($label) }}</label>
                             </div>
                             @endforeach
                         </div>
@@ -352,17 +352,17 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon green"><i class="bi bi-info-circle"></i></span>
-                        <span class="cu-section-title">Details</span>
-                        <span class="cu-section-sub">Category, location &amp; tags</span>
+                        <span class="cu-section-title">{{ __('Details') }}</span>
+                        <span class="cu-section-sub">{{ __('Category, location & tags') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field-row">
                             <div class="cu-field" style="margin-bottom:12px;">
-                                <label for="category" class="cu-label">Category</label>
+                                <label for="category" class="cu-label">{{ __('Category') }}</label>
                                 <input type="text" id="category" name="category" list="cat-list"
                                        class="cu-input @error('category') is-invalid @enderror"
                                        value="{{ old('category', $reminder->category) }}"
-                                       placeholder="Work, Personal&hellip;">
+                                       placeholder="{{ __('Work, Personal...') }}">
                                 <datalist id="cat-list">
                                     @foreach(auth()->user()->reminders()->whereNotNull('category')->where('category','!=','')->distinct()->pluck('category') as $cat)
                                         <option value="{{ $cat }}">
@@ -371,23 +371,23 @@
                                 @error('category')<p class="cu-err">{{ $message }}</p>@enderror
                             </div>
                             <div class="cu-field" style="margin-bottom:12px;">
-                                <label for="location" class="cu-label">Location</label>
+                                <label for="location" class="cu-label">{{ __('Location') }}</label>
                                 <input type="text" id="location" name="location"
                                        class="cu-input @error('location') is-invalid @enderror"
                                        value="{{ old('location', $reminder->location) }}"
-                                       placeholder="Meeting room, address&hellip;">
+                                       placeholder="{{ __('Meeting room, address...') }}">
                                 @error('location')<p class="cu-err">{{ $message }}</p>@enderror
                             </div>
                         </div>
                         <div class="cu-field">
-                            <label class="cu-label">Tags</label>
+                            <label class="cu-label">{{ __('Tags') }}</label>
                             <div class="cu-tags-box" id="tags-box">
                                 <input type="text" class="cu-tag-input" id="tag-input"
-                                       placeholder="Type and press Enter to add tag">
+                                       placeholder="{{ __('Type and press Enter to add tag') }}">
                             </div>
                             <input type="hidden" name="tags" id="tags-hidden"
                                    value="{{ old('tags', is_array($reminder->tags) ? implode(',', $reminder->tags) : $reminder->tags) }}">
-                            <p class="cu-hint">Press Enter or , to add a tag</p>
+                            <p class="cu-hint">{{ __('Press Enter or , to add a tag') }}</p>
                             @error('tags')<p class="cu-err">{{ $message }}</p>@enderror
                         </div>
                     </div>
@@ -397,8 +397,8 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon violet"><i class="bi bi-arrow-repeat"></i></span>
-                        <span class="cu-section-title">Recurring</span>
-                        <span class="cu-section-sub">Optional</span>
+                        <span class="cu-section-title">{{ __('Recurring') }}</span>
+                        <span class="cu-section-sub">{{ __('Optional') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <label class="cu-recur-toggle" for="is_recurring">
@@ -407,23 +407,23 @@
                             <div class="cu-toggle-track">
                                 <div class="cu-toggle-thumb"></div>
                             </div>
-                            <span class="cu-toggle-lbl">Make this reminder recurring</span>
+                            <span class="cu-toggle-lbl">{{ __('Make this reminder recurring') }}</span>
                         </label>
 
                         <div class="cu-recur-opts {{ old('is_recurring', $reminder->is_recurring) ? 'open' : '' }}" id="recur-opts">
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="recurrence_type" class="cu-label">Repeat Every</label>
+                                <label for="recurrence_type" class="cu-label">{{ __('Repeat Every') }}</label>
                                 <select id="recurrence_type" name="recurrence_type"
                                         class="cu-select @error('recurrence_type') is-invalid @enderror">
-                                    <option value="daily"   {{ old('recurrence_type', $reminder->recurrence_type) === 'daily'   ? 'selected' : '' }}>Daily</option>
-                                    <option value="weekly"  {{ old('recurrence_type', $reminder->recurrence_type) === 'weekly'  ? 'selected' : '' }}>Weekly</option>
-                                    <option value="monthly" {{ old('recurrence_type', $reminder->recurrence_type) === 'monthly' ? 'selected' : '' }}>Monthly</option>
-                                    <option value="yearly"  {{ old('recurrence_type', $reminder->recurrence_type) === 'yearly'  ? 'selected' : '' }}>Yearly</option>
+                                    <option value="daily"   {{ old('recurrence_type', $reminder->recurrence_type) === 'daily'   ? 'selected' : '' }}>{{ __('Daily') }}</option>
+                                    <option value="weekly"  {{ old('recurrence_type', $reminder->recurrence_type) === 'weekly'  ? 'selected' : '' }}>{{ __('Weekly') }}</option>
+                                    <option value="monthly" {{ old('recurrence_type', $reminder->recurrence_type) === 'monthly' ? 'selected' : '' }}>{{ __('Monthly') }}</option>
+                                    <option value="yearly"  {{ old('recurrence_type', $reminder->recurrence_type) === 'yearly'  ? 'selected' : '' }}>{{ __('Yearly') }}</option>
                                 </select>
                                 @error('recurrence_type')<p class="cu-err">{{ $message }}</p>@enderror
                             </div>
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="recurrence_interval" class="cu-label">Interval</label>
+                                <label for="recurrence_interval" class="cu-label">{{ __('Interval') }}</label>
                                 <div style="display:flex;align-items:center;gap:6px;">
                                     <input type="number" id="recurrence_interval" name="recurrence_interval"
                                            class="cu-input @error('recurrence_interval') is-invalid @enderror"
@@ -440,10 +440,10 @@
                 {{-- Action bar --}}
                 <div class="cu-action-bar">
                     <a href="{{ route('reminders.show', $reminder) }}" class="cu-btn-cancel">
-                        <i class="bi bi-x-lg"></i> Cancel
+                        <i class="bi bi-x-lg"></i> {{ __('Cancel') }}
                     </a>
                     <button type="submit" class="cu-btn-save">
-                        <i class="bi bi-check-lg"></i> Update Reminder
+                        <i class="bi bi-check-lg"></i> {{ __('Update Reminder') }}
                     </button>
                 </div>
 
@@ -451,16 +451,16 @@
                 <div class="cu-danger-zone cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon red"><i class="bi bi-exclamation-triangle"></i></span>
-                        <span class="cu-section-title" style="color:#dc2626;">Danger Zone</span>
+                        <span class="cu-section-title" style="color:#dc2626;">{{ __('Danger Zone') }}</span>
                     </div>
                     <div class="cu-section-body">
-                        <p class="cu-danger-desc">Permanently delete this reminder. This action cannot be undone.</p>
+                        <p class="cu-danger-desc">{{ __('Permanently delete this reminder. This action cannot be undone.') }}</p>
                         <form action="{{ route('reminders.destroy', $reminder) }}" method="POST"
-                              onsubmit="return confirm('Delete this reminder permanently?')">
+                              onsubmit="return confirm('{{ __('Delete this reminder permanently?') }}')">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="cu-btn-delete">
-                                <i class="bi bi-trash"></i> Delete Reminder
+                                <i class="bi bi-trash"></i> {{ __('Delete Reminder') }}
                             </button>
                         </form>
                     </div>

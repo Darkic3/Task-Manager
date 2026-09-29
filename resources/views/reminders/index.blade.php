@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Reminders')
+@section('title', __('Reminders'))
 
 @push('styles')
 <style>
@@ -211,50 +211,50 @@
     <div class="cu-header">
         <div class="cu-header-inner">
             <div>
-                <h1 class="cu-header-title"><i class="bi bi-bell-fill me-2"></i>Reminders</h1>
-                <p class="cu-header-sub">{{ $stats['active'] }} active &middot; {{ $stats['due_today'] }} due today</p>
+                <h1 class="cu-header-title"><i class="bi bi-bell-fill me-2"></i>{{ __('Reminders') }}</h1>
+                <p class="cu-header-sub">{{ __(':active active · :due_today due today', ['active' => $stats['active'], 'due_today' => $stats['due_today']]) }}</p>
             </div>
             <a href="{{ route('reminders.create') }}" class="cu-btn-add-rem">
-                <i class="bi bi-plus-lg"></i> New Reminder
+                <i class="bi bi-plus-lg"></i> {{ __('New Reminder') }}
             </a>
         </div>
     </div>
 
     {{-- Stats --}}
     <div class="cu-rem-stats">
-        <div class="cu-rem-tile cu-tile-active" onclick="setStatus('')" title="Show all">
+        <div class="cu-rem-tile cu-tile-active" onclick="setStatus('')" title="{{ __('Show all') }}">
             <div class="cu-tile-ico amber"><i class="bi bi-bell"></i></div>
             <div>
                 <div class="cu-tile-val">{{ $stats['total'] }}</div>
-                <div class="cu-tile-lbl">Total</div>
+                <div class="cu-tile-lbl">{{ __('Total') }}</div>
             </div>
         </div>
-        <div class="cu-rem-tile cu-tile-ok" onclick="setStatus('active')" title="Active only">
+        <div class="cu-rem-tile cu-tile-ok" onclick="setStatus('active')" title="{{ __('Active only') }}">
             <div class="cu-tile-ico green"><i class="bi bi-check2-circle"></i></div>
             <div>
                 <div class="cu-tile-val">{{ $stats['active'] }}</div>
-                <div class="cu-tile-lbl">Active</div>
+                <div class="cu-tile-lbl">{{ __('Active') }}</div>
             </div>
         </div>
-        <div class="cu-rem-tile cu-tile-done" onclick="setStatus('completed')" title="Completed">
+        <div class="cu-rem-tile cu-tile-done" onclick="setStatus('completed')" title="{{ __('Completed') }}">
             <div class="cu-tile-ico blue"><i class="bi bi-check-circle-fill"></i></div>
             <div>
                 <div class="cu-tile-val">{{ $stats['completed'] }}</div>
-                <div class="cu-tile-lbl">Completed</div>
+                <div class="cu-tile-lbl">{{ __('Completed') }}</div>
             </div>
         </div>
-        <div class="cu-rem-tile cu-tile-late" onclick="setStatus('overdue')" title="Overdue">
+        <div class="cu-rem-tile cu-tile-late" onclick="setStatus('overdue')" title="{{ __('Overdue') }}">
             <div class="cu-tile-ico red"><i class="bi bi-exclamation-circle-fill"></i></div>
             <div>
                 <div class="cu-tile-val">{{ $stats['overdue'] }}</div>
-                <div class="cu-tile-lbl">Overdue</div>
+                <div class="cu-tile-lbl">{{ __('Overdue') }}</div>
             </div>
         </div>
-        <div class="cu-rem-tile cu-tile-today" onclick="setStatus('due_today')" title="Due today">
+        <div class="cu-rem-tile cu-tile-today" onclick="setStatus('due_today')" title="{{ __('Due today') }}">
             <div class="cu-tile-ico violet"><i class="bi bi-calendar-day-fill"></i></div>
             <div>
                 <div class="cu-tile-val">{{ $stats['due_today'] }}</div>
-                <div class="cu-tile-lbl">Due Today</div>
+                <div class="cu-tile-lbl">{{ __('Due Today') }}</div>
             </div>
         </div>
     </div>
@@ -262,10 +262,10 @@
     {{-- Filter Bar --}}
     <div class="cu-rem-filter-bar">
         <input type="text" id="rem-search" class="cu-rem-search"
-               placeholder="Search reminders&#x2026;" value="{{ request('search') }}">
+               placeholder="{{ __('Search reminders…') }}" value="{{ request('search') }}">
 
         <select id="rem-category" class="cu-rem-select">
-            <option value="all">All Categories</option>
+            <option value="all">{{ __('All Categories') }}</option>
             @foreach($categories as $cat)
                 <option value="{{ $cat }}" {{ request('category') === $cat ? 'selected' : '' }}>
                     {{ $cat }}
@@ -274,25 +274,25 @@
         </select>
 
         <select id="rem-priority" class="cu-rem-select">
-            <option value="all">All Priorities</option>
+            <option value="all">{{ __('All Priorities') }}</option>
             @foreach($priorities as $val => $lbl)
                 <option value="{{ $val }}" {{ request('priority') === $val ? 'selected' : '' }}>
-                    {{ $lbl }}
+                    {{ __($lbl) }}
                 </option>
             @endforeach
         </select>
 
         <select id="rem-status" class="cu-rem-select">
-            <option value="active"    {{ (request('status', 'active') === 'active')    ? 'selected' : '' }}>Active</option>
-            <option value=""          {{ (request('status') === null)                   ? 'selected' : '' }}>All</option>
-            <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Completed</option>
-            <option value="overdue"   {{ request('status') === 'overdue'   ? 'selected' : '' }}>Overdue</option>
-            <option value="due_today" {{ request('status') === 'due_today' ? 'selected' : '' }}>Due Today</option>
-            <option value="due_soon"  {{ request('status') === 'due_soon'  ? 'selected' : '' }}>Due Soon</option>
+            <option value="active"    {{ (request('status', 'active') === 'active')    ? 'selected' : '' }}>{{ __('Active') }}</option>
+            <option value=""          {{ (request('status') === null)                   ? 'selected' : '' }}>{{ __('All') }}</option>
+            <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>{{ __('Completed') }}</option>
+            <option value="overdue"   {{ request('status') === 'overdue'   ? 'selected' : '' }}>{{ __('Overdue') }}</option>
+            <option value="due_today" {{ request('status') === 'due_today' ? 'selected' : '' }}>{{ __('Due Today') }}</option>
+            <option value="due_soon"  {{ request('status') === 'due_soon'  ? 'selected' : '' }}>{{ __('Due Soon') }}</option>
         </select>
 
         <span class="cu-count-label">
-            <span id="rem-count">{{ $reminders->count() }}</span> reminders
+            <span id="rem-count">{{ $reminders->count() }}</span> {{ __('reminders') }}
         </span>
     </div>
 

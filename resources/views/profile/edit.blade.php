@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Edit Profile')
+@section('title', __('Edit Profile'))
 @push('styles')
 <style>
 
@@ -179,8 +179,8 @@
                 <i class="bi bi-arrow-left fs-5" style="color:rgba(255,255,255,.8);"></i>
             </a>
             <div>
-                <h1 class="cu-header-title">Edit Profile</h1>
-                <p class="cu-header-sub">Update your personal information</p>
+                <h1 class="cu-header-title">{{ __('Edit Profile') }}</h1>
+                <p class="cu-header-sub">{{ __('Update your personal information') }}</p>
             </div>
         </div>
     </div>
@@ -196,7 +196,7 @@
         <div class="cu-layout">
             {{-- Left panel --}}
             <div class="cu-info-panel">
-                <div class="cu-info-panel-header"><span>Profile Picture</span></div>
+                <div class="cu-info-panel-header"><span>{{ __('Profile Picture') }}</span></div>
                 <div class="cu-info-body">
                     <div class="cu-avatar-wrap">
                         @if($user->avatar)
@@ -210,24 +210,24 @@
 
                     <div class="cu-avatar-drop" id="avatar-drop">
                         <i class="bi bi-camera"></i>
-                        <span>Click to upload new photo<br>JPG, PNG or GIF · max 2 MB</span>
+                        <span>{{ __('Click to upload new photo') }}<br>{{ __('JPG, PNG or GIF · max 2 MB') }}</span>
                         <input type="file" name="avatar" id="avatar-input" accept="image/*">
                     </div>
                     <div class="cu-avatar-sel" id="avatar-sel">
                         <i class="bi bi-image" style="font-size:13px;"></i>
                         <span id="avatar-sel-name" style="font-weight:600;"></span>
-                        <button type="button" onclick="clearAvatar()" title="Remove">&times;</button>
+                        <button type="button" onclick="clearAvatar()" title="{{ __('Remove') }}">&times;</button>
                     </div>
                     @if($user->avatar)
                     <button type="button" class="cu-btn-del-avatar" id="del-avatar-btn">
-                        <i class="bi bi-trash"></i> Remove Current Photo
+                        <i class="bi bi-trash"></i> {{ __('Remove Current Photo') }}
                     </button>
                     @endif
 
                     <div class="cu-panel-nav" style="margin-top:12px;">
-                        <a href="{{ route('profile.show') }}" class="cu-nav-link"><i class="bi bi-person"></i> View Profile</a>
-                        <a href="{{ route('profile.edit') }}" class="cu-nav-link active"><i class="bi bi-pencil"></i> Edit Info</a>
-                        <a href="{{ route('profile.password') }}" class="cu-nav-link"><i class="bi bi-key"></i> Password</a>
+                        <a href="{{ route('profile.show') }}" class="cu-nav-link"><i class="bi bi-person"></i> {{ __('View Profile') }}</a>
+                        <a href="{{ route('profile.edit') }}" class="cu-nav-link active"><i class="bi bi-pencil"></i> {{ __('Edit Info') }}</a>
+                        <a href="{{ route('profile.password') }}" class="cu-nav-link"><i class="bi bi-key"></i> {{ __('Password') }}</a>
                     </div>
                 </div>
             </div>
@@ -239,19 +239,19 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon violet"><i class="bi bi-person"></i></span>
-                        <span class="cu-section-title">Basic Information</span>
+                        <span class="cu-section-title">{{ __('Basic Information') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field-row">
                             <div class="cu-field">
-                                <label for="name" class="cu-label">Full Name <span style="color:#dc2626;">*</span></label>
+                                <label for="name" class="cu-label">{{ __('Full Name') }} <span style="color:#dc2626;">*</span></label>
                                 <input type="text" id="name" name="name"
                                        class="cu-input @error('name') is-invalid @enderror"
                                        value="{{ old('name', $user->name) }}" required autofocus>
                                 @error('name')<p class="cu-err">{{ $message }}</p>@enderror
                             </div>
                             <div class="cu-field">
-                                <label for="email" class="cu-label">Email Address <span style="color:#dc2626;">*</span></label>
+                                <label for="email" class="cu-label">{{ __('Email Address') }} <span style="color:#dc2626;">*</span></label>
                                 <input type="email" id="email" name="email"
                                        class="cu-input @error('email') is-invalid @enderror"
                                        value="{{ old('email', $user->email) }}" required>
@@ -260,17 +260,17 @@
                         </div>
                         <div class="cu-field-row">
                             <div class="cu-field">
-                                <label for="phone" class="cu-label">Phone</label>
+                                <label for="phone" class="cu-label">{{ __('Phone') }}</label>
                                 <input type="tel" id="phone" name="phone"
                                        class="cu-input @error('phone') is-invalid @enderror"
                                        value="{{ old('phone', $user->phone) }}" placeholder="+1 555 000 0000">
                                 @error('phone')<p class="cu-err">{{ $message }}</p>@enderror
                             </div>
                             <div class="cu-field">
-                                <label for="location" class="cu-label">Location</label>
+                                <label for="location" class="cu-label">{{ __('Location') }}</label>
                                 <input type="text" id="location" name="location"
                                        class="cu-input @error('location') is-invalid @enderror"
-                                       value="{{ old('location', $user->location) }}" placeholder="City, Country">
+                                       value="{{ old('location', $user->location) }}" placeholder="{{ __('City, Country') }}">
                                 @error('location')<p class="cu-err">{{ $message }}</p>@enderror
                             </div>
                         </div>
@@ -292,19 +292,19 @@
                             </div>
                         </div>
                         <div class="cu-field">
-                            <label for="bio" class="cu-label">Bio</label>
+                            <label for="bio" class="cu-label">{{ __('Bio') }}</label>
                             <textarea id="bio" name="bio" rows="4"
                                       class="cu-textarea @error('bio') is-invalid @enderror"
-                                      placeholder="Tell us about yourself…" maxlength="500">{{ old('bio', $user->bio) }}</textarea>
-                            <p class="cu-hint">Max 500 characters</p>
+                                      placeholder="{{ __('Tell us about yourself...') }}" maxlength="500">{{ old('bio', $user->bio) }}</textarea>
+                            <p class="cu-hint">{{ __('Max 500 characters') }}</p>
                             @error('bio')<p class="cu-err">{{ $message }}</p>@enderror
                         </div>
                     </div>
                 </div>
 
                 <div class="cu-action-bar">
-                    <a href="{{ route('profile.show') }}" class="cu-btn-cancel"><i class="bi bi-x-lg"></i> Cancel</a>
-                    <button type="submit" class="cu-btn-save"><i class="bi bi-check-lg"></i> Update Profile</button>
+                    <a href="{{ route('profile.show') }}" class="cu-btn-cancel"><i class="bi bi-x-lg"></i> {{ __('Cancel') }}</a>
+                    <button type="submit" class="cu-btn-save"><i class="bi bi-check-lg"></i> {{ __('Update Profile') }}</button>
                 </div>
 
             </div>{{-- /cu-sections --}}
@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', function () {
     avatarInput.addEventListener('change', function () {
         if (!this.files.length) return;
         var file = this.files[0];
-        if (file.size > 2*1024*1024) { alert('Max file size is 2 MB'); this.value=''; return; }
+        if (file.size > 2*1024*1024) { alert('{{ __('Max file size is 2 MB') }}'); this.value=''; return; }
         avatarSelName.textContent = file.name;
         avatarSel.classList.add('show');
 
@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (delBtn) {
         delBtn.addEventListener('click', function () {
-            if (!confirm('Remove your profile picture?')) return;
+            if (!confirm('{{ __('Remove your profile picture?') }}')) return;
             fetch('{{ route("profile.avatar.delete") }}', {
                 method: 'DELETE',
                 headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' }

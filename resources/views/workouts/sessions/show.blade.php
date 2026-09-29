@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Live Workout Session | ' . $workoutSession->day->title)
+@section('title', __('Live Workout Session') . ' | ' . $workoutSession->day->title)
 
 @push('styles')
 <style>
@@ -127,19 +127,19 @@
             <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
                 <div>
                     <a href="{{ route('workouts.plans.index') }}" class="small text-muted text-decoration-none">
-                        <i class="bi bi-arrow-left"></i> All Workout Plans
+                        <i class="bi bi-arrow-left"></i> {{ __('All Workout Plans') }}
                     </a>
                     <h1 class="ws-title mt-1">{{ $workoutSession->day->title }}</h1>
                     <div class="ws-sub">
-                        {{ ucfirst($workoutSession->day->weekday) }} • {{ $workoutSession->workout_date->format('l, M j, Y') }} • {{ $workoutSession->day->plan->title }}
+                        {{ __(ucfirst($workoutSession->day->weekday)) }} • {{ $workoutSession->workout_date->format('Y-m-d') }} • {{ $workoutSession->day->plan->title }}
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <span class="ws-summary-pill">
-                        <i class="bi bi-stopwatch text-primary"></i> <span id="sessionDuration">{{ $workoutSession->durationMinutes() ?? 0 }}m</span>
+                        <i class="bi bi-stopwatch text-primary"></i> <span id="sessionDuration">{{ $workoutSession->durationMinutes() ?? 0 }}{{ __('m') }}</span>
                     </span>
                     <span class="ws-summary-pill">
-                        <i class="bi bi-check2-circle text-success"></i> <strong id="doneCount">{{ $completedCount }}</strong>/{{ $exerciseCount }} Movements
+                        <i class="bi bi-check2-circle text-success"></i> <strong id="doneCount">{{ $completedCount }}</strong>/{{ $exerciseCount }} {{ __('Movements') }}
                     </span>
                 </div>
             </div>
@@ -151,7 +151,7 @@
 
         @if($workoutSession->day->notes)
             <div class="alert alert-light border p-3 small mb-3 text-secondary">
-                <i class="bi bi-info-circle text-primary me-1"></i> <strong>Day notes:</strong> {{ $workoutSession->day->notes }}
+                <i class="bi bi-info-circle text-primary me-1"></i> <strong>{{ __('Day notes:') }}</strong> {{ $workoutSession->day->notes }}
             </div>
         @endif
 
@@ -181,15 +181,15 @@
                             <span class="ws-ex-name">{{ $workoutExercise->exercise->name }}</span>
                             @if($isSkipped)
                                 <span class="badge bg-danger text-white" data-exercise-status style="font-size:10px;">
-                                    Skipped: {{ $log->skip_reason }}
+                                    {{ __('Skipped:') }} {{ $log->skip_reason }}
                                 </span>
                             @else
                                 <span class="badge {{ $log?->completed ? 'bg-success text-white' : 'bg-light text-muted border' }}" data-exercise-status style="font-size:10px;">
-                                    {{ $log?->completed ? 'Completed' : 'Open' }}
+                                    {{ $log?->completed ? __('Completed') : __('Open') }}
                                 </span>
                             @endif
                             @if($isTimedMovement)
-                                <span class="badge bg-info-subtle text-info border" style="font-size:10px;"><i class="bi bi-clock"></i> Timed / Mobility</span>
+                                <span class="badge bg-info-subtle text-info border" style="font-size:10px;"><i class="bi bi-clock"></i> {{ __('Timed / Mobility') }}</span>
                             @endif
                         </div>
                         <div class="small text-muted mt-1 d-flex flex-wrap gap-2">
@@ -198,7 +198,7 @@
                                 <span>• RIR {{ $workoutExercise->target_rir }}</span>
                             @endif
                             @if($workoutExercise->rest_seconds)
-                                <span>• Rest {{ $workoutExercise->rest_seconds }}s</span>
+                                <span>• {{ __('Rest') }} {{ $workoutExercise->rest_seconds }}{{ __('s') }}</span>
                             @endif
                         </div>
                     </div>
@@ -270,38 +270,38 @@
                                     <div class="input-group input-group-sm">
                                         <input type="number" step="1" min="0" class="ws-input-big form-control" data-field="duration_seconds" 
                                                value="{{ $set?->duration_seconds }}" 
-                                               placeholder="{{ $ghostDuration ? $ghostDuration . 's' : 'seconds' }}">
-                                        <span class="input-group-text bg-light text-muted small">sec</span>
+                                               placeholder="{{ $ghostDuration ? $ghostDuration . 's' : __('seconds') }}">
+                                        <span class="input-group-text bg-light text-muted small">{{ __('sec') }}</span>
                                     </div>
                                 </div>
                                 <div>
                                     <input type="number" step="0.5" min="0" max="10" class="ws-input-big" data-field="rir" 
                                            value="{{ $set?->rir }}" 
-                                           placeholder="RIR (0-10)">
+                                           placeholder="{{ __('RIR (0-10)') }}">
                                 </div>
                             @else
                                 {{-- Weight & Reps Lifting Mode Input --}}
                                 <div>
                                     <input type="number" step="0.5" min="0" class="ws-input-big" data-field="weight" 
                                            value="{{ $set?->weight }}" 
-                                           placeholder="{{ $ghostWeight ? $ghostWeight . ' kg' : 'kg' }}">
+                                           placeholder="{{ $ghostWeight ? $ghostWeight . ' kg' : __('kg') }}">
                                 </div>
 
                                 <div>
                                     <input type="number" step="1" min="0" class="ws-input-big" data-field="reps" 
                                            value="{{ $set?->reps }}" 
-                                           placeholder="{{ $ghostReps ? $ghostReps . ' reps' : 'reps' }}">
+                                           placeholder="{{ $ghostReps ? $ghostReps . ' reps' : __('reps') }}">
                                 </div>
                             @endif
 
-                            <button type="button" class="btn-more-toggle" onclick="toggleSetMore(this)" title="Advanced set options (RIR, form, notes, skip set)">
+                            <button type="button" class="btn-more-toggle" onclick="toggleSetMore(this)" title="{{ __('Advanced set options') }}">
                                 <i class="bi bi-sliders"></i>
                             </button>
 
                             <div class="d-flex align-items-center gap-1">
                                 <button type="button" class="btn-save-set w-100 {{ $set?->completed ? 'saved' : '' }}" onclick="saveSetRow(this)">
                                     <i class="bi {{ $set?->completed ? 'bi-check-lg' : 'bi-check2' }}"></i>
-                                    <span>{{ $set?->completed ? 'Done' : 'Save' }}</span>
+                                    <span>{{ $set?->completed ? __('Done') : __('Save') }}</span>
                                 </button>
                             </div>
 
@@ -309,12 +309,12 @@
                             <div class="set-more-fields col-12" style="grid-column: 1 / -1;">
                                 @if(!$isTimedMovement)
                                 <div>
-                                    <label class="small text-muted">RIR (in reserve)</label>
-                                    <input type="number" min="0" max="10" step="0.5" class="form-control form-control-sm" data-field="rir" value="{{ $set?->rir }}" placeholder="Target: {{ $workoutExercise->target_rir ?? '—' }}">
+                                    <label class="small text-muted">{{ __('RIR (in reserve)') }}</label>
+                                    <input type="number" min="0" max="10" step="0.5" class="form-control form-control-sm" data-field="rir" value="{{ $set?->rir }}" placeholder="{{ __('Target:') }} {{ $workoutExercise->target_rir ?? '—' }}">
                                 </div>
                                 @endif
                                 <div>
-                                    <label class="small text-muted">Form Rating</label>
+                                    <label class="small text-muted">{{ __('Form Rating') }}</label>
                                     <select class="form-select form-select-sm" data-field="form_rating">
                                         <option value="">—</option>
                                         @for($r=1; $r<=5; $r++)
@@ -323,16 +323,16 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="small text-muted">Pain Level (0-10)</label>
+                                    <label class="small text-muted">{{ __('Pain Level (0-10)') }}</label>
                                     <input type="number" min="0" max="10" class="form-control form-control-sm" data-field="pain_level" value="{{ $set?->pain_level }}" placeholder="0">
                                 </div>
                                 <div>
-                                    <label class="small text-muted">Set Note / Reason</label>
-                                    <input type="text" class="form-control form-control-sm" data-field="note" value="{{ $set?->note }}" placeholder="Optional notes">
+                                    <label class="small text-muted">{{ __('Set Note / Reason') }}</label>
+                                    <input type="text" class="form-control form-control-sm" data-field="note" value="{{ $set?->note }}" placeholder="{{ __('Optional notes') }}">
                                 </div>
                                 <div class="d-flex align-items-end">
                                     <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="openSkipSetModal({{ $workoutExercise->id }}, {{ $setNumber }}, '{{ addslashes($workoutExercise->exercise->name) }}')">
-                                        <i class="bi bi-slash-circle me-1"></i> Skip Set {{ $setNumber }}
+                                        <i class="bi bi-slash-circle me-1"></i> {{ __('Skip Set :num', ['num' => $setNumber]) }}
                                     </button>
                                 </div>
                             </div>
@@ -343,7 +343,7 @@
                 {{-- Add Set & Movement Notes --}}
                 <div class="px-3 pb-3 pt-1 d-flex justify-content-between align-items-center">
                     <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 rounded-pill" onclick="addNewSetRow(this)">
-                        <i class="bi bi-plus-lg"></i> Add Set
+                        <i class="bi bi-plus-lg"></i> {{ __('Add Set') }}
                     </button>
                     <span class="small text-muted exercise-1rm-display" id="ex-1rm-{{ $workoutExercise->id }}"></span>
                 </div>
@@ -351,8 +351,8 @@
         @empty
             <div class="text-center py-5 bg-white rounded-3 border">
                 <i class="bi bi-cup-hot text-warning fs-1 mb-2 d-block"></i>
-                <h5>No movements planned for today</h5>
-                <p class="text-muted small">Enjoy your recovery day!</p>
+                <h5>{{ __('No movements planned for today') }}</h5>
+                <p class="text-muted small">{{ __('Enjoy your recovery day!') }}</p>
             </div>
         @endforelse
 
@@ -360,21 +360,21 @@
         <form class="ws-header-card mt-4" method="POST" action="{{ route('workouts.sessions.finish', $workoutSession) }}">
             @csrf
             @method('PATCH')
-            <h5 class="fw-bold mb-3"><i class="bi bi-flag-fill text-primary me-1"></i> Finish Workout Session</h5>
+            <h5 class="fw-bold mb-3"><i class="bi bi-flag-fill text-primary me-1"></i> {{ __('Finish Workout Session') }}</h5>
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                    <label class="form-label small fw-semibold text-muted">Session Summary / How did it feel?</label>
-                    <textarea class="form-control" name="session_note" rows="2" placeholder="Great energy, increased bench press weight...">{{ $workoutSession->session_note }}</textarea>
+                    <label class="form-label small fw-semibold text-muted">{{ __('Session Summary / How did it feel?') }}</label>
+                    <textarea class="form-control" name="session_note" rows="2" placeholder="{{ __('Great energy, increased bench press weight...') }}">{{ $workoutSession->session_note }}</textarea>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label small fw-semibold text-muted">Pain / Limitations (if any)</label>
-                    <textarea class="form-control" name="pain_note" rows="2" placeholder="Slight shoulder tightness on second set...">{{ $workoutSession->pain_note }}</textarea>
+                    <label class="form-label small fw-semibold text-muted">{{ __('Pain / Limitations (if any)') }}</label>
+                    <textarea class="form-control" name="pain_note" rows="2" placeholder="{{ __('Slight shoulder tightness on second set...') }}">{{ $workoutSession->pain_note }}</textarea>
                 </div>
             </div>
             <div class="d-flex justify-content-end gap-2">
-                <button type="submit" name="status" value="skipped" class="btn btn-light border px-3">Mark Skipped</button>
+                <button type="submit" name="status" value="skipped" class="btn btn-light border px-3">{{ __('Mark Skipped') }}</button>
                 <button type="submit" name="status" value="completed" class="btn btn-success fw-bold px-4 shadow-sm">
-                    <i class="bi bi-check-circle-fill me-1"></i> Finish Workout
+                    <i class="bi bi-check-circle-fill me-1"></i> {{ __('Finish Workout') }}
                 </button>
             </div>
         </form>
@@ -387,29 +387,29 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content rounded-4 border-0 shadow">
             <div class="modal-header border-0 bg-light p-3">
-                <h6 class="modal-title fw-bold" id="skipMovementTitle">Skip Movement</h6>
+                <h6 class="modal-title fw-bold" id="skipMovementTitle">{{ __('Skip Movement') }}</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <p class="small text-muted mb-3" id="skipMovementPrompt">Why are you skipping this?</p>
+                <p class="small text-muted mb-3" id="skipMovementPrompt">{{ __('Why are you skipping this?') }}</p>
                 <input type="hidden" id="skipExerciseId">
                 <input type="hidden" id="skipSetNumber">
                 <input type="hidden" id="skipMode" value="exercise">
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold">Reason (Optional)</label>
-                    <input type="text" class="form-control" id="skipReasonInput" placeholder="e.g. Equipment busy, muscle fatigue, joint discomfort" onkeydown="if(event.key==='Enter'){event.preventDefault();submitSkipAction();}">
+                    <label class="form-label small fw-semibold">{{ __('Reason (Optional)') }}</label>
+                    <input type="text" class="form-control" id="skipReasonInput" placeholder="{{ __('e.g. Equipment busy, muscle fatigue, joint discomfort') }}" onkeydown="if(event.key==='Enter'){event.preventDefault();submitSkipAction();}">
                 </div>
                 <div class="d-flex flex-wrap gap-1 mb-2">
-                    <button type="button" class="btn btn-sm btn-light border" onclick="setQuickSkipReason('Equipment Busy')">Equipment Busy</button>
-                    <button type="button" class="btn btn-sm btn-light border" onclick="setQuickSkipReason('Joint Discomfort / Pain')">Joint Discomfort</button>
-                    <button type="button" class="btn btn-sm btn-light border" onclick="setQuickSkipReason('Fatigue / Ran out of time')">Out of Time</button>
-                    <button type="button" class="btn btn-sm btn-light border" onclick="setQuickSkipReason('Form breakdown / Overload')">Form Breakdown</button>
+                    <button type="button" class="btn btn-sm btn-light border" onclick="setQuickSkipReason('{{ __('Equipment Busy') }}')">{{ __('Equipment Busy') }}</button>
+                    <button type="button" class="btn btn-sm btn-light border" onclick="setQuickSkipReason('{{ __('Joint Discomfort / Pain') }}')">{{ __('Joint Discomfort') }}</button>
+                    <button type="button" class="btn btn-sm btn-light border" onclick="setQuickSkipReason('{{ __('Fatigue / Ran out of time') }}')">{{ __('Out of Time') }}</button>
+                    <button type="button" class="btn btn-sm btn-light border" onclick="setQuickSkipReason('{{ __('Form breakdown / Overload') }}')">{{ __('Form Breakdown') }}</button>
                 </div>
             </div>
             <div class="modal-footer border-0 bg-light p-3">
-                <button type="button" class="btn btn-light border px-3" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-light border px-3" data-bs-dismiss="modal">{{ __('Cancel') }}</button>
                 <button type="button" class="btn btn-danger px-4" id="skipSubmitBtn" onclick="submitSkipAction()">
-                    <i class="bi bi-skip-forward me-1"></i> Confirm Skip
+                    <i class="bi bi-skip-forward me-1"></i> {{ __('Confirm Skip') }}
                 </button>
             </div>
         </div>
@@ -420,13 +420,13 @@
 <div class="floating-rest-bar" id="floatingRestBar">
     <div class="d-flex align-items-center gap-2">
         <i class="bi bi-stopwatch-fill text-warning"></i>
-        <span class="small text-white-50">Rest:</span>
+        <span class="small text-white-50">{{ __('Rest:') }}</span>
         <span class="rest-clock" id="floatingRestClock">01:30</span>
     </div>
     <div class="d-flex align-items-center gap-2">
         <button type="button" class="btn btn-sm btn-dark border-secondary text-white rounded-pill px-2 py-0" onclick="adjustRestTimer(30)" style="font-size:11px;">+30s</button>
         <button type="button" class="btn btn-sm btn-dark border-secondary text-white rounded-pill px-2 py-0" onclick="adjustRestTimer(-30)" style="font-size:11px;">-30s</button>
-        <button type="button" class="btn btn-sm btn-danger rounded-pill px-3 py-1 ms-1" onclick="stopRestTimer()" style="font-size:11px;">Skip</button>
+        <button type="button" class="btn btn-sm btn-danger rounded-pill px-3 py-1 ms-1" onclick="stopRestTimer()" style="font-size:11px;">{{ __('Skip') }}</button>
     </div>
 </div>
 
@@ -437,6 +437,37 @@
 <script>
     const WS_TOKEN = '{{ csrf_token() }}';
     const SET_URL = '{{ route("workouts.sessions.sets.store", $workoutSession) }}';
+    const I18N_WS = {
+        done: @json(__('Done')),
+        save: @json(__('Save')),
+        completed: @json(__('Completed')),
+        inProgress: @json(__('In progress')),
+        restComplete: @json(__('🔔 Rest Time Complete! Next Set Ready.')),
+        prCelebration: @json(__('🏆 INCREDIBLE! New Personal Record (PR) achieved!')),
+        newPr: @json(__('🏆 NEW PR!')),
+        est1rm: @json(__('Est. 1RM:')),
+        lastSessionFilled: @json(__('✓ Last session values filled!')),
+        skipEntireExercise: @json(__('Skip Entire Exercise')),
+        skipSetTitle: @json(__('Skip Set #:num')),
+        skipPromptExercise: @json(__('Why are you skipping all sets for ":name"?')),
+        skipPromptSet: @json(__('Reason for skipping Set #:num of ":name"?')),
+        exerciseSkippedToast: @json(__('✓ Exercise marked as skipped.')),
+        setSkippedToast: @json(__('✓ Set #:num marked as skipped.')),
+        skippedLabel: @json(__('Skipped:')),
+        errorSavingSet: @json(__('Error saving set')),
+        errorRecordingSkip: @json(__('Error recording skip')),
+        errorConnectingServer: @json(__('Error connecting to server')),
+        seconds: @json(__('seconds')),
+        sec: @json(__('sec')),
+        rir: @json(__('RIR')),
+        form: @json(__('Form Rating')),
+        pain: @json(__('Pain Level (0-10)')),
+        note: @json(__('Set Note / Reason')),
+        optional: @json(__('Optional notes')),
+        skipSetBtn: @json(__('Skip Set :num')),
+        kg: @json(__('kg')),
+        reps: @json(__('reps'))
+    };
 
     // Toast helper
     function toast(msg) {
@@ -504,7 +535,7 @@
             if (restSecondsLeft <= 0) {
                 clearInterval(restInterval);
                 playChime();
-                toast('🔔 Rest Time Complete! Next Set Ready.');
+                toast(I18N_WS.restComplete);
                 setTimeout(() => {
                     bar.classList.remove('show');
                 }, 3000);
@@ -556,11 +587,11 @@
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Error saving set');
+            if (!res.ok) throw new Error(data.message || I18N_WS.errorSavingSet);
 
             row.classList.add('is-saved');
             btn.classList.add('saved');
-            btn.innerHTML = '<i class="bi bi-check-lg"></i> Done';
+            btn.innerHTML = `<i class="bi bi-check-lg"></i> ${I18N_WS.done}`;
 
             // PR Hunter Celebration!
             if (data.is_pr) {
@@ -569,22 +600,22 @@
                 if (!prEl) {
                     prEl = document.createElement('span');
                     prEl.className = 'pr-badge';
-                    prEl.innerHTML = '🏆 NEW PR!';
+                    prEl.innerHTML = I18N_WS.newPr;
                     row.querySelector('.set-num-badge').after(prEl);
                 }
-                toast('🏆 INCREDIBLE! New Personal Record (PR) achieved!');
+                toast(I18N_WS.prCelebration);
             }
 
             // Update 1RM display
             if (data.estimated_1rm > 0) {
                 const ex1rmEl = document.getElementById('ex-1rm-' + card.dataset.exerciseId);
-                if (ex1rmEl) ex1rmEl.innerHTML = `Est. 1RM: <strong>${data.estimated_1rm} kg</strong>`;
+                if (ex1rmEl) ex1rmEl.innerHTML = `${I18N_WS.est1rm} <strong>${data.estimated_1rm} kg</strong>`;
             }
 
             // Update completed badge
             const status = card.querySelector('[data-exercise-status]');
             if (status) {
-                status.textContent = data.exercise_completed ? 'Completed' : 'In progress';
+                status.textContent = data.exercise_completed ? I18N_WS.completed : I18N_WS.inProgress;
                 status.className = `badge ${data.exercise_completed ? 'bg-success text-white' : 'bg-light text-muted border'}`;
                 card.classList.toggle('is-completed', data.exercise_completed);
             }
@@ -633,24 +664,24 @@
                 <div class="set-num-badge">${count}</div>
                 <div>
                     <div class="input-group input-group-sm">
-                        <input type="number" step="1" min="0" class="ws-input-big form-control" data-field="duration_seconds" placeholder="seconds">
-                        <span class="input-group-text bg-light text-muted small">sec</span>
+                        <input type="number" step="1" min="0" class="ws-input-big form-control" data-field="duration_seconds" placeholder="${I18N_WS.seconds}">
+                        <span class="input-group-text bg-light text-muted small">${I18N_WS.sec}</span>
                     </div>
                 </div>
-                <div><input type="number" step="0.5" min="0" max="10" class="ws-input-big" data-field="rir" placeholder="RIR"></div>
+                <div><input type="number" step="0.5" min="0" max="10" class="ws-input-big" data-field="rir" placeholder="${I18N_WS.rir}"></div>
                 <button type="button" class="btn-more-toggle" onclick="toggleSetMore(this)"><i class="bi bi-sliders"></i></button>
                 <div class="d-flex align-items-center gap-1">
                     <button type="button" class="btn-save-set w-100" onclick="saveSetRow(this)">
-                        <i class="bi bi-check2"></i> Save
+                        <i class="bi bi-check2"></i> ${I18N_WS.save}
                     </button>
                 </div>
                 <div class="set-more-fields col-12" style="grid-column: 1 / -1;">
-                    <div><label class="small text-muted">Form</label><select class="form-select form-select-sm" data-field="form_rating"><option value="">—</option><option value="5">5/5 ⭐</option><option value="4">4/5</option><option value="3">3/5</option></select></div>
-                    <div><label class="small text-muted">Pain</label><input type="number" min="0" max="10" class="form-control form-control-sm" data-field="pain_level" placeholder="0"></div>
-                    <div><label class="small text-muted">Note</label><input type="text" class="form-control form-control-sm" data-field="note" placeholder="Optional"></div>
+                    <div><label class="small text-muted">${I18N_WS.form}</label><select class="form-select form-select-sm" data-field="form_rating"><option value="">—</option><option value="5">5/5 ⭐</option><option value="4">4/5</option><option value="3">3/5</option></select></div>
+                    <div><label class="small text-muted">${I18N_WS.pain}</label><input type="number" min="0" max="10" class="form-control form-control-sm" data-field="pain_level" placeholder="0"></div>
+                    <div><label class="small text-muted">${I18N_WS.note}</label><input type="text" class="form-control form-control-sm" data-field="note" placeholder="${I18N_WS.optional}"></div>
                     <div class="d-flex align-items-end">
                         <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="openSkipSetModal(${card.dataset.exerciseId}, ${count}, '${card.querySelector('.ws-ex-name')?.textContent || 'Exercise'}')">
-                            <i class="bi bi-slash-circle me-1"></i> Skip Set ${count}
+                            <i class="bi bi-slash-circle me-1"></i> ${I18N_WS.skipSetBtn.replace(':num', count)}
                         </button>
                     </div>
                 </div>
@@ -658,22 +689,22 @@
         } else {
             row.innerHTML = `
                 <div class="set-num-badge">${count}</div>
-                <div><input type="number" step="0.5" min="0" class="ws-input-big" data-field="weight" placeholder="kg"></div>
-                <div><input type="number" step="1" min="0" class="ws-input-big" data-field="reps" placeholder="reps"></div>
+                <div><input type="number" step="0.5" min="0" class="ws-input-big" data-field="weight" placeholder="${I18N_WS.kg}"></div>
+                <div><input type="number" step="1" min="0" class="ws-input-big" data-field="reps" placeholder="${I18N_WS.reps}"></div>
                 <button type="button" class="btn-more-toggle" onclick="toggleSetMore(this)"><i class="bi bi-sliders"></i></button>
                 <div class="d-flex align-items-center gap-1">
                     <button type="button" class="btn-save-set w-100" onclick="saveSetRow(this)">
-                        <i class="bi bi-check2"></i> Save
+                        <i class="bi bi-check2"></i> ${I18N_WS.save}
                     </button>
                 </div>
                 <div class="set-more-fields col-12" style="grid-column: 1 / -1;">
-                    <div><label class="small text-muted">RIR</label><input type="number" min="0" max="10" step="0.5" class="form-control form-control-sm" data-field="rir" placeholder="RIR"></div>
-                    <div><label class="small text-muted">Form</label><select class="form-select form-select-sm" data-field="form_rating"><option value="">—</option><option value="5">5/5 ⭐</option><option value="4">4/5</option><option value="3">3/5</option></select></div>
-                    <div><label class="small text-muted">Pain</label><input type="number" min="0" max="10" class="form-control form-control-sm" data-field="pain_level" placeholder="0"></div>
-                    <div><label class="small text-muted">Note</label><input type="text" class="form-control form-control-sm" data-field="note" placeholder="Optional"></div>
+                    <div><label class="small text-muted">${I18N_WS.rir}</label><input type="number" min="0" max="10" step="0.5" class="form-control form-control-sm" data-field="rir" placeholder="${I18N_WS.rir}"></div>
+                    <div><label class="small text-muted">${I18N_WS.form}</label><select class="form-select form-select-sm" data-field="form_rating"><option value="">—</option><option value="5">5/5 ⭐</option><option value="4">4/5</option><option value="3">3/5</option></select></div>
+                    <div><label class="small text-muted">${I18N_WS.pain}</label><input type="number" min="0" max="10" class="form-control form-control-sm" data-field="pain_level" placeholder="0"></div>
+                    <div><label class="small text-muted">${I18N_WS.note}</label><input type="text" class="form-control form-control-sm" data-field="note" placeholder="${I18N_WS.optional}"></div>
                     <div class="d-flex align-items-end">
                         <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="openSkipSetModal(${card.dataset.exerciseId}, ${count}, '${card.querySelector('.ws-ex-name')?.textContent || 'Exercise'}')">
-                            <i class="bi bi-slash-circle me-1"></i> Skip Set ${count}
+                            <i class="bi bi-slash-circle me-1"></i> ${I18N_WS.skipSetBtn.replace(':num', count)}
                         </button>
                     </div>
                 </div>
@@ -703,7 +734,7 @@
                     }
                 }
             });
-            toast('✓ Last session values filled!');
+            toast(I18N_WS.lastSessionFilled);
         });
     });
 
@@ -712,8 +743,8 @@
         document.getElementById('skipMode').value = 'exercise';
         document.getElementById('skipExerciseId').value = exerciseId;
         document.getElementById('skipSetNumber').value = '';
-        document.getElementById('skipMovementTitle').textContent = 'Skip Entire Exercise';
-        document.getElementById('skipMovementPrompt').textContent = `Why are you skipping all sets for "${exerciseName}"?`;
+        document.getElementById('skipMovementTitle').textContent = I18N_WS.skipEntireExercise;
+        document.getElementById('skipMovementPrompt').textContent = I18N_WS.skipPromptExercise.replace(':name', exerciseName);
         document.getElementById('skipReasonInput').value = '';
         const modal = new bootstrap.Modal(document.getElementById('skipMovementModal'));
         modal.show();
@@ -723,8 +754,8 @@
         document.getElementById('skipMode').value = 'set';
         document.getElementById('skipExerciseId').value = exerciseId;
         document.getElementById('skipSetNumber').value = setNumber;
-        document.getElementById('skipMovementTitle').textContent = `Skip Set #${setNumber}`;
-        document.getElementById('skipMovementPrompt').textContent = `Reason for skipping Set #${setNumber} of "${exerciseName}"?`;
+        document.getElementById('skipMovementTitle').textContent = I18N_WS.skipSetTitle.replace(':num', setNumber);
+        document.getElementById('skipMovementPrompt').textContent = I18N_WS.skipPromptSet.replace(':num', setNumber).replace(':name', exerciseName);
         document.getElementById('skipReasonInput').value = '';
         const modal = new bootstrap.Modal(document.getElementById('skipMovementModal'));
         modal.show();
@@ -770,10 +801,10 @@
                     card.classList.add('is-skipped');
                     const status = card.querySelector('[data-exercise-status]');
                     if (status) {
-                        status.textContent = 'Skipped: ' + reason;
+                        status.textContent = `${I18N_WS.skippedLabel} ${reason}`;
                         status.className = 'badge bg-danger text-white';
                     }
-                    toast('✓ Exercise marked as skipped.');
+                    toast(I18N_WS.exerciseSkippedToast);
                 } else if (mode === 'set' && card) {
                     const row = card.querySelector(`[data-set-row][data-set-number="${setNumber}"]`);
                     if (row) {
@@ -781,16 +812,16 @@
                         const btn = row.querySelector('.btn-save-set');
                         if (btn) {
                             btn.classList.add('btn-outline-danger');
-                            btn.innerHTML = `<i class="bi bi-slash-circle"></i> Skipped`;
+                            btn.innerHTML = `<i class="bi bi-slash-circle"></i> ${reason}`;
                         }
                     }
-                    toast(`✓ Set #${setNumber} marked as skipped.`);
+                    toast(I18N_WS.setSkippedToast.replace(':num', setNumber));
                 }
             } else {
-                toast('Error recording skip');
+                toast(I18N_WS.errorRecordingSkip);
             }
         } catch (e) {
-            toast('Error connecting to server');
+            toast(I18N_WS.errorConnectingServer);
         }
     }
 </script>

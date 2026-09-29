@@ -8,7 +8,7 @@
                     {{ $reminder->title }}
                 </h3>
                 <span class="priority-badge {{ $reminder->priority }}">
-                    {{ ucfirst($reminder->priority) }}
+                    {{ __(ucfirst($reminder->priority)) }}
                 </span>
             </div>
 
@@ -28,7 +28,7 @@
                             <span class="{{ $reminder->is_overdue ? 'text-danger' : '' }}">
                                 {{ $reminder->formatted_date_time->format('M j, Y') }}
                                 @if($reminder->time)
-                                    at {{ $reminder->formatted_date_time->format('g:i A') }}
+                                    {{ __('at') }} {{ $reminder->formatted_date_time->format('g:i A') }}
                                 @endif
                             </span>
                         </div>
@@ -51,21 +51,21 @@
                     @if($reminder->is_recurring)
                         <div class="reminder-recurring mt-1">
                             <i class="fas fa-repeat me-1"></i>
-                            <span>Repeats {{ $reminder->recurrence_type }}</span>
+                            <span>{{ __('Repeats :type', ['type' => __($reminder->recurrence_type)]) }}</span>
                         </div>
                     @endif
 
                     @if($reminder->is_completed)
                         <div class="reminder-completed-status mt-1">
                             <i class="fas fa-check-circle me-1"></i>
-                            <span class="text-success">Completed {{ $reminder->completed_at->diffForHumans() }}</span>
+                            <span class="text-success">{{ __('Completed') }} {{ $reminder->completed_at->diffForHumans() }}</span>
                         </div>
                     @endif
 
                     @if($reminder->snooze_until && $reminder->snooze_until->isFuture())
                         <div class="reminder-snoozed mt-1">
                             <i class="fas fa-clock me-1"></i>
-                            <span class="text-warning">Snoozed until {{ $reminder->snooze_until->format('M j, g:i A') }}</span>
+                            <span class="text-warning">{{ __('Snoozed until :date', ['date' => $reminder->snooze_until->format('M j, g:i A')]) }}</span>
                         </div>
                     @endif
 
@@ -81,11 +81,11 @@
                 <div class="reminder-time-info">
                     <small class="text-muted">
                         @if($reminder->is_overdue)
-                            <span class="text-danger">Overdue</span>
+                            <span class="text-danger">{{ __('Overdue') }}</span>
                         @elseif($reminder->formatted_date_time)
                             {{ $reminder->formatted_date_time->diffForHumans() }}
                         @else
-                            No date set
+                            {{ __('No date set') }}
                         @endif
                     </small>
                 </div>
@@ -94,40 +94,40 @@
             <!-- Card Actions -->
             <div class="reminder-actions">
                 @if(!$reminder->is_completed)
-                    <button onclick="toggleComplete({{ $reminder->id }})" class="action-btn success" title="Mark as Complete">
+                    <button onclick="toggleComplete({{ $reminder->id }})" class="action-btn success" title="{{ __('Mark Complete') }}">
                         <i class="fas fa-check"></i>
-                        <span>Complete</span>
+                        <span>{{ __('Complete') }}</span>
                     </button>
                 @else
-                    <button onclick="toggleComplete({{ $reminder->id }})" class="action-btn" title="Mark as Incomplete">
+                    <button onclick="toggleComplete({{ $reminder->id }})" class="action-btn" title="{{ __('Mark as Incomplete') }}">
                         <i class="fas fa-undo"></i>
-                        <span>Reactivate</span>
+                        <span>{{ __('Reactivate') }}</span>
                     </button>
                 @endif
 
                 @if(!$reminder->is_completed && !($reminder->snooze_until && $reminder->snooze_until->isFuture()))
-                    <button onclick="snoozeReminder({{ $reminder->id }})" class="action-btn warning" title="Snooze">
+                    <button onclick="snoozeReminder({{ $reminder->id }})" class="action-btn warning" title="{{ __('Snooze') }}">
                         <i class="fas fa-clock"></i>
-                        <span>Snooze</span>
+                        <span>{{ __('Snooze') }}</span>
                     </button>
                 @endif
 
-                <a href="{{ route('reminders.show', $reminder) }}" class="action-btn info" title="View Details">
+                <a href="{{ route('reminders.show', $reminder) }}" class="action-btn info" title="{{ __('View Details') }}">
                     <i class="fas fa-eye"></i>
-                    <span>View</span>
+                    <span>{{ __('View') }}</span>
                 </a>
 
-                <a href="{{ route('reminders.edit', $reminder) }}" class="action-btn primary" title="Edit">
+                <a href="{{ route('reminders.edit', $reminder) }}" class="action-btn primary" title="{{ __('Edit') }}">
                     <i class="fas fa-edit"></i>
-                    <span>Edit</span>
+                    <span>{{ __('Edit') }}</span>
                 </a>
 
-                <form action="{{ route('reminders.destroy', $reminder) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this reminder?')">
+                <form action="{{ route('reminders.destroy', $reminder) }}" method="POST" style="display: inline;" onsubmit="return confirm('{{ __('Are you sure you want to delete this reminder?') }}')">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="action-btn danger" title="Delete">
+                    <button type="submit" class="action-btn danger" title="{{ __('Delete') }}">
                         <i class="fas fa-trash"></i>
-                        <span>Delete</span>
+                        <span>{{ __('Delete') }}</span>
                     </button>
                 </form>
             </div>
@@ -137,17 +137,17 @@
             <div class="empty-state-icon">
                 <i class="fas fa-bell-slash"></i>
             </div>
-            <h3 class="mb-3">No reminders found</h3>
+            <h3 class="mb-3">{{ __('No reminders found') }}</h3>
             <p class="text-muted mb-4">
                 @if(request('search') || request('category') !== 'all' || request('priority') !== 'all')
-                    Try adjusting your search terms or filters to find what you're looking for.
+                    {{ __('Try adjusting your search terms or filters to find what you\'re looking for.') }}
                 @else
-                    Create your first reminder to stay organized and never miss important tasks.
+                    {{ __('Create your first reminder to stay organized and never miss important tasks.') }}
                 @endif
             </p>
             @if(!request('search') && request('category') === 'all' && request('priority') === 'all')
                 <a href="{{ route('reminders.create') }}" class="btn" style="background: var(--reminder-primary); color: white; border-radius: 8px; padding: 0.75rem 2rem;">
-                    <i class="fas fa-plus me-2"></i>Create Your First Reminder
+                    <i class="fas fa-plus me-2"></i>{{ __('Create Your First Reminder') }}
                 </a>
             @endif
         </div>
@@ -156,6 +156,6 @@
 
 @if($reminders->count() > 0)
     <div class="text-center mt-4">
-        <small class="text-muted">{{ $reminders->count() }} reminder(s) found</small>
+        <small class="text-muted">{{ $reminders->count() }} {{ __('reminder(s) found') }}</small>
     </div>
 @endif

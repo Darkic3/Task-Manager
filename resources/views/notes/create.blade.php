@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Create Note')
+@section('title', __('Create Note'))
 
 @push('styles')
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
@@ -178,8 +178,8 @@
                 <i class="bi bi-arrow-left fs-5" style="color:rgba(255,255,255,.8);"></i>
             </a>
             <div>
-                <h1 class="cu-header-title">Create Note</h1>
-                <p class="cu-header-sub">Capture your thoughts with rich formatting</p>
+                <h1 class="cu-header-title">{{ __('Create Note') }}</h1>
+                <p class="cu-header-sub">{{ __('Capture your thoughts with rich formatting') }}</p>
             </div>
         </div>
     </div>
@@ -189,23 +189,23 @@
 
         {{-- Left panel --}}
         <div class="cu-info-panel">
-            <div class="cu-info-panel-header"><span>New Note</span></div>
+            <div class="cu-info-panel-header"><span>{{ __('New Note') }}</span></div>
             <div class="cu-info-body">
                 <div class="cu-avatar"><i class="bi bi-journal-plus"></i></div>
-                <div class="cu-panel-name">New Note</div>
-                <div class="cu-panel-sub">Fill in the form to create</div>
+                <div class="cu-panel-name">{{ __('New Note') }}</div>
+                <div class="cu-panel-sub">{{ __('Fill in the form to create') }}</div>
 
                 <div class="cu-meta-row">
                     <i class="bi bi-person"></i>
-                    <span>Author&nbsp;<strong>{{ auth()->user()->name }}</strong></span>
+                    <span>{{ __('Author') }}&nbsp;<strong>{{ auth()->user()->name }}</strong></span>
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-calendar3"></i>
-                    <span>Date&nbsp;<strong>{{ now()->format('M d, Y') }}</strong></span>
+                    <span>{{ __('Date') }}&nbsp;<strong>{{ now()->format('M d, Y') }}</strong></span>
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-info-circle"></i>
-                    <span style="font-size:11px;line-height:1.5;">Add a category and tags to keep your notes organized and easy to find.</span>
+                    <span style="font-size:11px;line-height:1.5;">{{ __('Add a category and tags to keep your notes organized and easy to find.') }}</span>
                 </div>
             </div>
         </div>
@@ -219,29 +219,29 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon purple"><i class="bi bi-card-text"></i></span>
-                        <span class="cu-section-title">Basic Info</span>
+                        <span class="cu-section-title">{{ __('Basic Info') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field-row">
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="title" class="cu-label">Title <span style="color:#dc2626;">*</span></label>
+                                <label for="title" class="cu-label">{{ __('Title') }} <span style="color:#dc2626;">*</span></label>
                                 <div class="cu-input-wrap">
                                     <i class="bi bi-card-heading"></i>
                                     <input type="text" name="title" id="title"
                                            class="cu-input {{ $errors->has('title') ? 'is-invalid' : '' }}"
                                            value="{{ old('title') }}"
-                                           placeholder="Note title" required>
+                                           placeholder="{{ __('Note title') }}" required>
                                 </div>
                                 @error('title')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="category" class="cu-label">Category</label>
+                                <label for="category" class="cu-label">{{ __('Category') }}</label>
                                 <div class="cu-input-wrap">
                                     <i class="bi bi-tag"></i>
                                     <input type="text" name="category" id="category"
                                            class="cu-input {{ $errors->has('category') ? 'is-invalid' : '' }}"
                                            value="{{ old('category') }}"
-                                           placeholder="e.g. Work, Personal"
+                                           placeholder="{{ __('e.g. Work, Personal') }}"
                                            list="cat-list">
                                     <datalist id="cat-list">
                                         @foreach($categories as $cat)
@@ -259,8 +259,8 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon blue"><i class="bi bi-pencil-square"></i></span>
-                        <span class="cu-section-title">Content</span>
-                        <span class="cu-section-sub">Rich text supported</span>
+                        <span class="cu-section-title">{{ __('Content') }}</span>
+                        <span class="cu-section-sub">{{ __('Rich text supported') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field" style="margin-bottom:0;">
@@ -277,16 +277,16 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon green"><i class="bi bi-tags"></i></span>
-                        <span class="cu-section-title">Tags &amp; Scheduling</span>
-                        <span class="cu-section-sub">Optional metadata</span>
+                        <span class="cu-section-title">{{ __('Tags & Scheduling') }}</span>
+                        <span class="cu-section-sub">{{ __('Optional metadata') }}</span>
                     </div>
                     <div class="cu-section-body">
 
                         {{-- Tags --}}
                         <div class="cu-field">
-                            <label class="cu-label">Tags</label>
+                            <label class="cu-label">{{ __('Tags') }}</label>
                             <div class="cu-tags-box" id="tags-box">
-                                <input type="text" class="cu-tag-input" id="tag-input" placeholder="Type and press Enter to add tag">
+                                <input type="text" class="cu-tag-input" id="tag-input" placeholder="{{ __('Type and press Enter to add tag') }}">
                             </div>
                             <input type="hidden" name="tags" id="tags-hidden">
                             @error('tags')<div class="invalid-feedback">{{ $message }}</div>@enderror
@@ -295,7 +295,7 @@
                         {{-- Date + Time --}}
                         <div class="cu-field-row">
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="date" class="cu-label">Date</label>
+                                <label for="date" class="cu-label">{{ __('Date') }}</label>
                                 <div class="cu-input-wrap">
                                     <i class="bi bi-calendar3"></i>
                                     <input type="date" name="date" id="date"
@@ -305,7 +305,7 @@
                                 @error('date')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="time" class="cu-label">Time</label>
+                                <label for="time" class="cu-label">{{ __('Time') }}</label>
                                 <div class="cu-input-wrap">
                                     <i class="bi bi-clock"></i>
                                     <input type="time" name="time" id="time"
@@ -321,15 +321,15 @@
                             <input type="checkbox" name="is_favorite" id="is_favorite" value="1"
                                    class="cu-fav-check" {{ old('is_favorite') ? 'checked' : '' }}>
                             <label for="is_favorite" class="cu-fav-label">
-                                <i class="bi bi-star-fill"></i> Mark as Favourite
+                                <i class="bi bi-star-fill"></i> {{ __('Mark as Favourite') }}
                             </label>
                         </div>
 
                     </div>
                     <div class="cu-action-bar">
-                        <a href="{{ route('notes.index') }}" class="cu-btn-cancel">Cancel</a>
+                        <a href="{{ route('notes.index') }}" class="cu-btn-cancel">{{ __('Cancel') }}</a>
                         <button type="submit" class="cu-btn-save">
-                            <i class="bi bi-plus-lg me-1"></i>Create Note
+                            <i class="bi bi-plus-lg me-1"></i>{{ __('Create Note') }}
                         </button>
                     </div>
                 </div>

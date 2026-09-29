@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'File Manager')
+@section('title', __('File Manager'))
 
 @push('styles')
 <style>
@@ -178,11 +178,11 @@
     <div class="cu-header">
         <div class="cu-header-inner">
             <div>
-                <h1 class="cu-header-title"><i class="bi bi-folder2-open me-2"></i>File Manager</h1>
-                <p class="cu-header-sub">Upload and manage your project files</p>
+                <h1 class="cu-header-title"><i class="bi bi-folder2-open me-2"></i>{{ __('File Manager') }}</h1>
+                <p class="cu-header-sub">{{ __('Upload and manage your project files') }}</p>
             </div>
             <a href="{{ route('files.create') }}" class="cu-btn-new">
-                <i class="bi bi-cloud-upload"></i> Upload File
+                <i class="bi bi-cloud-upload"></i> {{ __('Upload File') }}
             </a>
         </div>
     </div>
@@ -199,27 +199,27 @@
         <div class="cu-stat total" onclick="filterType('')">
             <div class="cu-stat-icon"><i class="bi bi-files"></i></div>
             <div class="cu-stat-num">{{ $files->count() }}</div>
-            <div class="cu-stat-lbl">All Files</div>
+            <div class="cu-stat-lbl">{{ __('All Files') }}</div>
         </div>
         <div class="cu-stat project" onclick="filterType('project')">
             <div class="cu-stat-icon"><i class="bi bi-kanban"></i></div>
             <div class="cu-stat-num">{{ $files->where('type','project')->count() }}</div>
-            <div class="cu-stat-lbl">Project</div>
+            <div class="cu-stat-lbl">{{ __('Project') }}</div>
         </div>
         <div class="cu-stat docs" onclick="filterType('docs')">
             <div class="cu-stat-icon"><i class="bi bi-file-earmark-text"></i></div>
             <div class="cu-stat-num">{{ $files->where('type','docs')->count() }}</div>
-            <div class="cu-stat-lbl">Docs</div>
+            <div class="cu-stat-lbl">{{ __('Docs') }}</div>
         </div>
         <div class="cu-stat code" onclick="filterType('code')">
             <div class="cu-stat-icon"><i class="bi bi-code-slash"></i></div>
             <div class="cu-stat-num">{{ $files->whereIn('type',['code','txt'])->count() }}</div>
-            <div class="cu-stat-lbl">Code &amp; Text</div>
+            <div class="cu-stat-lbl">{{ __('Code & Text') }}</div>
         </div>
         <div class="cu-stat image" onclick="filterType('image')">
             <div class="cu-stat-icon"><i class="bi bi-image"></i></div>
             <div class="cu-stat-num">{{ $files->where('type','image')->count() }}</div>
-            <div class="cu-stat-lbl">Images</div>
+            <div class="cu-stat-lbl">{{ __('Images') }}</div>
         </div>
     </div>
 
@@ -227,17 +227,17 @@
     <div class="cu-filter-bar">
         <div class="cu-search-wrap">
             <i class="bi bi-search"></i>
-            <input type="text" class="cu-search" id="file-search" placeholder="Search files…" oninput="applyFilters()">
+            <input type="text" class="cu-search" id="file-search" placeholder="{{ __('Search files…') }}" oninput="applyFilters()">
         </div>
         <select class="cu-sel" id="type-filter" onchange="applyFilters()">
-            <option value="">All Types</option>
-            <option value="project">Project</option>
-            <option value="docs">Docs</option>
-            <option value="txt">Text</option>
-            <option value="code">Code</option>
-            <option value="image">Image</option>
+            <option value="">{{ __('All Types') }}</option>
+            <option value="project">{{ __('Project') }}</option>
+            <option value="docs">{{ __('Docs') }}</option>
+            <option value="txt">{{ __('Text') }}</option>
+            <option value="code">{{ __('Code') }}</option>
+            <option value="image">{{ __('Image') }}</option>
         </select>
-        <span class="cu-count" id="file-count">{{ $files->count() }} file(s)</span>
+        <span class="cu-count" id="file-count">{{ $files->count() }} {{ __('file(s)') }}</span>
     </div>
 
     {{-- Files grid --}}
@@ -273,20 +273,20 @@
                     {{ $file->created_at->format('M d, Y') }}
                 </div>
                 <div class="cu-file-actions">
-                    <a href="{{ route('files.show', $file->id) }}" class="cu-file-btn view" title="View Details">
-                        <i class="bi bi-eye"></i> View
+                    <a href="{{ route('files.show', $file->id) }}" class="cu-file-btn view" title="{{ __('View Details') }}">
+                        <i class="bi bi-eye"></i> {{ __('View') }}
                     </a>
-                    <a href="{{ Storage::url($file->path) }}" target="_blank" class="cu-file-btn download" title="Download / View">
+                    <a href="{{ Storage::url($file->path) }}" target="_blank" class="cu-file-btn download" title="{{ __('Download / View') }}">
                         <i class="bi bi-download"></i>
                     </a>
-                    <a href="{{ route('files.edit', $file->id) }}" class="cu-file-btn edit" title="Edit">
+                    <a href="{{ route('files.edit', $file->id) }}" class="cu-file-btn edit" title="{{ __('Edit') }}">
                         <i class="bi bi-pencil"></i>
                     </a>
                     <form action="{{ route('files.destroy', $file->id) }}" method="POST"
-                          onsubmit="return confirm('Delete this file permanently?')">
+                          onsubmit="return confirm('{{ __('Delete this file permanently?') }}')">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="cu-file-btn delete" title="Delete">
+                        <button type="submit" class="cu-file-btn delete" title="{{ __('Delete') }}">
                             <i class="bi bi-trash"></i>
                         </button>
                     </form>
@@ -298,10 +298,10 @@
     @else
     <div class="cu-empty">
         <i class="bi bi-folder2-open"></i>
-        <h4>No Files Yet</h4>
-        <p>Upload your first file to get started!</p>
+        <h4>{{ __('No Files Yet') }}</h4>
+        <p>{{ __('Upload your first file to get started!') }}</p>
         <a href="{{ route('files.create') }}" class="cu-btn-upload">
-            <i class="bi bi-cloud-upload"></i> Upload File
+            <i class="bi bi-cloud-upload"></i> {{ __('Upload File') }}
         </a>
     </div>
     @endif

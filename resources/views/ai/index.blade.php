@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Lina AI')
+@section('title', __('Lina AI'))
 
 @push('styles')
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -453,13 +453,13 @@ footer { display: none !important; }
     <div class="lina-sidebar" id="linaSidebar">
         <div class="lina-sidebar-head">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                <h2 style="margin:0;">Conversations</h2>
-                <button class="lina-sidebar-close" onclick="closeMobSidebar()" title="Close" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--gray-500);padding:2px 6px;border-radius:6px;">
+                <h2 style="margin:0;">{{ __('Conversations') }}</h2>
+                <button class="lina-sidebar-close" onclick="closeMobSidebar()" title="{{ __('Close') }}" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--gray-500);padding:2px 6px;border-radius:6px;">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
             <button class="lina-new-btn" onclick="newConversation()">
-                <i class="bi bi-plus-lg"></i> New Chat
+                <i class="bi bi-plus-lg"></i> {{ __('New Chat') }}
             </button>
         </div>
         <div class="lina-conv-list" id="linaConvList"></div>
@@ -471,24 +471,24 @@ footer { display: none !important; }
         {{-- Header --}}
         <div class="lina-head">
             {{-- Mobile: hamburger to open sidebar --}}
-            <button class="lina-mob-menu-btn lina-icon-btn" onclick="openMobSidebar()" title="Conversations" style="flex-shrink:0;">
+            <button class="lina-mob-menu-btn lina-icon-btn" onclick="openMobSidebar()" title="{{ __('Conversations') }}" style="flex-shrink:0;">
                 <i class="bi bi-layout-sidebar"></i>
             </button>
             <div class="lina-head-avatar"><i class="bi bi-stars"></i></div>
             <div style="flex:1;min-width:0;">
-                <div class="lina-head-title">Lina</div>
+                <div class="lina-head-title">{{ __('Lina') }}</div>
                 <div class="lina-head-status">
                     <span class="lina-status-dot"></span>
-                    <span>Online &mdash; knows your workspace data</span>
+                    <span>{{ __('Online — knows your workspace data') }}</span>
                 </div>
             </div>
             <div class="lina-head-right">
-                <div class="lina-mode-toggle" role="group" aria-label="Chat mode">
-                    <button type="button" id="linaModeChat" class="lina-mode-btn" onclick="setMode('chat')" title="Chat: talk about your workspace, no changes">💬 Chat</button>
-                    <button type="button" id="linaModeAgent" class="lina-mode-btn" onclick="setMode('agent')" title="Agent: create, edit and complete things with your confirmation">🛠 Agent</button>
+                <div class="lina-mode-toggle" role="group" aria-label="{{ __('Chat mode') }}">
+                    <button type="button" id="linaModeChat" class="lina-mode-btn" onclick="setMode('chat')" title="{{ __('Chat: talk about your workspace, no changes') }}">💬 {{ __('Chat') }}</button>
+                    <button type="button" id="linaModeAgent" class="lina-mode-btn" onclick="setMode('agent')" title="{{ __('Agent: create, edit and complete things with your confirmation') }}">🛠 {{ __('Agent') }}</button>
                 </div>
                 {{-- Mobile: back to app button --}}
-                <a href="{{ url()->previous() == url()->current() ? route('dashboard') : url()->previous() }}" class="lina-icon-btn" title="Back" style="text-decoration:none;">
+                <a href="{{ url()->previous() == url()->current() ? route('dashboard') : url()->previous() }}" class="lina-icon-btn" title="{{ __('Back') }}" style="text-decoration:none;">
                     <i class="bi bi-arrow-left"></i>
                 </a>
             </div>
@@ -496,22 +496,22 @@ footer { display: none !important; }
 
         {{-- Agent-mode banner --}}
         <div class="lina-agent-banner" id="linaAgentBanner" style="display:none;">
-            🛠 Agent mode — I can create, edit and complete tasks, routines, reminders, notes and projects. Every action needs your confirmation first.
+            {{ __('🛠 Agent mode — I can create, edit and complete tasks, routines, reminders, notes and projects. Every action needs your confirmation first.') }}
         </div>
 
         {{-- Messages --}}
         <div class="lina-messages" id="linaMessages">
             <div class="lina-welcome" id="linaWelcome">
                 <div class="lina-welcome-icon"><i class="bi bi-stars"></i></div>
-                <h3>Hi, I'm Lina!</h3>
-                <p>I'm your AI assistant. I have full access to your tasks, projects, notes, reminders, and routines. Ask me anything.</p>
+                <h3>{{ __("Hi, I'm Lina!") }}</h3>
+                <p>{{ __("I'm your AI assistant. I have full access to your tasks, projects, notes, reminders, and routines. Ask me anything.") }}</p>
                 <div class="lina-welcome-chips">
-                    <span class="lina-chip" onclick="askChip(this)">What tasks are due today?</span>
-                    <span class="lina-chip" onclick="askChip(this)">Show high priority tasks</span>
-                    <span class="lina-chip" onclick="askChip(this)">Summarize my projects</span>
-                    <span class="lina-chip" onclick="askChip(this)">Any overdue reminders?</span>
-                    <span class="lina-chip" onclick="askChip(this)">What routines do I have?</span>
-                    <span class="lina-chip" onclick="askChip(this)">Show my recent notes</span>
+                    <span class="lina-chip" onclick="askChip(this)">{{ __('What tasks are due today?') }}</span>
+                    <span class="lina-chip" onclick="askChip(this)">{{ __('Show high priority tasks') }}</span>
+                    <span class="lina-chip" onclick="askChip(this)">{{ __('Summarize my projects') }}</span>
+                    <span class="lina-chip" onclick="askChip(this)">{{ __('Any overdue reminders?') }}</span>
+                    <span class="lina-chip" onclick="askChip(this)">{{ __('What routines do I have?') }}</span>
+                    <span class="lina-chip" onclick="askChip(this)">{{ __('Show my recent notes') }}</span>
                 </div>
             </div>
         </div>
@@ -520,16 +520,16 @@ footer { display: none !important; }
         <div class="lina-foot">
             <div class="lina-input-box">
                 <textarea id="linaInput"
-                    placeholder="Message Lina…"
+                    placeholder="{{ __('Message Lina…') }}"
                     rows="1" maxlength="8000"></textarea>
                 <div class="lina-input-toolbar">
                     <div class="lina-input-hints">
-                        <span><kbd>Enter</kbd> send</span>
-                        <span><kbd>Shift+Enter</kbd> new line</span>
+                        <span><kbd>Enter</kbd> {{ __('send') }}</span>
+                        <span><kbd>Shift+Enter</kbd> {{ __('new line') }}</span>
                     </div>
                     <div class="lina-input-right">
                         <span id="linaCharCount"></span>
-                        <button class="lina-send-btn" id="linaSend" onclick="window.sendMessage()" title="Send">
+                        <button class="lina-send-btn" id="linaSend" onclick="window.sendMessage()" title="{{ __('Send') }}">
                             <i class="bi bi-send-fill"></i>
                         </button>
                     </div>

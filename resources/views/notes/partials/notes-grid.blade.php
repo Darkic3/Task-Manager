@@ -7,7 +7,7 @@
         {{-- Title + favorite --}}
         <div class="cu-note-head">
             <h3 class="cu-note-title">{{ $note->title }}</h3>
-            <button class="cu-fav-btn {{ $note->is_favorite ? 'active' : '' }}" data-note-id="{{ $note->id }}" title="Toggle favourite">
+            <button class="cu-fav-btn {{ $note->is_favorite ? 'active' : '' }}" data-note-id="{{ $note->id }}" title="{{ __('Toggle favourite') }}">
                 <i class="bi bi-star-fill"></i>
             </button>
         </div>
@@ -38,17 +38,17 @@
             <div class="cu-note-meta">
                 <i class="bi bi-clock" style="font-size:10px;"></i>
                 {{ $note->created_at->diffForHumans() }}
-                &middot; {{ $note->word_count }} words
+                &middot; {{ $note->word_count }} {{ __('words') }}
             </div>
             <div class="cu-note-actions">
                 <a href="{{ route('notes.edit', $note->id) }}" class="cu-note-btn edit" onclick="event.stopPropagation()">
                     <i class="bi bi-pencil"></i>
                 </a>
-                <button class="cu-note-btn copy" data-note-id="{{ $note->id }}" title="Duplicate">
+                <button class="cu-note-btn copy" data-note-id="{{ $note->id }}" title="{{ __('Duplicate') }}">
                     <i class="bi bi-files"></i>
                 </button>
                 <form action="{{ route('notes.destroy', $note->id) }}" method="POST"
-                      onsubmit="return confirm('Delete this note?');" style="display:inline;">
+                      onsubmit="return confirm('{{ __('Delete this note?') }}');" style="display:inline;">
                     @csrf @method('DELETE')
                     <button type="submit" class="cu-note-btn del" onclick="event.stopPropagation()">
                         <i class="bi bi-trash"></i>
@@ -63,8 +63,8 @@
 <div class="cu-notes-grid">
     <div class="cu-empty">
         <i class="bi bi-journal-text"></i>
-        <p>No notes found. Create your first one!</p>
-        <a href="{{ route('notes.create') }}"><i class="bi bi-plus-lg"></i> New Note</a>
+        <p>{{ __('No notes found. Create your first one!') }}</p>
+        <a href="{{ route('notes.create') }}"><i class="bi bi-plus-lg"></i> {{ __('New Note') }}</a>
     </div>
 </div>
 @endif

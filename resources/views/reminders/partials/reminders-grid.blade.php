@@ -7,7 +7,7 @@
             <div class="cu-rem-head">
                 <span class="cu-rem-title">{{ $reminder->title }}</span>
                 <span class="cu-pri-badge cu-pri-{{ $reminder->priority }}">
-                    {{ ucfirst($reminder->priority) }}
+                    {{ __(ucfirst($reminder->priority)) }}
                 </span>
             </div>
 
@@ -37,13 +37,13 @@
                 @endif
                 @if($reminder->is_recurring)
                     <span class="cu-meta-item">
-                        <i class="bi bi-arrow-repeat"></i> Repeats {{ $reminder->recurrence_type }}
+                        <i class="bi bi-arrow-repeat"></i> {{ __('Repeats :type', ['type' => __($reminder->recurrence_type)]) }}
                     </span>
                 @endif
                 @if($reminder->snooze_until && $reminder->snooze_until->isFuture())
                     <span class="cu-meta-item cu-meta-warn">
                         <i class="bi bi-clock-history"></i>
-                        Snoozed until {{ $reminder->snooze_until->format('M j, g:i A') }}
+                        {{ __('Snoozed until :date', ['date' => $reminder->snooze_until->format('M j, g:i A')]) }}
                     </span>
                 @endif
             </div>
@@ -65,16 +65,16 @@
             <div class="cu-rem-status">
                 @if($reminder->is_overdue)
                     <span class="cu-status-badge cu-sb-danger">
-                        <i class="bi bi-exclamation-circle-fill"></i> Overdue
+                        <i class="bi bi-exclamation-circle-fill"></i> {{ __('Overdue') }}
                     </span>
                 @elseif($reminder->is_due_soon)
                     <span class="cu-status-badge cu-sb-warn">
-                        <i class="bi bi-clock-fill"></i> Due Soon
+                        <i class="bi bi-clock-fill"></i> {{ __('Due Soon') }}
                     </span>
                 @elseif($reminder->is_completed)
                     <span class="cu-status-badge cu-sb-success">
                         <i class="bi bi-check-circle-fill"></i>
-                        Completed {{ $reminder->completed_at ? $reminder->completed_at->diffForHumans() : '' }}
+                        {{ __('Completed') }} {{ $reminder->completed_at ? $reminder->completed_at->diffForHumans() : '' }}
                     </span>
                 @elseif($reminder->formatted_date_time)
                     <span class="cu-status-badge cu-sb-muted">
@@ -82,7 +82,7 @@
                     </span>
                 @else
                     <span class="cu-status-badge cu-sb-muted">
-                        <i class="bi bi-bell"></i> No date set
+                        <i class="bi bi-bell"></i> {{ __('No date set') }}
                     </span>
                 @endif
             </div>
@@ -90,32 +90,32 @@
             {{-- Actions --}}
             <div class="cu-rem-actions">
                 @if(!$reminder->is_completed)
-                    <button onclick="toggleComplete({{ $reminder->id }})" class="cu-act cu-act-success" title="Mark Complete">
-                        <i class="bi bi-check-lg"></i> Complete
+                    <button onclick="toggleComplete({{ $reminder->id }})" class="cu-act cu-act-success" title="{{ __('Mark Complete') }}">
+                        <i class="bi bi-check-lg"></i> {{ __('Complete') }}
                     </button>
                 @else
-                    <button onclick="toggleComplete({{ $reminder->id }})" class="cu-act cu-act-muted" title="Reactivate">
-                        <i class="bi bi-arrow-counterclockwise"></i> Reactivate
+                    <button onclick="toggleComplete({{ $reminder->id }})" class="cu-act cu-act-muted" title="{{ __('Reactivate') }}">
+                        <i class="bi bi-arrow-counterclockwise"></i> {{ __('Reactivate') }}
                     </button>
                 @endif
 
                 @if(!$reminder->is_completed && !($reminder->snooze_until && $reminder->snooze_until->isFuture()))
-                    <button onclick="snoozeReminder({{ $reminder->id }})" class="cu-act cu-act-warn" title="Snooze 15 min">
-                        <i class="bi bi-clock"></i> Snooze
+                    <button onclick="snoozeReminder({{ $reminder->id }})" class="cu-act cu-act-warn" title="{{ __('Snooze 15 min') }}">
+                        <i class="bi bi-clock"></i> {{ __('Snooze') }}
                     </button>
                 @endif
 
-                <a href="{{ route('reminders.show', $reminder) }}" class="cu-act cu-act-info" title="View">
+                <a href="{{ route('reminders.show', $reminder) }}" class="cu-act cu-act-info" title="{{ __('View') }}">
                     <i class="bi bi-eye"></i>
                 </a>
-                <a href="{{ route('reminders.edit', $reminder) }}" class="cu-act cu-act-primary" title="Edit">
+                <a href="{{ route('reminders.edit', $reminder) }}" class="cu-act cu-act-primary" title="{{ __('Edit') }}">
                     <i class="bi bi-pencil"></i>
                 </a>
                 <form action="{{ route('reminders.destroy', $reminder) }}" method="POST"
-                      style="display:inline;" onsubmit="return confirm('Delete this reminder?')">
+                      style="display:inline;" onsubmit="return confirm('{{ __('Delete this reminder?') }}')">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="cu-act cu-act-danger" title="Delete">
+                    <button type="submit" class="cu-act cu-act-danger" title="{{ __('Delete') }}">
                         <i class="bi bi-trash"></i>
                     </button>
                 </form>
@@ -124,10 +124,10 @@
     @empty
         <div class="cu-rem-empty">
             <i class="bi bi-bell-slash cu-empty-ico"></i>
-            <h4>No reminders found</h4>
-            <p class="text-muted">Try adjusting your filters, or create a new reminder.</p>
+            <h4>{{ __('No reminders found') }}</h4>
+            <p class="text-muted">{{ __('Try adjusting your filters, or create a new reminder.') }}</p>
             <a href="{{ route('reminders.create') }}" class="cu-btn-new-empty">
-                <i class="bi bi-plus-lg"></i> New Reminder
+                <i class="bi bi-plus-lg"></i> {{ __('New Reminder') }}
             </a>
         </div>
     @endforelse

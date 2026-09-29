@@ -157,7 +157,7 @@
             </a>
             <div>
                 <h1 class="cu-header-title">{{ Str::limit($file->name, 55) }}</h1>
-                <p class="cu-header-sub">Uploaded {{ $file->created_at->diffForHumans() }}</p>
+                <p class="cu-header-sub">{{ __('Uploaded') }} {{ $file->created_at->diffForHumans() }}</p>
             </div>
         </div>
     </div>
@@ -166,7 +166,7 @@
 
         {{-- Left info panel --}}
         <div class="cu-info-panel">
-            <div class="cu-info-panel-header"><span>File Info</span></div>
+            <div class="cu-info-panel-header"><span>{{ __('File Info') }}</span></div>
             <div class="cu-info-body">
                 <div class="cu-avatar {{ $file->type }}">
                     <i class="bi {{ $icon }}"></i>
@@ -180,11 +180,11 @@
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-calendar3"></i>
-                    <span>Uploaded <strong>{{ $file->created_at->format('M d, Y') }}</strong></span>
+                    <span>{{ __('Uploaded') }} <strong>{{ $file->created_at->format('M d, Y') }}</strong></span>
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-clock-history"></i>
-                    <span>Updated {{ $file->updated_at->diffForHumans() }}</span>
+                    <span>{{ __('Updated') }} {{ $file->updated_at->diffForHumans() }}</span>
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-hdd"></i>
@@ -198,17 +198,17 @@
                 <hr class="cu-divider">
 
                 <a href="{{ Storage::url($file->path) }}" target="_blank" class="cu-action-btn dl">
-                    <i class="bi bi-download"></i> Download
+                    <i class="bi bi-download"></i> {{ __('Download') }}
                 </a>
                 <a href="{{ route('files.edit', $file->id) }}" class="cu-action-btn edit">
-                    <i class="bi bi-pencil"></i> Edit
+                    <i class="bi bi-pencil"></i> {{ __('Edit') }}
                 </a>
                 <form action="{{ route('files.destroy', $file->id) }}" method="POST"
-                      onsubmit="return confirm('Delete this file permanently?')" style="width:100%;">
+                      onsubmit="return confirm('{{ __('Delete this file permanently?') }}')" style="width:100%;">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="cu-action-btn del">
-                        <i class="bi bi-trash"></i> Delete
+                        <i class="bi bi-trash"></i> {{ __('Delete') }}
                     </button>
                 </form>
             </div>
@@ -221,7 +221,7 @@
             <div class="cu-section">
                 <div class="cu-section-header">
                     <span class="cu-section-icon blue"><i class="bi bi-eye"></i></span>
-                    <span class="cu-section-title">Preview</span>
+                    <span class="cu-section-title">{{ __('Preview') }}</span>
                 </div>
                 <div class="cu-section-body">
                     @if($isImage)
@@ -234,9 +234,9 @@
                         <div class="cu-preview-generic">
                             <i class="bi {{ $icon }}" style="color:{{ $color }};"></i>
                             <h4>{{ Str::limit($file->name, 40) }}</h4>
-                            <p>Preview is not available for .{{ strtoupper($ext ?: 'this') }} files.<br>Click below to open or download.</p>
+                            <p>{{ __('Preview is not available for this file type.') }}<br>{{ __('Click below to open or download.') }}</p>
                             <a href="{{ Storage::url($file->path) }}" target="_blank" class="cu-open-btn">
-                                <i class="bi bi-box-arrow-up-right"></i> Open File
+                                <i class="bi bi-box-arrow-up-right"></i> {{ __('Open File') }}
                             </a>
                         </div>
                     @endif
@@ -247,40 +247,40 @@
             <div class="cu-section">
                 <div class="cu-section-header">
                     <span class="cu-section-icon green"><i class="bi bi-info-circle"></i></span>
-                    <span class="cu-section-title">File Details</span>
+                    <span class="cu-section-title">{{ __('File Details') }}</span>
                 </div>
                 <div class="cu-section-body">
                     <table class="cu-detail-table">
                         <tr>
-                            <td>Name</td>
+                            <td>{{ __('Name') }}</td>
                             <td>{{ $file->name }}</td>
                         </tr>
                         <tr>
-                            <td>Type</td>
+                            <td>{{ __('Type') }}</td>
                             <td><span class="cu-type-badge {{ $file->type }}" style="display:inline-block;margin:0;">{{ ucfirst($file->type) }}</span></td>
                         </tr>
                         <tr>
-                            <td>Extension</td>
+                            <td>{{ __('Extension') }}</td>
                             <td>.{{ strtoupper($ext ?: '—') }}</td>
                         </tr>
                         <tr>
-                            <td>Size</td>
+                            <td>{{ __('Size') }}</td>
                             <td>{{ $sizeStr }}</td>
                         </tr>
                         <tr>
-                            <td>Uploaded</td>
+                            <td>{{ __('Uploaded') }}</td>
                             <td>{{ $file->created_at->format('M d, Y \a\t g:i A') }}</td>
                         </tr>
                         <tr>
-                            <td>Last Updated</td>
+                            <td>{{ __('Last Updated') }}</td>
                             <td>{{ $file->updated_at->format('M d, Y \a\t g:i A') }}</td>
                         </tr>
                         <tr>
-                            <td>Owner</td>
+                            <td>{{ __('Owner') }}</td>
                             <td>{{ auth()->user()->name }}</td>
                         </tr>
                         <tr>
-                            <td>Path</td>
+                            <td>{{ __('Path') }}</td>
                             <td style="word-break:break-all;font-size:11px;color:#9ca3af;">{{ $file->path }}</td>
                         </tr>
                     </table>

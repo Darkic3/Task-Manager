@@ -137,9 +137,9 @@
             <div>
                 <h1 class="cu-header-title">{{ $note->title }}</h1>
                 <p class="cu-header-sub">
-                    Created {{ $note->created_at->diffForHumans() }}
+                    {{ __('Created') }} {{ $note->created_at->diffForHumans() }}
                     @if($note->updated_at->ne($note->created_at))
-                        &middot; Updated {{ $note->updated_at->diffForHumans() }}
+                        &middot; {{ __('Updated') }} {{ $note->updated_at->diffForHumans() }}
                     @endif
                 </p>
             </div>
@@ -151,28 +151,28 @@
 
         {{-- Left panel --}}
         <div class="cu-info-panel">
-            <div class="cu-info-panel-header"><span>Note Details</span></div>
+            <div class="cu-info-panel-header"><span>{{ __('Note Details') }}</span></div>
             <div class="cu-info-body">
                 <div class="cu-avatar"><i class="bi bi-journal-text"></i></div>
                 <div class="cu-panel-name">{{ $note->title }}</div>
                 @if($note->category)
                     <div class="cu-panel-sub">{{ $note->category }}</div>
                 @else
-                    <div class="cu-panel-sub">No category</div>
+                    <div class="cu-panel-sub">{{ __('No category') }}</div>
                 @endif
 
                 <div class="cu-meta-row">
                     <i class="bi bi-file-text"></i>
-                    <span><strong>{{ $note->word_count }}</strong> words &middot; {{ strlen(strip_tags($note->content)) }} chars</span>
+                    <span><strong>{{ $note->word_count }}</strong> {{ __('words') }} &middot; {{ strlen(strip_tags($note->content)) }} {{ __('chars') }}</span>
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-calendar3"></i>
-                    <span>Created <strong>{{ $note->created_at->format('M d, Y') }}</strong></span>
+                    <span>{{ __('Created') }} <strong>{{ $note->created_at->format('M d, Y') }}</strong></span>
                 </div>
                 @if($note->updated_at->ne($note->created_at))
                 <div class="cu-meta-row">
                     <i class="bi bi-pencil"></i>
-                    <span>Modified <strong>{{ $note->updated_at->format('M d, Y') }}</strong></span>
+                    <span>{{ __('Modified') }} <strong>{{ $note->updated_at->format('M d, Y') }}</strong></span>
                 </div>
                 @endif
                 @if($note->date)
@@ -188,21 +188,21 @@
                 <div class="cu-quick-actions">
                     <button class="cu-fav-btn {{ $note->is_favorite ? 'active' : '' }}" id="fav-btn" data-note-id="{{ $note->id }}">
                         <i class="bi bi-star-fill"></i>
-                        <span id="fav-label">{{ $note->is_favorite ? 'Unfavourite' : 'Favourite' }}</span>
+                        <span id="fav-label">{{ $note->is_favorite ? __('Unfavourite') : __('Favourite') }}</span>
                     </button>
                     <a href="{{ route('notes.edit', $note->id) }}" class="cu-action-link edit">
-                        <i class="bi bi-pencil"></i> Edit Note
+                        <i class="bi bi-pencil"></i> {{ __('Edit Note') }}
                     </a>
                     <button class="cu-action-link copy" onclick="duplicateNote({{ $note->id }})">
-                        <i class="bi bi-files"></i> Duplicate
+                        <i class="bi bi-files"></i> {{ __('Duplicate') }}
                     </button>
                     <button class="cu-action-link copy" onclick="copyContent()" style="border-color:#bfdbfe;color:#2563eb;background:#eff6ff;">
-                        <i class="bi bi-clipboard"></i> Copy Text
+                        <i class="bi bi-clipboard"></i> {{ __('Copy Text') }}
                     </button>
                     <form action="{{ route('notes.destroy', $note->id) }}" method="POST" id="deleteForm">
                         @csrf @method('DELETE')
                         <button type="button" class="cu-action-link del" style="width:100%;" onclick="confirmDelete()">
-                            <i class="bi bi-trash"></i> Delete
+                            <i class="bi bi-trash"></i> {{ __('Delete') }}
                         </button>
                     </form>
                 </div>
@@ -215,7 +215,7 @@
                 <div class="cu-content-header-icon"><i class="bi bi-journal-text"></i></div>
                 <span class="cu-content-title">{{ $note->title }}</span>
                 @if($note->is_favorite)
-                <i class="bi bi-star-fill ms-auto" style="color:#f59e0b;font-size:14px;" title="Favourite"></i>
+                <i class="bi bi-star-fill ms-auto" style="color:#f59e0b;font-size:14px;" title="{{ __('Favourite') }}"></i>
                 @endif
             </div>
 
@@ -240,10 +240,10 @@
 
             {{-- Stats bar --}}
             <div class="cu-stats-bar">
-                <span><i class="bi bi-file-text"></i> {{ $note->word_count }} words</span>
+                <span><i class="bi bi-file-text"></i> {{ $note->word_count }} {{ __('words') }}</span>
                 <span><i class="bi bi-clock"></i> {{ $note->created_at->format('M d, Y g:i A') }}</span>
                 @if($note->date)
-                <span><i class="bi bi-calendar-event"></i> {{ $note->formatted_date }}{{ $note->time ? ' at ' . $note->formatted_time : '' }}</span>
+                <span><i class="bi bi-calendar-event"></i> {{ $note->formatted_date }}{{ $note->time ? ' ' . __('at') . ' ' . $note->formatted_time : '' }}</span>
                 @endif
             </div>
         </div>
@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(data => {
             if (data.success) {
                 favBtn.classList.toggle('active', data.is_favorite);
-                favLabel.textContent = data.is_favorite ? 'Unfavourite' : 'Favourite';
+                favLabel.textContent = data.is_favorite ? '{{ __('Unfavourite') }}' : '{{ __('Favourite') }}';
             }
         });
     });
@@ -297,7 +297,7 @@ function copyContent() {
     const orig = btn.innerHTML;
 
     function showCopied() {
-        btn.innerHTML = '<i class="bi bi-check-lg"></i> Copied!';
+        btn.innerHTML = '<i class="bi bi-check-lg"></i> {{ __('Copied!') }}';
         setTimeout(() => btn.innerHTML = orig, 2000);
     }
 
@@ -316,12 +316,12 @@ function fallbackCopy(text, callback) {
     document.body.appendChild(ta);
     ta.focus();
     ta.select();
-    try { document.execCommand('copy'); callback(); } catch(e) { alert('Copy not supported in this browser.'); }
+    try { document.execCommand('copy'); callback(); } catch(e) { alert('{{ __('Copy not supported in this browser.') }}'); }
     document.body.removeChild(ta);
 }
 
 function confirmDelete() {
-    if (confirm('Delete this note? This cannot be undone.')) {
+    if (confirm('{{ __('Delete this note? This cannot be undone.') }}')) {
         document.getElementById('deleteForm').submit();
     }
 }

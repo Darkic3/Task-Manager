@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Change Password')
+@section('title', __('Change Password'))
 @push('styles')
 <style>
 
@@ -185,8 +185,8 @@
                 <i class="bi bi-arrow-left fs-5" style="color:rgba(255,255,255,.8);"></i>
             </a>
             <div>
-                <h1 class="cu-header-title">Change Password</h1>
-                <p class="cu-header-sub">Keep your account secure</p>
+                <h1 class="cu-header-title">{{ __('Change Password') }}</h1>
+                <p class="cu-header-sub">{{ __('Keep your account secure') }}</p>
             </div>
         </div>
     </div>
@@ -198,7 +198,7 @@
     <div class="cu-layout">
         {{-- Left panel --}}
         <div class="cu-info-panel">
-            <div class="cu-info-panel-header"><span>Account</span></div>
+            <div class="cu-info-panel-header"><span>{{ __('Account') }}</span></div>
             <div class="cu-info-body">
                 @if(auth()->user()->avatar)
                     <img src="{{ Storage::url(auth()->user()->avatar) }}" alt="" class="cu-avatar-img-sm">
@@ -210,13 +210,13 @@
 
                 <div class="cu-tip">
                     <i class="bi bi-shield-check" style="font-size:14px;flex-shrink:0;margin-top:1px;"></i>
-                    <span>Use at least 8 characters with a mix of letters, numbers, and symbols.</span>
+                    <span>{{ __('Use at least 8 characters with a mix of letters, numbers, and symbols.') }}</span>
                 </div>
 
                 <div class="cu-panel-nav" style="margin-top:12px;">
-                    <a href="{{ route('profile.show') }}" class="cu-nav-link"><i class="bi bi-person"></i> View Profile</a>
-                    <a href="{{ route('profile.edit') }}" class="cu-nav-link"><i class="bi bi-pencil"></i> Edit Info</a>
-                    <a href="{{ route('profile.password') }}" class="cu-nav-link active"><i class="bi bi-key"></i> Password</a>
+                    <a href="{{ route('profile.show') }}" class="cu-nav-link"><i class="bi bi-person"></i> {{ __('View Profile') }}</a>
+                    <a href="{{ route('profile.edit') }}" class="cu-nav-link"><i class="bi bi-pencil"></i> {{ __('Edit Info') }}</a>
+                    <a href="{{ route('profile.password') }}" class="cu-nav-link active"><i class="bi bi-key"></i> {{ __('Password') }}</a>
                 </div>
             </div>
         </div>
@@ -230,12 +230,12 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon red"><i class="bi bi-key"></i></span>
-                        <span class="cu-section-title">Update Password</span>
+                        <span class="cu-section-title">{{ __('Update Password') }}</span>
                     </div>
                     <div class="cu-section-body">
 
                         <div class="cu-field">
-                            <label for="current_password" class="cu-label">Current Password <span style="color:#dc2626;">*</span></label>
+                            <label for="current_password" class="cu-label">{{ __('Current Password') }} <span style="color:#dc2626;">*</span></label>
                             <div class="cu-pw-wrap">
                                 <input type="password" id="current_password" name="current_password"
                                        class="cu-input @error('current_password') is-invalid @enderror"
@@ -248,7 +248,7 @@
                         </div>
 
                         <div class="cu-field">
-                            <label for="password" class="cu-label">New Password <span style="color:#dc2626;">*</span></label>
+                            <label for="password" class="cu-label">{{ __('New Password') }} <span style="color:#dc2626;">*</span></label>
                             <div class="cu-pw-wrap">
                                 <input type="password" id="password" name="password"
                                        class="cu-input @error('password') is-invalid @enderror"
@@ -260,17 +260,17 @@
                             <div class="cu-strength-bar"><div class="cu-strength-fill" id="strength-fill"></div></div>
                             <div class="cu-strength-text" id="strength-text"></div>
                             <ul class="cu-req-list" id="req-list">
-                                <li id="req-len"><i class="bi bi-circle"></i> At least 8 characters</li>
-                                <li id="req-upper"><i class="bi bi-circle"></i> One uppercase letter</li>
-                                <li id="req-lower"><i class="bi bi-circle"></i> One lowercase letter</li>
-                                <li id="req-num"><i class="bi bi-circle"></i> One number</li>
-                                <li id="req-sym"><i class="bi bi-circle"></i> One special character</li>
+                                <li id="req-len"><i class="bi bi-circle"></i> {{ __('At least 8 characters') }}</li>
+                                <li id="req-upper"><i class="bi bi-circle"></i> {{ __('One uppercase letter') }}</li>
+                                <li id="req-lower"><i class="bi bi-circle"></i> {{ __('One lowercase letter') }}</li>
+                                <li id="req-num"><i class="bi bi-circle"></i> {{ __('One number') }}</li>
+                                <li id="req-sym"><i class="bi bi-circle"></i> {{ __('One special character') }}</li>
                             </ul>
                             @error('password')<p class="cu-err">{{ $message }}</p>@enderror
                         </div>
 
                         <div class="cu-field">
-                            <label for="password_confirmation" class="cu-label">Confirm New Password <span style="color:#dc2626;">*</span></label>
+                            <label for="password_confirmation" class="cu-label">{{ __('Confirm New Password') }} <span style="color:#dc2626;">*</span></label>
                             <div class="cu-pw-wrap">
                                 <input type="password" id="password_confirmation" name="password_confirmation"
                                        class="cu-input" required autocomplete="new-password"
@@ -286,8 +286,8 @@
                 </div>
 
                 <div class="cu-action-bar">
-                    <a href="{{ route('profile.show') }}" class="cu-btn-cancel"><i class="bi bi-x-lg"></i> Cancel</a>
-                    <button type="submit" class="cu-btn-danger"><i class="bi bi-key"></i> Update Password</button>
+                    <a href="{{ route('profile.show') }}" class="cu-btn-cancel"><i class="bi bi-x-lg"></i> {{ __('Cancel') }}</a>
+                    <button type="submit" class="cu-btn-danger"><i class="bi bi-key"></i> {{ __('Update Password') }}</button>
                 </div>
 
             </div>
@@ -331,7 +331,7 @@ function checkStrength(val) {
     var score = [hasLen, hasUpper, hasLower, hasNum, hasSym].filter(Boolean).length;
     var fill  = document.getElementById('strength-fill');
     var text  = document.getElementById('strength-text');
-    var labels = ['', 'Weak', 'Fair', 'Good', 'Strong', 'Very Strong'];
+    var labels = ['', '{{ __('Weak') }}', '{{ __('Fair') }}', '{{ __('Good') }}', '{{ __('Strong') }}', '{{ __('Very Strong') }}'];
     var colors = ['', '#dc2626', '#f59e0b', '#3b82f6', '#10b981', '#059669'];
     fill.style.width   = (score * 20) + '%';
     fill.style.background = colors[score] || '#e5e7eb';
@@ -345,8 +345,9 @@ function checkMatch() {
     var con = document.getElementById('password_confirmation').value;
     var msg = document.getElementById('match-msg');
     if (!con.length) { msg.textContent = ''; return; }
-    if (pw === con)  { msg.textContent = '✓ Passwords match'; msg.className = 'cu-match ok'; }
-    else             { msg.textContent = '✕ Passwords do not match'; msg.className = 'cu-match bad'; }
+    if (pw === con)  { msg.textContent = '✓ {{ __('Passwords match') }}'; msg.className = 'cu-match ok'; }
+    else             { msg.textContent = '✕ {{ __('Passwords do not match') }}'; msg.className = 'cu-match bad'; }
 }
 </script>
 @endpush
+

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Edit: ' . $file->name)
+@section('title', __('Edit: :name', ['name' => $file->name]))
 
 @push('styles')
 <style>
@@ -240,7 +240,7 @@
                 <i class="bi bi-arrow-left fs-5" style="color:rgba(255,255,255,.8);"></i>
             </a>
             <div>
-                <h1 class="cu-header-title">Edit File</h1>
+                <h1 class="cu-header-title">{{ __('Edit File') }}</h1>
                 <p class="cu-header-sub">{{ Str::limit($file->name, 55) }}</p>
             </div>
         </div>
@@ -250,7 +250,7 @@
 
         {{-- Left info panel --}}
         <div class="cu-info-panel">
-            <div class="cu-info-panel-header"><span>File Info</span></div>
+            <div class="cu-info-panel-header"><span>{{ __('File Info') }}</span></div>
             <div class="cu-info-body">
                 <div class="cu-avatar {{ $file->type }}">
                     <i class="bi {{ $icon }}"></i>
@@ -264,32 +264,32 @@
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-calendar3"></i>
-                    <span>Uploaded <strong>{{ $file->created_at->format('M d, Y') }}</strong></span>
+                    <span>{{ __('Uploaded') }} <strong>{{ $file->created_at->format('M d, Y') }}</strong></span>
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-clock-history"></i>
-                    <span>Updated {{ $file->updated_at->diffForHumans() }}</span>
+                    <span>{{ __('Updated') }} {{ $file->updated_at->diffForHumans() }}</span>
                 </div>
 
                 {{-- Current file preview --}}
                 <div class="cu-preview-wrap">
-                    <div class="cu-preview-label">Current File Preview</div>
+                    <div class="cu-preview-label">{{ __('Current File Preview') }}</div>
                     @if($isImage)
                         <img src="{{ Storage::url($file->path) }}"
                              alt="{{ $file->name }}" class="cu-preview-img"
                              onerror="this.style.display='none'">
                     @elseif($isPdf)
                         <iframe src="{{ Storage::url($file->path) }}"
-                                class="cu-preview-pdf" title="PDF Preview"></iframe>
+                                class="cu-preview-pdf" title="{{ __('PDF Preview') }}"></iframe>
                     @else
                         <div class="cu-preview-generic">
                             <i class="bi {{ $icon }}"
-                               style="color:{{ ['project'=>'#3b82f6','docs'=>'#f59e0b','txt'=>'#8b5cf6','code'=>'#ef4444','image'=>'#10b981'][$file->type] ?? '#6b7280' }};"></i>
-                            <span>.{{ strtoupper($ext ?: '???') }} file</span>
+                                style="color:{{ ['project'=>'#3b82f6','docs'=>'#f59e0b','txt'=>'#8b5cf6','code'=>'#ef4444','image'=>'#10b981'][$file->type] ?? '#6b7280' }};"></i>
+                            <span>.{{ strtoupper($ext ?: '???') }} {{ __('file') }}</span>
                         </div>
                     @endif
                     <a href="{{ Storage::url($file->path) }}" target="_blank" class="cu-dl-btn">
-                        <i class="bi bi-download"></i> Download / View
+                        <i class="bi bi-download"></i> {{ __('Download / View') }}
                     </a>
                 </div>
             </div>
@@ -306,11 +306,11 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon green"><i class="bi bi-tag"></i></span>
-                        <span class="cu-section-title">File Name</span>
+                        <span class="cu-section-title">{{ __('File Name') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field">
-                            <label for="name" class="cu-label">Display Name <span style="color:#dc2626;">*</span></label>
+                            <label for="name" class="cu-label">{{ __('Display Name') }} <span style="color:#dc2626;">*</span></label>
                             <input type="text" id="name" name="name"
                                    class="cu-input @error('name') is-invalid @enderror"
                                    value="{{ old('name', $file->name) }}"
@@ -324,14 +324,14 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon blue"><i class="bi bi-cloud-upload"></i></span>
-                        <span class="cu-section-title">Replace File</span>
-                        <span class="cu-section-sub">Optional — leave blank to keep current</span>
+                        <span class="cu-section-title">{{ __('Replace File') }}</span>
+                        <span class="cu-section-sub">{{ __('Optional — leave blank to keep current') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-drop-zone" id="drop-zone">
                             <i class="bi bi-cloud-arrow-up cu-drop-icon"></i>
-                            <div class="cu-drop-text">Drag &amp; drop a new file here</div>
-                            <div class="cu-drop-hint">or click to browse — replaces the current file</div>
+                            <div class="cu-drop-text">{{ __('Drag & drop a new file here') }}</div>
+                            <div class="cu-drop-hint">{{ __('or click to browse — replaces the current file') }}</div>
                             <input type="file" name="file" id="file-input"
                                    class="@error('file') is-invalid @enderror"
                                    accept=".jpeg,.jpg,.png,.gif,.svg,.doc,.docx,.pdf,.txt,.html,.css,.js,.php,.java,.c,.cpp">
@@ -339,12 +339,12 @@
                         <div class="cu-selected-pill" id="selected-pill">
                             <i class="bi bi-file-earmark-check" style="font-size:14px;"></i>
                             <span id="sel-filename" style="font-weight:600;"></span>
-                            <button type="button" onclick="clearFile()" title="Remove">&times;</button>
+                            <button type="button" onclick="clearFile()" title="{{ __('Remove') }}">&times;</button>
                         </div>
                         {{-- New image preview --}}
                         <div class="cu-new-preview" id="new-preview">
-                            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8a8f98;margin-bottom:4px;">New File Preview</div>
-                            <img id="new-preview-img" src="" alt="Preview">
+                            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8a8f98;margin-bottom:4px;">{{ __('New File Preview') }}</div>
+                            <img id="new-preview-img" src="" alt="{{ __('Preview') }}">
                         </div>
                         @error('file')<p class="cu-err" style="margin-top:6px;">{{ $message }}</p>@enderror
                     </div>
@@ -354,8 +354,8 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon violet"><i class="bi bi-grid-3x3-gap"></i></span>
-                        <span class="cu-section-title">File Type</span>
-                        <span class="cu-section-sub">Required</span>
+                        <span class="cu-section-title">{{ __('File Type') }}</span>
+                        <span class="cu-section-sub">{{ __('Required') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <input type="hidden" name="type" id="type-hidden" value="{{ old('type', $file->type) }}">
@@ -364,7 +364,7 @@
                             @php $tIcon = ['project'=>'bi-kanban','docs'=>'bi-file-earmark-text','txt'=>'bi-file-earmark','code'=>'bi-code-slash','image'=>'bi-image'][$t]; @endphp
                             <div class="cu-type-chip {{ old('type', $file->type) === $t ? 'selected' : '' }}" data-type="{{ $t }}">
                                 <i class="bi {{ $tIcon }}"></i>
-                                <span>{{ $lbl }}</span>
+                                <span>{{ __($lbl) }}</span>
                             </div>
                             @endforeach
                         </div>
@@ -375,10 +375,10 @@
                 {{-- Action bar --}}
                 <div class="cu-action-bar">
                     <a href="{{ route('files.index') }}" class="cu-btn-cancel">
-                        <i class="bi bi-x-lg"></i> Cancel
+                        <i class="bi bi-x-lg"></i> {{ __('Cancel') }}
                     </a>
                     <button type="submit" class="cu-btn-save">
-                        <i class="bi bi-check-lg"></i> Update File
+                        <i class="bi bi-check-lg"></i> {{ __('Update File') }}
                     </button>
                 </div>
 
@@ -386,16 +386,16 @@
                 <div class="cu-danger-zone">
                     <div class="cu-section-header">
                         <span class="cu-section-icon red"><i class="bi bi-exclamation-triangle"></i></span>
-                        <span class="cu-section-title" style="color:#dc2626;">Danger Zone</span>
+                        <span class="cu-section-title" style="color:#dc2626;">{{ __('Danger Zone') }}</span>
                     </div>
                     <div class="cu-section-body">
-                        <p class="cu-danger-desc">Permanently delete this file. This action cannot be undone.</p>
+                        <p class="cu-danger-desc">{{ __('Permanently delete this file. This action cannot be undone.') }}</p>
                         <form action="{{ route('files.destroy', $file->id) }}" method="POST"
-                              onsubmit="return confirm('Delete this file permanently?')">
+                              onsubmit="return confirm('{{ __('Delete this file permanently?') }}')">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="cu-btn-delete">
-                                <i class="bi bi-trash"></i> Delete File
+                                <i class="bi bi-trash"></i> {{ __('Delete File') }}
                             </button>
                         </form>
                     </div>

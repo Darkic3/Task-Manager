@@ -153,13 +153,13 @@
                 <h1 class="cu-header-title">{{ Str::limit($reminder->title, 60) }}</h1>
                 <p class="cu-header-sub">
                     @if($reminder->is_completed)
-                        Completed reminder
+                        {{ __('Completed reminder') }}
                     @elseif($reminder->is_overdue)
-                        Overdue &mdash; {{ $reminder->formatted_date_time?->diffForHumans() }}
+                        {{ __('Overdue') }} &mdash; {{ $reminder->formatted_date_time?->diffForHumans() }}
                     @elseif($reminder->formatted_date_time)
-                        Due {{ $reminder->formatted_date_time->diffForHumans() }}
+                        {{ __('Due') }} {{ $reminder->formatted_date_time->diffForHumans() }}
                     @else
-                        No due date set
+                        {{ __('No due date set') }}
                     @endif
                 </p>
             </div>
@@ -170,16 +170,16 @@
 
         {{-- ── Left panel ── --}}
         <div class="cu-info-panel">
-            <div class="cu-info-panel-header"><span>Reminder Info</span></div>
+            <div class="cu-info-panel-header"><span>{{ __('Reminder Info') }}</span></div>
             <div class="cu-info-body">
                 <div class="cu-avatar"><i class="bi bi-bell-fill"></i></div>
                 <div class="cu-panel-name">{{ Str::limit($reminder->title, 40) }}</div>
-                <div class="cu-panel-sub">Created {{ $reminder->created_at->diffForHumans() }}</div>
+                <div class="cu-panel-sub">{{ __('Created') }} {{ $reminder->created_at->diffForHumans() }}</div>
 
                 {{-- Priority --}}
                 <div class="cu-pri-inline">
                     <span class="cu-pri-badge cu-pri-{{ $reminder->priority }}">
-                        {{ ucfirst($reminder->priority) }} Priority
+                        {{ __(ucfirst($reminder->priority)) }} {{ __('Priority') }}
                     </span>
                 </div>
 
@@ -187,19 +187,19 @@
                 <div class="cu-status-row">
                     @if($reminder->is_completed)
                         <span class="cu-status-badge cu-sb-success">
-                            <i class="bi bi-check-circle-fill"></i> Completed
+                            <i class="bi bi-check-circle-fill"></i> {{ __('Completed') }}
                         </span>
                     @elseif($reminder->is_overdue)
                         <span class="cu-status-badge cu-sb-danger">
-                            <i class="bi bi-exclamation-circle-fill"></i> Overdue
+                            <i class="bi bi-exclamation-circle-fill"></i> {{ __('Overdue') }}
                         </span>
                     @elseif($reminder->is_due_soon)
                         <span class="cu-status-badge cu-sb-warn">
-                            <i class="bi bi-clock-fill"></i> Due Soon
+                            <i class="bi bi-clock-fill"></i> {{ __('Due Soon') }}
                         </span>
                     @else
                         <span class="cu-status-badge cu-sb-info">
-                            <i class="bi bi-bell"></i> Active
+                            <i class="bi bi-bell"></i> {{ __('Active') }}
                         </span>
                     @endif
                 </div>
@@ -211,7 +211,7 @@
                         <div>
                             <strong>{{ $reminder->formatted_date_time->format('M j, Y') }}</strong>
                             @if($reminder->time)
-                                <br><span style="font-size:11px;">at {{ $reminder->formatted_time }}</span>
+                                <br><span style="font-size:11px;">{{ __('at') }} {{ $reminder->formatted_time }}</span>
                             @endif
                             <br>
                             <span class="{{ $reminder->is_overdue ? 'cu-meta-danger' : '' }}" style="font-size:11px;">
@@ -238,8 +238,8 @@
                 @if($reminder->is_recurring)
                     <div class="cu-meta-row">
                         <i class="bi bi-arrow-repeat"></i>
-                        <span>Every {{ $reminder->recurrence_interval }}
-                              {{ $reminder->recurrence_type }}{{ $reminder->recurrence_interval > 1 ? 's' : '' }}</span>
+                        <span>{{ __('Every') }} {{ $reminder->recurrence_interval }}
+                              {{ __($reminder->recurrence_type) }}</span>
                     </div>
                 @endif
 
@@ -247,7 +247,7 @@
                     <div class="cu-meta-row">
                         <i class="bi bi-clock-history"></i>
                         <span class="cu-meta-warn">
-                            Snoozed until {{ $reminder->snooze_until->format('M j, g:i A') }}
+                            {{ __('Snoozed until') }} {{ $reminder->snooze_until->format('M j, g:i A') }}
                         </span>
                     </div>
                 @endif
@@ -256,7 +256,7 @@
                     <div class="cu-meta-row">
                         <i class="bi bi-check2-circle"></i>
                         <span style="color:#065f46;">
-                            Done {{ $reminder->completed_at->diffForHumans() }}
+                            {{ __('Done') }} {{ $reminder->completed_at->diffForHumans() }}
                         </span>
                     </div>
                 @endif
@@ -268,7 +268,7 @@
 
                 <div class="cu-meta-row">
                     <i class="bi bi-clock"></i>
-                    <span>Updated {{ $reminder->updated_at->diffForHumans() }}</span>
+                    <span>{{ __('Updated') }} {{ $reminder->updated_at->diffForHumans() }}</span>
                 </div>
             </div>
 
@@ -276,38 +276,38 @@
             <div class="cu-panel-actions">
                 @if(!$reminder->is_completed)
                     <button onclick="toggleComplete({{ $reminder->id }})" class="cu-pact cu-pact-success">
-                        <i class="bi bi-check-lg"></i> Mark Complete
+                        <i class="bi bi-check-lg"></i> {{ __('Mark Complete') }}
                     </button>
                 @else
                     <button onclick="toggleComplete({{ $reminder->id }})" class="cu-pact cu-pact-muted">
-                        <i class="bi bi-arrow-counterclockwise"></i> Reactivate
+                        <i class="bi bi-arrow-counterclockwise"></i> {{ __('Reactivate') }}
                     </button>
                 @endif
 
                 @if(!$reminder->is_completed && !($reminder->snooze_until && $reminder->snooze_until->isFuture()))
                     <button onclick="snoozePrompt({{ $reminder->id }})" class="cu-pact cu-pact-warn">
-                        <i class="bi bi-clock"></i> Snooze
+                        <i class="bi bi-clock"></i> {{ __('Snooze') }}
                     </button>
                 @endif
 
                 <a href="{{ route('reminders.edit', $reminder) }}" class="cu-pact cu-pact-primary">
-                    <i class="bi bi-pencil"></i> Edit
+                    <i class="bi bi-pencil"></i> {{ __('Edit') }}
                 </a>
 
                 <form action="{{ route('reminders.duplicate', $reminder) }}" method="POST"
-                      onsubmit="return confirm('Duplicate this reminder?')">
+                      onsubmit="return confirm('{{ __('Duplicate this reminder?') }}')">
                     @csrf
                     <button type="submit" class="cu-pact cu-pact-info">
-                        <i class="bi bi-files"></i> Duplicate
+                        <i class="bi bi-files"></i> {{ __('Duplicate') }}
                     </button>
                 </form>
 
                 <form action="{{ route('reminders.destroy', $reminder) }}" method="POST"
-                      onsubmit="return confirm('Delete this reminder? This cannot be undone.')">
+                      onsubmit="return confirm('{{ __('Delete this reminder? This cannot be undone.') }}')">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="cu-pact cu-pact-danger">
-                        <i class="bi bi-trash"></i> Delete
+                        <i class="bi bi-trash"></i> {{ __('Delete') }}
                     </button>
                 </form>
             </div>
@@ -321,7 +321,7 @@
             <div class="cu-section">
                 <div class="cu-section-header">
                     <span class="cu-section-icon amber"><i class="bi bi-card-text"></i></span>
-                    <span class="cu-section-title">Description</span>
+                    <span class="cu-section-title">{{ __('Description') }}</span>
                 </div>
                 <div class="cu-section-body">
                     <p class="cu-content-text">{{ $reminder->description }}</p>
@@ -334,8 +334,8 @@
             <div class="cu-section">
                 <div class="cu-section-header">
                     <span class="cu-section-icon violet"><i class="bi bi-tags"></i></span>
-                    <span class="cu-section-title">Tags</span>
-                    <span class="cu-section-sub">{{ count($reminder->tags) }} tag{{ count($reminder->tags) !== 1 ? 's' : '' }}</span>
+                    <span class="cu-section-title">{{ __('Tags') }}</span>
+                    <span class="cu-section-sub">{{ count($reminder->tags) }} {{ __('tag(s)') }}</span>
                 </div>
                 <div class="cu-section-body">
                     <div class="cu-tags-row">
@@ -352,17 +352,17 @@
             <div class="cu-section">
                 <div class="cu-section-header">
                     <span class="cu-section-icon green"><i class="bi bi-arrow-repeat"></i></span>
-                    <span class="cu-section-title">Recurring Schedule</span>
+                    <span class="cu-section-title">{{ __('Recurring Schedule') }}</span>
                 </div>
                 <div class="cu-section-body">
                     <div class="cu-recur-box">
                         <i class="bi bi-arrow-repeat"></i>
                         <span>
-                            Repeats every
+                            {{ __('Repeats every') }}
                             <strong>{{ $reminder->recurrence_interval }}
-                            {{ $reminder->recurrence_type }}{{ $reminder->recurrence_interval > 1 ? 's' : '' }}</strong>
+                            {{ __($reminder->recurrence_type) }}</strong>
                             @if($reminder->recurrence_interval > 1 || $reminder->recurrence_type !== 'daily')
-                                — automatically creates the next occurrence when completed
+                                — {{ __('automatically creates the next occurrence when completed') }}
                             @endif
                         </span>
                     </div>
@@ -375,11 +375,11 @@
             <div class="cu-section">
                 <div class="cu-section-header">
                     <span class="cu-section-icon blue"><i class="bi bi-bell"></i></span>
-                    <span class="cu-section-title">Reminder</span>
+                    <span class="cu-section-title">{{ __('Reminder') }}</span>
                 </div>
                 <div class="cu-section-body" style="text-align:center;padding:2rem;color:#adb0b8;">
                     <i class="bi bi-bell" style="font-size:2rem;display:block;margin-bottom:.5rem;"></i>
-                    <p style="margin:0;font-size:13px;">No additional details added for this reminder.</p>
+                    <p style="margin:0;font-size:13px;">{{ __('No additional details added for this reminder.') }}</p>
                 </div>
             </div>
             @endif
@@ -409,7 +409,7 @@ function toggleComplete(reminderId) {
 }
 
 function snoozePrompt(reminderId) {
-    var minutes = prompt('Snooze for how many minutes?', '15');
+    var minutes = prompt('{{ __('Snooze for how many minutes?') }}', '15');
     if (!minutes || isNaN(minutes) || parseInt(minutes) <= 0) return;
     fetch('/reminders/' + reminderId + '/snooze', {
         method: 'POST',
@@ -428,3 +428,4 @@ function snoozePrompt(reminderId) {
 }
 </script>
 @endpush
+

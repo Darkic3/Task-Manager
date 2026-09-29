@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'AI Settings')
+@section('title', __('AI Settings'))
 
 @push('styles')
 <style>
@@ -24,8 +24,8 @@
 <div class="ai-settings-page">
 
     <div class="d-flex align-items-center gap-3 mb-4">
-        <a href="{{ route('ai.index') }}" class="btn btn-outline"><i class="bi bi-arrow-left"></i> Back to Lina</a>
-        <h4 class="m-0 fw-bold">AI Settings</h4>
+        <a href="{{ route('ai.index') }}" class="btn btn-outline"><i class="bi bi-arrow-left"></i> {{ __('Back to Lina') }}</a>
+        <h4 class="m-0 fw-bold">{{ __('AI Settings') }}</h4>
     </div>
 
     @if(session('success'))
@@ -41,15 +41,15 @@
             <div class="ai-card-head">
                 <div class="ai-card-head-icon"><i class="bi bi-stars"></i></div>
                 <div>
-                    <div style="font-weight:800; font-size:15px; color:var(--gray-900);">Default AI</div>
-                    <div style="font-size:12.5px; color:var(--gray-500);">The provider used when you chat. Auto-enabled when its API key is set.</div>
+                    <div style="font-weight:800; font-size:15px; color:var(--gray-900);">{{ __('Default AI') }}</div>
+                    <div style="font-size:12.5px; color:var(--gray-500);">{{ __('The provider used when you chat. Auto-enabled when its API key is set.') }}</div>
                 </div>
             </div>
             <div style="padding:16px 22px; display:flex; gap:12px; align-items:end; flex-wrap:wrap;">
                 <div style="flex:1; min-width:200px;">
-                    <label class="form-label">Default provider</label>
+                    <label class="form-label">{{ __('Default provider') }}</label>
                     <select name="default_provider" id="defaultProviderSelect" class="form-control">
-                        <option value="">-- Auto (first enabled) --</option>
+                        <option value="">{{ __('-- Auto (first enabled) --') }}</option>
                         @foreach($allProviders as $id => $cfg)
                             <option value="{{ $id }}" {{ ($setting->default_provider ?? config('ai.default_provider')) === $id ? 'selected' : '' }}>
                                 {{ $cfg['label'] }} {{ !empty($enabledMap[$id]) ? '✓' : '' }}
@@ -58,15 +58,15 @@
                     </select>
                 </div>
                 <div style="flex:1; min-width:200px;">
-                    <label class="form-label">Model</label>
+                    <label class="form-label">{{ __('Model') }}</label>
                     <select name="default_model" id="defaultModelSelect" class="form-control">
-                        <option value="">-- Provider default --</option>
+                        <option value="">{{ __('-- Provider default --') }}</option>
                         {{-- populated by JS based on provider --}}
                     </select>
                 </div>
             </div>
             <div style="padding:0 22px 16px; font-size:12px; color:var(--gray-500);">
-                At a time the selected provider is used. Setting an API key auto-enables that provider. If the default has no key, Lina auto-falls back to the next enabled provider.
+                {{ __('At a time the selected provider is used. Setting an API key auto-enables that provider. If the default has no key, Lina auto-falls back to the next enabled provider.') }}
             </div>
         </div>
 
@@ -75,8 +75,8 @@
             <div class="ai-card-head">
                 <div class="ai-card-head-icon" style="background:var(--gray-900);"><i class="bi bi-key-fill"></i></div>
                 <div>
-                    <div style="font-weight:800; font-size:15px; color:var(--gray-900);">Providers & API Keys</div>
-                    <div style="font-size:12.5px; color:var(--gray-500);">Keys are encrypted. Add a key to auto-enable that provider.</div>
+                    <div style="font-weight:800; font-size:15px; color:var(--gray-900);">{{ __('Providers & API Keys') }}</div>
+                    <div style="font-size:12.5px; color:var(--gray-500);">{{ __('Keys are encrypted. Add a key to auto-enable that provider.') }}</div>
                 </div>
             </div>
 
@@ -92,21 +92,21 @@
                         <div class="ai-provider-name">
                             {{ $cfg['label'] }}
                             @if($hasKey)
-                                <span class="ai-badge-on">Enabled</span>
+                                <span class="ai-badge-on">{{ __('Enabled') }}</span>
                             @else
-                                <span class="ai-badge-off">Disabled</span>
+                                <span class="ai-badge-off">{{ __('Disabled') }}</span>
                             @endif
                             @if(($setting->default_provider ?? config('ai.default_provider')) === $id)
-                                <span class="ai-badge-on" style="background:#ede9fe; color:#5b21b6;">Default</span>
+                                <span class="ai-badge-on" style="background:#ede9fe; color:#5b21b6;">{{ __('Default') }}</span>
                             @endif
                         </div>
                         <div class="ai-provider-desc">{{ $cfg['base_url'] }}</div>
 
                         <div class="ai-input-group">
-                            <input type="password" name="{{ $keyCol }}" value="{{ $masked[$id] }}" placeholder="Paste {{ $cfg['label'] }} API key" class="form-control" autocomplete="off">
+                            <input type="password" name="{{ $keyCol }}" value="{{ $masked[$id] }}" placeholder="{{ __('Paste :label API key', ['label' => $cfg['label']]) }}" class="form-control" autocomplete="off">
                             @if($hasKey)
                                 <label style="font-size:12px; display:flex; align-items:center; gap:4px; white-space:nowrap; cursor:pointer;">
-                                    <input type="checkbox" name="clear_{{ $keyCol }}" value="1"> Clear
+                                    <input type="checkbox" name="clear_{{ $keyCol }}" value="1"> {{ __('Clear') }}
                                 </label>
                             @endif
                         </div>
@@ -118,7 +118,7 @@
                                     <option value="{{ $mid }}" {{ $currentModel === $mid ? 'selected' : '' }}>{{ $label }} — {{ $mid }}</option>
                                 @endforeach
                             </select>
-                            <span style="font-size:11px; color:var(--gray-400); white-space:nowrap;">Model</span>
+                            <span style="font-size:11px; color:var(--gray-400); white-space:nowrap;">{{ __('Model') }}</span>
                         </div>
                     </div>
                 </div>
@@ -126,8 +126,8 @@
         </div>
 
         <div class="d-flex justify-content-end gap-2 mt-4">
-            <a href="{{ route('ai.index') }}" class="btn btn-outline">Cancel</a>
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save settings</button>
+            <a href="{{ route('ai.index') }}" class="btn btn-outline">{{ __('Cancel') }}</a>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> {{ __('Save settings') }}</button>
         </div>
     </form>
 
@@ -136,9 +136,9 @@
         <div class="ai-card-head">
             <div class="ai-card-head-icon" style="background:linear-gradient(135deg,#0ea5e9,#22c55e);"><i class="bi bi-plug-fill"></i></div>
             <div>
-                <div style="font-weight:800; font-size:15px; color:var(--gray-900);">Custom Providers</div>
-                <div style="font-size:12.5px; color:var(--gray-500);">Add any OpenAI-compatible endpoint (OpenRouter, 9route, OmniRoute, Ollama, LM Studio…) or Gemini/Claude-compatible API.</div>
-                <div style="font-size:12px; color:var(--gray-400); margin-top:4px;">OpenRouter tip: free models are often rate-limited (429) or retired (404). For the model field you can list several separated by commas — OpenRouter will try them in order, e.g. <code>google/gemma-4-31b-it:free, openai/gpt-4o-mini</code>.</div>
+                <div style="font-weight:800; font-size:15px; color:var(--gray-900);">{{ __('Custom Providers') }}</div>
+                <div style="font-size:12.5px; color:var(--gray-500);">{{ __('Add any OpenAI-compatible endpoint (OpenRouter, 9route, OmniRoute, Ollama, LM Studio…) or Gemini/Claude-compatible API.') }}</div>
+                <div style="font-size:12px; color:var(--gray-400); margin-top:4px;">{{ __('OpenRouter tip: free models are often rate-limited (429) or retired (404). For the model field you can list several separated by commas — OpenRouter will try them in order, e.g.') }} <code>google/gemma-4-31b-it:free, openai/gpt-4o-mini</code>.</div>
             </div>
         </div>
 
@@ -154,32 +154,32 @@
                         {{ $cp->label }}
                         <span class="ai-badge-off" style="text-transform:uppercase;">{{ $cp->type }}</span>
                         @if($isEnabled)
-                            <span class="ai-badge-on">Enabled</span>
+                            <span class="ai-badge-on">{{ __('Enabled') }}</span>
                         @else
-                            <span class="ai-badge-off">Disabled</span>
+                            <span class="ai-badge-off">{{ __('Disabled') }}</span>
                         @endif
                         @if($isDefault)
-                            <span class="ai-badge-on" style="background:#ede9fe; color:#5b21b6;">Default</span>
+                            <span class="ai-badge-on" style="background:#ede9fe; color:#5b21b6;">{{ __('Default') }}</span>
                         @endif
                     </div>
-                    <div class="ai-provider-desc">{{ $cp->base_url }} · model: {{ $cp->model ?: '—' }}</div>
+                    <div class="ai-provider-desc">{{ $cp->base_url }} · {{ __('model') }}: {{ $cp->model ?: '—' }}</div>
                     @if(!empty($masked[$key]))
-                        <div class="ai-provider-desc">Key: {{ $masked[$key] }}</div>
+                        <div class="ai-provider-desc">{{ __('Key:') }} {{ $masked[$key] }}</div>
                     @endif
 
                     <div class="ai-input-group" style="flex-wrap:wrap;">
-                        <button type="button" class="btn btn-outline btn-sm" data-test-url="{{ route('ai.providers.test', $cp) }}"><i class="bi bi-wifi"></i> Test</button>
-                        <button type="button" class="btn btn-outline btn-sm" data-default-key="{{ $key }}" data-default-model="{{ $cp->model }}"><i class="bi bi-star"></i> Use as default</button>
+                        <button type="button" class="btn btn-outline btn-sm" data-test-url="{{ route('ai.providers.test', $cp) }}"><i class="bi bi-wifi"></i> {{ __('Test') }}</button>
+                        <button type="button" class="btn btn-outline btn-sm" data-default-key="{{ $key }}" data-default-model="{{ $cp->model }}"><i class="bi bi-star"></i> {{ __('Use as default') }}</button>
                         <span class="ai-test-result" style="font-size:12px; margin-left:4px;"></span>
                     </div>
 
                     <details style="margin-top:10px;">
-                        <summary style="font-size:12.5px; color:var(--gray-500); cursor:pointer;">Edit</summary>
+                        <summary style="font-size:12.5px; color:var(--gray-500); cursor:pointer;">{{ __('Edit') }}</summary>
                         <form method="POST" action="{{ route('ai.providers.update', $cp) }}" style="margin-top:10px;">
                             @csrf
                             @method('PUT')
                             <div class="ai-input-group">
-                                <input type="text" name="label" value="{{ $cp->label }}" class="form-control" placeholder="Label" required>
+                                <input type="text" name="label" value="{{ $cp->label }}" class="form-control" placeholder="{{ __('Label') }}" required>
                                 <select name="type" class="form-control" style="max-width:150px;">
                                     <option value="openai" {{ $cp->type === 'openai' ? 'selected' : '' }}>openai</option>
                                     <option value="gemini" {{ $cp->type === 'gemini' ? 'selected' : '' }}>gemini</option>
@@ -187,41 +187,41 @@
                                 </select>
                             </div>
                             <div class="ai-input-group">
-                                <input type="url" name="base_url" value="{{ $cp->base_url }}" class="form-control" placeholder="Base URL" required>
+                                <input type="url" name="base_url" value="{{ $cp->base_url }}" class="form-control" placeholder="{{ __('Base URL') }}" required>
                             </div>
                             <div class="ai-input-group">
-                                <input type="text" name="model" value="{{ $cp->model }}" class="form-control" placeholder="Model id" required>
+                                <input type="text" name="model" value="{{ $cp->model }}" class="form-control" placeholder="{{ __('Model id') }}" required>
                             </div>
                             <div class="ai-input-group">
-                                <input type="password" name="api_key" value="" placeholder="Leave blank to keep current key" class="form-control" autocomplete="off">
+                                <input type="password" name="api_key" value="" placeholder="{{ __('Leave blank to keep current key') }}" class="form-control" autocomplete="off">
                             </div>
                             <div class="ai-input-group">
                                 <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;">
                                     <input type="hidden" name="enabled" value="0">
-                                    <input type="checkbox" name="enabled" value="1" {{ $cp->enabled ? 'checked' : '' }}> Enabled
+                                    <input type="checkbox" name="enabled" value="1" {{ $cp->enabled ? 'checked' : '' }}> {{ __('Enabled') }}
                                 </label>
-                                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                                <button type="submit" class="btn btn-primary btn-sm">{{ __('Save') }}</button>
                             </div>
                         </form>
                     </details>
                 </div>
 
-                <form method="POST" action="{{ route('ai.providers.destroy', $cp) }}" onsubmit="return confirm('Delete this provider?');">
+                <form method="POST" action="{{ route('ai.providers.destroy', $cp) }}" onsubmit="return confirm('{{ __('Delete this provider?') }}');">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="btn btn-outline btn-sm" title="Delete"><i class="bi bi-trash"></i></button>
+                    <button type="submit" class="btn btn-outline btn-sm" title="{{ __('Delete') }}"><i class="bi bi-trash"></i></button>
                 </form>
             </div>
         @empty
-            <div style="padding:16px 22px; font-size:13px; color:var(--gray-500);">No custom providers yet. Add one below.</div>
+            <div style="padding:16px 22px; font-size:13px; color:var(--gray-500);">{{ __('No custom providers yet. Add one below.') }}</div>
         @endforelse
 
         <div style="padding:18px 22px; border-top:1px solid var(--gray-100);">
-            <div style="font-weight:700; font-size:13.5px; margin-bottom:10px;">Add a provider</div>
+            <div style="font-weight:700; font-size:13.5px; margin-bottom:10px;">{{ __('Add a provider') }}</div>
             <form method="POST" action="{{ route('ai.providers.store') }}">
                 @csrf
                 <div class="ai-input-group">
-                    <input type="text" name="label" value="{{ old('label') }}" class="form-control" placeholder="Label (e.g. OpenRouter)" required>
+                    <input type="text" name="label" value="{{ old('label') }}" class="form-control" placeholder="{{ __('Label (e.g. OpenRouter)') }}" required>
                     <select name="type" class="form-control" style="max-width:150px;">
                         <option value="openai">openai</option>
                         <option value="gemini">gemini</option>
@@ -229,27 +229,27 @@
                     </select>
                 </div>
                 <div class="ai-input-group">
-                    <input type="url" name="base_url" value="{{ old('base_url') }}" class="form-control" placeholder="Base URL (e.g. https://openrouter.ai/api/v1/chat/completions)" required>
+                    <input type="url" name="base_url" value="{{ old('base_url') }}" class="form-control" placeholder="{{ __('Base URL (e.g. https://openrouter.ai/api/v1/chat/completions)') }}" required>
                 </div>
                 <div class="ai-input-group">
-                    <input type="text" name="model" value="{{ old('model') }}" class="form-control" placeholder="Model id (e.g. openai/gpt-4o-mini, or a,b for fallback)" required>
+                    <input type="text" name="model" value="{{ old('model') }}" class="form-control" placeholder="{{ __('Model id (e.g. openai/gpt-4o-mini, or a,b for fallback)') }}" required>
                 </div>
                 <div class="ai-input-group">
-                    <input type="password" name="api_key" value="" class="form-control" placeholder="API key" autocomplete="off">
+                    <input type="password" name="api_key" value="" class="form-control" placeholder="{{ __('API key') }}" autocomplete="off">
                 </div>
                 <div class="ai-input-group">
                     <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;">
                         <input type="hidden" name="enabled" value="0">
-                        <input type="checkbox" name="enabled" value="1" checked> Enabled
+                        <input type="checkbox" name="enabled" value="1" checked> {{ __('Enabled') }}
                     </label>
-                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Add provider</button>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> {{ __('Add provider') }}</button>
                 </div>
             </form>
         </div>
     </div>
 
     <div class="mt-4" style="font-size:12px; color:var(--gray-500); line-height:1.6;">
-        <strong>Where to get keys:</strong>
+        <strong>{{ __('Where to get keys:') }}</strong>
         OpenAI <code>platform.openai.com</code> · Gemini <code>aistudio.google.com</code> · Claude <code>console.anthropic.com</code> · DeepSeek <code>platform.deepseek.com</code> · Meta <code>llama.developer.meta.com</code>
     </div>
 </div>
