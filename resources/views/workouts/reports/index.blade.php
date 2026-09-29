@@ -97,7 +97,7 @@
         <div class="wr-stats">
             <div class="wr-stat">
                 <div class="wr-stat-value">{{ $summary['completed_sessions'] }}/{{ $summary['scheduled'] ?: $summary['sessions'] }}</div>
-                <div class="wr-stat-label">{{ __('Sessions Done') }}</div>
+                <div class="wr-stat-label">{{ __('Sessions done') }}</div>
             </div>
             <div class="wr-stat">
                 <div class="wr-stat-value">{{ $summary['completed_exercises'] }}/{{ $summary['exercises'] }}</div>

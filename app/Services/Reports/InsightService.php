@@ -17,10 +17,10 @@ final class InsightService
     {
         $out = [];
         $period = match ($range->preset) {
-            'today' => 'today',
-            'month' => 'this month',
-            'custom' => 'the selected period',
-            default => 'this week',
+            'today' => __('today'),
+            'month' => __('this month'),
+            'custom' => __('the selected period'),
+            default => __('this week'),
         };
 
         $tasks = $data['tasks'];
@@ -34,8 +34,8 @@ final class InsightService
         if ($tasks['overdue_now'] > 0) {
             $out[] = [
                 'icon' => 'bi-exclamation-triangle', 'tone' => 'bad',
-                'title' => $tasks['overdue_now'].' overdue task'.($tasks['overdue_now'] === 1 ? '' : 's'),
-                'body' => 'Clear these before planning anything new.',
+                'title' => __(':count overdue tasks', ['count' => $tasks['overdue_now']]),
+                'body' => __('Clear these before planning anything new.'),
             ];
         }
 
@@ -44,8 +44,8 @@ final class InsightService
         if ($peak) {
             $out[] = [
                 'icon' => 'bi-clock-history', 'tone' => 'warn',
-                'title' => 'Slips cluster between '.$peak['label'],
-                'body' => $peak['count'].' slip'.($peak['count'] === 1 ? '' : 's').' — plan a replacement ritual for that slot.',
+                'title' => __('Slips cluster between :label', ['label' => $peak['label']]),
+                'body' => __(':count slips — plan a replacement ritual for that slot.', ['count' => $peak['count']]),
             ];
         }
 
@@ -57,8 +57,8 @@ final class InsightService
         if ($weak) {
             $out[] = [
                 'icon' => 'bi-arrow-down-circle', 'tone' => 'warn',
-                'title' => "‘{$weak['title']}’ is struggling at {$weak['rate']}%",
-                'body' => $weak['is_avoid'] ? 'Review its triggers and slip slots below.' : 'Consider shrinking it or moving it to a better slot.',
+                'title' => __('“:title” is struggling at :rate%', ['title' => $weak['title'], 'rate' => $weak['rate']]),
+                'body' => $weak['is_avoid'] ? __('Review its triggers and slip slots below.') : __('Consider shrinking it or moving it to a better slot.'),
             ];
         }
 
@@ -68,14 +68,14 @@ final class InsightService
             if ($trend > 0) {
                 $out[] = [
                     'icon' => 'bi-graph-up-arrow', 'tone' => 'good',
-                    'title' => "Completion rate up {$trend}pp {$period}",
-                    'body' => "{$tasks['completed']} of {$tasks['created']} tasks done.",
+                    'title' => __('Completion rate up :trend pp :period', ['trend' => $trend, 'period' => $period]),
+                    'body' => __(':completed of :created tasks done.', ['completed' => $tasks['completed'], 'created' => $tasks['created']]),
                 ];
             } elseif ($trend < 0) {
                 $out[] = [
                     'icon' => 'bi-graph-down-arrow', 'tone' => 'warn',
-                    'title' => 'Completion rate down '.abs($trend)."pp {$period}",
-                    'body' => "{$tasks['completed']} of {$tasks['created']} tasks done — protect focus time.",
+                    'title' => __('Completion rate down :trend pp :period', ['trend' => abs($trend), 'period' => $period]),
+                    'body' => __(':completed of :created tasks done — protect focus time.', ['completed' => $tasks['completed'], 'created' => $tasks['created']]),
                 ];
             }
         }
@@ -86,20 +86,20 @@ final class InsightService
             if ($trend < 0) {
                 $out[] = [
                     'icon' => 'bi-shield-check', 'tone' => 'good',
-                    'title' => 'Slips down by '.abs($trend)." {$period}",
-                    'body' => "{$avoid['clean_days']} clean days and counting.",
+                    'title' => __('Slips down by :count :period', ['count' => abs($trend), 'period' => $period]),
+                    'body' => __(':count clean days and counting.', ['count' => $avoid['clean_days']]),
                 ];
             } elseif ($trend > 0) {
                 $out[] = [
                     'icon' => 'bi-shield-exclamation', 'tone' => 'bad',
-                    'title' => "Slips up by {$trend} {$period}",
-                    'body' => 'Check the peak slot and top triggers below.',
+                    'title' => __('Slips up by :count :period', ['count' => $trend, 'period' => $period]),
+                    'body' => __('Check the peak slot and top triggers below.'),
                 ];
             } elseif ($avoid['slip_total'] === 0 && $avoid['occurrences'] > 0) {
                 $out[] = [
                     'icon' => 'bi-shield-fill-check', 'tone' => 'good',
-                    'title' => "Perfectly clean {$period}",
-                    'body' => "{$avoid['clean_days']} clean days, zero slips. 🛡️",
+                    'title' => __('Perfectly clean :period', ['period' => $period]),
+                    'body' => __(':count clean days, zero slips. 🛡️', ['count' => $avoid['clean_days']]),
                 ];
             }
         }
@@ -108,8 +108,8 @@ final class InsightService
         if (($routines['best_clean_streak'] ?? 0) >= 3) {
             $out[] = [
                 'icon' => 'bi-fire', 'tone' => 'good',
-                'title' => $routines['best_clean_streak'].'-day clean streak',
-                'body' => 'Longest abstinence run in the window — keep it alive.',
+                'title' => __(':count-day clean streak', ['count' => $routines['best_clean_streak']]),
+                'body' => __('Longest abstinence run in the window — keep it alive.'),
             ];
         }
 
@@ -117,8 +117,8 @@ final class InsightService
         if ($avoid['cravings'] > 0 && $avoid['slip_total'] === 0) {
             $out[] = [
                 'icon' => 'bi-hand-thumbs-up', 'tone' => 'good',
-                'title' => "All {$avoid['cravings']} cravings managed",
-                'body' => 'Urges logged, none turned into slips.',
+                'title' => __('All :count cravings managed', ['count' => $avoid['cravings']]),
+                'body' => __('Urges logged, none turned into slips.'),
             ];
         }
 
@@ -127,9 +127,10 @@ final class InsightService
         if ($spot) {
             $out[] = [
                 'icon' => 'bi-folder', 'tone' => $spot['overdue'] > 0 ? 'warn' : 'info',
-                'title' => "Spotlight: {$spot['name']}",
-                'body' => trim("{$spot['time']} tracked"
-                    .($spot['overdue'] > 0 ? " · {$spot['overdue']} overdue" : ''), ' ·'),
+                'title' => __('Spotlight: :name', ['name' => $spot['name']]),
+                'body' => $spot['overdue'] > 0
+                    ? __(':time tracked · :overdue overdue', ['time' => $spot['time'], 'overdue' => $spot['overdue']])
+                    : __(':time tracked', ['time' => $spot['time']]),
             ];
         }
 
@@ -138,9 +139,10 @@ final class InsightService
             $trend = $deltas['workouts'];
             $out[] = [
                 'icon' => 'bi-heart-pulse', 'tone' => $trend < 0 ? 'warn' : 'good',
-                'title' => "{$workouts['completed']} workouts {$period}",
-                'body' => trim("{$workouts['minutes']} min"
-                    .($trend !== 0 ? ' · '.($trend > 0 ? '+' : '').$trend.' vs prev' : ''), ' ·'),
+                'title' => __(':count workouts :period', ['count' => $workouts['completed'], 'period' => $period]),
+                'body' => $trend !== 0
+                    ? __(':min min · :trend vs prev', ['min' => $workouts['minutes'], 'trend' => ($trend > 0 ? '+' : '').$trend])
+                    : __(':min min', ['min' => $workouts['minutes']]),
             ];
         }
 
@@ -152,16 +154,16 @@ final class InsightService
         if ($best && $best['rate'] >= 80) {
             $out[] = [
                 'icon' => 'bi-trophy', 'tone' => 'good',
-                'title' => "Strongest routine: ‘{$best['title']}’ at {$best['rate']}%",
-                'body' => 'Protect whatever makes this one work.',
+                'title' => __('Strongest routine: “:title” at :rate%', ['title' => $best['title'], 'rate' => $best['rate']]),
+                'body' => __('Protect whatever makes this one work.'),
             ];
         }
 
         if (empty($out)) {
             $out[] = [
                 'icon' => 'bi-compass', 'tone' => 'info',
-                'title' => 'Not enough data yet',
-                'body' => 'Complete tasks, check routines or log workouts to unlock insights.',
+                'title' => __('Not enough data yet'),
+                'body' => __('Complete tasks, check routines or log workouts to unlock insights.'),
             ];
         }
 
