@@ -25,8 +25,22 @@
             </div>
 
             <div class="form-body">
+                @if($errors->any())
+                    <div class="invalid-feedback d-block mb-3" role="alert">
+                        {{ __('Please fix the following errors:') }}
+                        <ul class="mb-0 mt-1">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
                 <form action="{{ route('tasks.store') }}" method="POST" id="createTaskForm">
                     @csrf
+
+                    <input type="hidden" name="user_id" value="{{ auth()->id() }}">
+                    <input type="hidden" name="status" value="to_do">
 
                     <div class="form-group">
                         <label for="title" class="form-label">{{ __('Task Title') }} *</label>

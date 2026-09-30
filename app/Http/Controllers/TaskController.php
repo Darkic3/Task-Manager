@@ -62,12 +62,12 @@ class TaskController extends Controller
     {
         $data = $request->validate([
             'project_id' => ['nullable', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
-            'user_id' => 'required|exists:users,id',
+            'user_id' => 'nullable|exists:users,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'due_date' => 'nullable|date',
             'priority' => 'required|in:low,medium,high',
-            'status' => 'required|in:to_do,in_progress,on_hold,in_review,completed',
+            'status' => 'nullable|in:to_do,in_progress,on_hold,in_review,completed',
             'estimated_hours' => 'nullable|numeric|min:0',
             'est_hours' => 'nullable|integer|min:0|max:999',
             'est_minutes' => 'nullable|integer|min:0|max:59',
@@ -81,6 +81,9 @@ class TaskController extends Controller
 
         $data['estimated_hours'] = Task::combineEstimate($data['est_hours'] ?? null, $data['est_minutes'] ?? null, $data['estimated_hours'] ?? null);
         unset($data['est_hours'], $data['est_minutes']);
+
+        $data['user_id'] = $data['user_id'] ?? Auth::id();
+        $data['status'] = $data['status'] ?? 'to_do';
 
         Task::create($data);
 
