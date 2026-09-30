@@ -56,12 +56,25 @@
                         <option value="timeline">{{ __('Timeline digest') }}</option>
                     </select>
                 </div>
+                <div class="nt-form-row">
+                    <label class="nt-form-label" for="ntAiCollection">{{ __('Send to AI') }}</label>
+                    <select class="nt-select" id="ntAiCollection">
+                        <option value="">{{ __('Current filter') }}</option>
+                        @foreach (($collections ?? collect()) as $col)
+                            <option value="{{ $col->id }}">{{ $col->name }} ({{ app_num($col->note_count) }})</option>
+                        @endforeach
+                    </select>
+                    <div class="nt-form-help">{{ __('Analyse with summary / decisions / tasks / timeline / report') }}</div>
+                </div>
                 <div id="ntExportPreview" class="nt-form-help" style="font-size:.8rem;line-height:1.9;">
                     {{ __('Loading preview…') }}
                 </div>
             </div>
             <div class="modal-footer" style="border-top-color:var(--gray-200);">
                 <button type="button" class="btn btn-outline" data-bs-dismiss="modal">{{ __('Cancel') }}</button>
+                <button type="button" class="btn btn-outline" id="ntSendAi">
+                    <i class="bi bi-stars"></i>{{ __('Send to AI') }}
+                </button>
                 <button type="button" class="btn btn-brand" id="ntExportDownload">
                     <i class="bi bi-download"></i>{{ __('Download zip') }}
                 </button>
@@ -304,6 +317,34 @@ document.addEventListener('DOMContentLoaded', function () {
             const params = new URLSearchParams(u.search);
             params.set('mode', expMode ? expMode.value : 'full');
             window.location.href = `{{ route('notes.export.markdown') }}?${params.toString()}`;
+        });
+    }
+
+    /* ── Send selection to the internal AI chat ── */
+    const sendAi = document.getElementById('ntSendAi');
+    const aiCol = document.getElementById('ntAiCollection');
+    if (sendAi) {
+        sendAi.addEventListener('click', function () {
+            const u = new URL(window.location.href);
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ route('notes.ai.send') }}';
+            const add = (k, v) => {
+                const i = document.createElement('input');
+                i.type = 'hidden'; i.name = k; i.value = v;
+                form.appendChild(i);
+            };
+            add('_token', csrf);
+            // AI analysis mode follows the export mode select (decisions/timeline map 1:1, full/summaries → summary/tasks choice).
+            const m = expMode ? expMode.value : 'full';
+            add('mode', (m === 'decisions' || m === 'timeline') ? m : 'summary');
+            if (aiCol && aiCol.value) {
+                add('collection_id', aiCol.value);
+            } else {
+                u.searchParams.forEach((v, k) => { if (k !== 'partial') add(k, v); });
+            }
+            document.body.appendChild(form);
+            form.submit();
         });
     }
 

@@ -248,6 +248,52 @@
             </div>
         </div>
 
+        {{-- AI extraction --}}
+        <div class="cu-content-card mt-3" id="ntAiCard">
+            <div class="cu-content-header">
+                <div class="cu-content-header-icon"><i class="bi bi-stars"></i></div>
+                <span class="cu-content-title">{{ __('AI extraction') }}</span>
+                <button type="button" class="btn btn-sm btn-brand ms-auto" id="ntAiExtractBtn" style="font-size:.75rem;">
+                    <i class="bi bi-magic"></i> {{ __('Extract tasks & decisions') }}
+                </button>
+            </div>
+            <div class="cu-content-body" id="ntAiResult" style="padding:14px 20px;">
+                <p class="mb-0" style="font-size:.8rem;color:#8a8f98;">{{ __('Let AI read this note and propose tasks, decisions and a summary. You confirm before anything is created.') }}</p>
+            </div>
+        </div>
+
+        {{-- Linked subjects with living summaries --}}
+        @if(($subjects ?? collect())->count())
+        <div class="cu-content-card mt-3">
+            <div class="cu-content-header">
+                <div class="cu-content-header-icon"><i class="bi bi-person"></i></div>
+                <span class="cu-content-title">{{ __('People & topics in this note') }}</span>
+            </div>
+            <div class="cu-content-body" style="padding:14px 20px;">
+                @foreach($subjects as $subject)
+                <div class="mb-3" id="ntSubject{{ $subject->id }}">
+                    <div class="d-flex align-items-center gap-2">
+                        <strong style="font-size:.85rem;">{{ $subject->name }}</strong>
+                        <span class="cu-tag-pill">{{ $subject->type }}</span>
+                        <button type="button" class="btn btn-sm btn-outline ms-auto nt-subject-refresh"
+                                data-id="{{ $subject->id }}" style="font-size:.72rem;">
+                            <i class="bi bi-arrow-repeat"></i> {{ __('Refresh summary') }}
+                        </button>
+                    </div>
+                    <div class="nt-subject-summary mt-1" style="font-size:.82rem;line-height:1.8;color:#374151;">
+                        @if(!empty($subject->meta['ai_summary']))
+                            {!! nl2br(e($subject->meta['ai_summary'])) !!}
+                            <div style="font-size:.7rem;color:#9aa0aa;">{{ __('Updated') }}: {{ $subject->meta['ai_summary_at'] ?? '' }} · {{ $subject->meta['ai_summary_note_count'] ?? '' }} {{ __('notes') }}</div>
+                        @else
+                            <span style="color:#9aa0aa;">{{ __('No AI summary yet — refresh to generate one from all linked notes.') }}</span>
+                        @endif
+                    </div>
+                </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
     </div>
 </div>
 @endsection
@@ -325,5 +371,109 @@ function confirmDelete() {
         document.getElementById('deleteForm').submit();
     }
 }
+
+/* ── AI extraction ── */
+(function () {
+    const btn = document.getElementById('ntAiExtractBtn');
+    const box = document.getElementById('ntAiResult');
+    if (!btn || !box) return;
+    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+    const noteId = {{ (int) $note->id }};
+    let draft = null;
+
+    btn.addEventListener('click', async function () {
+        btn.disabled = true;
+        box.innerHTML = '<p style="font-size:.82rem;color:#8a8f98;">⏳ {{ __('AI is reading this note…') }}</p>';
+        try {
+            const r = await fetch(`/notes/${noteId}/extract`, { headers: { 'Accept': 'application/json' } });
+            draft = await r.json();
+            renderDraft();
+        } catch (e) {
+            box.innerHTML = '<p class="text-danger" style="font-size:.82rem;">{{ __('AI request failed.') }}</p>';
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    function esc(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function renderDraft() {
+        let h = '';
+        if (!draft.ai) h += `<p style="font-size:.78rem;color:#b45309;">⚠️ {{ __('AI is not configured — showing checklist items found in the text.') }}</p>`;
+        if (draft.summary) h += `<div class="mb-2" style="font-size:.83rem;"><strong>{{ __('Summary') }}</strong><br>${esc(draft.summary)}</div>`;
+        if ((draft.tasks || []).length) {
+            h += `<div class="mb-2" style="font-size:.83rem;"><strong>{{ __('Tasks') }} (${draft.tasks.length})</strong>`;
+            draft.tasks.forEach((t, i) => {
+                h += `<label class="d-flex align-items-center gap-2 mt-1" style="font-weight:400;">
+                    <input type="checkbox" class="form-check-input mt-0 nt-task-check" data-i="${i}" checked>
+                    <span>${esc(t.title)}</span>
+                    <span class="cu-tag-pill">${esc(t.priority || '')}${t.due_date ? ' · ' + esc(t.due_date) : ''}</span>
+                </label>`;
+            });
+            h += `</div>`;
+        }
+        if ((draft.decisions || []).length) {
+            h += `<div class="mb-2" style="font-size:.83rem;"><strong>{{ __('Decisions') }}</strong><ul class="mb-0">`
+                + draft.decisions.map(d => `<li><strong>${esc(d.title)}</strong>${d.detail ? ' — ' + esc(d.detail) : ''}</li>`).join('')
+                + `</ul></div>`;
+        }
+        if ((draft.questions || []).length) {
+            h += `<div class="mb-2" style="font-size:.83rem;"><strong>{{ __('Open questions') }}</strong><ul class="mb-0">`
+                + draft.questions.map(q => `<li>${esc(q)}</li>`).join('') + `</ul></div>`;
+        }
+        if (!((draft.tasks || []).length || (draft.decisions || []).length)) {
+            h += `<p style="font-size:.8rem;color:#8a8f98;">{{ __('Nothing actionable found in this note.') }}</p>`;
+        }
+        h += `<div class="d-flex gap-2 mt-2">
+            <button class="btn btn-sm btn-brand" id="ntAiApply" style="font-size:.75rem;">{{ __('Create selected tasks & save summary') }}</button>
+        </div>`;
+        box.innerHTML = h;
+        document.getElementById('ntAiApply').addEventListener('click', applyDraft);
+    }
+
+    async function applyDraft() {
+        const picked = [];
+        document.querySelectorAll('.nt-task-check:checked').forEach(c => {
+            const t = draft.tasks[+c.dataset.i];
+            if (t) picked.push(t);
+        });
+        const r = await fetch(`/notes/${noteId}/extract`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+            body: JSON.stringify({ tasks: picked, save_summary: true, summary: draft.summary || '' }),
+        });
+        const d = await r.json();
+        if (d.success) {
+            box.innerHTML = `<p style="font-size:.83rem;color:#059669;">✅ {{ __('Done') }} — ${d.created.length} {{ __('tasks created and linked to this note.') }}</p>`;
+        } else {
+            box.innerHTML = `<p class="text-danger" style="font-size:.82rem;">{{ __('Could not save.') }}</p>`;
+        }
+    }
+
+    /* ── Subject living summaries ── */
+    document.querySelectorAll('.nt-subject-refresh').forEach(b => {
+        b.addEventListener('click', async function () {
+            const id = this.dataset.id;
+            const wrap = document.querySelector(`#ntSubject${id} .nt-subject-summary`);
+            this.disabled = true;
+            if (wrap) wrap.innerHTML = '<span style="color:#9aa0aa;">⏳ …</span>';
+            try {
+                const r = await fetch(`/note-subjects/${id}/summarize`, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                });
+                const d = await r.json();
+                if (d.success && wrap) wrap.innerHTML = esc(d.summary).replace(/\n/g, '<br>');
+                else if (wrap) wrap.innerHTML = `<span class="text-danger">${esc(d.message || '')}</span>`;
+            } catch (e) {
+                if (wrap) wrap.innerHTML = '<span class="text-danger">{{ __('AI request failed.') }}</span>';
+            } finally {
+                this.disabled = false;
+            }
+        });
+    });
+})();
 </script>
 @endpush

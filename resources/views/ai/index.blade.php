@@ -602,7 +602,11 @@ footer { display: none !important; }
             conversations = await api('GET', CONV_URL);
         } catch { conversations = []; }
         renderConvList();
-        if (conversations.length) {
+        // Deep link from notes ("Send to AI"): ?conversation=ID opens it directly.
+        const wanted = parseInt(new URLSearchParams(window.location.search).get('conversation') || '0', 10);
+        if (wanted && conversations.some(c => c.id === wanted)) {
+            await switchConversation(wanted);
+        } else if (conversations.length) {
             await switchConversation(conversations[0].id);
         } else {
             await newConversation();

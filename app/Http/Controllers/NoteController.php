@@ -134,6 +134,7 @@ class NoteController extends Controller
 
         return view('notes.show', [
             'note' => $note,
+            'subjects' => $note->linkedSubjects(),
             'linkGroups' => $this->links->grouped($note),
             'backlinks' => $this->links->noteBacklinks($note),
             'subjectBacklinks' => $note->links
