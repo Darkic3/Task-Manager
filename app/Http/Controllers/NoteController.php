@@ -139,7 +139,7 @@ class NoteController extends Controller
             'backlinks' => $this->links->noteBacklinks($note),
             'subjectBacklinks' => $note->links
                 ->where('linkable_type', NoteSubject::class)
-                ->get()
+                ->values()
                 ->flatMap(fn ($l) => $this->links->backlinks($note, NoteSubject::class, $l->linkable_id))
                 ->unique('id')
                 ->values(),

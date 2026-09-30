@@ -195,7 +195,7 @@
                         <label class="nt-form-label" for="ntNotebookParent">{{ __('Parent notebook') }}</label>
                         <select class="nt-select" id="ntNotebookParent" name="parent_id">
                             <option value="">{{ __('— none —') }}</option>
-                            @foreach (Notebook::treeFor(auth()->id()) as $root)
+                            @foreach (\App\Models\Notebook::treeFor(auth()->id()) as $root)
                                 <option value="{{ $root->id }}">{{ $root->pathTitle() }}</option>
                             @endforeach
                         </select>

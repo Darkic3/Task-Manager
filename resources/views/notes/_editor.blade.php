@@ -98,7 +98,7 @@
                         <div class="nt-form-help">{{ __('Leave empty for today') }}</div>
                     </div>
 
-                    @if ($note->kind === Note::KIND_DAILY || old('kind') === Note::KIND_DAILY)
+                    @if ($note->kind === \App\Models\Note::KIND_DAILY || old('kind') === \App\Models\Note::KIND_DAILY)
                         <div class="nt-form-row">
                             <label class="nt-form-label">{{ __('Mood & energy') }}</label>
                             <div class="d-flex gap-3">

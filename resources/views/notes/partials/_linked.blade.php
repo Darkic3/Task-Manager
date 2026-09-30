@@ -16,7 +16,7 @@
                     @php
                         $href = match ($group['type']) {
                             \App\Models\NoteSubject::class => null,
-                            Note::class => route('notes.show', $item['id']),
+                            \App\Models\Note::class => route('notes.show', $item['id']),
                             \App\Models\Project::class => route('projects.show', $item['id']),
                             \App\Models\Task::class => route('tasks.show', $item['id']),
                             default => null,
