@@ -246,6 +246,13 @@ if (!function_exists('note_kind_icon')) {
     }
 }
 
+if (!function_exists('note_kind_template')) {
+    function note_kind_template(?string $kind): string
+    {
+        return \App\Services\Notes\NoteTemplateService::bodyFor($kind ?: \App\Models\Note::KIND_GENERAL);
+    }
+}
+
 if (!function_exists('note_mood_icon')) {
     /**
      * Emoji + colour for the 1..5 mood / energy scale.

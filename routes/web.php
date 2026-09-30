@@ -102,6 +102,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('notes/mentions', [NoteQuickCaptureController::class, 'mentions'])->name('notes.mentions');
     Route::get('notes/timeline', [NoteController::class, 'index'])->defaults('view', 'timeline')->name('notes.timeline');
     Route::get('notes/export/markdown', [NoteExportController::class, 'markdown'])->name('notes.export.markdown');
+    Route::get('notes/export/preview', [NoteExportController::class, 'preview'])->name('notes.export.preview');
+    Route::post('notes/collections', [\App\Http\Controllers\NoteCollectionController::class, 'store'])->name('notes.collections.store');
+    Route::get('notes/collections/{collection}/apply', [\App\Http\Controllers\NoteCollectionController::class, 'apply'])->name('notes.collections.apply');
+    Route::delete('notes/collections/{collection}', [\App\Http\Controllers\NoteCollectionController::class, 'destroy'])->name('notes.collections.destroy');
     Route::get('notes/backlinks/{type}', [NoteLinkController::class, 'backlinks'])->name('notes.backlinks.index');
     Route::get('notes/{note}/revisions', [NoteController::class, 'revisions'])->name('notes.revisions.index');
     Route::post('notes/{note}/revisions/{revision}/restore', [NoteController::class, 'restoreRevision'])->name('notes.revisions.restore');

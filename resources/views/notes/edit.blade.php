@@ -42,6 +42,7 @@
             'selectedLabels' => $selectedLabels,
             'selectedFiles' => $selectedFiles,
             'kindMeta' => $kindMeta,
+            'templates' => $templates ?? [],
             'action' => route('notes.update', $note),
         ])
     </div>

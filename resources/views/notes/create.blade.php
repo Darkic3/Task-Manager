@@ -30,6 +30,7 @@
             'selectedLabels' => $selectedLabels,
             'selectedFiles' => $selectedFiles,
             'kindMeta' => $kindMeta,
+            'templates' => $templates ?? [],
             'action' => route('notes.store'),
         ])
     </div>

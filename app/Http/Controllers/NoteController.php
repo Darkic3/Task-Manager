@@ -11,6 +11,7 @@ use App\Models\Notebook;
 use App\Services\Notes\NoteLinkService;
 use App\Services\Notes\NoteQueryService;
 use App\Services\Notes\NoteRevisionService;
+use App\Services\Notes\NoteTemplateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -49,6 +50,7 @@ class NoteController extends Controller
             'dailyCounts' => $this->queries->dailyCounts($userId, $filters),
             'kindMeta' => note_kind_meta(),
             'backlinkTarget' => $this->backlinkTarget($request),
+            'collections' => \App\Models\NoteShare::ofUser($userId)->whereNull('ai_conversation_id')->latest()->limit(50)->get(),
         ]);
     }
 
@@ -66,6 +68,7 @@ class NoteController extends Controller
                 'facets' => $this->queries->facets($userId, $filters),
                 'filters' => $filters,
                 'kindMeta' => note_kind_meta(),
+                'collections' => \App\Models\NoteShare::ofUser($userId)->whereNull('ai_conversation_id')->latest()->limit(50)->get(),
             ])->render(),
             'total' => $notes->total(),
         ];
@@ -87,16 +90,20 @@ class NoteController extends Controller
     {
         $userId = (int) Auth::id();
 
+        $kind = in_array($request->query('kind'), Note::KINDS, true) ? $request->query('kind') : Note::KIND_GENERAL;
+
         return view('notes.create', [
             'note' => new Note([
-                'kind' => $request->query('kind', Note::KIND_GENERAL),
+                'kind' => $kind,
                 'occurred_at' => now(),
+                'content' => NoteTemplateService::bodyFor($kind),
             ]),
             'notebooks' => Notebook::treeFor($userId),
             'labels' => NoteLabel::ofUser($userId)->orderBy('name')->get(),
             'selectedLabels' => [],
             'selectedFiles' => [],
             'kindMeta' => note_kind_meta(),
+            'templates' => NoteTemplateService::all(),
         ]);
     }
 
@@ -151,6 +158,7 @@ class NoteController extends Controller
             'note' => $note,
             'notebooks' => Notebook::treeFor($userId),
             'labels' => NoteLabel::ofUser($userId)->orderBy('name')->get(),
+            'templates' => NoteTemplateService::all(),
             'selectedLabels' => $note->labels->pluck('id')->all(),
             'selectedFiles' => $note->attachments->pluck('file_id')->all(),
             'mentionPicks' => $note->links

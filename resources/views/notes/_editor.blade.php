@@ -38,7 +38,14 @@
                     </div>
 
                     <div class="nt-form-row">
-                        <label class="nt-form-label" for="ntBody">{{ __('Content') }}</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="nt-form-label mb-0" for="ntBody">{{ __('Content') }}</label>
+                            <button type="button" class="btn btn-outline ms-auto" id="ntTemplateBtn"
+                                    style="padding:2px 10px;font-size:.72rem;" title="{{ __('Insert template for this type') }}">
+                                <i class="bi bi-magic"></i> {{ __('Template') }}
+                            </button>
+                        </div>
+                        <div class="nt-form-help" id="ntTemplateHint" style="margin-top:4px;"></div>
                         <textarea id="ntBody" name="content" rows="14" required
                                   class="form-control @error('content') is-invalid @enderror"
                                   placeholder="{{ __('Write in Markdown. Use @name and #label to connect this note to people and topics.') }}">{{ old('content', $note->content) }}</textarea>
@@ -250,14 +257,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* ── Reveal mood/energy only for daily notes ── */
     const kind = document.getElementById('ntKind');
+    const templates = @json($templates ?? []);
+    const hintEl = document.getElementById('ntTemplateHint');
+    const tplBtn = document.getElementById('ntTemplateBtn');
+    function currentText() { return mde ? mde.value() : body.value; }
+    function setText(v) {
+        if (mde) { mde.value(v); } else { body.value = v; }
+        renderChips();
+    }
     if (kind && body) {
         const toggle = function () {
             const isDaily = kind.value === 'daily';
             const block = document.getElementById('ntMood')?.closest('.nt-form-row');
             if (block) block.style.display = isDaily ? '' : 'none';
+            if (hintEl && templates[kind.value]) hintEl.textContent = templates[kind.value].hint || '';
         };
-        kind.addEventListener('change', toggle);
+        kind.addEventListener('change', function () {
+            toggle();
+            // Auto-fill the skeleton when the body is still empty.
+            if (templates[kind.value] && currentText().trim() === '') setText(templates[kind.value].body);
+        });
         toggle();
+    }
+    if (tplBtn) {
+        tplBtn.addEventListener('click', function () {
+            const k = kind ? kind.value : 'general';
+            if (!templates[k]) return;
+            if (currentText().trim() !== '' && !confirm('{{ __('Replace the current text with the template?') }}')) return;
+            setText(templates[k].body);
+        });
     }
 
     /* ── Delete ── */

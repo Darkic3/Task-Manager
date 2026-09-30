@@ -111,6 +111,52 @@
         </div>
     </div>
 
+    {{-- Saved collections (reusable filters for AI export) --}}
+    <div class="nt-fgroup">
+        <div class="nt-fgroup-title">
+            <i class="bi bi-collection-play"></i>{{ __('Collections') }}
+        </div>
+
+        @forelse (($collections ?? collect()) as $col)
+            <div class="d-flex align-items-center gap-1">
+                <a class="nt-flink flex-grow-1" href="{{ route('notes.collections.apply', $col) }}"
+                   title="{{ $col->description ?: __('Apply this collection') }}">
+                    <span class="nt-flink-ico"><i class="bi bi-bookmark-star"></i></span>
+                    <span class="nt-flink-text">{{ $col->name }}</span>
+                    <span class="nt-flink-n">{{ app_num($col->note_count) }}</span>
+                </a>
+                <form method="POST" action="{{ route('notes.collections.destroy', $col) }}" class="d-inline"
+                      onsubmit="return confirm('{{ __('Delete this collection?') }}')">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-sm btn-link text-danger p-1" title="{{ __('Delete') }}">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </form>
+            </div>
+        @empty
+            <p class="nt-form-help" style="margin:0 2px 4px;">{{ __('Save the current filter as a collection to reuse it for AI export.') }}</p>
+        @endforelse
+
+        <form method="POST" action="{{ route('notes.collections.store') }}" class="d-flex gap-1 mt-2">
+            @csrf
+            @foreach (request()->query() as $qk => $qv)
+                @if (is_array($qv))
+                    @foreach ($qv as $vv)
+                        <input type="hidden" name="{{ $qk }}[]" value="{{ $vv }}">
+                    @endforeach
+                @else
+                    <input type="hidden" name="{{ $qk }}" value="{{ $qv }}">
+                @endif
+            @endforeach
+            <input type="text" name="name" class="form-control form-control-sm" maxlength="120" required
+                   placeholder="{{ __('Save current filter…') }}" style="font-size:.75rem;">
+            <button type="submit" class="btn btn-sm btn-brand" title="{{ __('Save collection') }}">
+                <i class="bi bi-plus-lg"></i>
+            </button>
+        </form>
+    </div>
+
     {{-- Labels --}}
     @if (! empty($labels) && $labels->count())
         <div class="nt-fgroup">

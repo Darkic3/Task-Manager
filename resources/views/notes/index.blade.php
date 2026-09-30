@@ -29,13 +29,44 @@
         <p class="nt-head-sub">{{ __('Capture, connect and filter everything you write down') }}</p>
     </div>
     <div class="ms-auto d-flex gap-2">
-        <a href="{{ request()->fullUrlWithQuery(['export' => 'markdown']) }}" class="btn btn-outline"
-           onclick="event.preventDefault();window.location.href='{{ route('notes.export.markdown', request()->query()) }}';">
+        <button type="button" class="btn btn-outline" data-bs-toggle="modal" data-bs-target="#ntExportModal" id="ntExportBtn">
             <i class="bi bi-download"></i>{{ __('Export MD') }}
-        </a>
+        </button>
         <a href="{{ route('notes.create') }}" class="btn btn-brand">
             <i class="bi bi-plus-lg"></i>{{ __('New note') }}
         </a>
+    </div>
+</div>
+
+{{-- Export preview modal --}}
+<div class="modal fade" id="ntExportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:var(--radius-lg);">
+            <div class="modal-header" style="border-bottom-color:var(--gray-200);">
+                <h5 class="modal-title" style="font-size:.95rem;font-weight:800;">{{ __('Export for AI (Markdown)') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ __('Close') }}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="nt-form-row">
+                    <label class="nt-form-label" for="ntExportMode">{{ __('Content mode') }}</label>
+                    <select class="nt-select" id="ntExportMode">
+                        <option value="full">{{ __('Full text + summaries') }}</option>
+                        <option value="summaries">{{ __('Summaries only (small)') }}</option>
+                        <option value="decisions">{{ __('Decisions only') }}</option>
+                        <option value="timeline">{{ __('Timeline digest') }}</option>
+                    </select>
+                </div>
+                <div id="ntExportPreview" class="nt-form-help" style="font-size:.8rem;line-height:1.9;">
+                    {{ __('Loading preview…') }}
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top-color:var(--gray-200);">
+                <button type="button" class="btn btn-outline" data-bs-dismiss="modal">{{ __('Cancel') }}</button>
+                <button type="button" class="btn btn-brand" id="ntExportDownload">
+                    <i class="bi bi-download"></i>{{ __('Download zip') }}
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -240,6 +271,41 @@ document.addEventListener('DOMContentLoaded', function () {
         .catch(() => {})
         .finally(() => { btn.disabled = false; });
     });
+
+    /* ── Export preview (size check before sending to GPT) ── */
+    const expModal = document.getElementById('ntExportModal');
+    const expMode = document.getElementById('ntExportMode');
+    const expPreview = document.getElementById('ntExportPreview');
+    const expDownload = document.getElementById('ntExportDownload');
+
+    function loadExportPreview() {
+        if (!expPreview) return;
+        expPreview.textContent = '{{ __('Loading preview…') }}';
+        const u = new URL(window.location.href);
+        const params = new URLSearchParams(u.search);
+        params.set('mode', expMode ? expMode.value : 'full');
+        fetch(`{{ route('notes.export.preview') }}?${params.toString()}`, { headers: { 'Accept': 'application/json' } })
+            .then(r => r.json())
+            .then(d => {
+                expPreview.innerHTML =
+                    `<div>📝 ${d.total} {{ __('notes') }} · 🔤 ${d.words} {{ __('words') }} · ~${d.est_tokens} {{ __('tokens') }}</div>` +
+                    `<div>🔒 {{ __('private') }}: ${d.private} · ✨ {{ __('with summary') }}: ${d.with_summary}</div>` +
+                    (d.est_tokens > 100000 ? `<div style="color:#dc2626;font-weight:700;">⚠️ {{ __('Large for one GPT paste — use summaries mode or narrow the filter.') }}</div>` : '');
+            })
+            .catch(() => { expPreview.textContent = '{{ __('Preview unavailable.') }}'; });
+    }
+    if (expModal) {
+        expModal.addEventListener('show.bs.modal', loadExportPreview);
+        if (expMode) expMode.addEventListener('change', loadExportPreview);
+    }
+    if (expDownload) {
+        expDownload.addEventListener('click', function () {
+            const u = new URL(window.location.href);
+            const params = new URLSearchParams(u.search);
+            params.set('mode', expMode ? expMode.value : 'full');
+            window.location.href = `{{ route('notes.export.markdown') }}?${params.toString()}`;
+        });
+    }
 
     /* ── Notebook create / edit ── */
     const modal = document.getElementById('ntNotebookModal');
