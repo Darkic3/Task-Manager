@@ -38,30 +38,11 @@
 
             {{-- 1. Time Tracking Panel --}}
             <div class="pl-qa-panel" id="plModalPanelTime" style="display:none;">
-                <label class="form-label fw-bold small text-dark d-flex align-items-center justify-content-between mb-2">
-                    <span><i class="bi bi-alarm text-primary me-1"></i> <span id="plModalTimeLabel">{{ __('Wake-up Time') }}</span></span>
-                    <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2 py-0" onclick="plSetTimePreset('now')" style="font-size:11.5px;">
-                        <i class="bi bi-clock-history"></i> {{ __('Now') }}
-                    </button>
+                <label class="form-label fw-bold small text-dark d-flex align-items-center gap-2 mb-2">
+                    <i class="bi bi-alarm text-primary"></i> <span id="plModalTimeLabel">{{ __('Wake-up Time') }}</span>
                 </label>
-                
-                <div class="pl-qa-time-box mb-3">
-                    <i class="bi bi-clock fs-4 text-primary"></i>
-                    <input type="time" id="plModalTimeInput" class="form-control form-control-lg text-center fw-bold pl-time-modal-input" step="60" dir="ltr">
-                </div>
 
-                <div class="pl-qa-presets-wrap">
-                    <span class="small text-muted d-block mb-1 fw-semibold">{{ __('Quick presets') }}:</span>
-                    <div class="d-flex flex-wrap gap-1.5" id="plModalTimePresets">
-                        <button type="button" class="pl-preset-chip" onclick="plSetTimePreset('06:00')">06:00</button>
-                        <button type="button" class="pl-preset-chip" onclick="plSetTimePreset('06:30')">06:30</button>
-                        <button type="button" class="pl-preset-chip" onclick="plSetTimePreset('07:00')">07:00</button>
-                        <button type="button" class="pl-preset-chip" onclick="plSetTimePreset('07:30')">07:30</button>
-                        <button type="button" class="pl-preset-chip" onclick="plSetTimePreset('08:00')">08:00</button>
-                        <button type="button" class="pl-preset-chip" onclick="plAdjustTimeMinutes(-15)">-15m</button>
-                        <button type="button" class="pl-preset-chip" onclick="plAdjustTimeMinutes(15)">+15m</button>
-                    </div>
-                </div>
+                <x-time-picker id="plModalTime" input-id="plModalTimeInput" />
             </div>
 
             {{-- 2. Number/Value Tracking Panel --}}

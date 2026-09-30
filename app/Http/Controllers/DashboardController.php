@@ -139,6 +139,9 @@ class DashboardController extends Controller
             ->whereDate('updated_at', now()->toDateString())
             ->count();
 
+        // Morning wake-up check-in prompt (first thing after login).
+        $morningCheckin = $this->morningCheckinData($user);
+
         return view('dashboard', compact(
             'tasksCount',
             'routinesCount',
@@ -164,8 +167,90 @@ class DashboardController extends Controller
             'overdueTasks',
             'taskStatusDistribution',
             'priorityDistribution',
-            'priorityPercentages'
+            'priorityPercentages',
+            'morningCheckin'
         ));
+    }
+
+    /**
+     * Data for the morning wake-up check-in modal, or null when it should not show.
+     */
+    private function morningCheckinData($user): ?array
+    {
+        if (!$user->morning_checkin_enabled || !$user->wake_routine_id) {
+            return null;
+        }
+
+        $now = now();
+        $today = $now->toDateString();
+
+        if (session('morning_checkin_dismissed_' . $today)) {
+            return null;
+        }
+
+        $snoozeUntil = session('morning_checkin_snooze_until');
+        if ($snoozeUntil) {
+            try {
+                if ($now->lt(\Carbon\Carbon::parse($snoozeUntil))) {
+                    return null;
+                }
+            } catch (\Throwable $e) {
+                // Ignore malformed value and continue.
+            }
+        }
+
+        [$windowStart, $windowEnd] = $user->morningWindow();
+        $hm = $now->format('H:i');
+        if ($hm < $windowStart || $hm >= $windowEnd) {
+            return null;
+        }
+
+        $routine = $user->wakeRoutine()->first();
+        if (!$routine || !$routine->isTimeValue()) {
+            return null;
+        }
+
+        if (!$routine->occursOn($today)) {
+            return null;
+        }
+
+        $loggedToday = $routine->loggedValues($today)['value'] ?? null;
+        if ($loggedToday !== null) {
+            return null;
+        }
+
+        // Smart default: yesterday's logged time, else the scheduled time, else now.
+        $yesterday = $now->copy()->subDay()->toDateString();
+        $yesterdayValue = $routine->loggedValues($yesterday)['value'] ?? null;
+        $defaultMinutes = $yesterdayValue !== null
+            ? (int) round((float) $yesterdayValue)
+            : $routine->scheduledReferenceMinutes();
+        $default = \App\Models\Routine::minutesToTimeValue($defaultMinutes) ?? $now->format('H:i');
+
+        return [
+            'routine_id' => $routine->id,
+            'routine_title' => $routine->title,
+            'value_label' => $routine->value_label ?: 'Wake-up Time',
+            'log_url' => route('planner.routines.log', $routine),
+            'date' => $today,
+            'default' => $default,
+        ];
+    }
+
+    /**
+     * Dismiss the morning check-in prompt (for today, or snooze 45 minutes).
+     */
+    public function dismissMorningCheckin(Request $request)
+    {
+        $request->validate(['mode' => ['required', 'in:today,snooze']]);
+
+        if ($request->input('mode') === 'today') {
+            session(['morning_checkin_dismissed_' . now()->toDateString() => true]);
+        } else {
+            session(['morning_checkin_snooze_until' => now()->addMinutes(45)->toIso8601String()]);
+        }
+
+        return response()->json(['ok' => true]);
     }
 
     /**

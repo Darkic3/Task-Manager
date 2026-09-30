@@ -1,379 +1,246 @@
 @extends('layouts.app')
 @section('title', __('Edit Profile'))
 @push('styles')
-<style>
-
-.main-content { padding: 14px 16px; background: #f7f8fa; min-height: 100vh; }
-
-.cu-header {
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    border-radius: 8px; padding: 12px 16px; margin-bottom: 14px;
-    position: relative; overflow: hidden;
-}
-.cu-header::before {
-    content: ''; position: absolute; top: -20px; right: -20px;
-    width: 80px; height: 80px; background: rgba(255,255,255,.08); border-radius: 50%;
-}
-.cu-header-inner { display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 1; }
-.cu-header-title { font-weight: 700; font-size: 17px; margin: 0; color: #fff; }
-.cu-header-sub   { font-size: 12px; opacity: .8; margin: 2px 0 0; color: #fff; }
-.cu-btn-hdr {
-    background: rgba(255,255,255,.18); border: 1.5px solid rgba(255,255,255,.4);
-    color: #fff; font-size: 12px; font-weight: 700; border-radius: 6px;
-    padding: 6px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;
-    transition: background .15s;
-}
-.cu-btn-hdr:hover { background: rgba(255,255,255,.28); color: #fff; }
-
-.cu-layout { display: grid; grid-template-columns: 220px 1fr; gap: 14px; align-items: start; }
-@media(max-width:768px) { .cu-layout { grid-template-columns: 1fr; } }
-
-.cu-info-panel {
-    background: white; border: 1px solid #e3e4e8; border-radius: 8px;
-    overflow: hidden;
-}
-@media(min-width:769px) { .cu-info-panel { position: sticky; top: 1rem; } }
-.cu-info-panel-header { background: #f7f8fa; border-bottom: 1px solid #e3e4e8; padding: 10px 14px; }
-.cu-info-panel-header span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #8a8f98; }
-.cu-info-body { padding: 14px; }
-
-.cu-sections { display: flex; flex-direction: column; gap: 14px; }
-.cu-section { background: white; border: 1px solid #e3e4e8; border-radius: 8px; overflow: hidden; }
-.cu-section-header {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 16px; background: #fafbfc; border-bottom: 1px solid #e3e4e8;
-}
-.cu-section-icon {
-    width: 24px; height: 24px; border-radius: 6px;
-    display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
-}
-.cu-section-icon.violet { background: #ede9fe; color: #7c3aed; }
-.cu-section-icon.blue   { background: #dbeafe; color: #2563eb; }
-.cu-section-icon.green  { background: #dcfce7; color: #16a34a; }
-.cu-section-icon.red    { background: #fee2e2; color: #dc2626; }
-.cu-section-icon.amber  { background: #fef3c7; color: #d97706; }
-.cu-section-title { font-size: 13px; font-weight: 700; color: #1a1d23; margin: 0; }
-.cu-section-sub   { font-size: 11px; color: #8a8f98; margin: 0 0 0 auto; }
-.cu-section-body  { padding: 16px; }
-
-.cu-field { margin-bottom: 14px; }
-.cu-field:last-child { margin-bottom: 0; }
-.cu-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media(max-width:500px) { .cu-field-row { grid-template-columns: 1fr; } }
-.cu-label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px; }
-.cu-input, .cu-textarea {
-    width: 100%; border: 1px solid #d3d5db; border-radius: 6px;
-    padding: 7px 10px; font-size: 13px; color: #111827; background: white;
-    transition: border-color .15s, box-shadow .15s;
-}
-.cu-input:focus, .cu-textarea:focus {
-    outline: none; border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,.18);
-}
-.cu-input.is-invalid, .cu-textarea.is-invalid { border-color: #dc2626; }
-.cu-textarea { resize: vertical; min-height: 80px; }
-.cu-err  { font-size: 11px; color: #dc2626; margin-top: 3px; }
-.cu-hint { font-size: 11px; color: #9ca3af; margin-top: 3px; }
-
-/* Morning check-in toggle switch */
-.cu-switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
-.cu-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
-.cu-switch-track {
-    width: 40px; height: 22px; flex: none; border-radius: 999px;
-    background: #d3d5db; position: relative; transition: background .18s ease;
-}
-.cu-switch-thumb {
-    position: absolute; top: 2px; inset-inline-start: 2px;
-    width: 18px; height: 18px; border-radius: 50%; background: #fff;
-    box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .18s ease;
-}
-.cu-switch input:checked + .cu-switch-track { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
-.cu-switch input:checked + .cu-switch-track .cu-switch-thumb { transform: translateX(18px); }
-html[dir="rtl"] .cu-switch input:checked + .cu-switch-track .cu-switch-thumb { transform: translateX(-18px); }
-.cu-switch input:focus-visible + .cu-switch-track { box-shadow: 0 0 0 3px rgba(99,102,241,.25); }
-.cu-switch-label { font-size: 13px; font-weight: 600; color: #1a1d23; }
-#morning-checkin-fields { margin-top: 4px; transition: opacity .18s ease; }
-#morning-checkin-fields.is-off { opacity: .45; }
-#morning-checkin-fields.is-off input, #morning-checkin-fields.is-off select { pointer-events: none; }
-
-.cu-action-bar {
-    background: white; border: 1px solid #e3e4e8; border-radius: 8px;
-    padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px;
-}
-.cu-btn-cancel {
-    padding: 6px 14px; border: 1.5px solid #d3d5db; border-radius: 6px;
-    background: white; font-size: 13px; font-weight: 600; color: #6b7280;
-    text-decoration: none; display: inline-flex; align-items: center; gap: 5px;
-    transition: border-color .15s, color .15s;
-}
-.cu-btn-cancel:hover { border-color: #adb0b8; color: #1a1d23; }
-.cu-btn-save {
-    padding: 6px 18px; background: #6366f1; border: 1px solid #6366f1;
-    color: white; border-radius: 6px; font-size: 13px; font-weight: 600;
-    cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 5px;
-}
-.cu-btn-save:hover { background: #4f46e5; border-color: #4f46e5; box-shadow: 0 2px 6px rgba(99,102,241,.4); }
-.cu-btn-danger {
-    padding: 6px 18px; background: #dc2626; border: 1px solid #dc2626;
-    color: white; border-radius: 6px; font-size: 13px; font-weight: 600;
-    cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 5px;
-}
-.cu-btn-danger:hover { background: #b91c1c; border-color: #b91c1c; box-shadow: 0 2px 6px rgba(220,38,38,.4); }
-
-.cu-alert-success {
-    background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 8px;
-    padding: 10px 14px; margin-bottom: 14px;
-    display: flex; align-items: center; gap: 8px; font-size: 13px; color: #065f46;
-}
-.cu-meta-row {
-    display: flex; align-items: flex-start; gap: 8px;
-    font-size: 12px; color: #6b7280; padding: 5px 0;
-    border-top: 1px solid #f3f4f6;
-}
-.cu-meta-row i { font-size: 13px; color: #adb0b8; flex-shrink: 0; margin-top: 1px; }
-.cu-meta-row strong { color: #1a1d23; font-weight: 600; }
-
-.cu-avatar-wrap { position: relative; width: 72px; height: 72px; margin: 0 auto 10px; }
-.cu-avatar-img  { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 3px solid #e3e4e8; display: block; }
-.cu-avatar-init {
-    width: 72px; height: 72px; border-radius: 50%;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: #fff; font-size: 1.6rem; font-weight: 700;
-    display: flex; align-items: center; justify-content: center;
-}
-.cu-panel-name  { text-align: center; font-size: 13px; font-weight: 700; color: #1a1d23; margin-bottom: 2px; }
-.cu-panel-email { text-align: center; font-size: 11px; color: #adb0b8; margin-bottom: 12px; }
-.cu-panel-nav { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; border-top: 1px solid #f3f4f6; padding-top: 10px; }
-.cu-nav-link {
-    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
-    border-radius: 6px; font-size: 12px; font-weight: 600; color: #374151;
-    text-decoration: none; transition: background .15s;
-}
-.cu-nav-link:hover, .cu-nav-link.active { background: #ede9fe; color: #6366f1; }
-.cu-nav-link i { font-size: 13px; }
-
-/* Avatar upload */
-.cu-avatar-drop {
-    border: 2px dashed #d3d5db; border-radius: 8px; padding: 14px;
-    text-align: center; cursor: pointer; background: #f9fafb;
-    transition: border-color .15s; margin-top: 8px; position: relative;
-}
-.cu-avatar-drop:hover { border-color: #6366f1; background: rgba(99,102,241,.04); }
-.cu-avatar-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-.cu-avatar-drop i { display: block; font-size: 1.2rem; color: #6366f1; margin-bottom: 4px; }
-.cu-avatar-drop span { font-size: 11px; color: #9ca3af; }
-.cu-avatar-sel {
-    display: none; margin-top: 8px; background: #ede9fe; border: 1px solid #c4b5fd;
-    border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #5b21b6;
-    align-items: center; gap: 8px;
-}
-.cu-avatar-sel.show { display: flex; }
-.cu-avatar-sel button { border: none; background: none; font-size: 14px; cursor: pointer; color: #5b21b6; margin-left: auto; padding: 0; }
-.cu-btn-del-avatar {
-    width: 100%; margin-top: 6px; padding: 5px 10px; background: #fee2e2;
-    border: 1px solid #fca5a5; color: #dc2626; border-radius: 6px;
-    font-size: 11px; font-weight: 600; cursor: pointer; display: flex;
-    align-items: center; justify-content: center; gap: 4px; transition: background .15s;
-}
-.cu-btn-del-avatar:hover { background: #dc2626; color: #fff; border-color: #dc2626; }
-
-/* ── Mobile responsive ────────────────────────────────── */
-@media(max-width:768px) {
-    .cu-header-inner { flex-direction: column; align-items: flex-start; gap: 10px; }
-    .cu-header-title { font-size: 15px; }
-    .cu-header-sub   { font-size: 11px; }
-    .cu-btn-hdr      { width: 100%; justify-content: center; }
-    .cu-field-row    { grid-template-columns: 1fr; }
-    .cu-action-bar   { flex-direction: column-reverse; }
-    .cu-btn-cancel,
-    .cu-btn-save     { width: 100%; text-align: center; justify-content: center; padding: 10px; }
-    .cu-btn-danger   { width: 100%; text-align: center; justify-content: center; }
-}
-</style>
+@include('profile._style')
 @endpush
 
 @section('content')
-<div class="main-content">
+@php
+    $isFa = app()->getLocale() === 'fa';
 
-    <div class="cu-header">
-        <div class="d-flex align-items-center" style="position:relative;z-index:1;">
-            <a href="{{ route('profile.show') }}" class="me-3 text-decoration-none">
-                <i class="bi bi-arrow-left fs-5" style="color:rgba(255,255,255,.8);"></i>
-            </a>
-            <div>
-                <h1 class="cu-header-title">{{ __('Edit Profile') }}</h1>
-                <p class="cu-header-sub">{{ __('Update your personal information') }}</p>
-            </div>
-        </div>
-    </div>
+    $initials = collect(preg_split('/\s+/u', trim($user->name)) ?: [])
+        ->filter()
+        ->take(2)
+        ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
+        ->implode('');
+    $initials = $initials !== '' ? $initials : mb_strtoupper(mb_substr($user->name, 0, 2));
 
-    <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data" id="profile-form">
+    $bioLength = mb_strlen((string) old('bio', $user->bio));
+@endphp
+
+<div class="pf-page">
+
+    @include('profile._hero', [
+        'pfTitle' => __('Edit Profile'),
+        'pfSubtitle' => __('Update your personal information'),
+        'pfIcon' => 'bi-pencil-square',
+        'pfUser' => $user,
+    ])
+
+    <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data" id="profile-form" novalidate>
         @csrf
         @method('PUT')
 
-        <div class="cu-layout">
-            {{-- Left panel --}}
-            <div class="cu-info-panel">
-                <div class="cu-info-panel-header"><span>{{ __('Profile Picture') }}</span></div>
-                <div class="cu-info-body">
-                    <div class="cu-avatar-wrap">
-                        @if($user->avatar)
-                            <img src="{{ Storage::url($user->avatar) }}" alt="{{ $user->name }}" class="cu-avatar-img" id="avatar-preview-img">
-                        @else
-                            <div class="cu-avatar-init" id="avatar-init">{{ strtoupper(substr($user->name,0,2)) }}</div>
-                        @endif
-                    </div>
-                    <div class="cu-panel-name">{{ $user->name }}</div>
-                    <div class="cu-panel-email">{{ $user->email }}</div>
+        <div class="pf-grid">
+            <div class="pf-col">
 
-                    <div class="cu-avatar-drop" id="avatar-drop">
-                        <i class="bi bi-camera"></i>
-                        <span>{{ __('Click to upload new photo') }}<br>{{ __('JPG, PNG or GIF · max 2 MB') }}</span>
-                        <input type="file" name="avatar" id="avatar-input" accept="image/*">
-                    </div>
-                    <div class="cu-avatar-sel" id="avatar-sel">
-                        <i class="bi bi-image" style="font-size:13px;"></i>
-                        <span id="avatar-sel-name" style="font-weight:600;"></span>
-                        <button type="button" onclick="clearAvatar()" title="{{ __('Remove') }}">&times;</button>
-                    </div>
-                    @if($user->avatar)
-                    <button type="button" class="cu-btn-del-avatar" id="del-avatar-btn">
-                        <i class="bi bi-trash"></i> {{ __('Remove Current Photo') }}
-                    </button>
-                    @endif
+                {{-- Basic information --}}
+                <section class="pf-card" style="animation-delay:.14s;">
+                    <header class="pf-card-hd">
+                        <span class="pf-card-ico violet"><i class="bi bi-person-vcard"></i></span>
+                        <div>
+                            <h2 class="pf-card-title">{{ __('Basic Information') }}</h2>
+                            <p class="pf-card-sub">{{ __('Personal details') }}</p>
+                        </div>
+                    </header>
+                    <div class="pf-card-bd">
 
-                    <div class="cu-panel-nav" style="margin-top:12px;">
-                        <a href="{{ route('profile.show') }}" class="cu-nav-link"><i class="bi bi-person"></i> {{ __('View Profile') }}</a>
-                        <a href="{{ route('profile.edit') }}" class="cu-nav-link active"><i class="bi bi-pencil"></i> {{ __('Edit Info') }}</a>
-                        <a href="{{ route('profile.password') }}" class="cu-nav-link"><i class="bi bi-key"></i> {{ __('Password') }}</a>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Right sections --}}
-            <div class="cu-sections">
-
-                {{-- Basic Info --}}
-                <div class="cu-section">
-                    <div class="cu-section-header">
-                        <span class="cu-section-icon violet"><i class="bi bi-person"></i></span>
-                        <span class="cu-section-title">{{ __('Basic Information') }}</span>
-                    </div>
-                    <div class="cu-section-body">
-                        <div class="cu-field-row">
-                            <div class="cu-field">
-                                <label for="name" class="cu-label">{{ __('Full Name') }} <span style="color:#dc2626;">*</span></label>
-                                <input type="text" id="name" name="name"
-                                       class="cu-input @error('name') is-invalid @enderror"
-                                       value="{{ old('name', $user->name) }}" required autofocus>
-                                @error('name')<p class="cu-err">{{ $message }}</p>@enderror
+                        <div class="pf-field-row">
+                            <div class="pf-field">
+                                <label for="name" class="pf-label">{{ __('Full Name') }} <span class="pf-req">*</span></label>
+                                <input type="text" id="name" name="name" required autofocus
+                                       class="pf-input @error('name') is-invalid @enderror"
+                                       value="{{ old('name', $user->name) }}">
+                                @error('name')<p class="pf-err">{{ $message }}</p>@enderror
                             </div>
-                            <div class="cu-field">
-                                <label for="email" class="cu-label">{{ __('Email Address') }} <span style="color:#dc2626;">*</span></label>
-                                <input type="email" id="email" name="email"
-                                       class="cu-input @error('email') is-invalid @enderror"
-                                       value="{{ old('email', $user->email) }}" required>
-                                @error('email')<p class="cu-err">{{ $message }}</p>@enderror
+                            <div class="pf-field">
+                                <label for="email" class="pf-label">{{ __('Email Address') }} <span class="pf-req">*</span></label>
+                                <input type="email" id="email" name="email" required dir="ltr"
+                                       class="pf-input @error('email') is-invalid @enderror"
+                                       value="{{ old('email', $user->email) }}">
+                                @error('email')<p class="pf-err">{{ $message }}</p>@enderror
                             </div>
                         </div>
-                        <div class="cu-field-row">
-                            <div class="cu-field">
-                                <label for="phone" class="cu-label">{{ __('Phone') }}</label>
-                                <input type="tel" id="phone" name="phone"
-                                       class="cu-input @error('phone') is-invalid @enderror"
-                                       value="{{ old('phone', $user->phone) }}" placeholder="+1 555 000 0000">
-                                @error('phone')<p class="cu-err">{{ $message }}</p>@enderror
+
+                        <div class="pf-field-row">
+                            <div class="pf-field">
+                                <label for="phone" class="pf-label">{{ __('Phone') }}</label>
+                                <input type="tel" id="phone" name="phone" dir="ltr" placeholder="+1 555 000 0000"
+                                       class="pf-input @error('phone') is-invalid @enderror"
+                                       value="{{ old('phone', $user->phone) }}">
+                                @error('phone')<p class="pf-err">{{ $message }}</p>@enderror
                             </div>
-                            <div class="cu-field">
-                                <label for="location" class="cu-label">{{ __('Location') }}</label>
-                                <input type="text" id="location" name="location"
-                                       class="cu-input @error('location') is-invalid @enderror"
-                                       value="{{ old('location', $user->location) }}" placeholder="{{ __('City, Country') }}">
-                                @error('location')<p class="cu-err">{{ $message }}</p>@enderror
+                            <div class="pf-field">
+                                <label for="location" class="pf-label">{{ __('Location') }}</label>
+                                <input type="text" id="location" name="location" placeholder="{{ __('City, Country') }}"
+                                       class="pf-input @error('location') is-invalid @enderror"
+                                       value="{{ old('location', $user->location) }}">
+                                @error('location')<p class="pf-err">{{ $message }}</p>@enderror
                             </div>
                         </div>
-                        <div class="cu-field-row">
-                            <div class="cu-field">
-                                <label for="website" class="cu-label">{{ __('Website') }}</label>
-                                <input type="url" id="website" name="website"
-                                       class="cu-input @error('website') is-invalid @enderror"
-                                       value="{{ old('website', $user->website) }}" placeholder="https://example.com">
-                                @error('website')<p class="cu-err">{{ $message }}</p>@enderror
+
+                        <div class="pf-field-row">
+                            <div class="pf-field">
+                                <label for="website" class="pf-label">{{ __('Website') }}</label>
+                                <input type="url" id="website" name="website" dir="ltr" placeholder="https://example.com"
+                                       class="pf-input @error('website') is-invalid @enderror"
+                                       value="{{ old('website', $user->website) }}">
+                                @error('website')<p class="pf-err">{{ $message }}</p>@enderror
                             </div>
-                            <div class="cu-field">
-                                <label for="locale" class="cu-label">{{ __('Language') }}</label>
-                                <select id="locale" name="locale" class="cu-input @error('locale') is-invalid @enderror">
-                                    <option value="en" {{ old('locale', $user->locale ?? 'en') === 'en' ? 'selected' : '' }}>🇬🇧 English</option>
-                                    <option value="fa" {{ old('locale', $user->locale ?? 'en') === 'fa' ? 'selected' : '' }}>🇮🇷 فارسی</option>
+                            <div class="pf-field">
+                                <label for="locale" class="pf-label">{{ __('Language') }}</label>
+                                <select id="locale" name="locale" class="pf-select @error('locale') is-invalid @enderror">
+                                    <option value="en" {{ old('locale', $user->locale ?? 'en') === 'en' ? 'selected' : '' }}>🇬🇧 {{ __('English') }}</option>
+                                    <option value="fa" {{ old('locale', $user->locale ?? 'en') === 'fa' ? 'selected' : '' }}>🇮🇷 {{ __('Persian') }}</option>
                                 </select>
-                                @error('locale')<p class="cu-err">{{ $message }}</p>@enderror
+                                <p class="pf-hint">{{ __('The interface language changes immediately after saving.') }}</p>
+                                @error('locale')<p class="pf-err">{{ $message }}</p>@enderror
                             </div>
                         </div>
-                        <div class="cu-field">
-                            <label for="bio" class="cu-label">{{ __('Bio') }}</label>
-                            <textarea id="bio" name="bio" rows="4"
-                                      class="cu-textarea @error('bio') is-invalid @enderror"
-                                      placeholder="{{ __('Tell us about yourself...') }}" maxlength="500">{{ old('bio', $user->bio) }}</textarea>
-                            <p class="cu-hint">{{ __('Max 500 characters') }}</p>
-                            @error('bio')<p class="cu-err">{{ $message }}</p>@enderror
-                        </div>
-                    </div>
-                </div>
 
-                {{-- Morning Check-in --}}
-                <div class="cu-section">
-                    <div class="cu-section-header">
-                        <span class="cu-section-icon amber"><i class="bi bi-sunrise"></i></span>
-                        <span class="cu-section-title">{{ __('Morning Check-in') }}</span>
-                        <span class="cu-section-sub">{{ __('Log your wake-up time first thing after login') }}</span>
-                    </div>
-                    <div class="cu-section-body">
-                        <div class="cu-field">
-                            <label class="cu-switch">
-                                <input type="checkbox" id="morning_checkin_enabled" name="morning_checkin_enabled" value="1" {{ old('morning_checkin_enabled', $user->morning_checkin_enabled) ? 'checked' : '' }}>
-                                <span class="cu-switch-track" aria-hidden="true"><span class="cu-switch-thumb"></span></span>
-                                <span class="cu-switch-label">{{ __('Enable morning check-in') }}</span>
-                            </label>
-                            <p class="cu-hint">{{ __('When enabled, you will be asked to log your wake-up time when you log in during the morning window.') }}</p>
-                            @error('morning_checkin_enabled')<p class="cu-err">{{ $message }}</p>@enderror
+                        <div class="pf-field">
+                            <div class="pf-label-row">
+                                <label for="bio" class="pf-label">{{ __('Bio') }}</label>
+                                <span class="pf-counter pf-num">{{ app_num($bioLength) }} / {{ app_num(500) }}</span>
+                            </div>
+                            <textarea id="bio" name="bio" rows="4" maxlength="500"
+                                      class="pf-textarea @error('bio') is-invalid @enderror"
+                                      placeholder="{{ __('Tell us about yourself...') }}">{{ old('bio', $user->bio) }}</textarea>
+                            <p class="pf-hint">{{ __('Max 500 characters') }}</p>
+                            @error('bio')<p class="pf-err">{{ $message }}</p>@enderror
                         </div>
-                        <div id="morning-checkin-fields">
-                            <div class="cu-field">
-                                <label for="wake_routine_id" class="cu-label">{{ __('Wake-up routine') }}</label>
-                                <select id="wake_routine_id" name="wake_routine_id" class="cu-input @error('wake_routine_id') is-invalid @enderror">
+                    </div>
+                </section>
+
+                {{-- Morning check-in --}}
+                <section class="pf-card" style="animation-delay:.2s;">
+                    <header class="pf-card-hd">
+                        <span class="pf-card-ico amber"><i class="bi bi-sunrise"></i></span>
+                        <div>
+                            <h2 class="pf-card-title">{{ __('Morning Check-in') }}</h2>
+                            <p class="pf-card-sub">{{ __('Log your wake-up time first thing after login') }}</p>
+                        </div>
+                    </header>
+                    <div class="pf-card-bd">
+                        <label class="pf-switch">
+                            <input type="checkbox" id="morning_checkin_enabled" name="morning_checkin_enabled" value="1"
+                                   {{ old('morning_checkin_enabled', $user->morning_checkin_enabled) ? 'checked' : '' }}>
+                            <span class="pf-switch-track" aria-hidden="true"><span class="pf-switch-thumb"></span></span>
+                            <span class="pf-switch-label">{{ __('Enable morning check-in') }}</span>
+                        </label>
+                        <p class="pf-hint">{{ __('When enabled, you will be asked to log your wake-up time when you log in during the morning window.') }}</p>
+                        @error('morning_checkin_enabled')<p class="pf-err">{{ $message }}</p>@enderror
+
+                        <div class="pf-switch-panel" id="morning-checkin-fields">
+                            <div class="pf-field">
+                                <label for="wake_routine_id" class="pf-label">{{ __('Wake-up routine') }}</label>
+                                <select id="wake_routine_id" name="wake_routine_id"
+                                        class="pf-select @error('wake_routine_id') is-invalid @enderror">
                                     <option value="">{{ __('Select a routine') }}</option>
                                     @foreach($wakeRoutines as $routine)
                                         <option value="{{ $routine->id }}" {{ (string) old('wake_routine_id', $user->wake_routine_id ?? '') === (string) $routine->id ? 'selected' : '' }}>{{ $routine->title }}</option>
                                     @endforeach
                                 </select>
-                                @error('wake_routine_id')<p class="cu-err">{{ $message }}</p>@enderror
+                                @error('wake_routine_id')<p class="pf-err">{{ $message }}</p>@enderror
                             </div>
-                            <div class="cu-field-row">
-                                <div class="cu-field">
-                                    <label for="morning_window_start" class="cu-label">{{ __('Window start') }}</label>
+
+                            <div class="pf-field-row">
+                                <div class="pf-field">
+                                    <label for="morning_window_start" class="pf-label">{{ __('Window start') }}</label>
                                     <input type="time" id="morning_window_start" name="morning_window_start" dir="ltr"
-                                           class="cu-input @error('morning_window_start') is-invalid @enderror"
+                                           class="pf-input @error('morning_window_start') is-invalid @enderror"
                                            value="{{ old('morning_window_start', substr((string) ($user->morning_window_start ?? '04:00'), 0, 5)) }}">
-                                    @error('morning_window_start')<p class="cu-err">{{ $message }}</p>@enderror
+                                    @error('morning_window_start')<p class="pf-err">{{ $message }}</p>@enderror
                                 </div>
-                                <div class="cu-field">
-                                    <label for="morning_window_end" class="cu-label">{{ __('Window end') }}</label>
+                                <div class="pf-field">
+                                    <label for="morning_window_end" class="pf-label">{{ __('Window end') }}</label>
                                     <input type="time" id="morning_window_end" name="morning_window_end" dir="ltr"
-                                           class="cu-input @error('morning_window_end') is-invalid @enderror"
+                                           class="pf-input @error('morning_window_end') is-invalid @enderror"
                                            value="{{ old('morning_window_end', substr((string) ($user->morning_window_end ?? '12:00'), 0, 5)) }}">
-                                    @error('morning_window_end')<p class="cu-err">{{ $message }}</p>@enderror
+                                    @error('morning_window_end')<p class="pf-err">{{ $message }}</p>@enderror
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                </section>
+            </div>
 
-                <div class="cu-action-bar">
-                    <a href="{{ route('profile.show') }}" class="cu-btn-cancel"><i class="bi bi-x-lg"></i> {{ __('Cancel') }}</a>
-                    <button type="submit" class="cu-btn-save"><i class="bi bi-check-lg"></i> {{ __('Update Profile') }}</button>
-                </div>
+            {{-- Side column --}}
+            <aside class="pf-col pf-col-side">
+                <section class="pf-card" style="animation-delay:.17s;">
+                    <header class="pf-card-hd">
+                        <span class="pf-card-ico blue"><i class="bi bi-camera"></i></span>
+                        <div>
+                            <h2 class="pf-card-title">{{ __('Profile Picture') }}</h2>
+                            <p class="pf-card-sub">{{ __('JPG, PNG or GIF · max 2 MB') }}</p>
+                        </div>
+                    </header>
+                    <div class="pf-card-bd">
+                        <div style="text-align:center;margin-bottom:16px;">
+                            <div class="pf-avatar-ring" style="margin:0 auto;">
+                                @if($user->avatar)
+                                    <img src="{{ Storage::url($user->avatar) }}" alt="{{ $user->name }}" class="pf-avatar-img" id="avatar-preview-img">
+                                @else
+                                    <div class="pf-avatar-init" id="avatar-init" aria-hidden="true">{{ $initials }}</div>
+                                @endif
+                            </div>
+                        </div>
 
-            </div>{{-- /cu-sections --}}
-        </div>{{-- /cu-layout --}}
+                        <label class="pf-drop" for="avatar-input">
+                            <i class="bi bi-cloud-arrow-up"></i>
+                            <strong>{{ __('Click to upload new photo') }}</strong>
+                            <span>{{ __('JPG, PNG or GIF · max 2 MB') }}</span>
+                            <input type="file" name="avatar" id="avatar-input" accept="image/*">
+                        </label>
+
+                        <div class="pf-filechip" id="avatar-sel">
+                            <i class="bi bi-image"></i>
+                            <span id="avatar-sel-name"></span>
+                            <button type="button" id="avatar-clear" title="{{ __('Remove') }}" aria-label="{{ __('Remove') }}">&times;</button>
+                        </div>
+
+                        @if($user->avatar)
+                            <button type="button" class="pf-btn-ghost-danger" id="del-avatar-btn">
+                                <i class="bi bi-trash"></i> {{ __('Remove Current Photo') }}
+                            </button>
+                        @endif
+                    </div>
+                </section>
+
+                <section class="pf-card" style="animation-delay:.23s;">
+                    <header class="pf-card-hd">
+                        <span class="pf-card-ico green"><i class="bi bi-lightbulb"></i></span>
+                        <div>
+                            <h2 class="pf-card-title">{{ __('Good to know') }}</h2>
+                            <p class="pf-card-sub">{{ __('Before you save') }}</p>
+                        </div>
+                    </header>
+                    <div class="pf-card-bd">
+                        <ul class="pf-tips">
+                            <li>
+                                <span class="pf-tips-ico"><i class="bi bi-envelope-check"></i></span>
+                                <span><strong>{{ __('Email') }}</strong>{{ __('Used to sign in and to receive reminders.') }}</span>
+                            </li>
+                            <li>
+                                <span class="pf-tips-ico"><i class="bi bi-translate"></i></span>
+                                <span><strong>{{ __('Language') }}</strong>{{ __('Applies to the whole app, including dates.') }}</span>
+                            </li>
+                            <li>
+                                <span class="pf-tips-ico"><i class="bi bi-clock-history"></i></span>
+                                <span><strong>{{ __('Morning Check-in') }}</strong>{{ __('Needs a wake-up routine to be selected.') }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </section>
+            </aside>
+        </div>
+
+        <div class="pf-actions">
+            <p class="pf-actions-note"><i class="bi bi-info-circle"></i> {{ __('Changes are saved to your account.') }}</p>
+            <span class="pf-actions-spacer"></span>
+            <a href="{{ route('profile.show') }}" class="pf-btn pf-btn-soft"><i class="bi bi-x-lg"></i> {{ __('Cancel') }}</a>
+            <button type="submit" class="pf-btn pf-btn-solid"><i class="bi bi-check-lg"></i> {{ __('Update Profile') }}</button>
+        </div>
     </form>
 </div>
 @endsection
@@ -381,56 +248,95 @@ html[dir="rtl"] .cu-switch input:checked + .cu-switch-track .cu-switch-thumb { t
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var avatarInput = document.getElementById('avatar-input');
-    var avatarSel   = document.getElementById('avatar-sel');
-    var avatarSelName = document.getElementById('avatar-sel-name');
-    var avatarPreviewImg = document.getElementById('avatar-preview-img');
-    var avatarInit  = document.getElementById('avatar-init');
-    var delBtn = document.getElementById('del-avatar-btn');
-
-    avatarInput.addEventListener('change', function () {
-        if (!this.files.length) return;
-        var file = this.files[0];
-        if (file.size > 2*1024*1024) { alert('{{ __('Max file size is 2 MB') }}'); this.value=''; return; }
-        avatarSelName.textContent = file.name;
-        avatarSel.classList.add('show');
-
-        var reader = new FileReader();
-        reader.onload = function(e) {
-            if (avatarPreviewImg) {
-                avatarPreviewImg.src = e.target.result;
-            } else if (avatarInit) {
-                var img = document.createElement('img');
-                img.src = e.target.result;
-                img.className = 'cu-avatar-img';
-                img.id = 'avatar-preview-img';
-                avatarInit.replaceWith(img);
-            }
-        };
-        reader.readAsDataURL(file);
-    });
-
-    window.clearAvatar = function () {
-        avatarInput.value = '';
-        avatarSel.classList.remove('show');
+    var I18N = {
+        tooLarge: @json(__('Max file size is 2 MB')),
+        removeAvatar: @json(__('Remove your profile picture?'))
     };
 
-    var mcToggle = document.getElementById('morning_checkin_enabled');
-    var mcFields = document.getElementById('morning-checkin-fields');
-    function syncMorningFields() {
-        if (!mcToggle || !mcFields) return;
-        mcFields.classList.toggle('is-off', !mcToggle.checked);
+    // Bio character counter
+    var bio = document.getElementById('bio');
+    var counter = document.querySelector('.pf-counter');
+    if (bio && counter) {
+        var faDigits = { '0': '۰', '1': '۱', '2': '۲', '3': '۳', '4': '۴', '5': '۵', '6': '۶', '7': '۷', '8': '۸', '9': '۹' };
+        var toLocale = function (value) {
+            return @json($isFa ? 'fa' : 'en') === 'fa'
+                ? String(value).replace(/[0-9]/g, function (d) { return faDigits[d]; })
+                : String(value);
+        };
+        var updateCounter = function () {
+            counter.textContent = toLocale(bio.value.length) + ' / ' + toLocale(500);
+        };
+        bio.addEventListener('input', updateCounter);
+        updateCounter();
     }
-    if (mcToggle) { mcToggle.addEventListener('change', syncMorningFields); syncMorningFields(); }
+
+    // Avatar: preview, clear, remove
+    var avatarInput = document.getElementById('avatar-input');
+    var avatarSel = document.getElementById('avatar-sel');
+    var avatarSelName = document.getElementById('avatar-sel-name');
+    var avatarPreviewImg = document.getElementById('avatar-preview-img');
+    var avatarInit = document.getElementById('avatar-init');
+    var delBtn = document.getElementById('del-avatar-btn');
+
+    if (avatarInput) {
+        avatarInput.addEventListener('change', function () {
+            if (!this.files.length) return;
+            var file = this.files[0];
+            if (file.size > 2 * 1024 * 1024) {
+                alert(I18N.tooLarge);
+                this.value = '';
+                return;
+            }
+            avatarSelName.textContent = file.name;
+            avatarSel.classList.add('show');
+
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                if (avatarPreviewImg) {
+                    avatarPreviewImg.src = e.target.result;
+                } else if (avatarInit) {
+                    var img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'pf-avatar-img';
+                    img.id = 'avatar-preview-img';
+                    img.alt = '';
+                    avatarInit.replaceWith(img);
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    var clearBtn = document.getElementById('avatar-clear');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            avatarInput.value = '';
+            avatarSel.classList.remove('show');
+        });
+    }
 
     if (delBtn) {
         delBtn.addEventListener('click', function () {
-            if (!confirm('{{ __('Remove your profile picture?') }}')) return;
-            fetch('{{ route("profile.avatar.delete") }}', {
+            if (!confirm(I18N.removeAvatar)) return;
+            fetch(@json(route('profile.avatar.delete')), {
                 method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' }
-            }).then(r => r.json()).then(d => { if (d.success) location.reload(); });
+                headers: { 'X-CSRF-TOKEN': @json(csrf_token()), 'Accept': 'application/json' }
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                if (d.success) location.reload();
+            });
         });
+    }
+
+    // Morning check-in toggle
+    var mcToggle = document.getElementById('morning_checkin_enabled');
+    var mcPanel = document.getElementById('morning-checkin-fields');
+    function syncMorningPanel() {
+        if (!mcToggle || !mcPanel) return;
+        mcPanel.classList.toggle('is-off', !mcToggle.checked);
+    }
+    if (mcToggle) {
+        mcToggle.addEventListener('change', syncMorningPanel);
+        syncMorningPanel();
     }
 });
 </script>

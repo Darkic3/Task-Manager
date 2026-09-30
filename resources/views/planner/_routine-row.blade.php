@@ -276,11 +276,9 @@
             @php $isTimeLog = $routine->isTimeValue(); $logVal = $logValues['value'] ?? null; @endphp
             <div class="pl-log {{ $isTimeLog ? 'is-time' : '' }}" data-log-value data-kind="{{ $isTimeLog ? 'time' : 'number' }}" data-routine="{{ $routine->id }}" data-date="{{ $routineDate->toDateString() }}" data-url="{{ $logUrl }}">
                 @if($isTimeLog)
-                    <div class="pl-time-field">
-                        <i class="bi bi-alarm-fill"></i>
-                        <input type="time" step="60"
-                               value="{{ \App\Models\Routine::minutesToTimeValue($logVal) }}" aria-label="{{ __($routine->value_label ?: $routine->trackingLabel()) }}">
-                    </div>
+                    <x-time-picker :id="'tp-row-' . $routine->id . '-' . $routineDate->toDateString()"
+                                   :value="\App\Models\Routine::minutesToTimeValue($logVal ?? $routine->scheduledReferenceMinutes())"
+                                   :compact="true" />
                 @else
                     <input type="number" step="any" min="0" placeholder="{{ __($routine->value_label ?: $routine->trackingLabel()) }}"
                            value="{{ $logVal }}" aria-label="{{ __($routine->value_label ?: $routine->trackingLabel()) }}">

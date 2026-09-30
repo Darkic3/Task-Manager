@@ -128,8 +128,6 @@
     .pl-modal-body .pl-logset input{width:76px;padding:5px 9px;font-size:12.5px;}
     .pl-modal-body .pl-steps{gap:7px;}
     .pl-modal-body .pl-step{font-size:12px;padding:4px 12px;}
-    .pl-modal-body .pl-time-field{width:100%;justify-content:flex-start;}
-    .pl-modal-body .pl-time-field input[type="time"]{flex:1;width:auto;font-size:15px;padding:8px 0;}
     body.pl-modal-open{overflow:hidden;}
     .pl-details{display:none;}
     .pl-details.open{display:block;}
@@ -335,21 +333,6 @@
     .pl-log{display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap;}
     .pl-log input{width:110px;padding:4px 9px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;}
     .pl-log input:focus{border-color:#c4b5fd;}
-    /* clock-time field: alarm icon + native time picker fused into one pill */
-    .pl-time-field{
-        display:inline-flex;align-items:center;gap:7px;padding:0 11px;
-        border:1.5px solid #ddd6fe;border-radius:11px;
-        background:linear-gradient(180deg,#fdfcff 0%,#f6f3ff 100%);
-        transition:border-color .15s,box-shadow .15s;
-    }
-    .pl-time-field > i{color:#7c3aed;font-size:13px;}
-    .pl-time-field:hover{border-color:#c4b5fd;}
-    .pl-time-field:focus-within{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.14);}
-    .pl-time-field input[type="time"]{
-        border:none;background:transparent;outline:none;box-shadow:none;
-        width:90px;padding:6px 0;font-size:13.5px;font-weight:700;color:#1a1d23;
-        letter-spacing:.6px;font-variant-numeric:tabular-nums;color-scheme:light;
-    }
     .pl-log button,.pl-logset button{
         display:inline-flex;align-items:center;gap:4px;
         padding:4px 12px;border-radius:8px;border:1px solid #c4b5fd;background:#faf5ff;
@@ -540,15 +523,6 @@
         background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
         border:1.5px solid #e2e8f0;border-radius:13px;padding:12px 14px;
     }
-    .pl-qa-time-box{
-        display:flex;align-items:center;gap:12px;background:#fdf4ff;
-        border:2px solid #e879f9;border-radius:14px;padding:10px 16px;
-    }
-    .pl-time-modal-input{
-        border:none !important;background:transparent !important;font-size:26px !important;
-        color:#701a75 !important;letter-spacing:1px;
-    }
-    .pl-time-modal-input:focus{box-shadow:none !important;}
     .pl-preset-chip{
         border:1.5px solid #e2e8f0;background:#ffffff;color:#334155;border-radius:18px;
         padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;
@@ -1289,8 +1263,8 @@
 
     async function logRoutineValue(btn) {
         const box = btn.closest('[data-log-value]');
-        const input = box.querySelector('input');
-        const isTime = input.type === 'time';
+        const input = box.querySelector('input[data-tp-value]') || box.querySelector('input');
+        const isTime = box.dataset.kind === 'time';
         let value;
         if (isTime) {
             if (!input.value) { input.focus(); return; }
@@ -1971,7 +1945,8 @@
                 panel.style.display = 'block';
                 document.getElementById('plModalTimeLabel').textContent = plNextUpActiveData.valueLabel || '{{ __('Wake-up Time') }}';
                 const timeInp = document.getElementById('plModalTimeInput');
-                timeInp.value = formatNowTime();
+                if (window.TimePicker) { window.TimePicker.setNow('plModalTime'); }
+                else if (timeInp) { timeInp.value = formatNowTime(); }
                 if (btnText) btnText.textContent = '{{ __('Log Time') }}';
             } else {
                 const panel = document.getElementById('plModalPanelValue');
@@ -2050,22 +2025,14 @@
     }
 
     function plSetTimePreset(val) {
-        const inp = document.getElementById('plModalTimeInput');
-        if (!inp) return;
-        inp.value = val === 'now' ? formatNowTime() : val;
+        if (!window.TimePicker) return;
+        if (val === 'now') window.TimePicker.setNow('plModalTime');
+        else window.TimePicker.setValue('plModalTime', val);
     }
 
     function plAdjustTimeMinutes(delta) {
-        const inp = document.getElementById('plModalTimeInput');
-        if (!inp) return;
-        const cur = inp.value || formatNowTime();
-        const parts = cur.split(':');
-        let total = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0) + delta;
-        if (total < 0) total += 1440;
-        total = total % 1440;
-        const h = Math.floor(total / 60);
-        const m = total % 60;
-        inp.value = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+        if (!window.TimePicker) return;
+        window.TimePicker.adjust('plModalTime', delta);
     }
 
     function plAdjustValue(delta) {

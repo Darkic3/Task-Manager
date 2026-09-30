@@ -25,6 +25,10 @@ class User extends Authenticatable
         'location',
         'website',
         'locale',
+        'morning_checkin_enabled',
+        'morning_window_start',
+        'morning_window_end',
+        'wake_routine_id',
     ];
 
     /**
@@ -44,7 +48,29 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'morning_checkin_enabled' => 'boolean',
     ];
+
+    /**
+     * The routine used for the morning wake-up check-in.
+     */
+    public function wakeRoutine()
+    {
+        return $this->belongsTo(Routine::class, 'wake_routine_id');
+    }
+
+    /**
+     * Morning check-in window as [start, end] in "H:i" format.
+     *
+     * @return array{0: string, 1: string}
+     */
+    public function morningWindow(): array
+    {
+        return [
+            substr((string) ($this->morning_window_start ?? '04:00:00'), 0, 5),
+            substr((string) ($this->morning_window_end ?? '12:00:00'), 0, 5),
+        ];
+    }
 
     /**
      * Get the projects for the user.

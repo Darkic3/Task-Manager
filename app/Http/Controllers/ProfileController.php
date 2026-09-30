@@ -19,6 +19,16 @@ class ProfileController extends Controller
     public function show()
     {
         $user = Auth::user();
+        $user->loadCount([
+            'tasks',
+            'tasks as completed_tasks_count' => fn ($query) => $query->where('status', 'completed'),
+            'projects',
+            'routines',
+            'notes',
+            'files',
+            'reminders',
+        ]);
+
         return view('profile.show', compact('user'));
     }
 
@@ -117,7 +127,8 @@ class ProfileController extends Controller
      */
     public function showPasswordForm()
     {
-        return view('profile.password');
+        $user = Auth::user();
+        return view('profile.password', compact('user'));
     }
 
     /**

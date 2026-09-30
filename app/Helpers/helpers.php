@@ -96,14 +96,47 @@ if (!function_exists('app_diff_for_humans')) {
                 $date = Carbon::parse($date);
             }
 
+            if ($date->greaterThan(now()->subMinute())) {
+                return __('Just now');
+            }
+
             if (app()->getLocale() === 'fa') {
-                return Jalalian::fromCarbon($date)->ago();
+                return app_num(Jalalian::fromCarbon($date)->ago());
             }
 
             return $date->diffForHumans();
         } catch (\Throwable $e) {
             return (string) $date;
         }
+    }
+}
+
+if (!function_exists('app_num')) {
+    /**
+     * Localize digits for numbers rendered in the UI (Persian digits for "fa").
+     */
+    function app_num($value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        if (app()->getLocale() !== 'fa') {
+            return (string) $value;
+        }
+
+        return strtr((string) $value, [
+            '0' => '۰',
+            '1' => '۱',
+            '2' => '۲',
+            '3' => '۳',
+            '4' => '۴',
+            '5' => '۵',
+            '6' => '۶',
+            '7' => '۷',
+            '8' => '۸',
+            '9' => '۹',
+        ]);
     }
 }
 

@@ -9,15 +9,52 @@
     <link rel="shortcut icon" href="{{ asset('assets/img/logo-circle.png') }}" type="image/x-icon">
     @if(app()->getLocale() === 'fa')
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     @else
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     @endif
+    <style>
+        /* ── Self-hosted variable fonts (no external requests) ── */
+        @font-face {
+            font-family: 'Vazirmatn';
+            font-style: normal;
+            font-weight: 100 900;
+            font-display: swap;
+            src: url('{{ asset('assets/fonts/vazirmatn-arabic.woff2') }}') format('woff2');
+            unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+        }
+        @font-face {
+            font-family: 'Vazirmatn';
+            font-style: normal;
+            font-weight: 100 900;
+            font-display: swap;
+            src: url('{{ asset('assets/fonts/vazirmatn-latin-ext.woff2') }}') format('woff2');
+            unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+        }
+        @font-face {
+            font-family: 'Vazirmatn';
+            font-style: normal;
+            font-weight: 100 900;
+            font-display: swap;
+            src: url('{{ asset('assets/fonts/vazirmatn-latin.woff2') }}') format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 100 900;
+            font-display: swap;
+            src: url('{{ asset('assets/fonts/inter-latin-ext.woff2') }}') format('woff2');
+            unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+        }
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 100 900;
+            font-display: swap;
+            src: url('{{ asset('assets/fonts/inter-latin.woff2') }}') format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }
+    </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -766,7 +803,7 @@
                     <img src="{{ Storage::url(Auth::user()->avatar) }}" alt="{{ Auth::user()->name }}" class="user-avatar" style="object-fit: cover;">
                 @else
                     <div class="user-avatar">
-                        {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
+                        {{ mb_strtoupper(mb_substr(Auth::user()->name, 0, 1)) }}
                     </div>
                 @endif
                 <div class="user-info">

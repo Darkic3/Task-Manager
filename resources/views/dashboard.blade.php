@@ -429,6 +429,8 @@
     <div id="plConfetti" aria-hidden="true"></div>
     <div id="plToast" role="status"></div>
 
+    @include('dashboard._morning-checkin-modal')
+
 </div>
 @endsection
 

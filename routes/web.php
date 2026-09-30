@@ -170,4 +170,5 @@ Route::middleware(['auth'])->group(function () {
     // Dashboard routes
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/productivity-data', [DashboardController::class, 'getProductivityData'])->name('dashboard.productivity-data');
+    Route::post('/morning-check-in/dismiss', [DashboardController::class, 'dismissMorningCheckin'])->name('morning-checkin.dismiss');
 });
