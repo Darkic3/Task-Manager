@@ -110,9 +110,10 @@ class NoteQueryService
      */
     public function facets(int $userId, array $filters): array
     {
-        $total = $this->build($userId, $filters)->toBase()->getCountForPagination();
+        $total = $this->build($userId, $filters)->reorder()->toBase()->getCountForPagination();
 
         $kindCounts = $this->build($userId, array_merge($filters, ['kind' => []]))
+            ->reorder()
             ->selectRaw('kind, count(*) as aggregate')
             ->groupBy('kind')
             ->pluck('aggregate', 'kind');
@@ -126,6 +127,7 @@ class NoteQueryService
             ->pluck('aggregate', 'id');
 
         $notebookCounts = $this->build($userId, array_merge($filters, ['notebook' => null]))
+            ->reorder()
             ->whereNotNull('notebook_id')
             ->selectRaw('notebook_id, count(*) as aggregate')
             ->groupBy('notebook_id')
@@ -138,13 +140,13 @@ class NoteQueryService
                 ->all(),
             'labels' => $labelCounts->map(fn ($v) => (int) $v)->all(),
             'notebooks' => $notebookCounts->map(fn ($v) => (int) $v)->all(),
-            'favorite' => $this->build($userId, array_merge($filters, ['favorite' => false]))->favorites()->toBase()->getCountForPagination(),
-            'pinned' => $this->build($userId, array_merge($filters, ['pinned' => false]))->pinned()->toBase()->getCountForPagination(),
+            'favorite' => $this->build($userId, array_merge($filters, ['favorite' => false]))->reorder()->favorites()->toBase()->getCountForPagination(),
+            'pinned' => $this->build($userId, array_merge($filters, ['pinned' => false]))->reorder()->pinned()->toBase()->getCountForPagination(),
             'today' => $this->build($userId, array_merge($filters, ['from' => null, 'to' => null]))
-                ->onDate(now())->toBase()->getCountForPagination(),
-            'archived' => Note::ofUser($userId)->archived()->toBase()->getCountForPagination(),
+                ->reorder()->onDate(now())->toBase()->getCountForPagination(),
+            'archived' => Note::ofUser($userId)->reorder()->archived()->toBase()->getCountForPagination(),
             'unfiled' => $this->build($userId, array_merge($filters, ['notebook' => null]))
-                ->whereNull('notebook_id')->toBase()->getCountForPagination(),
+                ->reorder()->whereNull('notebook_id')->toBase()->getCountForPagination(),
         ];
     }
 
@@ -156,12 +158,14 @@ class NoteQueryService
         $from = now()->subDays($days - 1)->startOfDay();
 
         $rows = $this->build($userId, array_merge($filters, ['from' => null, 'to' => null]))
+            ->reorder()
             ->where(function ($q) use ($from) {
                 $q->where('occurred_at', '>=', $from)
                     ->orWhere(function ($q) use ($from) {
                         $q->whereNull('occurred_at')->where('date', '>=', $from->toDateString());
                     });
             })
+            ->groupBy(DB::raw('COALESCE(date(occurred_at), date(date))'))
             ->toBase()
             ->get([
                 DB::raw('COALESCE(date(occurred_at), date(date)) as d'),
