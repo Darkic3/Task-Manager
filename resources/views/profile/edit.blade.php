@@ -74,6 +74,27 @@
 .cu-err  { font-size: 11px; color: #dc2626; margin-top: 3px; }
 .cu-hint { font-size: 11px; color: #9ca3af; margin-top: 3px; }
 
+/* Morning check-in toggle switch */
+.cu-switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+.cu-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.cu-switch-track {
+    width: 40px; height: 22px; flex: none; border-radius: 999px;
+    background: #d3d5db; position: relative; transition: background .18s ease;
+}
+.cu-switch-thumb {
+    position: absolute; top: 2px; inset-inline-start: 2px;
+    width: 18px; height: 18px; border-radius: 50%; background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .18s ease;
+}
+.cu-switch input:checked + .cu-switch-track { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+.cu-switch input:checked + .cu-switch-track .cu-switch-thumb { transform: translateX(18px); }
+html[dir="rtl"] .cu-switch input:checked + .cu-switch-track .cu-switch-thumb { transform: translateX(-18px); }
+.cu-switch input:focus-visible + .cu-switch-track { box-shadow: 0 0 0 3px rgba(99,102,241,.25); }
+.cu-switch-label { font-size: 13px; font-weight: 600; color: #1a1d23; }
+#morning-checkin-fields { margin-top: 4px; transition: opacity .18s ease; }
+#morning-checkin-fields.is-off { opacity: .45; }
+#morning-checkin-fields.is-off input, #morning-checkin-fields.is-off select { pointer-events: none; }
+
 .cu-action-bar {
     background: white; border: 1px solid #e3e4e8; border-radius: 8px;
     padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px;
@@ -184,10 +205,6 @@
             </div>
         </div>
     </div>
-
-    @if(session('success'))
-    <div class="cu-alert-success"><i class="bi bi-check-circle-fill"></i> {{ session('success') }}</div>
-    @endif
 
     <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data" id="profile-form">
         @csrf
@@ -302,6 +319,54 @@
                     </div>
                 </div>
 
+                {{-- Morning Check-in --}}
+                <div class="cu-section">
+                    <div class="cu-section-header">
+                        <span class="cu-section-icon amber"><i class="bi bi-sunrise"></i></span>
+                        <span class="cu-section-title">{{ __('Morning Check-in') }}</span>
+                        <span class="cu-section-sub">{{ __('Log your wake-up time first thing after login') }}</span>
+                    </div>
+                    <div class="cu-section-body">
+                        <div class="cu-field">
+                            <label class="cu-switch">
+                                <input type="checkbox" id="morning_checkin_enabled" name="morning_checkin_enabled" value="1" {{ old('morning_checkin_enabled', $user->morning_checkin_enabled) ? 'checked' : '' }}>
+                                <span class="cu-switch-track" aria-hidden="true"><span class="cu-switch-thumb"></span></span>
+                                <span class="cu-switch-label">{{ __('Enable morning check-in') }}</span>
+                            </label>
+                            <p class="cu-hint">{{ __('When enabled, you will be asked to log your wake-up time when you log in during the morning window.') }}</p>
+                            @error('morning_checkin_enabled')<p class="cu-err">{{ $message }}</p>@enderror
+                        </div>
+                        <div id="morning-checkin-fields">
+                            <div class="cu-field">
+                                <label for="wake_routine_id" class="cu-label">{{ __('Wake-up routine') }}</label>
+                                <select id="wake_routine_id" name="wake_routine_id" class="cu-input @error('wake_routine_id') is-invalid @enderror">
+                                    <option value="">{{ __('Select a routine') }}</option>
+                                    @foreach($wakeRoutines as $routine)
+                                        <option value="{{ $routine->id }}" {{ (string) old('wake_routine_id', $user->wake_routine_id ?? '') === (string) $routine->id ? 'selected' : '' }}>{{ $routine->title }}</option>
+                                    @endforeach
+                                </select>
+                                @error('wake_routine_id')<p class="cu-err">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="cu-field-row">
+                                <div class="cu-field">
+                                    <label for="morning_window_start" class="cu-label">{{ __('Window start') }}</label>
+                                    <input type="time" id="morning_window_start" name="morning_window_start" dir="ltr"
+                                           class="cu-input @error('morning_window_start') is-invalid @enderror"
+                                           value="{{ old('morning_window_start', substr((string) ($user->morning_window_start ?? '04:00'), 0, 5)) }}">
+                                    @error('morning_window_start')<p class="cu-err">{{ $message }}</p>@enderror
+                                </div>
+                                <div class="cu-field">
+                                    <label for="morning_window_end" class="cu-label">{{ __('Window end') }}</label>
+                                    <input type="time" id="morning_window_end" name="morning_window_end" dir="ltr"
+                                           class="cu-input @error('morning_window_end') is-invalid @enderror"
+                                           value="{{ old('morning_window_end', substr((string) ($user->morning_window_end ?? '12:00'), 0, 5)) }}">
+                                    @error('morning_window_end')<p class="cu-err">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="cu-action-bar">
                     <a href="{{ route('profile.show') }}" class="cu-btn-cancel"><i class="bi bi-x-lg"></i> {{ __('Cancel') }}</a>
                     <button type="submit" class="cu-btn-save"><i class="bi bi-check-lg"></i> {{ __('Update Profile') }}</button>
@@ -349,6 +414,14 @@ document.addEventListener('DOMContentLoaded', function () {
         avatarInput.value = '';
         avatarSel.classList.remove('show');
     };
+
+    var mcToggle = document.getElementById('morning_checkin_enabled');
+    var mcFields = document.getElementById('morning-checkin-fields');
+    function syncMorningFields() {
+        if (!mcToggle || !mcFields) return;
+        mcFields.classList.toggle('is-off', !mcToggle.checked);
+    }
+    if (mcToggle) { mcToggle.addEventListener('change', syncMorningFields); syncMorningFields(); }
 
     if (delBtn) {
         delBtn.addEventListener('click', function () {

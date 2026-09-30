@@ -168,10 +168,6 @@
         </div>
     </div>
 
-    @if(session('success'))
-    <div class="cu-alert-success"><i class="bi bi-check-circle-fill"></i> {{ session('success') }}</div>
-    @endif
-
     <div class="cu-layout">
         {{-- Left panel --}}
         <div class="cu-info-panel">
