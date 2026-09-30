@@ -11,6 +11,11 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\MailController;
 use App\Http\Controllers\NoteController;
+use App\Http\Controllers\NotebookController;
+use App\Http\Controllers\NoteExportController;
+use App\Http\Controllers\NoteLabelController;
+use App\Http\Controllers\NoteLinkController;
+use App\Http\Controllers\NoteQuickCaptureController;
 use App\Http\Controllers\PlannerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
@@ -89,9 +94,33 @@ Route::middleware(['auth'])->group(function () {
     Route::get('routines/monthly', [RoutineController::class, 'showMonthly'])->name('routines.showMonthly');
     Route::get('/track', [TrackController::class, 'index'])->name('track.index');
     Route::resource('files', FileController::class);
-    Route::resource('notes', NoteController::class);
+
+    // ── Notes ───────────────────────────────────────────────────
+    // Static segments MUST be registered before Route::resource('notes'),
+    // otherwise notes/{note} swallows them.
+    Route::post('notes/quick-capture', [NoteQuickCaptureController::class, 'store'])->name('notes.quick-capture');
+    Route::get('notes/mentions', [NoteQuickCaptureController::class, 'mentions'])->name('notes.mentions');
+    Route::get('notes/timeline', [NoteController::class, 'index'])->defaults('view', 'timeline')->name('notes.timeline');
+    Route::get('notes/export/markdown', [NoteExportController::class, 'markdown'])->name('notes.export.markdown');
+    Route::get('notes/backlinks/{type}', [NoteLinkController::class, 'backlinks'])->name('notes.backlinks.index');
+    Route::get('notes/{note}/revisions', [NoteController::class, 'revisions'])->name('notes.revisions.index');
+    Route::post('notes/{note}/revisions/{revision}/restore', [NoteController::class, 'restoreRevision'])->name('notes.revisions.restore');
+    Route::post('notes/{note}/toggle-pin', [NoteController::class, 'togglePin'])->name('notes.toggle-pin');
+    Route::post('notes/{note}/toggle-archive', [NoteController::class, 'toggleArchive'])->name('notes.toggle-archive');
     Route::patch('notes/{note}/toggle-favorite', [NoteController::class, 'toggleFavorite'])->name('notes.toggle-favorite');
     Route::post('notes/{note}/duplicate', [NoteController::class, 'duplicate'])->name('notes.duplicate');
+    Route::post('notes/{note}/links', [NoteLinkController::class, 'store'])->name('notes.links.store');
+    Route::delete('notes/{note}/links/{link}', [NoteLinkController::class, 'destroy'])->name('notes.links.destroy');
+    Route::resource('notes', NoteController::class);
+
+    // ── Notebooks & curated labels ──────────────────────────────
+    Route::get('notebooks', [NotebookController::class, 'index'])->name('notebooks.index');
+    Route::post('notebooks/reorder', [NotebookController::class, 'reorder'])->name('notebooks.reorder');
+    Route::resource('notebooks', NotebookController::class)->only(['store', 'update', 'destroy'])
+        ->parameters(['notebooks' => 'notebook']);
+    Route::resource('note-labels', NoteLabelController::class)->only(['store', 'update', 'destroy'])
+        ->parameters(['note-labels' => 'noteLabel']);
+    Route::post('note-labels/{noteLabel}/merge', [NoteLabelController::class, 'merge'])->name('note-labels.merge');
     Route::resource('reminders', ReminderController::class);
     Route::post('reminders/{reminder}/toggle-complete', [ReminderController::class, 'toggleComplete'])->name('reminders.toggle-complete');
     Route::post('reminders/{reminder}/snooze', [ReminderController::class, 'snooze'])->name('reminders.snooze');

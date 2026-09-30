@@ -2,174 +2,289 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\NoteRequest;
 use App\Models\Note;
+use App\Models\NoteLabel;
+use App\Models\NoteRevision;
+use App\Models\NoteSubject;
+use App\Models\Notebook;
+use App\Services\Notes\NoteLinkService;
+use App\Services\Notes\NoteQueryService;
+use App\Services\Notes\NoteRevisionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\JsonResponse;
 
 class NoteController extends Controller
 {
+    public function __construct(
+        private NoteQueryService $queries,
+        private NoteLinkService $links,
+        private NoteRevisionService $revisions,
+    ) {}
+
     public function index(Request $request)
     {
-        $query = Auth::user()->notes()->latest();
+        $userId = (int) Auth::id();
+        $filters = $this->queries->filtersFromRequest($request);
+        $view = $filters['view'];
 
-        // Handle search
-        if ($request->filled('search')) {
-            $query->search($request->search);
+        $notes = $this->queries->build($userId, $filters)
+            ->with(['notebook:id,title,color,icon', 'labels:id,name,slug,color'])
+            ->paginate($view === 'timeline' ? 90 : 30)
+            ->withQueryString();
+
+        if ($request->boolean('partial')) {
+            return response()->json($this->partialPayload($notes, $filters, $userId));
         }
 
-        // Handle category filter
-        if ($request->filled('category') && $request->category !== 'all') {
-            $query->byCategory($request->category);
-        }
+        $facets = $this->queries->facets($userId, $filters);
 
-        // Handle favorites filter
-        if ($request->filled('favorites') && $request->favorites == '1') {
-            $query->favorites();
-        }
-
-        $notes = $query->get();
-
-        // Get categories for filter
-        $categories = Auth::user()->notes()
-            ->whereNotNull('category')
-            ->where('category', '!=', '')
-            ->distinct()
-            ->pluck('category')
-            ->sort();
-
-        if ($request->ajax()) {
-            return response()->json([
-                'html' => view('notes.partials.notes-grid', compact('notes'))->render(),
-                'count' => $notes->count()
-            ]);
-        }
-
-        return view('notes.index', compact('notes', 'categories'));
-    }
-
-    public function create()
-    {
-        $categories = Auth::user()->notes()
-            ->whereNotNull('category')
-            ->where('category', '!=', '')
-            ->distinct()
-            ->pluck('category')
-            ->sort();
-
-        return view('notes.create', compact('categories'));
-    }
-
-    public function store(Request $request)
-    {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'content' => 'required|string',
-            'category' => 'nullable|string|max:100',
-            'tags' => 'nullable|string',
-            'is_favorite' => 'boolean',
-            'date' => 'nullable|date',
-            'time' => 'nullable|date_format:H:i',
+        return view('notes.index', [
+            'notes' => $notes,
+            'filters' => $filters,
+            'facets' => $facets,
+            'notebooks' => Notebook::treeFor($userId),
+            'labels' => $this->queries->labelsWithCounts($userId, $filters),
+            'dailyCounts' => $this->queries->dailyCounts($userId, $filters),
+            'kindMeta' => note_kind_meta(),
+            'backlinkTarget' => $this->backlinkTarget($request),
         ]);
-
-        $data = $request->all();
-
-        // Process tags
-        if ($request->filled('tags')) {
-            $data['tags'] = array_map('trim', explode(',', $request->tags));
-        }
-
-        Auth::user()->notes()->create($data);
-
-        return redirect()->route('notes.index')->with('success', 'Note created successfully.');
     }
 
-    public function show(Note $note)
+    private function partialPayload($notes, array $filters, int $userId): array
     {
-        if ($note->user_id !== Auth::id()) {
-            abort(403);
+        return [
+            'html' => view('notes.partials._results', [
+                'notes' => $notes,
+                'filters' => $filters,
+                'kindMeta' => note_kind_meta(),
+            ])->render(),
+            'sidebar' => view('notes.partials._sidebar', [
+                'notebooks' => Notebook::treeFor($userId),
+                'labels' => $this->queries->labelsWithCounts($userId, $filters),
+                'facets' => $this->queries->facets($userId, $filters),
+                'filters' => $filters,
+                'kindMeta' => note_kind_meta(),
+            ])->render(),
+            'total' => $notes->total(),
+        ];
+    }
+
+    private function backlinkTarget(Request $request): ?array
+    {
+        $type = $request->query('linked_type');
+        $id = (int) $request->query('linked_id');
+
+        if (! $type || $id <= 0) {
+            return null;
         }
-        return view('notes.show', compact('note'));
+
+        return ['type' => $type, 'id' => $id, 'label' => (string) $request->query('linked_label', '')];
+    }
+
+    public function create(Request $request)
+    {
+        $userId = (int) Auth::id();
+
+        return view('notes.create', [
+            'note' => new Note([
+                'kind' => $request->query('kind', Note::KIND_GENERAL),
+                'occurred_at' => now(),
+            ]),
+            'notebooks' => Notebook::treeFor($userId),
+            'labels' => NoteLabel::ofUser($userId)->orderBy('name')->get(),
+            'selectedLabels' => [],
+            'selectedFiles' => [],
+            'kindMeta' => note_kind_meta(),
+        ]);
+    }
+
+    public function store(NoteRequest $request)
+    {
+        $note = Auth::user()->notes()->create($request->noteAttributes(true));
+
+        $tags = $request->legacyTags();
+        if ($tags !== null) {
+            $note->tags = $tags;
+            $note->save();
+        }
+
+        $this->links->syncFromText($note, (string) $note->content, $request->mentions());
+        $this->syncLabels($note, $request->labelIds());
+        $this->syncFiles($note, $request->fileIds());
+
+        return redirect()
+            ->route('notes.show', $note)
+            ->with('success', __('Note created successfully.'));
+    }
+
+    public function show(Request $request, Note $note)
+    {
+        $this->authorize('view', $note);
+
+        $note->load(['notebook', 'labels', 'links.linkable', 'attachments.file', 'parentNote:id,title']);
+
+        return view('notes.show', [
+            'note' => $note,
+            'linkGroups' => $this->links->grouped($note),
+            'backlinks' => $this->links->noteBacklinks($note),
+            'subjectBacklinks' => $note->links
+                ->where('linkable_type', NoteSubject::class)
+                ->get()
+                ->flatMap(fn ($l) => $this->links->backlinks($note, NoteSubject::class, $l->linkable_id))
+                ->unique('id')
+                ->values(),
+            'revisions' => $note->revisions()->latest()->limit(20)->get(),
+            'notebooks' => Notebook::treeFor((int) Auth::id()),
+        ]);
     }
 
     public function edit(Note $note)
     {
-        if ($note->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $note);
 
-        $categories = Auth::user()->notes()
-            ->whereNotNull('category')
-            ->where('category', '!=', '')
-            ->distinct()
-            ->pluck('category')
-            ->sort();
+        $userId = (int) Auth::id();
+        $note->load(['labels', 'links.linkable', 'attachments.file']);
 
-        return view('notes.edit', compact('note', 'categories'));
+        return view('notes.edit', [
+            'note' => $note,
+            'notebooks' => Notebook::treeFor($userId),
+            'labels' => NoteLabel::ofUser($userId)->orderBy('name')->get(),
+            'selectedLabels' => $note->labels->pluck('id')->all(),
+            'selectedFiles' => $note->attachments->pluck('file_id')->all(),
+            'mentionPicks' => $note->links
+                ->filter(fn ($l) => $l->linkable_type !== NoteSubject::class)
+                ->map(fn ($l) => ['type' => strtolower(class_basename($l->linkable_type)), 'id' => $l->linkable_id, 'name' => $l->label])
+                ->values()
+                ->all(),
+            'kindMeta' => note_kind_meta(),
+        ]);
     }
 
-    public function update(Request $request, Note $note)
+    public function update(NoteRequest $request, Note $note)
     {
-        if ($note->user_id !== Auth::id()) {
-            abort(403);
+        $this->authorize('update', $note);
+
+        $changed = $this->revisions->changedFields($note, $request->noteAttributes(false));
+
+        if ($changed !== []) {
+            $this->revisions->snapshot($note, NoteRevision::SOURCE_USER, null, $changed);
         }
 
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'content' => 'required|string',
-            'category' => 'nullable|string|max:100',
-            'tags' => 'nullable|string',
-            'is_favorite' => 'boolean',
-            'date' => 'nullable|date',
-            'time' => 'nullable|date_format:H:i',
-        ]);
+        $note->fill($request->noteAttributes(false));
 
-        $data = $request->all();
-
-        // Process tags
-        if ($request->filled('tags')) {
-            $data['tags'] = array_map('trim', explode(',', $request->tags));
+        $tags = $request->legacyTags();
+        if ($tags !== null) {
+            $note->tags = $tags;
         }
 
-        $note->update($data);
+        $note->save();
 
-        return redirect()->route('notes.index')->with('success', 'Note updated successfully.');
+        $this->links->syncFromText($note, (string) $note->content, $request->mentions());
+        $this->syncLabels($note, $request->labelIds());
+        $this->syncFiles($note, $request->fileIds());
+
+        return redirect()
+            ->route('notes.show', $note)
+            ->with('success', __('Note updated successfully.'));
     }
 
     public function destroy(Note $note)
     {
-        if ($note->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('delete', $note);
 
         $note->delete();
-        return redirect()->route('notes.index')->with('success', 'Note deleted successfully.');
+
+        return redirect()->route('notes.index')->with('success', __('Note deleted successfully.'));
     }
 
     public function toggleFavorite(Note $note): JsonResponse
     {
-        if ($note->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $note);
 
-        $note->update(['is_favorite' => !$note->is_favorite]);
+        $note->update(['is_favorite' => ! $note->is_favorite]);
 
-        return response()->json([
-            'success' => true,
-            'is_favorite' => $note->is_favorite
+        return response()->json(['success' => true, 'is_favorite' => $note->is_favorite]);
+    }
+
+    public function togglePin(Note $note): JsonResponse
+    {
+        $this->authorize('update', $note);
+
+        $note->update(['is_pinned' => ! $note->is_pinned]);
+
+        return response()->json(['success' => true, 'is_pinned' => $note->is_pinned]);
+    }
+
+    public function toggleArchive(Note $note): JsonResponse
+    {
+        $this->authorize('update', $note);
+
+        $note->update([
+            'status' => $note->status === Note::STATUS_ARCHIVED ? Note::STATUS_ACTIVE : Note::STATUS_ARCHIVED,
         ]);
+
+        return response()->json(['success' => true, 'status' => $note->status]);
     }
 
     public function duplicate(Note $note)
     {
-        if ($note->user_id !== Auth::id()) {
-            abort(403);
+        $this->authorize('view', $note);
+
+        $copy = $note->replicate(['id', 'created_at', 'updated_at']);
+        $copy->title = $note->title.' ('.__('Copy').')';
+        $copy->is_pinned = false;
+        $copy->is_favorite = false;
+        $copy->save();
+
+        $copy->labels()->sync($note->labels->pluck('id')->all());
+
+        return redirect()->route('notes.show', $copy)->with('success', __('Note duplicated successfully.'));
+    }
+
+    public function revisions(Note $note)
+    {
+        $this->authorize('view', $note);
+
+        return response()->json([
+            'html' => view('notes.partials._revisions', [
+                'note' => $note,
+                'revisions' => $note->revisions()->latest()->limit(50)->get(),
+            ])->render(),
+        ]);
+    }
+
+    public function restoreRevision(Note $note, NoteRevision $revision): JsonResponse
+    {
+        $this->authorize('update', $note);
+
+        if ((int) $revision->note_id !== (int) $note->id) {
+            return response()->json(['success' => false, 'message' => __('Invalid revision.')], 422);
         }
 
-        $newNote = $note->replicate();
-        $newNote->title = $note->title . ' (Copy)';
-        $newNote->save();
+        $this->revisions->restore($note, $revision);
 
-        return redirect()->route('notes.index')->with('success', 'Note duplicated successfully.');
+        return response()->json(['success' => true, 'message' => __('Note restored.')]);
+    }
+
+    private function syncLabels(Note $note, array $labelIds): void
+    {
+        // Only replace the set when the form actually submitted it, otherwise a
+        // partial request would silently wipe existing labels.
+        if ($note->exists && ! request()->has('label_ids')) {
+            return;
+        }
+
+        $note->labels()->sync($labelIds);
+    }
+
+    private function syncFiles(Note $note, array $fileIds): void
+    {
+        if ($note->exists && ! request()->has('file_ids')) {
+            return;
+        }
+
+        $note->attachments()->sync($fileIds);
     }
 }
