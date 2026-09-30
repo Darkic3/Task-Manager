@@ -24,7 +24,7 @@
     @endif
 
     <div class="row g-3">
-        {{-- ── Body ── }}
+{{--  ── Body ── }}--}}
         <div class="col-lg-8">
             <div class="panel">
                 <div class="card-body">
@@ -62,7 +62,7 @@
             </div>
         </div>
 
-        {{-- ── Sidebar ── }}
+{{--  ── Sidebar ── }}--}}
         <div class="col-lg-4">
             <div class="panel mb-3">
                 <div class="card-header"><i class="bi bi-sliders"></i> {{ __('Details') }}</div>
