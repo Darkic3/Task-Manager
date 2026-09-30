@@ -949,5 +949,7 @@
     "Use a different password for every account.": "برای هر حساب یک رمز عبور متفاوت استفاده کنید.",
     "Keep it safe": " آن را ایمن نگه دارید",
     "Store it in a password manager, not in a note.": "آن را در یک مدیر رمز عبور نگه دارید، نه در یادداشت.",
-    "You will stay signed in on this device.": "در این دستگاه همچنان وارد حساب خود می‌مانید."
+    "You will stay signed in on this device.": "در این دستگاه همچنان وارد حساب خود می‌مانید.",
+    "Menu": "منو",
+    "Navigation": "ناوبری"
 }

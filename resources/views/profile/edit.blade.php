@@ -8,12 +8,7 @@
 @php
     $isFa = app()->getLocale() === 'fa';
 
-    $initials = collect(preg_split('/\s+/u', trim($user->name)) ?: [])
-        ->filter()
-        ->take(2)
-        ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
-        ->implode('');
-    $initials = $initials !== '' ? $initials : mb_strtoupper(mb_substr($user->name, 0, 2));
+    $initials = name_initials($user->name, 2);
 
     $bioLength = mb_strlen((string) old('bio', $user->bio));
 @endphp

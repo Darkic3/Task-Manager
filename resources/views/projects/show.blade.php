@@ -189,7 +189,7 @@
 
     <div class="pj-head">
         <div class="pj-avatar" style="background:{{ $projectColor }};">
-            {{ strtoupper(substr($project->name,0,1)) }}
+            {{ name_initials($project->name) }}
         </div>
         <h1 class="pj-title">{{ $project->name }}</h1>
         <span class="pj-chip {{ $chip['class'] }}">{{ $chip['label'] }}</span>
@@ -232,7 +232,7 @@
             @foreach($project->children as $child)
                 @php $childProgress = $child->progressPercent(); @endphp
                 <a href="{{ route('projects.show', $child) }}" class="pj-row">
-                    <div class="pj-row-av" style="background:#7c3aed;">{{ strtoupper(substr($child->name,0,1)) }}</div>
+                    <div class="pj-row-av" style="background:#7c3aed;">{{ name_initials($child->name) }}</div>
                     <div class="pj-row-main">
                         <div class="pj-row-title">{{ $child->name }}</div>
                         <div class="pj-row-sub">{{ $child->tasks->count() }} tasks</div>
@@ -284,7 +284,7 @@
         @forelse($teamMembers as $member)
             <div class="pj-row">
                 <div class="pj-row-av round" style="background:{{ $colors[strlen($member->name) % count($colors)] }};">
-                    {{ strtoupper(substr($member->name,0,1)) }}
+                    {{ name_initials($member->name) }}
                 </div>
                 <div class="pj-row-main">
                     <div class="pj-row-title">{{ $member->name }}</div>

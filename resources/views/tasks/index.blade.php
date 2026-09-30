@@ -592,7 +592,7 @@
             <div style="font-size:12px;color:#3d4149;">
                 @if($task->user)
                     <div style="display:flex;align-items:center;gap:6px;">
-                        <div class="cu-assignee" style="width:24px;height:24px;font-size:10px;">{{ strtoupper(substr($task->user->name,0,1)) }}</div>
+                        <div class="cu-assignee" style="width:24px;height:24px;font-size:10px;">{{ name_initials($task->user->name) }}</div>
                         <span>{{ $task->user->name }}</span>
                     </div>
                 @else

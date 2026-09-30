@@ -687,7 +687,7 @@
                     <div class="cu-card-body">
                         <div class="cu-card-top">
                             <div class="cu-avatar" style="background:{{ $projectColor }};">
-                                {{ strtoupper(substr($project->name, 0, 1)) }}
+                                {{ name_initials($project->name) }}
                             </div>
                             <div class="cu-card-text">
                                 <div class="cu-card-name" title="{{ $project->name }}">{{ $project->name }}</div>
@@ -724,7 +724,7 @@
                                 <span class="d-flex align-items-center gap-1">
                                     <div class="cu-team-avatars">
                                         @foreach($project->teamMembers->take(3) as $member)
-                                            <div class="cu-team-avatar" title="{{ $member->name }}">{{ strtoupper(substr($member->name,0,1)) }}</div>
+                                            <div class="cu-team-avatar" title="{{ $member->name }}">{{ name_initials($member->name) }}</div>
                                         @endforeach
                                         @if($teamCount > 3)<div class="cu-team-avatar">+{{ $teamCount - 3 }}</div>@endif
                                     </div>
@@ -774,7 +774,7 @@
                      data-progress="{{ $progress }}"
                      data-created="{{ $project->created_at->timestamp }}">
                     <div class="cu-list-name">
-                        <div class="cu-list-avatar" style="background:{{ $projectColor }};">{{ strtoupper(substr($project->name,0,1)) }}</div>
+                        <div class="cu-list-avatar" style="background:{{ $projectColor }};">{{ name_initials($project->name) }}</div>
                         <span title="{{ $project->name }}">{{ $project->name }}</span>
                     </div>
                     <div class="cu-list-meta col-meta">

@@ -111,6 +111,27 @@ if (!function_exists('app_diff_for_humans')) {
     }
 }
 
+if (!function_exists('name_initials')) {
+    /**
+     * Initials for avatar placeholders (multibyte safe, e.g. "Sara Mohammadi" -> "SM").
+     */
+    function name_initials(?string $name, int $limit = 1): string
+    {
+        $name = trim((string) $name);
+        if ($name === '') {
+            return '';
+        }
+
+        $initials = collect(preg_split('/\s+/u', $name) ?: [])
+            ->filter()
+            ->take($limit)
+            ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
+            ->implode('');
+
+        return $initials !== '' ? $initials : mb_strtoupper(mb_substr($name, 0, $limit));
+    }
+}
+
 if (!function_exists('app_num')) {
     /**
      * Localize digits for numbers rendered in the UI (Persian digits for "fa").

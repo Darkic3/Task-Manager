@@ -76,7 +76,7 @@
         @endif
 
         <span class="cu-assignee" title="{{ $task->user?->name ?? __('Unassigned') }}">
-            {{ strtoupper(substr($task->user?->name ?? '—', 0, 1)) }}
+            {{ name_initials($task->user?->name ?? '—') }}
         </span>
 
         @if($task->status !== 'completed')
