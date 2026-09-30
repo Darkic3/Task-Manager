@@ -104,6 +104,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('notes/export/markdown', [NoteExportController::class, 'markdown'])->name('notes.export.markdown');
     Route::get('notes/export/preview', [NoteExportController::class, 'preview'])->name('notes.export.preview');
     Route::post('notes/collections', [\App\Http\Controllers\NoteCollectionController::class, 'store'])->name('notes.collections.store');
+    Route::post('notes/send-to-ai', [\App\Http\Controllers\NoteAiController::class, 'sendCollection'])->name('notes.ai.send');
+    Route::get('notes/{note}/extract', [\App\Http\Controllers\NoteAiController::class, 'extractPreview'])->name('notes.ai.extract');
+    Route::post('notes/{note}/extract', [\App\Http\Controllers\NoteAiController::class, 'extractApply'])->name('notes.ai.extract.apply');
+    Route::post('note-subjects/{subject}/summarize', [\App\Http\Controllers\NoteAiController::class, 'summarizeSubject'])->name('note-subjects.summarize');
     Route::get('notes/collections/{collection}/apply', [\App\Http\Controllers\NoteCollectionController::class, 'apply'])->name('notes.collections.apply');
     Route::delete('notes/collections/{collection}', [\App\Http\Controllers\NoteCollectionController::class, 'destroy'])->name('notes.collections.destroy');
     Route::get('notes/backlinks/{type}', [NoteLinkController::class, 'backlinks'])->name('notes.backlinks.index');

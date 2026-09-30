@@ -4,7 +4,7 @@
     $mood = $note->mood ? note_mood_icon($note->mood) : null;
 @endphp
 
-<article class="nt-card {{ $note->is_pinned ? 'is-pinned' : '' }} {{ $note->status === Note::STATUS_ARCHIVED ? 'is-archived' : '' }}"
+<article class="nt-card {{ $note->is_pinned ? 'is-pinned' : '' }} {{ $note->status === \App\Models\Note::STATUS_ARCHIVED ? 'is-archived' : '' }}"
          data-note-id="{{ $note->id }}">
 
     <div class="nt-card-top">
