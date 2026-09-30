@@ -72,7 +72,7 @@ class NoteQuickCaptureController extends Controller
                 'url' => route('notes.show', $note),
                 'excerpt' => $note->excerpt,
                 'occurred_at' => $note->occurred_at?->toIso8601String(),
-                'labels' => $note->labels()->get(['id', 'name', 'color'])->toArray(),
+                'labels' => $note->labels()->get(['note_labels.id', 'note_labels.name', 'note_labels.color'])->toArray(),
             ],
         ]);
     }

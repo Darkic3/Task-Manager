@@ -31,7 +31,7 @@ class NoteController extends Controller
         $view = $filters['view'];
 
         $notes = $this->queries->build($userId, $filters)
-            ->with(['notebook:id,title,color,icon', 'labels:id,name,slug,color'])
+            ->with(['notebook:id,title,color,icon', 'labels:note_labels.id,note_labels.name,note_labels.slug,note_labels.color'])
             ->paginate($view === 'timeline' ? 90 : 30)
             ->withQueryString();
 
