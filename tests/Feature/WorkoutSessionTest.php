@@ -94,6 +94,146 @@ class WorkoutSessionTest extends TestCase
         $this->actingAs($other)->get(route('workouts.sessions.show', $session))->assertForbidden();
     }
 
+    public function test_starting_a_session_stamps_the_start_instant(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Pull-up', 'normalized_name' => 'pull-up']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $user->id);
+        $day = $plan->days()->first();
+
+        $this->travelTo(now()->startOfMinute());
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-27'])
+            ->assertRedirect();
+        $this->travelBack();
+
+        $session = WorkoutSession::firstOrFail();
+
+        $this->assertNotNull($session->started_at);
+        $this->assertNull($session->ended_at);
+        $this->assertTrue($session->isRunning());
+    }
+
+    public function test_reopening_a_running_session_keeps_the_original_start(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Pull-up', 'normalized_name' => 'pull-up']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $user->id);
+        $day = $plan->days()->first();
+
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-27']);
+
+        $session = WorkoutSession::firstOrFail();
+        $originalStart = $session->started_at->copy();
+
+        $this->travel(90)->seconds();
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-27']);
+        $this->travelBack();
+
+        $this->assertTrue($originalStart->equalTo($session->fresh()->started_at));
+    }
+
+    public function test_finish_records_the_exact_duration_in_seconds(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Pull-up', 'normalized_name' => 'pull-up']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $user->id);
+
+        $this->travelTo(now()->startOfMinute());
+        $this->actingAs($user)->post(route('workouts.sessions.start', $plan->days()->first()), ['date' => '2026-09-27']);
+        $session = WorkoutSession::firstOrFail();
+
+        $this->travel(3725)->seconds();
+
+        $this->actingAs($user)->patch(route('workouts.sessions.finish', $session), [
+            'status' => 'completed',
+        ])->assertRedirect(route('workouts.sessions.show', $session));
+        $this->travelBack();
+
+        $fresh = $session->fresh();
+
+        $this->assertNotNull($fresh->ended_at);
+        $this->assertSame(3725, (int) $fresh->duration_seconds);
+        $this->assertSame(3725, $fresh->elapsedSeconds());
+        $this->assertFalse($fresh->isRunning());
+    }
+
+    public function test_elapsed_seconds_is_live_while_running_and_frozen_after_finish(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Pull-up', 'normalized_name' => 'pull-up']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $user->id);
+
+        $this->travelTo(now()->startOfMinute());
+        $this->actingAs($user)->post(route('workouts.sessions.start', $plan->days()->first()), ['date' => '2026-09-27']);
+        $session = WorkoutSession::firstOrFail();
+
+        $this->travel(120)->seconds();
+        $this->assertSame(120, $session->fresh()->elapsedSeconds());
+
+        $this->travel(300)->seconds();
+        $this->actingAs($user)->patch(route('workouts.sessions.finish', $session), ['status' => 'completed']);
+        $this->travel(600)->seconds();
+        $this->travelBack();
+
+        // Frozen at 420s: the extra 10 minutes must not leak into the duration.
+        $this->assertSame(420, $session->fresh()->elapsedSeconds());
+    }
+
+    public function test_session_page_renders_a_running_timer_anchored_to_the_server(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Pull-up', 'normalized_name' => 'pull-up']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $user->id);
+
+        $this->travelTo(now()->startOfMinute());
+        $this->actingAs($user)->post(route('workouts.sessions.start', $plan->days()->first()), ['date' => '2026-09-27']);
+        $session = WorkoutSession::firstOrFail();
+
+        $this->travel(95)->seconds();
+        $html = $this->actingAs($user)->get(route('workouts.sessions.show', $session))
+            ->assertOk()
+            ->getContent();
+        $startedAtMs = $session->started_at->getTimestampMs();
+        $serverNowMs = now()->getTimestampMs();
+        $this->travelBack();
+
+        $this->assertStringContainsString('data-started-at-ms="'.$startedAtMs.'"', $html);
+        $this->assertStringContainsString('data-server-now-ms="'.$serverNowMs.'"', $html);
+        $this->assertStringContainsString('ws-timer-clock', $html);
+        $this->assertStringContainsString('01:35', $html);
+        $this->assertStringContainsString('is-running', $html);
+    }
+
+    public function test_session_page_shows_the_frozen_duration_after_finish(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Pull-up', 'normalized_name' => 'pull-up']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $user->id);
+
+        $this->travelTo(now()->startOfMinute());
+        $this->actingAs($user)->post(route('workouts.sessions.start', $plan->days()->first()), ['date' => '2026-09-27']);
+        $session = WorkoutSession::firstOrFail();
+
+        $this->travel(500)->seconds();
+        $this->actingAs($user)->patch(route('workouts.sessions.finish', $session), ['status' => 'completed']);
+
+        $this->travel(5000)->seconds();
+        $html = $this->actingAs($user)->get(route('workouts.sessions.show', $session))->getContent();
+        $this->travelBack();
+
+        $this->assertStringContainsString('data-finished-seconds="500"', $html);
+        $this->assertStringContainsString('08:20', $html);
+        $this->assertStringContainsString('is-finished', $html);
+    }
+
+    public function test_duration_formats_with_hours_for_long_sessions(): void
+    {
+        $this->assertSame('05:00', WorkoutSession::formatDuration(300));
+        $this->assertSame('1:00:00', WorkoutSession::formatDuration(3600));
+        $this->assertSame('2:03:04', WorkoutSession::formatDuration(7384));
+        $this->assertSame('00:00', WorkoutSession::formatDuration(0));
+    }
+
     private function planPayload(int $exerciseId): array
     {
         return [

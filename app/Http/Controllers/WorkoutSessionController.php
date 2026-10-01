@@ -26,7 +26,9 @@ class WorkoutSessionController extends Controller
             ['user_id' => auth()->id(), 'status' => WorkoutSession::IN_PROGRESS, 'started_at' => now()]
         );
 
-        if (! $session->started_at) {
+        // Stamp the start the moment the session opens; never overwrite an
+        // in-progress start, and never resurrect a finished one.
+        if (! $session->started_at && ! $session->ended_at) {
             $session->update(['started_at' => now()]);
         }
 
@@ -77,7 +79,20 @@ class WorkoutSessionController extends Controller
 
         $logsByExercise = $workoutSession->exerciseLogs->keyBy('workout_exercise_id');
 
-        return view('workouts.sessions.show', compact('workoutSession', 'previousByExercise', 'logsByExercise'));
+        // Anchor the live timer to the server clock so a skewed client clock
+        // cannot inflate or deflate the recorded duration.
+        $timerStartedAtMs = $workoutSession->started_at?->getTimestampMs() ?? 0;
+        $serverNowMs = now()->getTimestampMs();
+        $finishedSeconds = $workoutSession->ended_at ? $workoutSession->elapsedSeconds() : null;
+
+        return view('workouts.sessions.show', compact(
+            'workoutSession',
+            'previousByExercise',
+            'logsByExercise',
+            'timerStartedAtMs',
+            'serverNowMs',
+            'finishedSeconds',
+        ));
     }
 
     public function saveSet(SaveWorkoutSetRequest $request, WorkoutSession $workoutSession): JsonResponse
@@ -137,12 +152,20 @@ class WorkoutSessionController extends Controller
     public function finish(FinishWorkoutSessionRequest $request, WorkoutSession $workoutSession): RedirectResponse
     {
         $this->authorizeSession($workoutSession);
+
+        $endedAt = $workoutSession->ended_at ?? now();
+        $startedAt = $workoutSession->started_at ?? $endedAt;
+        $durationSeconds = (int) max(0, $endedAt->diffInSeconds($startedAt, true));
+
         $workoutSession->update([
             ...$request->validated(),
-            'ended_at' => now(),
+            'ended_at' => $endedAt,
+            'duration_seconds' => $durationSeconds,
         ]);
 
-        return redirect()->route('workouts.sessions.show', $workoutSession)->with('success', 'Workout session saved.');
+        return redirect()
+            ->route('workouts.sessions.show', $workoutSession)
+            ->with('success', 'Workout session saved.');
     }
 
     private function authorizeDay(WorkoutDay $day): void

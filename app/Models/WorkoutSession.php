@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,7 +20,7 @@ class WorkoutSession extends Model
 
     protected $fillable = [
         'user_id', 'workout_day_id', 'workout_date', 'status', 'started_at',
-        'ended_at', 'session_note', 'pain_note',
+        'ended_at', 'duration_seconds', 'session_note', 'pain_note',
     ];
 
     protected $casts = [
@@ -43,6 +44,32 @@ class WorkoutSession extends Model
         return $this->hasMany(WorkoutExerciseLog::class);
     }
 
+    public function isRunning(): bool
+    {
+        return $this->started_at !== null && $this->ended_at === null;
+    }
+
+    /**
+     * Elapsed seconds so far. Uses the frozen duration_seconds once finished,
+     * otherwise measures live against started_at.
+     */
+    public function elapsedSeconds(?Carbon $now = null): int
+    {
+        if (! $this->started_at) {
+            return 0;
+        }
+
+        if ($this->ended_at) {
+            if ($this->duration_seconds !== null) {
+                return (int) $this->duration_seconds;
+            }
+
+            return (int) max(0, $this->ended_at->diffInSeconds($this->started_at, true));
+        }
+
+        return (int) max(0, ($now ?? now())->diffInSeconds($this->started_at, true));
+    }
+
     public function durationMinutes(): ?int
     {
         if (! $this->started_at || ! $this->ended_at) {
@@ -50,5 +77,16 @@ class WorkoutSession extends Model
         }
 
         return (int) round($this->started_at->diffInMinutes($this->ended_at));
+    }
+
+    public static function formatDuration(int $seconds): string
+    {
+        $h = intdiv($seconds, 3600);
+        $m = intdiv($seconds % 3600, 60);
+        $s = $seconds % 60;
+
+        return $h > 0
+            ? sprintf('%d:%02d:%02d', $h, $m, $s)
+            : sprintf('%02d:%02d', $m, $s);
     }
 }

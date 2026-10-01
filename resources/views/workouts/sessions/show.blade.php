@@ -21,6 +21,21 @@
         font-size: 0.8125rem; font-weight: 600; color: #334155;
     }
 
+    /* Live Session Timer */
+    .ws-timer-pill {
+        font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+        min-width: 5.5rem; justify-content: center;
+    }
+    .ws-timer-clock { font-weight: 800; font-size: 0.9375rem; line-height: 1.1; }
+    .ws-timer-pill.is-running {
+        background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe;
+    }
+    .ws-timer-pill.is-running .ws-timer-clock { color: #4338ca; }
+    .ws-timer-pill.is-running .bi-stopwatch-fill { animation: ws-timer-pulse 2s ease-in-out infinite; }
+    @keyframes ws-timer-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+    .ws-timer-pill.is-finished { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .ws-timer-pill.is-finished .ws-timer-clock { color: #166534; }
+
     /* Exercise Card */
     .ws-card-ex {
         background: white; border: 1px solid #e2e8f0; border-radius: var(--radius-lg);
@@ -144,8 +159,15 @@
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <span class="ws-summary-pill">
-                        <i class="bi bi-stopwatch text-primary"></i> <span id="sessionDuration">{{ $workoutSession->durationMinutes() ?? 0 }}{{ __('m') }}</span>
+                    <span class="ws-summary-pill ws-timer-pill {{ $workoutSession->isRunning() ? 'is-running' : 'is-finished' }}"
+                          id="sessionTimerPill"
+                          data-started-at-ms="{{ $timerStartedAtMs }}"
+                          data-server-now-ms="{{ $serverNowMs }}"
+                          data-finished-seconds="{{ $finishedSeconds ?? '' }}"
+                          role="timer"
+                          aria-live="off">
+                        <i class="bi {{ $workoutSession->isRunning() ? 'bi-stopwatch-fill' : 'bi-stopwatch' }} {{ $workoutSession->isRunning() ? 'text-primary' : 'text-muted' }}"></i>
+                        <span class="ws-timer-clock font-monospace" id="sessionDuration">{{ \App\Models\WorkoutSession::formatDuration($finishedSeconds ?? $workoutSession->elapsedSeconds()) }}</span>
                     </span>
                     <span class="ws-summary-pill">
                         <i class="bi bi-check2-circle text-success"></i> <strong id="doneCount">{{ $completedCount }}</strong>/{{ $exerciseCount }} {{ __('Movements') }}
@@ -369,7 +391,19 @@
         <form class="ws-header-card mt-4" method="POST" action="{{ route('workouts.sessions.finish', $workoutSession) }}">
             @csrf
             @method('PATCH')
-            <h5 class="fw-bold mb-3"><i class="bi bi-flag-fill text-primary me-1"></i> {{ __('Finish Workout Session') }}</h5>
+            <h5 class="fw-bold mb-3">
+                <i class="bi bi-flag-fill text-primary me-1"></i> {{ __('Finish Workout Session') }}
+                @if($finishedSeconds !== null)
+                    <span class="badge bg-success-subtle text-success border ms-2" style="font-size:11px;">
+                        {{ __('Final duration') }}: <span class="font-monospace">{{ \App\Models\WorkoutSession::formatDuration($finishedSeconds) }}</span>
+                    </span>
+                @else
+                    <span class="badge bg-light text-muted border ms-2" style="font-size:11px;">
+                        <i class="bi bi-record-circle text-danger me-1"></i>{{ __('Recording') }}
+                        <span class="font-monospace">{{ \App\Models\WorkoutSession::formatDuration($workoutSession->elapsedSeconds()) }}</span>
+                    </span>
+                @endif
+            </h5>
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
                     <label class="form-label small fw-semibold text-muted">{{ __('Session Summary / How did it feel?') }}</label>
@@ -451,6 +485,10 @@
         save: @json(__('Save')),
         completed: @json(__('Completed')),
         inProgress: @json(__('In progress')),
+        recording: @json(__('Recording')),
+        finalDuration: @json(__('Final duration')),
+        sessionFinished: @json(__('Session finished in :time')),
+        recordingStopped: @json(__('⏹ Timer stopped — session saved.')),
         restComplete: @json(__('🔔 Rest Time Complete! Next Set Ready.')),
         prCelebration: @json(__('🏆 INCREDIBLE! New Personal Record (PR) achieved!')),
         newPr: @json(__('🏆 NEW PR!')),
@@ -477,6 +515,64 @@
         kg: @json(__('kg')),
         reps: @json(__('reps'))
     };
+
+    // ── Live Session Timer ───────────────────────────────────────────────
+    // Elapsed time is always derived from the server-anchored start instant,
+    // never from a client-side counter, so refreshes and a wrong local clock
+    // cannot corrupt the value. The server stamps the final duration on finish.
+    const sessionTimer = (() => {
+        const pill = document.getElementById('sessionTimerPill');
+        const clock = document.getElementById('sessionDuration');
+        if (!pill || !clock) return null;
+
+        const startedAtMs = parseInt(pill.dataset.startedAtMs, 10) || 0;
+        const serverNowMs = parseInt(pill.dataset.serverNowMs, 10) || 0;
+        const finishedRaw = pill.dataset.finishedSeconds;
+        const finishedSeconds = finishedRaw === '' ? null : parseInt(finishedRaw, 10);
+        // Client clock is only used to measure the passage of time between
+        // ticks; the absolute anchor stays on the server.
+        const offsetMs = Date.now() - serverNowMs;
+
+        const pad = (n) => String(n).padStart(2, '0');
+
+        const format = (total) => {
+            const secs = Math.max(0, total);
+            const h = Math.floor(secs / 3600);
+            const m = Math.floor((secs % 3600) / 60);
+            const s = secs % 60;
+            return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+        };
+
+        const render = (total) => { clock.textContent = format(total); };
+
+        if (finishedSeconds !== null) {
+            render(finishedSeconds);
+            return { running: false, seconds: finishedSeconds };
+        }
+
+        if (!startedAtMs) {
+            render(0);
+            return { running: false, seconds: 0 };
+        }
+
+        const current = () => Math.floor((Date.now() - offsetMs - startedAtMs) / 1000);
+        render(current());
+
+        const tick = setInterval(() => render(current()), 1000);
+
+        return {
+            running: true,
+            seconds: current(),
+            stop() { clearInterval(tick); render(finishedSeconds ?? current()); }
+        };
+    })();
+
+    // Freeze the clock on the exact second the finish form is submitted.
+    document.querySelectorAll('form[action$="/finish"]').forEach(form => {
+        form.addEventListener('submit', () => {
+            if (sessionTimer && sessionTimer.running) sessionTimer.stop();
+        });
+    });
 
     // Toast helper
     function toast(msg) {
