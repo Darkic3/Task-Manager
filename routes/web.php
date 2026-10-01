@@ -183,6 +183,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/ai/stream', [AiChatController::class, 'stream'])->name('ai.stream');
     Route::get('/ai/debug', [AiChatController::class, 'debug'])->name('ai.debug');
     // AI tool actions (confirm/reject with ownership + expiry checks)
+    Route::post('/ai/actions/confirm-all', [AiActionController::class, 'confirmAll'])
+        ->middleware('throttle:30,1')->name('ai.actions.confirm-all');
+    Route::post('/ai/actions/reject-all', [AiActionController::class, 'rejectAll'])
+        ->middleware('throttle:30,1')->name('ai.actions.reject-all');
     Route::post('/ai/actions/{action}/confirm', [AiActionController::class, 'confirm'])
         ->middleware('throttle:30,1')->name('ai.actions.confirm');
     Route::post('/ai/actions/{action}/reject', [AiActionController::class, 'reject'])

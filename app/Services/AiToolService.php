@@ -9,6 +9,11 @@ use App\Models\Reminder;
 use App\Models\Routine;
 use App\Models\RoutineCompletion;
 use App\Models\Task;
+use App\Models\User;
+use App\Services\Notes\NoteLinkService;
+use App\Services\Notes\NoteMentionService;
+use App\Services\Reports\ReportRange;
+use App\Services\Reports\UnifiedReportService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -19,7 +24,9 @@ class AiToolService
         'task_create', 'task_update', 'task_complete', 'task_delete',
         'reminder_create', 'reminder_complete', 'reminder_delete',
         'note_create', 'note_update', 'note_delete',
-        'project_create',
+        'project_create', 'project_add_member',
+        'note_link',
+        'report_generate',
         'checklist_add', 'checklist_toggle',
         'routine_create', 'routine_complete', 'routine_delete', 'routine_log',
         'plan_propose', 'workout_plan_propose',
@@ -98,6 +105,22 @@ class AiToolService
                 'status' => ['type' => 'string', 'enum' => ['not_started', 'in_progress', 'completed', 'closed']],
                 'parent' => ['type' => 'string', 'description' => 'Parent project name or ID (optional)'],
             ], ['name']),
+            $this->fn('project_add_member', 'Add a collaborator to one of the user\'s projects. The member is found by email, name, or user ID.', [
+                'project' => ['type' => 'string', 'description' => 'Project name or ID (must be yours)'],
+                'project_id' => ['type' => 'integer', 'description' => 'Project ID (preferred over name)'],
+                'user' => ['type' => 'string', 'description' => 'Member email, name, or user ID'],
+                'role' => ['type' => 'string', 'enum' => ['member', 'viewer', 'editor'], 'description' => 'Team role (default member)'],
+            ], ['user']),
+            $this->fn('note_link', 'Link a note to a project, task, or another note (shows in backlinks). Both sides must belong to the user.', [
+                'note' => ['type' => 'string', 'description' => 'Note title or ID'],
+                'note_id' => ['type' => 'integer', 'description' => 'Note ID (preferred over title)'],
+                'target' => ['type' => 'string', 'description' => 'Target project/task/note name or ID'],
+                'target_type' => ['type' => 'string', 'enum' => ['project', 'task', 'note'], 'description' => 'What kind of target'],
+                'target_id' => ['type' => 'integer', 'description' => 'Target ID (preferred over name)'],
+            ], ['target_type']),
+            $this->fn('report_generate', 'Build a read-only workspace summary (tasks, routines, time, workouts + insights) for today/week/month. Nothing is created or changed.', [
+                'range' => ['type' => 'string', 'enum' => ['today', 'week', 'month'], 'description' => 'Report window (default week)'],
+            ], []),
             $this->fn('checklist_add', 'Add a checklist item to a task', [
                 'task_id' => ['type' => 'integer'],
                 'name' => ['type' => 'string'],
@@ -241,6 +264,7 @@ class AiToolService
                                         'name' => ['type' => 'string'],
                                         'description' => ['type' => 'string'],
                                         'tasks' => ['type' => 'array', 'items' => $this->planTaskSchema()],
+                                        'members' => ['type' => 'array', 'description' => 'Max 5 collaborator emails or names to add to this project', 'items' => ['type' => 'string']],
                                     ],
                                     'required' => ['name'],
                                     'additionalProperties' => false,
@@ -389,6 +413,9 @@ class AiToolService
             'note_update' => $this->validateNoteUpdate($args, $user),
             'note_delete' => $this->validateOwned($args, $user, Note::class, 'id'),
             'project_create' => $this->validateProjectCreate($args, $user),
+            'project_add_member' => $this->validateProjectAddMember($args, $user),
+            'note_link' => $this->validateNoteLink($args, $user),
+            'report_generate' => $this->validateReportGenerate($args),
             'checklist_add' => $this->validateChecklistAdd($args, $user),
             'checklist_toggle' => $this->validateChecklistToggle($args, $user),
             'routine_create' => $this->validateRoutineCreate($args),
@@ -417,6 +444,9 @@ class AiToolService
             'routine_create' => ['title' => 'Create routine', 'rows' => $this->rows($resolved, ['title', 'frequency', 'days_label', 'tracking_mode', 'value_label', 'time_period', 'description'])],
             'routine_delete' => $this->previewRoutineDelete($resolved),
             'routine_log' => $this->previewRoutineLog($resolved),
+            'project_add_member' => ['title' => 'Add project member', 'rows' => $this->rows($resolved, ['project_name', 'member_name', 'member_email', 'role'])],
+            'note_link' => ['title' => 'Link note', 'rows' => $this->rows($resolved, ['note_title', 'target_kind', 'target_title'])],
+            'report_generate' => ['title' => 'Generate report', 'rows' => $this->rows($resolved, ['range', 'range_label'])],
             'plan_propose' => $this->previewPlan($resolved),
             'workout_plan_propose' => $this->previewWorkoutPlan($resolved),
             default => ['title' => ucfirst(str_replace('_', ' ', $tool)), 'rows' => $this->rows($resolved, array_keys($resolved))],
@@ -444,6 +474,9 @@ class AiToolService
                 'note_update' => $this->execNoteUpdate($resolved, $user),
                 'note_delete' => $this->execDelete($resolved, $user, Note::class, 'Note'),
                 'project_create' => $this->execProjectCreate($resolved, $user),
+                'project_add_member' => $this->execProjectAddMember($resolved, $user),
+                'note_link' => $this->execNoteLink($resolved, $user),
+                'report_generate' => $this->execReportGenerate($resolved, $user),
                 'checklist_add' => $this->execChecklistAdd($resolved, $user),
                 'checklist_toggle' => $this->execChecklistToggle($resolved, $user),
                 'routine_create' => $this->execRoutineCreate($resolved, $user),
@@ -649,6 +682,82 @@ class AiToolService
         ], fn ($x) => $x !== null))];
     }
 
+    private function validateNoteLink(array $args, $user): array
+    {
+        $v = Validator::make($args, [
+            'note_id' => 'nullable|integer',
+            'note' => 'nullable|string|max:255',
+            'target_type' => 'required|in:project,task,note',
+            'target_id' => 'nullable|integer',
+            'target' => 'nullable|string|max:255',
+        ]);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+
+        $note = null;
+        if (! empty($args['note_id'])) {
+            $note = Note::where('id', $args['note_id'])->where('user_id', $user->id)->first();
+        } elseif (! empty($args['note'])) {
+            $needle = $args['note'];
+            $note = is_numeric($needle)
+                ? Note::where('id', (int) $needle)->where('user_id', $user->id)->first()
+                : Note::where('user_id', $user->id)->where('title', 'like', "%{$needle}%")->first();
+        }
+        if (! $note) {
+            return $this->fail('Note not found or not yours.');
+        }
+
+        $typeMap = [
+            'project' => Project::class,
+            'task' => Task::class,
+            'note' => Note::class,
+        ];
+        $type = $typeMap[$args['target_type']];
+        $nameColumn = NoteMentionService::LINKABLE[$type];
+
+        $target = null;
+        if (! empty($args['target_id'])) {
+            $target = $type::where('id', $args['target_id'])->where('user_id', $user->id)->first();
+        } elseif (! empty($args['target'])) {
+            $needle = $args['target'];
+            $target = is_numeric($needle)
+                ? $type::where('id', (int) $needle)->where('user_id', $user->id)->first()
+                : $type::where('user_id', $user->id)->where($nameColumn, 'like', "%{$needle}%")->first();
+        }
+        if (! $target) {
+            return $this->fail("Target {$args['target_type']} not found or not yours.");
+        }
+        if ($type === Note::class && (int) $target->id === (int) $note->id) {
+            return $this->fail('A note cannot link to itself.');
+        }
+
+        return ['ok' => true, 'error' => null, 'resolved' => [
+            'note_id' => $note->id,
+            'note_title' => $note->title,
+            'target_kind' => $args['target_type'],
+            'target_type' => $type,
+            'target_id' => $target->id,
+            'target_title' => (string) $target->{$nameColumn},
+        ]];
+    }
+
+    private function validateReportGenerate(array $args): array
+    {
+        $v = Validator::make($args, [
+            'range' => 'nullable|in:today,week,month',
+        ]);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+        $range = $args['range'] ?? 'week';
+
+        return ['ok' => true, 'error' => null, 'resolved' => [
+            'range' => $range,
+            'range_label' => ['today' => 'Today', 'week' => 'This week', 'month' => 'This month'][$range],
+        ]];
+    }
+
     private function validateProjectCreate(array $args, $user = null): array
     {
         $v = Validator::make($args, [
@@ -686,6 +795,74 @@ class AiToolService
             'parent_id' => $parentId,
             'parent_name' => $parentName,
         ]];
+    }
+
+    private function validateProjectAddMember(array $args, $user): array
+    {
+        $v = Validator::make($args, [
+            'project_id' => 'nullable|integer',
+            'project' => 'nullable|string|max:255',
+            'user' => 'required|string|max:255',
+            'role' => 'nullable|in:member,viewer,editor',
+        ]);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+
+        $projectId = $args['project_id'] ?? null;
+        $project = null;
+        if ($projectId) {
+            $project = Project::where('id', $projectId)->where('user_id', $user->id)->first();
+            if (! $project) {
+                return $this->fail('Project not found or not yours.');
+            }
+        } elseif (! empty($args['project'])) {
+            $needle = $args['project'];
+            $project = is_numeric($needle)
+                ? Project::where('id', (int) $needle)->where('user_id', $user->id)->first()
+                : Project::where('user_id', $user->id)->where('name', 'like', "%{$needle}%")->first();
+            if (! $project) {
+                return $this->fail("Project '{$needle}' not found.");
+            }
+        } else {
+            return $this->fail('Tell me which project to add the member to.');
+        }
+
+        $member = $this->resolveMemberUser($args['user']);
+        if (! $member) {
+            return $this->fail("User '{$args['user']}' not found. Use their email, name, or user ID.");
+        }
+        if ((int) $member->id === (int) $user->id) {
+            return $this->fail("That's you — you already own '{$project->name}'.");
+        }
+
+        return ['ok' => true, 'error' => null, 'resolved' => [
+            'project_id' => $project->id,
+            'project_name' => $project->name,
+            'member_id' => $member->id,
+            'member_name' => $member->name,
+            'member_email' => $member->email,
+            'role' => $args['role'] ?? 'member',
+        ]];
+    }
+
+    /**
+     * Find any user by ID, exact email, or name fragment.
+     */
+    private function resolveMemberUser(string $ref): ?User
+    {
+        $ref = trim($ref);
+        if ($ref === '') {
+            return null;
+        }
+        if (is_numeric($ref)) {
+            return User::find((int) $ref);
+        }
+        if (str_contains($ref, '@')) {
+            return User::where('email', $ref)->first();
+        }
+
+        return User::where('name', 'like', "%{$ref}%")->orderBy('id')->first();
     }
 
     /**
@@ -983,6 +1160,10 @@ class AiToolService
             'projects.*.name' => 'required|string|max:255',
             'projects.*.description' => 'nullable|string|max:2000',
             'projects.*.tasks' => 'nullable|array',
+            'projects.*.members' => 'nullable|array|max:5',
+            'projects.*.members.*' => 'string|max:255',
+            'project.members' => 'nullable|array|max:5',
+            'project.members.*' => 'string|max:255',
             'reminders' => 'nullable|array|max:' . \App\Models\AiPlan::MAX_REMINDERS,
             'notes' => 'nullable|array|max:' . \App\Models\AiPlan::MAX_NOTES,
             'routines' => 'nullable|array|max:' . self::MAX_PLAN_ROUTINES,
@@ -1047,7 +1228,18 @@ class AiToolService
             return $out;
         };
 
-        // Normalize every root project to {name, description, tasks[], subprojects[]}.
+        // Normalize every root project to {name, description, tasks[], subprojects[], members[]}.
+        $cleanMembers = function ($members) {
+            $out = [];
+            foreach (array_values((array) ($members ?? [])) as $m) {
+                $m = trim((string) $m);
+                if ($m !== '') {
+                    $out[] = mb_substr($m, 0, 255);
+                }
+            }
+
+            return array_values(array_unique($out));
+        };
         $roots = [];
         if ($hasMulti) {
             foreach ($args['projects'] as $p) {
@@ -1063,6 +1255,7 @@ class AiToolService
                     'description' => $p['description'] ?? null,
                     'tasks' => $tasks,
                     'subprojects' => [],
+                    'members' => $cleanMembers($p['members'] ?? []),
                 ];
             }
         } else {
@@ -1091,6 +1284,7 @@ class AiToolService
                     'description' => $args['project']['description'] ?? null,
                     'tasks' => $direct,
                     'subprojects' => $subs,
+                    'members' => $cleanMembers($args['project']['members'] ?? []),
                 ];
             }
         }
@@ -1159,6 +1353,7 @@ class AiToolService
                 'steps' => 0,
                 'reminders' => count($reminders),
                 'notes' => count($notes),
+                'members' => array_sum(array_map(fn ($r) => count($r['members'] ?? []), $roots)),
             ],
         ]];
     }
@@ -1452,6 +1647,8 @@ class AiToolService
             } elseif ($key === 'project' || $key === 'projects') {
                 // Legacy stored plans have a single root via project/subprojects.
                 $created = [];
+                $membersAdded = 0;
+                $membersSkipped = [];
                 foreach ($roots as $root) {
                     $project = $user->projects()->create([
                         'name' => $root['name'],
@@ -1461,6 +1658,15 @@ class AiToolService
                         'sort_order' => 0,
                     ]);
                     $created[] = ['id' => $project->id, 'name' => $project->name];
+                    foreach (($root['members'] ?? []) as $ref) {
+                        $member = $this->resolveMemberUser($ref);
+                        if ($member && (int) $member->id !== (int) $user->id) {
+                            $project->users()->syncWithoutDetaching([$member->id => ['role' => 'member']]);
+                            $membersAdded++;
+                        } else {
+                            $membersSkipped[] = $ref;
+                        }
+                    }
                 }
                 if (empty($created)) {
                     return ['ok' => false, 'message' => 'Plan has no projects. Cancel and start over.', 'phase' => $phase];
@@ -1475,6 +1681,12 @@ class AiToolService
                 $message = count($created) === 1
                     ? "Project '{$created[0]['name']}' created."
                     : count($created) . ' projects created.';
+                if ($membersAdded > 0) {
+                    $message .= " {$membersAdded} member(s) added.";
+                }
+                if (! empty($membersSkipped)) {
+                    $message .= ' Skipped unknown users: ' . implode(', ', $membersSkipped) . '.';
+                }
             } elseif ($key === 'subprojects') {
                 $projectEntries = $phases[0]['result']['projects'] ?? null;
                 if (! $projectEntries && isset($phases[0]['result']['project_id'])) {
@@ -1734,6 +1946,7 @@ class AiToolService
                     'name' => $s['name'],
                     'tasks' => array_map($taskView, $s['tasks'] ?? []),
                 ], $r['subprojects'] ?? []),
+                'members' => array_values($r['members'] ?? []),
             ], $roots),
             // Legacy keys for old frontend readers.
             'project' => ! empty($structure['project']) ? [
@@ -1879,6 +2092,92 @@ class AiToolService
             : "Project '{$project->name}' created.";
 
         return ['ok' => true, 'message' => $msg, 'id' => $project->id];
+    }
+
+    private function execProjectAddMember(array $r, $user): array
+    {
+        $project = Project::where('id', $r['project_id'])->where('user_id', $user->id)->firstOrFail();
+        $member = User::findOrFail($r['member_id']);
+
+        $already = $project->users()->where('users.id', $member->id)->exists();
+        // syncWithoutDetaching keeps existing pivot rows (dedupe-safe).
+        $project->users()->syncWithoutDetaching([$member->id => ['role' => $r['role'] ?? 'member']]);
+
+        $msg = $already
+            ? "'{$member->name}' is already on '{$project->name}' (role updated to '{$r['role']}')."
+            : "'{$member->name}' added to '{$project->name}' as '{$r['role']}'.";
+
+        return ['ok' => true, 'message' => $msg, 'id' => $project->id];
+    }
+
+    private function execNoteLink(array $r, $user): array
+    {
+        $note = Note::where('id', $r['note_id'])->where('user_id', $user->id)->firstOrFail();
+        $link = app(NoteLinkService::class)->attach($note, $r['target_type'], (int) $r['target_id']);
+        if (! $link) {
+            return ['ok' => false, 'message' => 'Could not create the link (target missing or not yours).', 'id' => null];
+        }
+
+        return ['ok' => true, 'message' => "Note '{$r['note_title']}' linked to {$r['target_kind']} '{$r['target_title']}'.", 'id' => $link->id];
+    }
+
+    /**
+     * Read-only summary: computes the unified report and returns it as the
+     * confirmation message. Writes nothing to the DB.
+     */
+    private function execReportGenerate(array $r, $user): array
+    {
+        $range = ReportRange::fromRequest($r['range'], null, null);
+        $report = UnifiedReportService::overview($user->id, $range);
+
+        $lines = ["📊 Workspace report — {$range->label} ({$range->from->toDateString()} → {$range->to->toDateString()})", ''];
+        $t = $report['tasks'];
+        $lines[] = "Tasks: {$t['completed']}/{$t['created']} completed ({$t['rate']}%)"
+            . ($t['overdue_now'] > 0 ? " · ⚠️ {$t['overdue_now']} overdue" : '')
+            . ($t['avg_hours'] !== null ? " · avg {$t['avg_hours']}h/task" : '');
+        $rt = $report['routines'];
+        $lines[] = 'Routines: ' . ($rt['total'] ?? count($rt['rows'] ?? [])) . ' tracked'
+            . (isset($rt['avg_rate']) ? " · avg adherence {$rt['avg_rate']}%" : '');
+        $tm = $report['time'];
+        $lines[] = 'Focus time: ' . $this->formatSeconds($tm['total'] ?? 0)
+            . ' (Δ ' . $this->formatSignedSeconds($report['deltas']['time'] ?? 0) . ' vs previous)';
+        $w = $report['workouts'];
+        $lines[] = "Workouts: {$w['completed']} completed";
+        $d = $report['deltas'];
+        $trend = $d['tasks_completed'] ?? 0;
+        $lines[] = 'Trend: ' . ($trend >= 0 ? '+' : '') . $trend . ' tasks vs previous ' . $range->preset;
+        $insights = array_slice($report['insights'] ?? [], 0, 4);
+        if ($insights) {
+            $lines[] = '';
+            $lines[] = 'Top insights:';
+            foreach ($insights as $i) {
+                $lines[] = '- ' . ($i['title'] ?? '') . ' ' . ($i['body'] ?? '');
+            }
+        }
+        $lines[] = '';
+        $lines[] = "Open the full charts at Reports → {$range->label}.";
+
+        return ['ok' => true, 'message' => implode("\n", $lines), 'id' => null];
+    }
+
+    private function formatSeconds(int|float $seconds): string
+    {
+        $seconds = (int) $seconds;
+        $h = intdiv($seconds, 3600);
+        $m = intdiv($seconds % 3600, 60);
+        if ($h > 0) {
+            return "{$h}h {$m}m";
+        }
+
+        return "{$m}m";
+    }
+
+    private function formatSignedSeconds(int|float $seconds): string
+    {
+        $seconds = (int) $seconds;
+        $sign = $seconds >= 0 ? '+' : '−';
+
+        return $sign . $this->formatSeconds(abs($seconds));
     }
 
     private function execChecklistAdd(array $r, $user): array

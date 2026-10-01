@@ -163,6 +163,7 @@ class AiPlanController extends Controller
             ));
         $routineCount = count($structure['routines'] ?? []);
         $stepCount = array_sum(array_map(fn ($r) => count($r['steps'] ?? []), $structure['routines'] ?? []));
+        $memberCount = array_sum(array_map(fn ($r) => count($r['members'] ?? []), $roots));
 
         return [
             'id' => $plan->id,
@@ -182,6 +183,7 @@ class AiPlanController extends Controller
                     'steps' => $stepCount,
                     'reminders' => count($structure['reminders'] ?? []),
                     'notes' => count($structure['notes'] ?? []),
+                    'members' => $memberCount,
                 ],
             ]),
             'expires_at' => $plan->expires_at?->toIso8601String(),

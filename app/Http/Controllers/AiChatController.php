@@ -463,14 +463,24 @@ class AiChatController extends Controller
         $service = new AiToolService;
         $args = is_string($argsJson) ? (json_decode($argsJson, true) ?? []) : (array) $argsJson;
 
-        $open = AiPendingAction::where('user_id', $user->id)
+        $openActions = AiPendingAction::where('user_id', $user->id)
             ->where('status', AiPendingAction::STATUS_PENDING)
             ->where('expires_at', '>', now())
-            ->count();
-        if ($open >= 5) {
+            ->orderBy('id')
+            ->limit(5)
+            ->get(['id', 'tool', 'preview']);
+        if ($openActions->count() >= 5) {
             AiLogger::log('tool.proposal_capped', ['user_id' => $user->id, 'tool' => $tool, 'reason' => 'too_many_pending']);
 
-            return ['error' => 'Too many pending confirmations. Confirm or cancel one first.'];
+            return [
+                'error' => 'Too many pending confirmations. Confirm or cancel one first.',
+                'code' => 'too_many_pending',
+                'pending' => $openActions->map(fn ($a) => [
+                    'id' => $a->id,
+                    'tool' => $a->tool,
+                    'label' => $a->preview['title'] ?? $a->tool,
+                ])->all(),
+            ];
         }
 
         $check = $service->validateCall($tool, $args, $user);
@@ -1127,13 +1137,16 @@ class AiChatController extends Controller
         $modeBlock = $mode === 'agent'
             ? <<<'AGENT'
             MODE: AGENT — you can act on the workspace via tools.
-            - SINGLE items: task_create/update/complete/delete, reminder_*, note_*, project_create, checklist_*, routine_create/complete/delete/log. Destructive deletes need no extra warning text because the app shows a confirmation card.
+            - SINGLE items: task_create/update/complete/delete, reminder_*, note_*, project_create, project_add_member, note_link, report_generate, checklist_*, routine_create/complete/delete/log. Destructive deletes need no extra warning text because the app shows a confirmation card.
+            - COLLABORATORS: project_add_member finds the person by email, name, or user ID — prefer email when the user gives one. In plans, put collaborator emails/names in each project's members[] so they join when the project is built.
+            - NOTE LINKS: note_link connects a note to a project/task/note so it appears in backlinks — use it when the user says a note "belongs to" or "is about" something.
+            - REPORTS: report_generate builds a read-only workspace summary for today/week/month (nothing changes). Use it when the user asks "how am I doing / گزارش بده". After it runs, explain the numbers in 2-4 bullets.
             - PROJECT BUILDS & STRATEGY: When asked to plan, break down, or architect projects/goals, first provide a concise 2-4 bullet strategic overview in your text reply, and then call plan_propose ONCE with EVERYTHING.
               * MULTIPLE independent projects (e.g. "make projects A, B, C"): put them ALL in the projects[] array in ONE call — never one call per project, never project+subprojects for this.
               * ONE project with sub-divisions: use project + subprojects (max 3).
               * Reminders/events (e.g. "today at 18:00 at Laleh bazaar") go in reminders[] with date YYYY-MM-DD, time HH:MM and location — SAME call, not a separate tool.
               * Notes go in notes[] — SAME call.
-              * Caps per plan: 5 projects, 30 tasks, 100 subtasks, 10 reminders, 10 notes. Persian dates: امروز=today, فردا=tomorrow, پس‌فردا=+2 days; "ساعت 6 بعد از ظهر/عصر"=18:00, "ساعت 9 صبح"=09:00. Compute YYYY-MM-DD from today's date above.
+              * Caps per plan: 5 projects, 30 tasks, 100 subtasks, 10 reminders, 10 notes, 5 members per project (emails or names). Persian dates: امروز=today, فردا=tomorrow, پس‌فردا=+2 days; "ساعت 6 بعد از ظهر/عصر"=18:00, "ساعت 9 صبح"=09:00. Compute YYYY-MM-DD from today's date above.
             - PLAN REVISIONS / EDITS: When the user asks for changes, edits, additions, or removals in a proposed plan (e.g. "تسک فلان رو تغییر بده", "X رو اضافه کن"), acknowledge the refinement and immediately emit an updated plan_propose with the revised structure.
             - WORKOUT PLANS: For ANY pasted training plan (with DAYs, sets×reps, RIR, circuits, warm-ups, tempo): call workout_plan_propose ONCE with the FULL 7-day structure — never plan_propose, never project_create, never routine_create, never many single calls. Preserve every movement and detail; do not summarize exercises into one task.
             - DAY MAPPING: days[] must arrive in execution order (index 0 = DAY 1). When the user says "starting today / شروع از امروز", set start_date to today's date (given above) so DAY 1 maps to today — even if today is Sunday. Never force DAY 1 back to Saturday in that case.

@@ -127,6 +127,50 @@ class AiToolsTest extends TestCase
         $this->assertDatabaseMissing('notes', ['title' => 'N']);
     }
 
+    public function test_confirm_all_and_reject_all(): void
+    {
+        $user = User::factory()->create();
+        $svc = new AiToolService;
+        foreach (['One', 'Two'] as $title) {
+            $check = $svc->validateCall('task_create', ['title' => $title], $user);
+            AiPendingAction::create([
+                'user_id' => $user->id,
+                'tool' => 'task_create',
+                'args' => $check['resolved'],
+                'preview' => $svc->preview('task_create', $check['resolved'], $user),
+                'status' => AiPendingAction::STATUS_PENDING,
+                'expires_at' => now()->addMinutes(15),
+                'idempotency_key' => bin2hex(random_bytes(16)),
+            ]);
+        }
+
+        $this->actingAs($user)->postJson(route('ai.actions.confirm-all'), [])
+            ->assertOk()->assertJson(['ok' => true]);
+        $this->assertDatabaseHas('tasks', ['title' => 'One']);
+        $this->assertDatabaseHas('tasks', ['title' => 'Two']);
+        $this->assertEquals(0, AiPendingAction::where('user_id', $user->id)->where('status', AiPendingAction::STATUS_PENDING)->count());
+
+        // Reject-all path cancels without creating.
+        $check3 = $svc->validateCall('task_create', ['title' => 'Three'], $user);
+        AiPendingAction::create([
+            'user_id' => $user->id,
+            'tool' => 'task_create',
+            'args' => $check3['resolved'],
+            'preview' => $svc->preview('task_create', $check3['resolved'], $user),
+            'status' => AiPendingAction::STATUS_PENDING,
+            'expires_at' => now()->addMinutes(15),
+            'idempotency_key' => bin2hex(random_bytes(16)),
+        ]);
+        $this->actingAs($user)->postJson(route('ai.actions.reject-all'), [])
+            ->assertOk()->assertJson(['ok' => true]);
+        $this->assertDatabaseMissing('tasks', ['title' => 'Three']);
+
+        // Foreign user cannot bulk-operate.
+        $other = User::factory()->create();
+        $this->actingAs($other)->postJson(route('ai.actions.confirm-all'), [])
+            ->assertOk()->assertJsonPath('message', 'Nothing pending.');
+    }
+
     public function test_expired_and_foreign_actions_blocked(): void
     {
         $user = User::factory()->create();

@@ -923,7 +923,8 @@ footer { display: none !important; }
                             if (chatMode === 'agent') renderProposalCard(json);
                             else console.warn('[Lina] proposal ignored in chat mode');
                         } else if (json.type === 'tool_proposal' && json.error) {
-                            appendError(json.error);
+                            if (json.code === 'too_many_pending' && chatMode === 'agent') renderPendingOverflowCard(json);
+                            else appendError(json.error);
                         } else if (json.type === 'plan_proposal' && json.plan) {
                             if (chatMode === 'agent') renderPlanCard(json.plan);
                             else console.warn('[Lina] plan ignored in chat mode');
@@ -1037,6 +1038,75 @@ footer { display: none !important; }
         a.click();
     };
 
+    /* ── Pending-overflow card: 5 unconfirmed actions, nothing is lost ── */
+    function renderPendingOverflowCard(p) {
+        const wrap = document.createElement('div');
+        wrap.className = 'lina-msg-wrap bot';
+        const card = document.createElement('div');
+        card.className = 'lina-tool-card';
+        card.style.cssText = 'border-color:#fcd34d;background:#fffbeb;';
+        const title = document.createElement('h4');
+        title.textContent = '⏳ ۵ تایید باز داری — چیزی از دست نرفته';
+        card.appendChild(title);
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:12.5px;color:#92400e;margin-bottom:8px;';
+        hint.textContent = 'برای امنیت، ایجنت بیشتر از ۵ کار تأییدنشده نگه نمی‌دارد. اول این‌ها را تأیید یا لغو کن، بعد ادامه بده:';
+        card.appendChild(hint);
+        const list = document.createElement('div');
+        list.style.cssText = 'font-size:12.5px;line-height:1.9;';
+        (p.pending || []).forEach(it => {
+            const row = document.createElement('div');
+            row.textContent = '• ' + (it.label || it.tool) + ' (' + it.tool + ')';
+            list.appendChild(row);
+        });
+        card.appendChild(list);
+        const actions = document.createElement('div');
+        actions.className = 'lina-tool-actions';
+        actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;';
+        const allOk = document.createElement('button');
+        allOk.className = 'lina-tool-confirm';
+        allOk.textContent = 'تأیید همه ✅';
+        const allNo = document.createElement('button');
+        allNo.className = 'lina-tool-reject';
+        allNo.textContent = 'لغو همه';
+        allOk.onclick = async () => {
+            allOk.disabled = true; allNo.disabled = true; allOk.textContent = 'در حال اجرا…';
+            try {
+                const res = await api('POST', '/ai/actions/confirm-all');
+                actions.remove();
+                const done = document.createElement('div');
+                done.style.cssText = 'font-size:12.5px;color:#16a34a;font-weight:600;margin-top:8px;white-space:pre-wrap;';
+                done.textContent = '✅ ' + (res.message || 'Done.');
+                if (res.details && res.details.length) {
+                    const ul = document.createElement('div');
+                    ul.style.cssText = 'font-weight:400;margin-top:4px;';
+                    ul.textContent = res.details.join('\n');
+                    done.appendChild(ul);
+                }
+                card.appendChild(done);
+            } catch {
+                allOk.disabled = false; allNo.disabled = false; allOk.textContent = 'تأیید همه ✅';
+                appendError('Bulk confirm failed — try confirming items one by one.');
+            }
+            scrollBottom();
+        };
+        allNo.onclick = async () => {
+            allOk.disabled = true; allNo.disabled = true;
+            try { await api('POST', '/ai/actions/reject-all'); } catch {}
+            actions.remove();
+            const done = document.createElement('div');
+            done.style.cssText = 'font-size:12.5px;color:var(--gray-500);margin-top:8px;';
+            done.textContent = 'لغو شد — چیزی ساخته نشد.';
+            card.appendChild(done);
+            scrollBottom();
+        };
+        actions.appendChild(allOk); actions.appendChild(allNo);
+        card.appendChild(actions);
+        wrap.appendChild(card);
+        msgsEl.appendChild(wrap);
+        scrollBottom();
+    }
+
     /* ── Tool proposal card ── */
     function renderProposalCard(p) {
         const wrap = document.createElement('div');
@@ -1074,8 +1144,12 @@ footer { display: none !important; }
                 const res = await api('POST', '/ai/actions/' + p.action_id + '/confirm');
                 card.querySelector('.lina-tool-actions')?.remove();
                 const done = document.createElement('div');
-                done.style.cssText = 'font-size:12.5px;color:#16a34a;font-weight:600;margin-top:8px;';
-                done.textContent = '✅ ' + (res.message || 'Done.');
+                done.style.cssText = 'font-size:12.5px;color:#16a34a;font-weight:600;margin-top:8px;white-space:pre-wrap;';
+                if (p.tool === 'report_generate' && typeof marked !== 'undefined') {
+                    done.innerHTML = marked.parse(res.message || 'Done.');
+                } else {
+                    done.textContent = '✅ ' + (res.message || 'Done.');
+                }
                 card.appendChild(done);
             } catch (e) {
                 okBtn.disabled = false; noBtn.disabled = false; okBtn.textContent = 'Confirm & run';
@@ -1223,6 +1297,7 @@ footer { display: none !important; }
             parts.push((totals.subtasks || 0) + ' subtask(s)');
             if ((totals.reminders || 0) > 0) parts.push(totals.reminders + ' reminder(s)');
             if ((totals.notes || 0) > 0) parts.push(totals.notes + ' note(s)');
+            if ((totals.members || 0) > 0) parts.push(totals.members + ' member(s)');
             totalsLine = parts.join(' · ');
         }
         let html = '<h4>📋 ' + escPlan(plan.title) + '</h4>'
@@ -1261,7 +1336,11 @@ footer { display: none !important; }
                 ? tree.projects
                 : (tree.project ? [{ name: tree.project.name, tasks: tree.project.tasks, subprojects: tree.subprojects }] : []);
             rootList.forEach(p => {
-                html += '<li>📁 <strong>' + escPlan(p.name) + '</strong><ul>';
+                html += '<li>📁 <strong>' + escPlan(p.name) + '</strong>';
+                if ((p.members || []).length) {
+                    html += ' <span class="lina-plan-subs">👥 ' + p.members.map(escPlan).join(', ') + '</span>';
+                }
+                html += '<ul>';
                 (p.tasks || []).forEach(t => { html += taskHtml(t); });
                 (p.subprojects || []).forEach(s => {
                     html += '<li>📂 <strong>' + escPlan(s.name) + '</strong><ul>';

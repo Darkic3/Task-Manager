@@ -100,11 +100,14 @@
 | reminder_create/complete/delete | title*, date, time(HH:MM), priority, location? | complete رکورد تکرار بعدی را می‌سازد؛ date/time خالی با `FaDateParser` از متن فارسی حدس زده می‌شود (امروز/فردا/ساعت ۶ عصر→۱۸:۰۰) |
 | note_create/update/delete | title*, content* | — |
 | project_create | name*, **parent?** (نام یا ID ساب‌پروژه، سقف عمق ۵) | type=project |
+| project_add_member | project(+id)?, user* (ایمیل/نام/ID), role? (member/viewer/editor) | مالکیت پروژه چک می‌شود؛ `syncWithoutDetaching` (تکراری امن)؛ افزودن خودت خطا می‌دهد |
+| note_link | note(+id)?, target_type* (project/task/note), target(+id)? | هر دو سمت باید مال تو باشند؛ سلف‌لینک ممنوع؛ از `NoteLinkService::attach` |
+| report_generate | range? (today/week/month، پیش‌فرض week) | فقط خواندنی — هیچ رکوردی ساخته/تغییر نمی‌کند؛ خلاصه KPI + دلتا + اینسایت‌ها را به‌صورت مارک‌داون برمی‌گرداند |
 | checklist_add/toggle | task_id+name / id | toggle برمی‌گرداند (done/reopened) |
 | routine_create | title*, frequency*, days/month_days/every_n_days, tracking_mode?, value_kind/unit/label?, steps[{name*, target_sets?, unit?}] | آینه قوانین `RoutineController@validated`؛ پیام موفقیت شامل `recurrenceLabel` |
 | routine_complete | id, date? (پیش‌فرض امروز) | **هرگز آنتیک نمی‌کند**؛ تکراری = «already done» |
 | routine_log | routine(+id), date?, value*, item(+id)?, set_no? | ثبت مقدار با چک رهگیری‌بودن؛ ست‌مود کامل = auto-complete |
-| plan_propose | title*, **یا** projects[{name,tasks[]}] (تا ۵ پروژه مستقل) **یا** project{name,tasks[]}+subprojects[] (تک‌درخت) **یا** routines[] (انحصاری)، **به‌علاوه** reminders[] (تا ۱۰، با location) و notes[] (تا ۱۰) در هر پلن پروژه‌ای | فقط validate؛ اجرا مرحله‌ای بعد از تأیید ساختار (بخش ۳٫۶) |
+| plan_propose | title*, **یا** projects[{name,tasks[],members[]}] (تا ۵ پروژه مستقل، هرکدام تا ۵ همکار با ایمیل/نام) **یا** project{name,tasks[],members[]}+subprojects[] (تک‌درخت) **یا** routines[] (انحصاری)، **به‌علاوه** reminders[] (تا ۱۰، با location) و notes[] (تا ۱۰) در هر پلن پروژه‌ای | فقط validate؛ اجرا مرحله‌ای بعد از تأیید ساختار (بخش ۳٫۶)؛ اعضای ناشناس در پیام فاز به‌عنوان skipped گزارش می‌شوند |
 | routine_delete | id | سافت‌دیلیت؛ کارت می‌گوید تاریخچه می‌ماند |
 
 چرخه: `definitions()` (JSON Schema با `additionalProperties:false`) → مدل tool_call می‌زند → `validateCall` (فقط خواندن + چک `user_id`، aliasهای camelCase مثل `projectId/dueDate/monthDays` هم پذیرفته می‌شود) → رکورد `ai_pending_actions` (pending، انقضا ۱۵ دقیقه، سقف ۵ باز به‌ازای کاربر، `idempotency_key`) → **کارت تأیید** (مشخصات + اثر خطرناک) → `POST /ai/actions/{id}/confirm|reject` (throttle:30,1، مالکیت ۴۰۳، re-validate، اجرا در transaction، تأیید تکراری dedupe، پیام ✅ در تاریخچه، لاگ `ai.tool.*`). بدون Undo.
