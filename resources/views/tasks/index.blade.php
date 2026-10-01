@@ -1498,10 +1498,11 @@ document.addEventListener('DOMContentLoaded', function () {
             projectId = projectSelect.value || '';
         }
 
-        /* Full POST + redirect back: server renders the complete card markup */
+        /* Full POST + redirect back: server renders the complete card markup.
+           On a project page use the project-scoped route so we stay here. */
         const f = document.createElement('form');
         f.method = 'POST';
-        f.action = `{{ route('tasks.store') }}`;
+        f.action = `{{ isset($project) ? route('projects.tasks.store', $project) : route('tasks.store') }}`;
         f.innerHTML = `
             <input type="hidden" name="_token" value="${csrf}">
             <input type="hidden" name="title" value="">
