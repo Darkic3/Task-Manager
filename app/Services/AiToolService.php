@@ -64,12 +64,13 @@ class AiToolService
             $this->fn('task_delete', 'Delete a task by ID (shows subtask impact before confirm)', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
-            $this->fn('reminder_create', 'Create a reminder', [
+            $this->fn('reminder_create', 'Create a reminder. Compute date/time yourself from today\'s date (e.g. "امروز ساعت 6 بعد از ظهر" → today 18:00).', [
                 'title' => ['type' => 'string'],
                 'date' => $date(),
                 'time' => ['type' => 'string', 'description' => 'HH:MM 24h'],
                 'priority' => ['type' => 'string', 'enum' => ['low', 'medium', 'high', 'urgent']],
                 'description' => ['type' => 'string'],
+                'location' => ['type' => 'string', 'description' => 'Place, e.g. a bazaar or person to meet'],
             ], ['title']),
             $this->fn('reminder_complete', 'Mark a reminder completed', [
                 'id' => ['type' => 'integer'],
@@ -198,7 +199,7 @@ class AiToolService
                 'type' => 'function',
                 'function' => [
                     'name' => 'plan_propose',
-                    'description' => 'Propose a whole multi-level build (project with sub-projects, tasks and subtasks) as ONE plan. NEVER use for workout/training plans — those must use workout_plan_propose.',
+                    'description' => 'Propose a whole multi-level build as ONE plan: up to 5 independent projects (projects[]) each with tasks, OR one project with sub-projects (project+subprojects), plus optional reminders[] and notes[]. NEVER use for workout/training plans — those must use workout_plan_propose.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
@@ -219,7 +220,7 @@ class AiToolService
                             ],
                             'subprojects' => [
                                 'type' => 'array',
-                                'description' => 'Max 3 sub-projects (project-tree plans only)',
+                                'description' => 'Max 3 sub-projects of the single project (project-tree plans only; do not combine with projects[])',
                                 'items' => [
                                     'type' => 'object',
                                     'properties' => [
@@ -228,6 +229,51 @@ class AiToolService
                                         'tasks' => ['type' => 'array', 'items' => $this->planTaskSchema()],
                                     ],
                                     'required' => ['name'],
+                                    'additionalProperties' => false,
+                                ],
+                            ],
+                            'projects' => [
+                                'type' => 'array',
+                                'description' => 'Max 5 INDEPENDENT root projects (multi-project plans). Use this when the user asks for several projects at once; do not combine with project/subprojects.',
+                                'items' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'name' => ['type' => 'string'],
+                                        'description' => ['type' => 'string'],
+                                        'tasks' => ['type' => 'array', 'items' => $this->planTaskSchema()],
+                                    ],
+                                    'required' => ['name'],
+                                    'additionalProperties' => false,
+                                ],
+                            ],
+                            'reminders' => [
+                                'type' => 'array',
+                                'description' => 'Max 10 reminders created with the plan (e.g. an event today at 18:00 with a location). Compute date as YYYY-MM-DD and time as HH:MM from today\'s date.',
+                                'items' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'title' => ['type' => 'string'],
+                                        'date' => ['type' => 'string', 'description' => 'YYYY-MM-DD'],
+                                        'time' => ['type' => 'string', 'description' => 'HH:MM 24h'],
+                                        'priority' => ['type' => 'string', 'enum' => ['low', 'medium', 'high', 'urgent']],
+                                        'description' => ['type' => 'string'],
+                                        'location' => ['type' => 'string'],
+                                    ],
+                                    'required' => ['title'],
+                                    'additionalProperties' => false,
+                                ],
+                            ],
+                            'notes' => [
+                                'type' => 'array',
+                                'description' => 'Max 10 notes created with the plan.',
+                                'items' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'title' => ['type' => 'string'],
+                                        'content' => ['type' => 'string'],
+                                        'category' => ['type' => 'string'],
+                                    ],
+                                    'required' => ['title', 'content'],
                                     'additionalProperties' => false,
                                 ],
                             ],
@@ -538,17 +584,29 @@ class AiToolService
             'time' => 'nullable|date_format:H:i',
             'priority' => 'nullable|in:low,medium,high,urgent',
             'description' => 'nullable|string',
+            'location' => 'nullable|string|max:255',
         ]);
         if ($v->fails()) {
             return $this->fail($v->errors()->first());
         }
 
+        // Persian fallback: "امروز ساعت 6 بعد از ظهر" inside title/description
+        // fills missing date/time so the model doesn't have to compute them.
+        $date = $args['date'] ?? null;
+        $time = $args['time'] ?? null;
+        if (! $date || ! $time) {
+            $parsed = FaDateParser::parse(trim(($args['title'] ?? '') . ' ' . ($args['description'] ?? '')));
+            $date = $date ?: ($parsed['date'] ?? null);
+            $time = $time ?: ($parsed['time'] ?? null);
+        }
+
         return ['ok' => true, 'error' => null, 'resolved' => [
             'title' => $args['title'],
-            'date' => $args['date'] ?? null,
-            'time' => $args['time'] ?? null,
+            'date' => $date,
+            'time' => $time,
             'priority' => $args['priority'] ?? 'medium',
             'description' => $args['description'] ?? null,
+            'location' => isset($args['location']) ? trim((string) $args['location']) : null,
         ]];
     }
 
@@ -891,7 +949,8 @@ class AiToolService
 
     /**
      * Validate a whole build plan WITHOUT writing anything.
-     * Caps: 1 project, 3 sub-projects, 30 tasks, 100 subtasks.
+     * Caps: 5 root projects, 3 sub-projects each, 30 tasks, 100 subtasks,
+     * 10 reminders, 10 notes. Routines stay exclusive (no mixing).
      */
     private function validatePlanPropose(array $args): array
     {
@@ -900,6 +959,14 @@ class AiToolService
         if (! is_array($args['subprojects'])) {
             return $this->fail('subprojects must be a list.');
         }
+        $args['projects'] = $args['Projects'] ?? $args['projects'] ?? [];
+        unset($args['Projects']);
+        if (! is_array($args['projects'])) {
+            return $this->fail('projects must be a list.');
+        }
+        $args['projects'] = array_values($args['projects']);
+        $args['reminders'] = array_values((array) ($args['reminders'] ?? []));
+        $args['notes'] = array_values((array) ($args['notes'] ?? []));
         $args['routines'] = array_values((array) ($args['routines'] ?? []));
 
         $v = Validator::make($args, [
@@ -912,27 +979,36 @@ class AiToolService
             'subprojects.*.name' => 'required|string|max:255',
             'subprojects.*.description' => 'nullable|string|max:2000',
             'subprojects.*.tasks' => 'nullable|array',
+            'projects' => 'nullable|array|max:' . \App\Models\AiPlan::MAX_PROJECTS,
+            'projects.*.name' => 'required|string|max:255',
+            'projects.*.description' => 'nullable|string|max:2000',
+            'projects.*.tasks' => 'nullable|array',
+            'reminders' => 'nullable|array|max:' . \App\Models\AiPlan::MAX_REMINDERS,
+            'notes' => 'nullable|array|max:' . \App\Models\AiPlan::MAX_NOTES,
             'routines' => 'nullable|array|max:' . self::MAX_PLAN_ROUTINES,
         ]);
         if ($v->fails()) {
             return $this->fail($v->errors()->first());
         }
 
-        // A plan is EITHER a project tree OR a routine set — never both.
-        $hasProjectTree = ! empty($args['project']['name']) || ! empty($args['subprojects']);
+        // Routines are exclusive — never mixed with projects/reminders/notes.
         $hasRoutines = ! empty($args['routines']);
-        if ($hasProjectTree && $hasRoutines) {
-            return $this->fail('A plan holds either a project tree or routines, not both. Split into two plans.');
+        $hasLegacyTree = ! empty($args['project']['name']) || ! empty($args['subprojects']);
+        $hasMulti = ! empty($args['projects']);
+        $hasReminders = ! empty($args['reminders']);
+        $hasNotes = ! empty($args['notes']);
+        if ($hasRoutines && ($hasLegacyTree || $hasMulti || $hasReminders || $hasNotes)) {
+            return $this->fail('A plan holds either routines or projects/reminders/notes, not both. Split into two plans.');
         }
-        if (! $hasProjectTree && ! $hasRoutines) {
-            return $this->fail('The plan is empty: add a project with tasks or at least one routine.');
+        if ($hasLegacyTree && $hasMulti) {
+            return $this->fail('Use either projects[] (multi-project) or project+subprojects (single tree), not both.');
+        }
+        if (! $hasLegacyTree && ! $hasMulti && ! $hasRoutines && ! $hasReminders && ! $hasNotes) {
+            return $this->fail('The plan is empty: add a project with tasks, a reminder, a note, or at least one routine.');
         }
 
         if ($hasRoutines) {
             return $this->validatePlanRoutines($args['title'], $args['routines']);
-        }
-        if (empty($args['project']['name'])) {
-            return $this->fail('The project needs a name.');
         }
 
         $cleanTasks = function ($tasks, string $where) {
@@ -971,31 +1047,82 @@ class AiToolService
             return $out;
         };
 
-        $direct = $cleanTasks($args['project']['tasks'] ?? [], 'project tasks');
-        if (isset($direct['ok'])) {
-            return $direct;
-        }
-        $subs = [];
-        foreach (array_values($args['subprojects']) as $si => $sub) {
-            $tasks = $cleanTasks($sub['tasks'] ?? [], "sub-project '{$sub['name']}'");
-            if (isset($tasks['ok'])) {
-                return $tasks;
+        // Normalize every root project to {name, description, tasks[], subprojects[]}.
+        $roots = [];
+        if ($hasMulti) {
+            foreach ($args['projects'] as $p) {
+                if (! is_array($p) || trim((string) ($p['name'] ?? '')) === '') {
+                    return $this->fail('Every project in projects[] needs a name.');
+                }
+                $tasks = $cleanTasks($p['tasks'] ?? [], "project '{$p['name']}'");
+                if (isset($tasks['ok'])) {
+                    return $tasks;
+                }
+                $roots[] = [
+                    'name' => trim((string) $p['name']),
+                    'description' => $p['description'] ?? null,
+                    'tasks' => $tasks,
+                    'subprojects' => [],
+                ];
             }
-            $subs[] = [
-                'name' => trim((string) $sub['name']),
-                'description' => $sub['description'] ?? null,
-                'tasks' => $tasks,
-            ];
+        } else {
+            if (empty($args['project']['name'])) {
+                // Reminders/notes-only plan (no project tree at all).
+                $roots = [];
+            } else {
+                $direct = $cleanTasks($args['project']['tasks'] ?? [], 'project tasks');
+                if (isset($direct['ok'])) {
+                    return $direct;
+                }
+                $subs = [];
+                foreach (array_values($args['subprojects']) as $si => $sub) {
+                    $tasks = $cleanTasks($sub['tasks'] ?? [], "sub-project '{$sub['name']}'");
+                    if (isset($tasks['ok'])) {
+                        return $tasks;
+                    }
+                    $subs[] = [
+                        'name' => trim((string) $sub['name']),
+                        'description' => $sub['description'] ?? null,
+                        'tasks' => $tasks,
+                    ];
+                }
+                $roots[] = [
+                    'name' => trim((string) $args['project']['name']),
+                    'description' => $args['project']['description'] ?? null,
+                    'tasks' => $direct,
+                    'subprojects' => $subs,
+                ];
+            }
         }
 
-        $taskCount = count($direct) + array_sum(array_map(fn ($s) => count($s['tasks']), $subs));
-        $subCount = array_sum(array_map(
-            fn ($s) => array_sum(array_map(fn ($t) => count($t['subtasks']), $s['tasks'])),
-            $subs
-        )) + array_sum(array_map(fn ($t) => count($t['subtasks']), $direct));
+        $taskCount = 0;
+        $subCount = 0;
+        $subProjectCount = 0;
+        foreach ($roots as $r) {
+            $taskCount += count($r['tasks']);
+            foreach ($r['tasks'] as $t) {
+                $subCount += count($t['subtasks']);
+            }
+            $subProjectCount += count($r['subprojects']);
+            foreach ($r['subprojects'] as $s) {
+                $taskCount += count($s['tasks']);
+                foreach ($s['tasks'] as $t) {
+                    $subCount += count($t['subtasks']);
+                }
+            }
+        }
 
-        if ($taskCount < 1) {
-            return $this->fail('The plan must contain at least one task.');
+        $reminders = $this->cleanPlanReminders($args['reminders']);
+        if (isset($reminders['ok'])) {
+            return $reminders;
+        }
+        $notes = $this->cleanPlanNotes($args['notes']);
+        if (isset($notes['ok'])) {
+            return $notes;
+        }
+
+        if ($taskCount < 1 && empty($reminders) && empty($notes)) {
+            return $this->fail('The plan must contain at least one task, reminder, or note.');
         }
         if ($taskCount > \App\Models\AiPlan::MAX_TASKS) {
             return $this->fail('Too many tasks (max ' . \App\Models\AiPlan::MAX_TASKS . '). Split into smaller plans.');
@@ -1004,27 +1131,99 @@ class AiToolService
             return $this->fail('Too many subtasks (max ' . \App\Models\AiPlan::MAX_SUBTASKS . '). Split into smaller plans.');
         }
 
+        // Legacy keys stay populated so old readers keep working; the
+        // unified `projects` key is the source of truth for new code.
+        $first = $roots[0] ?? null;
         $structure = [
-            'project' => [
-                'name' => trim((string) $args['project']['name']),
-                'description' => $args['project']['description'] ?? null,
-                'tasks' => $direct,
-            ],
-            'subprojects' => $subs,
+            'projects' => $roots,
+            'project' => $first ? [
+                'name' => $first['name'],
+                'description' => $first['description'],
+                'tasks' => $first['tasks'],
+            ] : null,
+            'subprojects' => $first['subprojects'] ?? [],
             'routines' => [],
+            'reminders' => $reminders,
+            'notes' => $notes,
         ];
 
         return ['ok' => true, 'error' => null, 'resolved' => [
             'title' => trim((string) $args['title']),
             'structure' => $structure,
             'totals' => [
-                'subprojects' => count($subs),
+                'projects' => count($roots),
+                'subprojects' => $subProjectCount,
                 'tasks' => $taskCount,
                 'subtasks' => $subCount,
                 'routines' => 0,
                 'steps' => 0,
+                'reminders' => count($reminders),
+                'notes' => count($notes),
             ],
         ]];
+    }
+
+    /**
+     * Clean plan-level reminders (same rules as reminder_create + location).
+     * Returns list or ['ok'=>false,...] on failure.
+     */
+    private function cleanPlanReminders(array $reminders): array
+    {
+        $out = [];
+        foreach (array_values($reminders) as $r) {
+            if (! is_array($r)) {
+                return $this->fail('A reminder in the plan is malformed.');
+            }
+            $rv = Validator::make($r, [
+                'title' => 'required|string|max:255',
+                'date' => 'nullable|date',
+                'time' => 'nullable|date_format:H:i',
+                'priority' => 'nullable|in:low,medium,high,urgent',
+                'description' => 'nullable|string',
+                'location' => 'nullable|string|max:255',
+            ]);
+            if ($rv->fails()) {
+                return $this->fail('Reminder: ' . $rv->errors()->first());
+            }
+            $out[] = [
+                'title' => trim((string) $r['title']),
+                'date' => $r['date'] ?? null,
+                'time' => $r['time'] ?? null,
+                'priority' => $r['priority'] ?? 'medium',
+                'description' => $r['description'] ?? null,
+                'location' => isset($r['location']) ? trim((string) $r['location']) : null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Clean plan-level notes (same rules as note_create).
+     */
+    private function cleanPlanNotes(array $notes): array
+    {
+        $out = [];
+        foreach (array_values($notes) as $n) {
+            if (! is_array($n)) {
+                return $this->fail('A note in the plan is malformed.');
+            }
+            $nv = Validator::make($n, [
+                'title' => 'required|string|max:255',
+                'content' => 'required|string',
+                'category' => 'nullable|string|max:100',
+            ]);
+            if ($nv->fails()) {
+                return $this->fail('Note: ' . $nv->errors()->first());
+            }
+            $out[] = [
+                'title' => trim((string) $n['title']),
+                'content' => (string) $n['content'],
+                'category' => $n['category'] ?? null,
+            ];
+        }
+
+        return $out;
     }
 
     /**
@@ -1140,19 +1339,44 @@ class AiToolService
             $clean[] = $check['resolved'];
         }
 
-        $structure = ['project' => null, 'subprojects' => [], 'routines' => $clean];
+        $structure = ['projects' => [], 'project' => null, 'subprojects' => [], 'routines' => $clean, 'reminders' => [], 'notes' => []];
 
         return ['ok' => true, 'error' => null, 'resolved' => [
             'title' => trim($title),
             'structure' => $structure,
             'totals' => [
+                'projects' => 0,
                 'subprojects' => 0,
                 'tasks' => 0,
                 'subtasks' => 0,
                 'routines' => count($clean),
                 'steps' => array_sum(array_map(fn ($r) => count($r['steps']), $clean)),
+                'reminders' => 0,
+                'notes' => 0,
             ],
         ]];
+    }
+
+    /**
+     * Root projects of a plan structure, unified across old single-tree
+     * plans (project+subprojects) and new multi-project plans (projects[]).
+     * Each root: {name, description, tasks[], subprojects[]}.
+     */
+    public function planRoots(array $structure): array
+    {
+        if (! empty($structure['projects'])) {
+            return array_values($structure['projects']);
+        }
+        if (! empty($structure['project']['name'])) {
+            return [[
+                'name' => $structure['project']['name'],
+                'description' => $structure['project']['description'] ?? null,
+                'tasks' => $structure['project']['tasks'] ?? [],
+                'subprojects' => $structure['subprojects'] ?? [],
+            ]];
+        }
+
+        return [];
     }
 
     /**
@@ -1170,25 +1394,32 @@ class AiToolService
             ]];
         }
 
-        $subCount = count($structure['subprojects']);
-        $taskCount = count($structure['project']['tasks'])
-            + array_sum(array_map(fn ($s) => count($s['tasks']), $structure['subprojects']));
-        $subTaskCount = array_sum(array_map(fn ($t) => count($t['subtasks']), $structure['project']['tasks']))
+        $roots = $this->planRoots($structure);
+        $projectCount = count($roots);
+        $subCount = array_sum(array_map(fn ($r) => count($r['subprojects'] ?? []), $roots));
+        $taskCount = array_sum(array_map(fn ($r) => count($r['tasks'] ?? [])
+            + array_sum(array_map(fn ($s) => count($s['tasks'] ?? []), $r['subprojects'] ?? [])), $roots));
+        $subTaskCount = array_sum(array_map(fn ($r) => array_sum(array_map(fn ($t) => count($t['subtasks'] ?? []), $r['tasks'] ?? []))
             + array_sum(array_map(
-                fn ($s) => array_sum(array_map(fn ($t) => count($t['subtasks']), $s['tasks'])),
-                $structure['subprojects']
-            ));
+                fn ($s) => array_sum(array_map(fn ($t) => count($t['subtasks'] ?? []), $s['tasks'] ?? [])),
+                $r['subprojects'] ?? []
+            )), $roots));
+        $reminderCount = count($structure['reminders'] ?? []);
+        $noteCount = count($structure['notes'] ?? []);
 
         $phase = fn ($key, $label, $total) => [
             'key' => $key, 'label' => $label, 'total' => $total, 'done' => 0,
             'status' => $total > 0 ? 'locked' : 'done', 'result' => null,
         ];
 
+        // NOTE: legacy stored plans use key 'project'; new code accepts both.
         return [
-            $phase('project', 'Create project', 1),
+            $phase('projects', $projectCount > 1 ? "Create {$projectCount} projects" : 'Create project', $projectCount),
             $phase('subprojects', 'Create sub-projects', $subCount),
-            $phase('tasks', 'Create daily tasks', $taskCount),
-            $phase('subtasks', 'Add exercise subtasks', $subTaskCount),
+            $phase('tasks', 'Create tasks', $taskCount),
+            $phase('subtasks', 'Add subtasks', $subTaskCount),
+            $phase('reminders', 'Create reminders', $reminderCount),
+            $phase('notes', 'Create notes', $noteCount),
         ];
     }
 
@@ -1208,6 +1439,7 @@ class AiToolService
 
             $structure = $plan->structure;
             $key = $phase['key'];
+            $roots = $this->planRoots($structure);
 
             if ($key === 'routines') {
                 $ids = [];
@@ -1217,77 +1449,196 @@ class AiToolService
                 }
                 $phase['result'] = ['routine_ids' => $ids];
                 $message = count($ids) . ' routine(s) created.';
-            } elseif ($key === 'project') {
-                $project = $user->projects()->create([
-                    'name' => $structure['project']['name'],
-                    'description' => $structure['project']['description'] ?? null,
-                    'status' => 'in_progress',
-                    'type' => 'project',
-                    'sort_order' => 0,
-                ]);
-                $phase['result'] = ['project_id' => $project->id, 'project_name' => $project->name];
-                $message = "Project '{$project->name}' created.";
-            } elseif ($key === 'subprojects') {
-                $projectId = $phases[0]['result']['project_id'] ?? null;
-                $project = $projectId ? Project::where('id', $projectId)->where('user_id', $user->id)->first() : null;
-                if (! $project) {
-                    return ['ok' => false, 'message' => 'Plan project is missing. Cancel and start over.', 'phase' => $phase];
-                }
-                $ids = [];
-                foreach ($structure['subprojects'] as $sub) {
-                    $created = $user->projects()->create([
-                        'name' => $sub['name'],
-                        'description' => $sub['description'] ?? null,
+            } elseif ($key === 'project' || $key === 'projects') {
+                // Legacy stored plans have a single root via project/subprojects.
+                $created = [];
+                foreach ($roots as $root) {
+                    $project = $user->projects()->create([
+                        'name' => $root['name'],
+                        'description' => $root['description'] ?? null,
                         'status' => 'in_progress',
-                        'parent_id' => $project->id,
                         'type' => 'project',
                         'sort_order' => 0,
                     ]);
-                    $ids[] = $created->id;
+                    $created[] = ['id' => $project->id, 'name' => $project->name];
                 }
-                $phase['result'] = ['sub_ids' => $ids];
-                $message = count($ids) . ' sub-project(s) created.';
-            } elseif ($key === 'tasks') {
-                $map = $this->planProjectMap($phases);
-                if (! $map) {
+                if (empty($created)) {
+                    return ['ok' => false, 'message' => 'Plan has no projects. Cancel and start over.', 'phase' => $phase];
+                }
+                $phase['result'] = [
+                    'projects' => $created,
+                    // Legacy compat for old readers.
+                    'project_id' => $created[0]['id'],
+                    'project_ids' => array_column($created, 'id'),
+                    'project_name' => $created[0]['name'],
+                ];
+                $message = count($created) === 1
+                    ? "Project '{$created[0]['name']}' created."
+                    : count($created) . ' projects created.';
+            } elseif ($key === 'subprojects') {
+                $projectEntries = $phases[0]['result']['projects'] ?? null;
+                if (! $projectEntries && isset($phases[0]['result']['project_id'])) {
+                    $projectEntries = [['id' => $phases[0]['result']['project_id'], 'name' => $phases[0]['result']['project_name'] ?? '']];
+                }
+                if (! $projectEntries) {
                     return ['ok' => false, 'message' => 'Plan project is missing. Cancel and start over.', 'phase' => $phase];
                 }
-                [$projectId, $subIds] = $map;
-                $taskIds = ['direct' => [], 'subs' => []];
-                foreach ($structure['project']['tasks'] as $t) {
-                    $taskIds['direct'][] = $this->createPlanTask($user, $projectId, null, $t);
+                $subsByRoot = [];
+                $flatIds = [];
+                foreach ($roots as $pi => $root) {
+                    $parentId = $projectEntries[$pi]['id'] ?? $projectEntries[0]['id'];
+                    $parent = Project::where('id', $parentId)->where('user_id', $user->id)->first();
+                    if (! $parent) {
+                        return ['ok' => false, 'message' => 'Plan project is missing. Cancel and start over.', 'phase' => $phase];
+                    }
+                    foreach (($root['subprojects'] ?? []) as $sub) {
+                        $created = $user->projects()->create([
+                            'name' => $sub['name'],
+                            'description' => $sub['description'] ?? null,
+                            'status' => 'in_progress',
+                            'parent_id' => $parent->id,
+                            'type' => 'project',
+                            'sort_order' => 0,
+                        ]);
+                        $subsByRoot[$pi][] = $created->id;
+                        $flatIds[] = $created->id;
+                    }
                 }
-                foreach ($structure['subprojects'] as $si => $sub) {
-                    foreach ($sub['tasks'] as $t) {
-                        $taskIds['subs'][$si][] = $this->createPlanTask($user, $subIds[$si], null, $t);
+                $phase['result'] = ['subs' => $subsByRoot, 'sub_ids' => $flatIds];
+                $message = count($flatIds) . ' sub-project(s) created.';
+            } elseif ($key === 'tasks') {
+                $projectEntries = $phases[0]['result']['projects'] ?? null;
+                if (! $projectEntries && isset($phases[0]['result']['project_id'])) {
+                    $projectEntries = [['id' => $phases[0]['result']['project_id'], 'name' => '']];
+                }
+                if (! $projectEntries) {
+                    return ['ok' => false, 'message' => 'Plan project is missing. Cancel and start over.', 'phase' => $phase];
+                }
+                $subsByRoot = $phases[1]['result']['subs'] ?? null;
+                if ($subsByRoot === null && isset($phases[1]['result']['sub_ids'])) {
+                    // Legacy flat shape → belongs to the single root.
+                    $subsByRoot = [0 => $phases[1]['result']['sub_ids']];
+                }
+                $taskIds = ['direct' => [], 'subs' => []];
+                foreach ($roots as $pi => $root) {
+                    $projectId = $projectEntries[$pi]['id'] ?? $projectEntries[0]['id'];
+                    foreach (($root['tasks'] ?? []) as $t) {
+                        $taskIds['direct'][$pi][] = $this->createPlanTask($user, $projectId, null, $t);
+                    }
+                    foreach (($root['subprojects'] ?? []) as $si => $sub) {
+                        $subId = $subsByRoot[$pi][$si] ?? $projectId;
+                        foreach (($sub['tasks'] ?? []) as $t) {
+                            $taskIds['subs'][$pi][$si][] = $this->createPlanTask($user, $subId, null, $t);
+                        }
                     }
                 }
                 $phase['result'] = ['task_ids' => $taskIds];
                 $message = $phase['total'] . ' task(s) created.';
-            } else { // subtasks
-                $map = $this->planProjectMap($phases);
-                $taskIds = $phases[2]['result']['task_ids'] ?? null;
-                if (! $map || ! $taskIds) {
-                    return ['ok' => false, 'message' => 'Plan tasks are missing. Cancel and start over.', 'phase' => $phase];
+            } elseif ($key === 'subtasks') {
+                $projectEntries = $phases[0]['result']['projects'] ?? null;
+                if (! $projectEntries && isset($phases[0]['result']['project_id'])) {
+                    $projectEntries = [['id' => $phases[0]['result']['project_id'], 'name' => '']];
                 }
-                [$projectId, $subIds] = $map;
-                $n = 0;
-                foreach ($structure['project']['tasks'] as $ti => $t) {
-                    foreach ($t['subtasks'] as $s) {
-                        $this->createPlanTask($user, $projectId, $taskIds['direct'][$ti], ['title' => $s['title']]);
-                        $n++;
+                // Tasks result index varies (legacy plans stored it at 2).
+                $taskIds = null;
+                foreach ($phases as $p) {
+                    if (($p['key'] ?? null) === 'tasks' && isset($p['result']['task_ids'])) {
+                        $taskIds = $p['result']['task_ids'];
                     }
                 }
-                foreach ($structure['subprojects'] as $si => $sub) {
-                    foreach ($sub['tasks'] as $ti => $t) {
-                        foreach ($t['subtasks'] as $s) {
-                            $this->createPlanTask($user, $subIds[$si] ?? $projectId, $taskIds['subs'][$si][$ti], ['title' => $s['title']]);
+                if (! $projectEntries || ! $taskIds) {
+                    return ['ok' => false, 'message' => 'Plan tasks are missing. Cancel and start over.', 'phase' => $phase];
+                }
+                $n = 0;
+                if (empty($structure['projects'])) {
+                    // Legacy stored plan: flat shapes, single root via
+                    // project/subprojects keys. The tasks phase may have been
+                    // (re-)executed by new code in nested shape — unwrap it.
+                    $projectId = $projectEntries[0]['id'];
+                    $subIds = $phases[1]['result']['sub_ids'] ?? [];
+                    $directIds = $taskIds['direct'];
+                    $subsIds = $taskIds['subs'];
+                    if (isset($directIds[0]) && is_array($directIds[0])) {
+                        $directIds = $directIds[0];
+                        $subsIds = $subsIds[0] ?? [];
+                    }
+                    foreach (($structure['project']['tasks'] ?? []) as $ti => $t) {
+                        foreach (($t['subtasks'] ?? []) as $s) {
+                            $this->createPlanTask($user, $projectId, $directIds[$ti], ['title' => $s['title']]);
                             $n++;
+                        }
+                    }
+                    foreach (($structure['subprojects'] ?? []) as $si => $sub) {
+                        foreach (($sub['tasks'] ?? []) as $ti => $t) {
+                            foreach (($t['subtasks'] ?? []) as $s) {
+                                $this->createPlanTask($user, $subIds[$si] ?? $projectId, $subsIds[$si][$ti], ['title' => $s['title']]);
+                                $n++;
+                            }
+                        }
+                    }
+                } else {
+                    // New plans: nested per-root shapes direct[pi][ti],
+                    // subs[pi][si][ti].
+                    foreach ($roots as $pi => $root) {
+                        $projectId = $projectEntries[$pi]['id'] ?? $projectEntries[0]['id'];
+                        foreach (($root['tasks'] ?? []) as $ti => $t) {
+                            $parentTaskId = $taskIds['direct'][$pi][$ti] ?? null;
+                            if (! $parentTaskId) {
+                                continue;
+                            }
+                            foreach (($t['subtasks'] ?? []) as $s) {
+                                $this->createPlanTask($user, $projectId, $parentTaskId, ['title' => $s['title']]);
+                                $n++;
+                            }
+                        }
+                        foreach (($root['subprojects'] ?? []) as $si => $sub) {
+                            $subProjectId = $phases[1]['result']['subs'][$pi][$si] ?? $projectId;
+                            foreach (($sub['tasks'] ?? []) as $ti => $t) {
+                                $parentTaskId = $taskIds['subs'][$pi][$si][$ti] ?? null;
+                                if (! $parentTaskId) {
+                                    continue;
+                                }
+                                foreach (($t['subtasks'] ?? []) as $s) {
+                                    $this->createPlanTask($user, $subProjectId, $parentTaskId, ['title' => $s['title']]);
+                                    $n++;
+                                }
+                            }
                         }
                     }
                 }
                 $phase['result'] = ['created' => $n];
                 $message = $n . ' subtask(s) added.';
+            } elseif ($key === 'reminders') {
+                $ids = [];
+                foreach (($structure['reminders'] ?? []) as $r) {
+                    $rem = $user->reminders()->create([
+                        'title' => $r['title'],
+                        'date' => $r['date'] ?? null,
+                        'time' => $r['time'] ?? null,
+                        'priority' => $r['priority'] ?? 'medium',
+                        'description' => $r['description'] ?? '',
+                        'location' => $r['location'] ?? null,
+                        'recurrence_type' => Reminder::RECURRENCE_NONE,
+                        'recurrence_interval' => 1,
+                    ]);
+                    $ids[] = $rem->id;
+                }
+                $phase['result'] = ['reminder_ids' => $ids];
+                $message = count($ids) . ' reminder(s) created.';
+            } elseif ($key === 'notes') {
+                $ids = [];
+                foreach (($structure['notes'] ?? []) as $n) {
+                    $note = $user->notes()->create([
+                        'title' => $n['title'],
+                        'content' => $n['content'],
+                        'category' => $n['category'] ?? null,
+                    ]);
+                    $ids[] = $note->id;
+                }
+                $phase['result'] = ['note_ids' => $ids];
+                $message = count($ids) . ' note(s) created.';
+            } else {
+                return ['ok' => false, 'message' => 'Unknown plan phase.', 'phase' => $phase];
             }
 
             $phase['done'] = $phase['total'];
@@ -1316,16 +1667,6 @@ class AiToolService
 
             return ['ok' => true, 'message' => $message, 'phase' => $phase];
         });
-    }
-
-    private function planProjectMap(array $phases): ?array
-    {
-        $projectId = $phases[0]['result']['project_id'] ?? null;
-        if (! $projectId) {
-            return null;
-        }
-
-        return [$projectId, $phases[1]['result']['sub_ids'] ?? []];
     }
 
     private function createPlanTask($user, int $projectId, ?int $parentId, array $t): int
@@ -1379,22 +1720,29 @@ class AiToolService
     {
         $structure = $resolved['structure'];
         $totals = $resolved['totals'];
+        $taskView = fn ($t) => [
+            'title' => $t['title'],
+            'due_date' => $t['due_date'] ?? null,
+            'subtasks' => array_map(fn ($s) => is_array($s) ? $s['title'] : $s, $t['subtasks'] ?? []),
+        ];
+        $roots = $this->planRoots($structure);
         $tree = [
-            'project' => $structure['project'] ? [
+            'projects' => array_map(fn ($r) => [
+                'name' => $r['name'],
+                'tasks' => array_map($taskView, $r['tasks'] ?? []),
+                'subprojects' => array_map(fn ($s) => [
+                    'name' => $s['name'],
+                    'tasks' => array_map($taskView, $s['tasks'] ?? []),
+                ], $r['subprojects'] ?? []),
+            ], $roots),
+            // Legacy keys for old frontend readers.
+            'project' => ! empty($structure['project']) ? [
                 'name' => $structure['project']['name'],
-                'tasks' => array_map(fn ($t) => [
-                    'title' => $t['title'],
-                    'due_date' => $t['due_date'],
-                    'subtasks' => array_map(fn ($s) => $s['title'], $t['subtasks']),
-                ], $structure['project']['tasks']),
+                'tasks' => array_map($taskView, $structure['project']['tasks'] ?? []),
             ] : null,
             'subprojects' => array_map(fn ($s) => [
                 'name' => $s['name'],
-                'tasks' => array_map(fn ($t) => [
-                    'title' => $t['title'],
-                    'due_date' => $t['due_date'],
-                    'subtasks' => array_map(fn ($x) => $x['title'], $t['subtasks']),
-                ], $s['tasks']),
+                'tasks' => array_map($taskView, $s['tasks'] ?? []),
             ], $structure['subprojects'] ?? []),
             'routines' => array_map(fn ($r) => [
                 'title' => $r['title'],
@@ -1402,6 +1750,16 @@ class AiToolService
                 'tracking_mode' => $r['tracking_mode'] ?? 'none',
                 'steps' => array_map(fn ($s) => $s['name'], $r['steps'] ?? []),
             ], $structure['routines'] ?? []),
+            'reminders' => array_map(fn ($r) => [
+                'title' => $r['title'],
+                'date' => $r['date'] ?? null,
+                'time' => $r['time'] ?? null,
+                'location' => $r['location'] ?? null,
+            ], $structure['reminders'] ?? []),
+            'notes' => array_map(fn ($n) => [
+                'title' => $n['title'],
+                'category' => $n['category'] ?? null,
+            ], $structure['notes'] ?? []),
         ];
 
         return [
@@ -1464,7 +1822,9 @@ class AiToolService
 
     private function execReminderCreate(array $r, $user): array
     {
+        // reminders.description is NOT NULL in the schema — normalize nulls.
         $rem = $user->reminders()->create(array_merge($r, [
+            'description' => $r['description'] ?? '',
             'recurrence_type' => Reminder::RECURRENCE_NONE, 'recurrence_interval' => 1,
         ]));
 

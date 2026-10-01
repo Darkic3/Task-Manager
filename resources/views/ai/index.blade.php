@@ -1212,14 +1212,21 @@ footer { display: none !important; }
         const prev = plan.preview || {};
         const tree = prev.tree || {};
         const totals = prev.totals || {};
+        let totalsLine = '';
+        if ((totals.routines || 0) > 0) {
+            totalsLine = (totals.routines + ' routine(s) · ' + (totals.steps || 0) + ' step(s)');
+        } else {
+            const parts = [];
+            if ((totals.projects || 0) > 1) parts.push(totals.projects + ' projects');
+            if ((totals.subprojects || 0) > 0) parts.push(totals.subprojects + ' sub-project(s)');
+            parts.push((totals.tasks || 0) + ' task(s)');
+            parts.push((totals.subtasks || 0) + ' subtask(s)');
+            if ((totals.reminders || 0) > 0) parts.push(totals.reminders + ' reminder(s)');
+            if ((totals.notes || 0) > 0) parts.push(totals.notes + ' note(s)');
+            totalsLine = parts.join(' · ');
+        }
         let html = '<h4>📋 ' + escPlan(plan.title) + '</h4>'
-            + '<div class="lina-plan-totals">'
-            + ((totals.routines || 0) > 0
-                ? (totals.routines + ' routine(s) · ' + (totals.steps || 0) + ' step(s)')
-                : ((totals.subprojects || 0) + ' sub-project(s) · '
-                    + (totals.tasks || 0) + ' task(s) · '
-                    + (totals.subtasks || 0) + ' subtask(s)'))
-            + '</div>';
+            + '<div class="lina-plan-totals">' + totalsLine + '</div>';
 
         html += '<div class="lina-plan-tree"><ul>';
         if ((tree.routines || []).length) {
@@ -1235,8 +1242,6 @@ footer { display: none !important; }
                 }
                 html += '</li>';
             });
-        } else {
-            html += '<li>📁 <strong>' + escPlan(tree.project?.name) + '</strong>';
         }
         const taskHtml = (t) => {
             let s = escPlan(t.title);
@@ -1249,18 +1254,33 @@ footer { display: none !important; }
             }
             return '<li>☑ ' + s + '</li>';
         };
-        html += '<ul>';
-        if (tree.project) {
-            (tree.project.tasks || []).forEach(t => { html += taskHtml(t); });
-            (tree.subprojects || []).forEach(s => {
-                html += '<li>📂 <strong>' + escPlan(s.name) + '</strong><ul>';
-                (s.tasks || []).forEach(t => { html += taskHtml(t); });
+        if (!((tree.routines || []).length)) {
+            // Multi-project plans use tree.projects; legacy single-tree plans
+            // use tree.project + tree.subprojects.
+            const rootList = (tree.projects && tree.projects.length)
+                ? tree.projects
+                : (tree.project ? [{ name: tree.project.name, tasks: tree.project.tasks, subprojects: tree.subprojects }] : []);
+            rootList.forEach(p => {
+                html += '<li>📁 <strong>' + escPlan(p.name) + '</strong><ul>';
+                (p.tasks || []).forEach(t => { html += taskHtml(t); });
+                (p.subprojects || []).forEach(s => {
+                    html += '<li>📂 <strong>' + escPlan(s.name) + '</strong><ul>';
+                    (s.tasks || []).forEach(t => { html += taskHtml(t); });
+                    html += '</ul></li>';
+                });
                 html += '</ul></li>';
             });
-            html += '</ul></li></ul></div>';
-        } else {
-            html += '</ul></div>';
         }
+        (tree.reminders || []).forEach(r => {
+            html += '<li>⏰ <strong>' + escPlan(r.title) + '</strong>'
+                + ' <span class="lina-plan-due">' + escPlan([r.date, r.time].filter(Boolean).join(' '))
+                + (r.location ? ' · ' + escPlan(r.location) : '') + '</span></li>';
+        });
+        (tree.notes || []).forEach(n => {
+            html += '<li>📝 <strong>' + escPlan(n.title) + '</strong>'
+                + (n.category ? ' <span class="lina-plan-due">' + escPlan(n.category) + '</span>' : '') + '</li>';
+        });
+        html += '</ul></div>';
         if (plan.status === 'proposed') {
             html += '<div class="lina-plan-note muted" style="background:#fffbeb;padding:8px 12px;border-radius:10px;border:1px solid #fde68a;margin-top:8px;">⚠️ تایید ساختار = ساخته شدن نیست. بعد از تایید باید مرحله‌ها را اجرا کنی تا پروژه و تسک‌ها واقعاً ساخته شوند.</div>';
         } else if (plan.status === 'confirmed' || plan.status === 'executing') {

@@ -147,12 +147,19 @@ class AiPlanController extends Controller
     public function serialize(AiPlan $plan): array
     {
         $structure = $plan->structure;
-        $taskCount = count($structure['project']['tasks'] ?? [])
-            + array_sum(array_map(fn ($s) => count($s['tasks'] ?? []), $structure['subprojects'] ?? []));
-        $subCount = array_sum(array_map(fn ($t) => count($t['subtasks'] ?? []), $structure['project']['tasks'] ?? []))
+        // planRoots() unifies old single-tree and new multi-project shapes.
+        $roots = $this->tools->planRoots($structure);
+        $projectCount = count($roots);
+        $subProjectCount = array_sum(array_map(fn ($r) => count($r['subprojects'] ?? []), $roots));
+        $taskCount = array_sum(array_map(fn ($r) => count($r['tasks'] ?? [])
+            + array_sum(array_map(fn ($s) => count($s['tasks'] ?? []), $r['subprojects'] ?? [])), $roots));
+        $subCount = array_sum(array_map(fn ($r) => array_sum(array_map(fn ($t) => count($t['subtasks'] ?? []), $r['tasks'] ?? [])), $roots))
             + array_sum(array_map(
-                fn ($s) => array_sum(array_map(fn ($t) => count($t['subtasks'] ?? []), $s['tasks'] ?? [])),
-                $structure['subprojects'] ?? []
+                fn ($r) => array_sum(array_map(
+                    fn ($s) => array_sum(array_map(fn ($t) => count($t['subtasks'] ?? []), $s['tasks'] ?? [])),
+                    $r['subprojects'] ?? []
+                )),
+                $roots
             ));
         $routineCount = count($structure['routines'] ?? []);
         $stepCount = array_sum(array_map(fn ($r) => count($r['steps'] ?? []), $structure['routines'] ?? []));
@@ -167,11 +174,14 @@ class AiPlanController extends Controller
                 'title' => $plan->title,
                 'structure' => $structure,
                 'totals' => [
-                    'subprojects' => count($structure['subprojects'] ?? []),
+                    'projects' => $projectCount,
+                    'subprojects' => $subProjectCount,
                     'tasks' => $taskCount,
                     'subtasks' => $subCount,
                     'routines' => $routineCount,
                     'steps' => $stepCount,
+                    'reminders' => count($structure['reminders'] ?? []),
+                    'notes' => count($structure['notes'] ?? []),
                 ],
             ]),
             'expires_at' => $plan->expires_at?->toIso8601String(),

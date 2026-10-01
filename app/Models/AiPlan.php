@@ -16,10 +16,14 @@ class AiPlan extends Model
 
     public const EXPIRY_MINUTES = 15;
 
-    // Caps per plan: 1 project, 3 sub-projects, 30 tasks, 100 subtasks.
+    // Caps per plan: 5 root projects, 3 sub-projects each, 30 tasks,
+    // 100 subtasks, 10 reminders, 10 notes.
+    public const MAX_PROJECTS = 5;
     public const MAX_SUBPROJECTS = 3;
     public const MAX_TASKS = 30;
     public const MAX_SUBTASKS = 100;
+    public const MAX_REMINDERS = 10;
+    public const MAX_NOTES = 10;
 
     protected $fillable = [
         'user_id',
