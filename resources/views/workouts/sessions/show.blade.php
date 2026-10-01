@@ -38,13 +38,17 @@
     /* Clean Big-Tap Set Rows */
     .set-row-clean {
         display: grid;
-        grid-template-columns: 36px minmax(70px, 1.2fr) minmax(70px, 1fr) 40px 75px;
+        grid-template-columns: 36px minmax(70px, 1.2fr) minmax(70px, 1fr) 40px 104px;
         gap: 8px; align-items: center;
         padding: 8px 12px; border-bottom: 1px solid #f8fafc;
         transition: background 0.15s ease;
     }
     .set-row-clean.time-mode {
-        grid-template-columns: 36px minmax(120px, 2fr) minmax(70px, 1fr) 40px 75px;
+        grid-template-columns: 36px minmax(120px, 2fr) minmax(70px, 1fr) 40px 104px;
+    }
+    @media (max-width: 480px) {
+        .set-row-clean,
+        .set-row-clean.time-mode { grid-template-columns: 30px 1fr 1fr 34px 94px; gap: 6px; padding: 8px; }
     }
     .set-row-clean:hover { background: #fafbfc; }
     .set-row-clean.is-saved { background: #f0fdf4; }
@@ -68,12 +72,17 @@
     .ws-input-big::placeholder { color: #94a3b8; font-weight: 400; font-size: 0.875rem; }
 
     .btn-save-set {
-        padding: 8px 10px; border-radius: 8px; font-size: 0.8125rem; font-weight: 700;
+        padding: 8px 6px; border-radius: 8px; font-size: 0.8125rem; font-weight: 700;
         display: flex; align-items: center; justify-content: center; gap: 4px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         border: none; background: #e0e7ff; color: #4338ca; cursor: pointer; transition: all 0.15s;
     }
+    .btn-save-set i { flex-shrink: 0; font-size: 0.9em; }
     .btn-save-set:hover { background: #c7d2fe; }
     .btn-save-set.saved { background: #16a34a; color: white; }
+    .btn-save-set.saved i { font-size: 1.05em; }
+    .btn-save-set:disabled { opacity: 0.6; cursor: default; }
+    .btn-save-set.saved:hover { background: #16a34a; }
 
     .btn-more-toggle {
         width: 36px; height: 36px; border-radius: 8px; border: 1px solid #e2e8f0;
@@ -591,7 +600,7 @@
 
             row.classList.add('is-saved');
             btn.classList.add('saved');
-            btn.innerHTML = `<i class="bi bi-check-lg"></i> ${I18N_WS.done}`;
+            btn.innerHTML = `<i class="bi bi-check-lg"></i><span>${I18N_WS.done}</span>`;
 
             // PR Hunter Celebration!
             if (data.is_pr) {

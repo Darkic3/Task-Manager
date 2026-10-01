@@ -9,6 +9,19 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
 <style>
+/* ══ Lina minimal theme — calm surfaces, one accent, generous air ══ */
+:root {
+    --lina-accent: #4f46e5;
+    --lina-accent-soft: #eef0fe;
+    --lina-ink: var(--gray-900);
+    --lina-line: var(--gray-200);
+    --lina-card: #ffffff;
+    --lina-r-lg: 18px;
+    --lina-r-md: 14px;
+    --lina-r-sm: 10px;
+    --lina-shadow: 0 1px 2px rgba(16,24,40,.05), 0 4px 16px -4px rgba(79,70,229,.10);
+    --lina-col: 880px;
+}
 /* ── Override layout shell for full-height chat ── */
 main {
     padding: 0 !important;
@@ -22,34 +35,40 @@ footer { display: none !important; }
 /* ── Page layout ── */
 .lina-page {
     display: flex; flex: 1; overflow: hidden; height: 100%;
+    background:
+        radial-gradient(900px 220px at 50% -60px, rgba(99,102,241,.07), transparent 70%),
+        var(--gray-25);
 }
 
-/* ── Left: conversations panel (future multi-chat) ── */
+/* ── Left: conversations panel ── */
 .lina-sidebar {
-    width: 240px; flex-shrink: 0;
-    border-right: 1px solid var(--gray-200);
-    background: var(--gray-50);
+    width: 248px; flex-shrink: 0;
+    border-inline-end: 1px solid var(--lina-line);
+    background: rgba(255,255,255,.7);
+    backdrop-filter: blur(8px);
     display: flex; flex-direction: column;
     overflow: hidden;
 }
 .lina-sidebar-head {
-    padding: 18px 16px 12px;
-    border-bottom: 1px solid var(--gray-200);
+    padding: 16px 14px 12px;
+    border-bottom: 1px solid var(--gray-100);
 }
 .lina-sidebar-head h2 {
-    font-size: 13px; font-weight: 700;
-    color: var(--gray-700); margin: 0 0 10px;
-    text-transform: uppercase; letter-spacing: .5px;
+    font-size: 12px; font-weight: 700;
+    color: var(--gray-500); margin: 0 0 10px;
+    text-transform: uppercase; letter-spacing: .6px;
 }
 .lina-new-btn {
-    width: 100%; padding: 8px 12px;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
-    border: none; border-radius: 10px; color: #fff;
+    width: 100%; padding: 9px 12px;
+    background: var(--lina-accent);
+    border: none; border-radius: var(--lina-r-sm); color: #fff;
     font-size: 13px; font-weight: 600; cursor: pointer;
-    display: flex; align-items: center; gap: 6px;
-    transition: opacity .15s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: filter .15s, transform .12s;
+    font-family: inherit;
 }
-.lina-new-btn:hover { opacity: .9; }
+.lina-new-btn:hover { filter: brightness(1.07); }
+.lina-new-btn:active { transform: scale(.98); }
 .lina-conv-list {
     flex: 1; overflow-y: auto; padding: 10px 8px;
     display: flex; flex-direction: column; gap: 2px;
@@ -57,16 +76,18 @@ footer { display: none !important; }
 .lina-conv-list::-webkit-scrollbar { width: 4px; }
 .lina-conv-list::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 4px; }
 .lina-conv-item {
-    padding: 9px 10px; border-radius: 8px;
+    padding: 9px 10px; border-radius: var(--lina-r-sm);
     cursor: pointer; display: flex; align-items: center;
     gap: 8px; font-size: 12.5px; color: var(--gray-600);
     transition: background .12s; position: relative;
+    border: 1px solid transparent;
 }
-.lina-conv-item:hover { background: var(--gray-200); color: var(--gray-800); }
+.lina-conv-item:hover { background: var(--gray-100); color: var(--gray-800); }
 .lina-conv-item.active {
-    background: #ede9fe; color: #5b21b6; font-weight: 600;
+    background: var(--lina-accent-soft); color: #4338ca; font-weight: 600;
+    border-color: #e0e4fd;
 }
-.lina-conv-item i { font-size: 13px; flex-shrink: 0; color: #7c3aed; }
+.lina-conv-item i { font-size: 13px; flex-shrink: 0; color: var(--lina-accent); }
 .lina-conv-label {
     flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -81,98 +102,137 @@ footer { display: none !important; }
 /* ── Right: main chat ── */
 .lina-main {
     flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    min-width: 0;
 }
 
 /* ── Chat header ── */
 .lina-head {
-    flex-shrink: 0; padding: 16px 24px;
-    background: #fff; border-bottom: 1px solid var(--gray-200);
-    display: flex; align-items: center; gap: 14px;
+    flex-shrink: 0; padding: 10px 20px;
+    background: rgba(255,255,255,.85); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--gray-100);
+    display: flex; align-items: center; gap: 12px;
 }
 .lina-head-avatar {
-    width: 44px; height: 44px; border-radius: 14px;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    width: 36px; height: 36px; border-radius: 12px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
     display: flex; align-items: center; justify-content: center;
-    font-size: 22px; color: #fff; flex-shrink: 0;
+    font-size: 18px; color: #fff; flex-shrink: 0;
+    box-shadow: 0 4px 12px -2px rgba(99,102,241,.4);
 }
-.lina-head-title { font-size: 17px; font-weight: 800; color: var(--gray-900); }
+.lina-head-title { font-size: 15.5px; font-weight: 800; color: var(--lina-ink); line-height: 1.3; }
 .lina-head-status {
     display: flex; align-items: center; gap: 5px;
-    font-size: 11.5px; color: var(--gray-500); margin-top: 1px;
+    font-size: 11px; color: var(--gray-500); margin-top: 1px;
 }
 .lina-status-dot {
     width: 7px; height: 7px; border-radius: 50%; background: #10b981;
     animation: linaPulse 2s infinite;
 }
 @keyframes linaPulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-.lina-head-right { margin-left: auto; display: flex; gap: 8px; }
+.lina-head-right { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }
+/* Pending pill — mirrors the dock count */
+.lina-pending-pill {
+    display: none; align-items: center; gap: 6px;
+    background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
+    border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700;
+    cursor: pointer; transition: filter .15s; font-family: inherit;
+    white-space: nowrap;
+}
+.lina-pending-pill:hover { filter: brightness(.97); }
+.lina-pending-pill.show { display: inline-flex; }
 .lina-icon-btn {
-    width: 36px; height: 36px; border-radius: 10px;
+    width: 34px; height: 34px; border-radius: 10px;
     border: 1px solid var(--gray-200); background: #fff;
-    color: var(--gray-500); font-size: 15px; cursor: pointer;
+    color: var(--gray-500); font-size: 14px; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: all .15s;
 }
 .lina-icon-btn:hover { background: var(--gray-100); color: var(--gray-700); border-color: var(--gray-300); }
 #linaModelPill { display: none; }
 
-/* ── Messages ── */
+/* ── Messages: calm centered column ── */
 .lina-messages {
-    flex: 1; overflow-y: auto; padding: 24px;
-    display: flex; flex-direction: column; gap: 16px;
-    scroll-behavior: smooth; background: var(--gray-25);
+    flex: 1; overflow-y: auto; padding: 28px 20px 20px;
+    display: flex; flex-direction: column; gap: 18px;
+    scroll-behavior: smooth;
 }
-.lina-messages::-webkit-scrollbar { width: 5px; }
+.lina-messages::-webkit-scrollbar { width: 6px; }
 .lina-messages::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
+.lina-messages::-webkit-scrollbar-thumb:hover { background: var(--gray-300); }
+/* Every row shares one readable column */
+.lina-msg-wrap, .lina-typing-wrap, .lina-error {
+    width: 100%; max-width: var(--lina-col); margin-inline: auto;
+}
 
-/* Empty / welcome */
+/* Empty / welcome hero */
 .lina-welcome {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; flex: 1; text-align: center;
-    padding: 40px 20px; gap: 14px;
+    padding: 32px 20px; gap: 12px;
+    width: 100%; max-width: 720px; margin-inline: auto;
 }
 .lina-welcome-icon {
-    width: 80px; height: 80px; border-radius: 24px;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    width: 64px; height: 64px; border-radius: 20px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
     display: flex; align-items: center; justify-content: center;
-    font-size: 38px; color: #fff; margin-bottom: 6px;
-    box-shadow: 0 8px 24px rgba(99,102,241,.3);
+    font-size: 30px; color: #fff; margin-bottom: 4px;
+    box-shadow: 0 10px 28px -8px rgba(99,102,241,.5);
 }
-.lina-welcome h3 { font-size: 22px; font-weight: 800; color: var(--gray-900); margin: 0; }
-.lina-welcome p { font-size: 14px; color: var(--gray-500); margin: 0; max-width: 380px; line-height: 1.6; }
+.lina-welcome h3 { font-size: 21px; font-weight: 800; color: var(--lina-ink); margin: 0; }
+.lina-welcome p { font-size: 13.5px; color: var(--gray-500); margin: 0; max-width: 420px; line-height: 1.8; }
+/* Capability gallery — the fastest way to discover what Lina can do */
+.lina-cap-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px; width: 100%; margin-top: 10px; text-align: start;
+}
+.lina-cap {
+    background: var(--lina-card); border: 1px solid var(--lina-line);
+    border-radius: var(--lina-r-md); padding: 12px 14px;
+    cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .12s;
+    display: flex; gap: 10px; align-items: flex-start; text-align: start;
+    font-family: inherit; width: 100%;
+}
+.lina-cap:hover { border-color: #c7d0fd; box-shadow: var(--lina-shadow); transform: translateY(-1px); }
+.lina-cap-ico {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; background: var(--lina-accent-soft); color: var(--lina-accent);
+}
+.lina-cap b { display: block; font-size: 13px; color: var(--lina-ink); margin-bottom: 2px; }
+.lina-cap span { display: block; font-size: 12px; color: var(--gray-500); line-height: 1.7; }
 .lina-welcome-chips {
     display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
-    margin-top: 8px;
+    margin-top: 6px;
 }
 
 /* Message bubbles */
-.lina-msg-wrap { display: flex; flex-direction: column; gap: 4px; }
+.lina-msg-wrap { display: flex; flex-direction: column; gap: 5px; }
 .lina-msg-wrap.user { align-items: flex-end; }
 .lina-msg-wrap.bot  { align-items: flex-start; }
 
 .lina-msg-meta {
     display: flex; align-items: center; gap: 8px;
-    font-size: 11px; color: var(--gray-400);
+    font-size: 10.5px; color: var(--gray-400);
 }
 .lina-model-tag {
-    background: #ede9fe; color: #5b21b6;
-    border-radius: 12px; padding: 2px 8px; font-size: 10.5px; font-weight: 600;
+    background: var(--lina-accent-soft); color: #4338ca;
+    border-radius: 12px; padding: 2px 8px; font-size: 10px; font-weight: 700;
 }
 
 .lina-msg {
-    max-width: 72%; font-size: 14px; line-height: 1.7;
-    padding: 12px 16px; border-radius: 16px; word-break: break-word;
+    max-width: 78%; font-size: 14px; line-height: 1.8;
+    padding: 11px 16px; border-radius: var(--lina-r-lg); word-break: break-word;
 }
 .lina-msg.user {
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
-    color: #fff; border-bottom-right-radius: 4px;
-    box-shadow: 0 2px 8px rgba(99,102,241,.25);
+    background: var(--lina-accent);
+    color: #fff; border-end-end-radius: 6px;
+    box-shadow: 0 2px 10px -2px rgba(79,70,229,.35);
 }
 .lina-msg.bot {
-    background: #fff; color: var(--gray-800);
-    border-bottom-left-radius: 4px;
-    border: 1px solid var(--gray-200);
-    box-shadow: var(--shadow-sm);
+    background: var(--lina-card); color: var(--gray-800);
+    border-end-start-radius: 6px;
+    border: 1px solid var(--lina-line);
+    box-shadow: 0 1px 2px rgba(16,24,40,.04);
 }
 .lina-msg.bot p { margin: 0 0 8px; }
 .lina-msg.bot p:last-child { margin: 0; }
@@ -224,45 +284,67 @@ footer { display: none !important; }
 /* Typing */
 .lina-typing-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .lina-typing {
-    background: #fff; border: 1px solid var(--gray-200); border-radius: 16px;
-    border-bottom-left-radius: 4px; padding: 14px 18px;
-    box-shadow: var(--shadow-sm);
+    background: var(--lina-card); border: 1px solid var(--lina-line); border-radius: 16px;
+    border-end-start-radius: 6px; padding: 13px 18px;
+    box-shadow: 0 1px 2px rgba(16,24,40,.04);
 }
 .lina-dots span {
-    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-    background: var(--gray-400); margin: 0 2px;
-    animation: linaBounce 1s infinite ease-in-out;
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--lina-accent); opacity: .35; margin: 0 2px;
+    animation: linaBounce 1.1s infinite ease-in-out;
 }
 .lina-dots span:nth-child(2) { animation-delay: .18s; }
 .lina-dots span:nth-child(3) { animation-delay: .36s; }
-@keyframes linaBounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-7px)} }
+@keyframes linaBounce { 0%,80%,100%{transform:translateY(0);opacity:.35} 40%{transform:translateY(-5px);opacity:1} }
+
+/* ── Pending dock: always-visible strip above the input ── */
+.lina-dock {
+    display: none; align-items: center; gap: 10px;
+    background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
+    border-radius: var(--lina-r-md); padding: 8px 14px; margin-bottom: 10px;
+    font-size: 12.5px; font-weight: 600;
+}
+.lina-dock.show { display: flex; }
+.lina-dock .grow { flex: 1; }
+.lina-dock-btn {
+    border: none; border-radius: 8px; padding: 6px 14px;
+    font-size: 12.5px; font-weight: 700; cursor: pointer;
+    font-family: inherit; transition: filter .15s;
+    white-space: nowrap;
+}
+.lina-dock-ok { background: var(--lina-accent); color: #fff; }
+.lina-dock-ok:hover:not(:disabled) { filter: brightness(1.08); }
+.lina-dock-no { background: transparent; border: 1px solid #fcd34d; color: #92400e; }
+.lina-dock-no:hover:not(:disabled) { background: #fef3c7; }
+.lina-dock-btn:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ── Input area ── */
 .lina-foot {
     flex-shrink: 0;
-    padding: 12px 24px 18px;
-    background: #fff;
+    padding: 10px 20px 16px;
+    background: linear-gradient(to top, #fff 82%, rgba(255,255,255,0));
     border-top: 1px solid var(--gray-100);
 }
+.lina-foot-inner { width: 100%; max-width: var(--lina-col); margin-inline: auto; }
 .lina-input-box {
-    background: #fff;
-    border: 1.5px solid var(--gray-200);
-    border-radius: 18px;
-    box-shadow: 0 2px 14px rgba(0,0,0,.06);
+    background: var(--lina-card);
+    border: 1.5px solid var(--lina-line);
+    border-radius: 20px;
+    box-shadow: 0 4px 20px -6px rgba(16,24,40,.12);
     transition: border-color .18s, box-shadow .18s;
     overflow: hidden;
 }
 .lina-input-box:focus-within {
-    border-color: #6366f1;
-    box-shadow: 0 2px 20px rgba(99,102,241,.14);
+    border-color: var(--lina-accent);
+    box-shadow: 0 4px 24px -6px rgba(99,102,241,.25);
 }
 #linaInput {
     display: block; width: 100%;
     border: none; outline: none; resize: none;
-    font-size: 14.5px; line-height: 1.65;
+    font-size: 14.5px; line-height: 1.7;
     color: var(--gray-800); background: transparent;
-    padding: 14px 16px 4px;
-    min-height: 52px; max-height: 180px;
+    padding: 13px 16px 2px;
+    min-height: 50px; max-height: 180px;
     overflow-y: hidden;
     font-family: inherit;
 }
@@ -270,7 +352,7 @@ footer { display: none !important; }
 .lina-input-toolbar {
     display: flex; align-items: center;
     justify-content: space-between;
-    padding: 6px 10px 10px;
+    padding: 4px 8px 8px;
 }
 .lina-input-hints {
     display: flex; align-items: center; gap: 10px;
@@ -290,23 +372,24 @@ footer { display: none !important; }
 #linaCharCount.warn { color: #f59e0b; }
 #linaCharCount.over { color: #ef4444; }
 .lina-send-btn {
-    width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    background: var(--lina-accent);
     border: none; color: #fff; font-size: 15px; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: opacity .15s, transform .12s;
+    transition: filter .15s, transform .12s;
+    box-shadow: 0 3px 10px -2px rgba(79,70,229,.5);
 }
-.lina-send-btn:hover:not(:disabled) { opacity: .9; transform: scale(1.06); }
-.lina-send-btn:disabled { opacity: .28; cursor: not-allowed; transform: none; }
+.lina-send-btn:hover:not(:disabled) { filter: brightness(1.1); transform: scale(1.05); }
+.lina-send-btn:disabled { opacity: .3; cursor: not-allowed; transform: none; box-shadow: none; }
 
 /* Chips */
 .lina-chip {
-    background: #fff; border: 1px solid var(--gray-200); border-radius: 20px;
-    padding: 7px 14px; font-size: 13px; color: var(--gray-600); cursor: pointer;
+    background: var(--lina-card); border: 1px solid var(--lina-line); border-radius: 999px;
+    padding: 7px 15px; font-size: 12.5px; color: var(--gray-600); cursor: pointer;
     transition: all .15s; white-space: nowrap;
-    box-shadow: var(--shadow-sm);
+    font-family: inherit;
 }
-.lina-chip:hover { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
+.lina-chip:hover { background: var(--lina-accent-soft); border-color: #c7d0fd; color: #4338ca; }
 
 /* Streaming cursor */
 .lina-streaming::after {
@@ -316,73 +399,94 @@ footer { display: none !important; }
 
 /* Error */
 .lina-error {
-    text-align: center; font-size: 13px; color: #ef4444;
-    padding: 8px 16px; background: #fef2f2;
-    border-radius: 10px; border: 1px solid #fca5a5;
-    margin: 0 auto; max-width: 400px;
+    text-align: center; font-size: 12.5px; color: #b91c1c;
+    padding: 9px 16px; background: #fef2f2;
+    border-radius: var(--lina-r-md); border: 1px solid #fecaca;
+    max-width: 480px;
 }
 
 /* ── Tool proposal card ── */
 .lina-tool-card {
-    background: #fff; border: 1px solid var(--gray-200); border-radius: 14px;
-    padding: 14px 16px; max-width: 72%; box-shadow: var(--shadow-sm);
+    background: var(--lina-card); border: 1px solid var(--lina-line);
+    border-inline-start: 3px solid var(--lina-accent);
+    border-radius: var(--lina-r-md);
+    padding: 15px 17px; box-shadow: var(--lina-shadow);
     font-size: 13px; color: var(--gray-800);
+    animation: linaRise .22s ease;
 }
-.lina-tool-card.danger { border-color: #fca5a5; background: #fff7f7; }
-.lina-tool-card h4 { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--gray-900); }
-.lina-tool-card table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12.5px; }
-.lina-tool-card td { padding: 3px 6px; border-top: 1px solid var(--gray-100); vertical-align: top; }
-.lina-tool-card td:first-child { color: var(--gray-500); width: 110px; }
-.lina-tool-impact { font-size: 12px; color: #b45309; margin-top: 6px; }
-.lina-tool-card.danger .lina-tool-impact { color: #dc2626; font-weight: 600; }
-.lina-tool-actions { display: flex; gap: 8px; margin-top: 10px; }
+@keyframes linaRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.lina-tool-card.danger { border-color: #fecaca; border-inline-start-color: #ef4444; background: #fffafa; }
+.lina-tool-card h4 { margin: 0 0 8px; font-size: 13.5px; font-weight: 700; color: var(--lina-ink); }
+.lina-tool-card table { width: 100%; border-collapse: collapse; margin: 8px 0 2px; font-size: 12.5px; }
+.lina-tool-card td { padding: 5px 4px; border-top: 1px dashed var(--gray-100); vertical-align: top; }
+.lina-tool-card td:first-child { color: var(--gray-500); width: 118px; font-size: 12px; }
+.lina-tool-impact { font-size: 12px; color: #b45309; margin-top: 8px; background: #fffbeb; border-radius: 8px; padding: 6px 10px; }
+.lina-tool-card.danger .lina-tool-impact { color: #b91c1c; font-weight: 600; background: #fef2f2; }
+.lina-tool-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .lina-tool-confirm {
-    background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff;
-    border: none; border-radius: 9px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+    background: var(--lina-accent); color: #fff;
+    border: none; border-radius: 10px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
+    font-family: inherit; transition: filter .15s;
 }
+.lina-tool-confirm:hover:not(:disabled) { filter: brightness(1.08); }
 .lina-tool-confirm:disabled { opacity: .5; cursor: not-allowed; }
 .lina-tool-reject {
-    background: #fff; border: 1px solid var(--gray-200); border-radius: 9px;
-    padding: 7px 14px; font-size: 13px; color: var(--gray-600); cursor: pointer;
+    background: transparent; border: 1px solid var(--lina-line); border-radius: 10px;
+    padding: 8px 16px; font-size: 13px; color: var(--gray-600); cursor: pointer;
+    font-family: inherit; transition: background .15s;
 }
-.lina-tool-expiry { font-size: 11px; color: var(--gray-400); margin-top: 6px; }
+.lina-tool-reject:hover:not(:disabled) { background: var(--gray-50); }
+.lina-tool-reject:disabled { opacity: .5; cursor: not-allowed; }
+.lina-tool-expiry { font-size: 11px; color: var(--gray-400); margin-top: 8px; }
 
 /* ── Plan structure card + stepper ── */
 .lina-plan-card {
-    background: #fff; border: 1px solid #c4b5fd; border-radius: 14px;
-    padding: 14px 16px; max-width: 78%; box-shadow: var(--shadow-sm);
+    background: var(--lina-card); border: 1px solid #dfe3fb; border-radius: var(--lina-r-lg);
+    padding: 16px 18px; box-shadow: var(--lina-shadow);
     font-size: 13px; color: var(--gray-800);
+    animation: linaRise .22s ease;
 }
-.lina-plan-card h4 { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.lina-plan-card h4 { margin: 0 0 2px; font-size: 14.5px; font-weight: 800; color: var(--lina-ink); }
+/* Thin progress bar under the title */
+.lina-plan-progress { height: 5px; border-radius: 99px; background: var(--gray-100); margin: 10px 0 4px; overflow: hidden; }
+.lina-plan-progress i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #6366f1, #8b5cf6); transition: width .4s ease; }
 .lina-plan-totals { font-size: 12px; color: var(--gray-500); margin-bottom: 8px; }
-.lina-plan-tree { font-size: 12.5px; line-height: 1.7; }
-.lina-plan-tree ul { list-style: none; margin: 2px 0 2px 14px; padding: 0 0 0 10px; border-left: 2px solid var(--gray-100); }
-.lina-plan-tree > ul { margin-left: 0; padding-left: 0; border-left: none; }
+.lina-plan-tree { font-size: 12.5px; line-height: 1.8; }
+.lina-plan-tree ul { list-style: none; margin: 2px 0; padding: 0; }
+.lina-plan-tree ul ul { margin-inline-start: 12px; padding-inline-start: 10px; border-inline-start: 2px solid var(--gray-100); }
 .lina-plan-due { color: var(--gray-400); font-size: 11.5px; }
 .lina-plan-subs { color: var(--gray-500); font-size: 11.5px; }
-.lina-phase { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--gray-100); font-size: 12.5px; }
-.lina-phase .st { font-weight: 700; }
-.lina-phase.done .st { color: #16a34a; }
-.lina-phase.current .st { color: #6d28d9; }
-.lina-phase.locked { color: var(--gray-400); }
-.lina-phase .cnt { margin-left: auto; color: var(--gray-400); font-size: 11.5px; }
+.lina-phase { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 10px; font-size: 12.5px; margin-top: 4px; background: var(--gray-50); border: 1px solid transparent; }
+.lina-phase .st { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.lina-phase .st::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--gray-300); flex-shrink: 0; }
+.lina-phase.done { background: #f0fdf4; border-color: #dcfce7; }
+.lina-phase.done .st { color: #15803d; }
+.lina-phase.done .st::before { background: #22c55e; }
+.lina-phase.current { background: var(--lina-accent-soft); border-color: #dfe3fb; }
+.lina-phase.current .st { color: #4338ca; }
+.lina-phase.current .st::before { background: var(--lina-accent); animation: linaPulse 1.6s infinite; }
+.lina-phase.locked { color: var(--gray-400); background: transparent; border-style: dashed; border-color: var(--gray-100); }
+.lina-phase .cnt { margin-inline-start: auto; color: var(--gray-400); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .lina-plan-note { font-size: 12.5px; margin-top: 8px; }
 .lina-plan-note.ok { color: #16a34a; font-weight: 600; }
 .lina-plan-note.muted { color: var(--gray-500); }
 
 /* ── Mobile sidebar slide-over ── */
 @media (max-width: 768px) {
-    .lina-msg { max-width: 90%; }
+    .lina-msg { max-width: 92%; }
+    .lina-cap-grid { grid-template-columns: 1fr; }
 
     /* Sidebar becomes a slide-over panel */
     .lina-sidebar {
-        position: fixed; top: 0; left: 0; bottom: 0;
+        position: fixed; top: 0; bottom: 0; inset-inline-start: 0;
+        left: 0;
         z-index: 1000; width: 280px;
         transform: translateX(-100%);
         transition: transform .25s ease;
         box-shadow: 4px 0 20px rgba(0,0,0,.15);
     }
-    .lina-sidebar.open { transform: translateX(0); }
+    [dir="rtl"] .lina-sidebar { left: auto; right: 0; transform: translateX(100%); }
+    .lina-sidebar.open { transform: translateX(0) !important; }
 
     /* Backdrop behind sidebar */
     .lina-mob-backdrop {
@@ -401,14 +505,16 @@ footer { display: none !important; }
     .lina-mob-menu-btn { display: flex !important; }
 
     /* Shrink header padding */
-    .lina-head { padding: 12px 14px; gap: 10px; }
-    .lina-head-avatar { width: 38px; height: 38px; font-size: 18px; border-radius: 11px; }
-    .lina-head-title { font-size: 15px; }
-    .lina-head-status { font-size: 10.5px; }
+    .lina-head { padding: 8px 12px; gap: 8px; }
+    .lina-head-avatar { width: 32px; height: 32px; font-size: 16px; border-radius: 10px; }
+    .lina-head-title { font-size: 14px; }
+    .lina-head-status { display: none; }
+    .lina-pending-pill { padding: 4px 10px; font-size: 11px; }
 
     /* Shrink message area padding */
-    .lina-messages { padding: 14px 12px; gap: 12px; }
-    .lina-foot { padding: 8px 12px 14px; }
+    .lina-messages { padding: 16px 12px 12px; gap: 14px; }
+    .lina-foot { padding: 8px 12px 12px; }
+    .lina-input-hints { display: none; }
 }
 
 /* Hidden by default on desktop */
@@ -418,27 +524,44 @@ footer { display: none !important; }
 
 /* ── Mode toggle ── */
 .lina-mode-toggle {
-    display: flex; background: var(--gray-100); border-radius: 10px; padding: 3px; gap: 2px;
+    display: flex; background: var(--gray-100); border-radius: 999px; padding: 3px; gap: 2px;
 }
 .lina-mode-btn {
-    border: none; background: transparent; border-radius: 7px;
-    padding: 5px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    border: none; background: transparent; border-radius: 999px;
+    padding: 6px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer;
     color: var(--gray-500); transition: all .15s; white-space: nowrap;
+    font-family: inherit;
 }
-.lina-mode-btn.active { background: #fff; color: var(--gray-900); box-shadow: var(--shadow-sm); }
+.lina-mode-btn.active { background: #fff; color: var(--lina-accent); box-shadow: 0 1px 3px rgba(16,24,40,.12); }
+/* Slim dismissible agent pill instead of a full banner row */
 .lina-agent-banner {
-    flex-shrink: 0; padding: 8px 24px; font-size: 12.5px; font-weight: 600;
-    background: #faf5ff; color: #6d28d9; border-bottom: 1px solid #ede9fe;
+    flex-shrink: 0; padding: 0; background: transparent; border: none;
+    display: flex; justify-content: center;
+}
+.lina-agent-banner-inner {
+    margin: 10px 20px 0; font-size: 12px; font-weight: 600;
+    background: var(--lina-accent-soft); color: #4338ca;
+    border: 1px solid #dfe3fb; border-radius: 999px; padding: 6px 16px;
+    max-width: var(--lina-col);
+}
+#linaAgentBlocked {
+    border-radius: 0;
 }
 @media (max-width: 768px) {
-    .lina-mode-btn { padding: 5px 8px; font-size: 11.5px; }
-    .lina-agent-banner { padding: 7px 14px; font-size: 11.5px; }
+    .lina-mode-btn { padding: 5px 10px; font-size: 11.5px; }
 }
 
 /* ── Keep the global time-tracker FAB clear of the chat input ── */
 #tt-root { bottom: 120px !important; }
 @media (max-width: 768px) {
     #tt-root { bottom: 104px !important; right: 12px !important; }
+}
+
+/* Motion sensitivity */
+@media (prefers-reduced-motion: reduce) {
+    .lina-status-dot, .lina-phase.current .st::before { animation: none; }
+    .lina-streaming::after { animation: none; }
+    .lina-cap:hover { transform: none; }
 }
 </style>
 @endpush
@@ -483,6 +606,9 @@ footer { display: none !important; }
                 </div>
             </div>
             <div class="lina-head-right">
+                <button type="button" id="linaPendingPill" class="lina-pending-pill" onclick="scrollToPendingDock()" title="{{ __('Pending confirmations') }}">
+                    ⏳ <span id="linaPendingCount">0</span>
+                </button>
                 <div class="lina-mode-toggle" role="group" aria-label="{{ __('Chat mode') }}">
                     <button type="button" id="linaModeChat" class="lina-mode-btn" onclick="setMode('chat')" title="{{ __('Chat: talk about your workspace, no changes') }}">💬 {{ __('Chat') }}</button>
                     <button type="button" id="linaModeAgent" class="lina-mode-btn" onclick="setMode('agent')" title="{{ __('Agent: create, edit and complete things with your confirmation') }}">🛠 {{ __('Agent') }}</button>
@@ -494,9 +620,9 @@ footer { display: none !important; }
             </div>
         </div>
 
-        {{-- Agent-mode banner --}}
+        {{-- Agent-mode pill --}}
         <div class="lina-agent-banner" id="linaAgentBanner" style="display:none;">
-            {{ __('🛠 Agent mode — I can create, edit and complete tasks, routines, reminders, notes and projects. Every action needs your confirmation first.') }}
+            <span class="lina-agent-banner-inner">{{ __('🛠 Agent mode — I build with your confirmation') }}</span>
         </div>
 
         {{-- Agent blocked warning (non-OpenAI provider / no provider) --}}
@@ -507,20 +633,42 @@ footer { display: none !important; }
             <div class="lina-welcome" id="linaWelcome">
                 <div class="lina-welcome-icon"><i class="bi bi-stars"></i></div>
                 <h3>{{ __("Hi, I'm Lina!") }}</h3>
-                <p>{{ __("I'm your AI assistant. I have full access to your tasks, projects, notes, reminders, and routines. Ask me anything.") }}</p>
+                <p>{{ __("Ask me anything — or pick what to build. In Agent mode I create projects, tasks, reminders and reports with your confirmation.") }}</p>
+                <div class="lina-cap-grid">
+                    <button type="button" class="lina-cap" onclick="fillExample(this)" data-text="سه پروژه بساز: برساز، ذخیره انرژی و Task Manager">
+                        <span class="lina-cap-ico">🛠</span>
+                        <span><b>{{ __('Build projects') }}</b><span>{{ __('Several projects + tasks in one go') }}</span></span>
+                    </button>
+                    <button type="button" class="lina-cap" onclick="fillExample(this)" data-text="برای امروز ساعت 6 بعد از ظهر یک یادآوری بساز">
+                        <span class="lina-cap-ico">⏰</span>
+                        <span><b>{{ __('Reminders') }}</b><span>{{ __('Events with date, time and place') }}</span></span>
+                    </button>
+                    <button type="button" class="lina-cap" onclick="fillExample(this)" data-text="گزارش این هفته من را بده">
+                        <span class="lina-cap-ico">📊</span>
+                        <span><b>{{ __('Weekly report') }}</b><span>{{ __('Progress, focus time and insights') }}</span></span>
+                    </button>
+                    <button type="button" class="lina-cap" onclick="fillExample(this)" data-text="تسک‌های امروز من را نشان بده">
+                        <span class="lina-cap-ico">📋</span>
+                        <span><b>{{ __('Today’s tasks') }}</b><span>{{ __('What is due and overdue') }}</span></span>
+                    </button>
+                </div>
                 <div class="lina-welcome-chips">
                     <span class="lina-chip" onclick="askChip(this)">{{ __('What tasks are due today?') }}</span>
                     <span class="lina-chip" onclick="askChip(this)">{{ __('Show high priority tasks') }}</span>
                     <span class="lina-chip" onclick="askChip(this)">{{ __('Summarize my projects') }}</span>
-                    <span class="lina-chip" onclick="askChip(this)">{{ __('Any overdue reminders?') }}</span>
-                    <span class="lina-chip" onclick="askChip(this)">{{ __('What routines do I have?') }}</span>
-                    <span class="lina-chip" onclick="askChip(this)">{{ __('Show my recent notes') }}</span>
                 </div>
             </div>
         </div>
 
         {{-- Input --}}
         <div class="lina-foot">
+            <div class="lina-foot-inner">
+            <div class="lina-dock" id="linaDock">
+                <span>⏳</span>
+                <span class="grow" id="linaDockLabel"></span>
+                <button type="button" class="lina-dock-btn lina-dock-ok" id="linaDockOk" onclick="dockConfirmAll()"></button>
+                <button type="button" class="lina-dock-btn lina-dock-no" id="linaDockNo" onclick="dockRejectAll()"></button>
+            </div>
             <div class="lina-input-box">
                 <textarea id="linaInput"
                     placeholder="{{ __('Message Lina…') }}"
@@ -537,6 +685,7 @@ footer { display: none !important; }
                         </button>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     </div>
@@ -988,6 +1137,7 @@ footer { display: none !important; }
 
             if (buildHint) showSwitchToAgentHint();
             scrollBottom();
+            refreshPendingDock();
 
         } catch (e) {
             if (typingEl.parentNode) typingEl.remove();
@@ -1003,6 +1153,74 @@ footer { display: none !important; }
     window.askChip = function (el) {
         input.value = el.textContent.trim();
         autoResize(); updateCharCount(); sendMessage();
+    };
+
+    /* Capability gallery: fill the input so the user can edit before sending */
+    window.fillExample = function (btn) {
+        input.value = (btn.dataset.text || '').trim();
+        autoResize(); updateCharCount(); input.focus();
+        scrollBottom();
+    };
+
+    /* ── Pending dock: always-visible strip for unconfirmed actions ── */
+    const dockEl    = document.getElementById('linaDock');
+    const dockLabel = document.getElementById('linaDockLabel');
+    const dockOk    = document.getElementById('linaDockOk');
+    const dockNo    = document.getElementById('linaDockNo');
+    const pendPill  = document.getElementById('linaPendingPill');
+    const pendCount = document.getElementById('linaPendingCount');
+    let pendingTotal = 0;
+
+    async function refreshPendingDock() {
+        let items = [];
+        try {
+            const dbg = await api('GET', "{{ url('/ai/debug') }}");
+            const now = Date.now();
+            items = (dbg.recent_pending_actions || []).filter(a =>
+                a.status === 'pending' && (!a.expires_at || new Date(a.expires_at).getTime() > now));
+        } catch { items = []; }
+        pendingTotal = items.length;
+        if (pendingTotal > 0) {
+            dockLabel.textContent = pendingTotal + ' کار در انتظار تأیید داری';
+            dockOk.textContent = 'تأیید همه ✅';
+            dockNo.textContent = 'لغو همه';
+            dockEl.classList.add('show');
+            pendCount.textContent = pendingTotal;
+            pendPill.classList.add('show');
+        } else {
+            dockEl.classList.remove('show');
+            pendPill.classList.remove('show');
+        }
+    }
+
+    window.scrollToPendingDock = function () {
+        dockEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        try { input.focus({ preventScroll: true }); } catch { input.focus(); }
+    };
+
+    window.dockConfirmAll = async function () {
+        dockOk.disabled = true; dockNo.disabled = true;
+        dockOk.textContent = 'در حال اجرا…';
+        try {
+            const res = await api('POST', '/ai/actions/confirm-all');
+            dockLabel.textContent = res.message || 'Done.';
+        } catch {
+            dockLabel.textContent = 'خطا — لطفاً تکی تأیید کن.';
+        }
+        dockOk.disabled = false; dockNo.disabled = false;
+        await refreshPendingDock();
+    };
+
+    window.dockRejectAll = async function () {
+        dockOk.disabled = true; dockNo.disabled = true;
+        try {
+            const res = await api('POST', '/ai/actions/reject-all');
+            dockLabel.textContent = res.message || 'Cancelled.';
+        } catch {
+            dockLabel.textContent = 'خطا در لغو.';
+        }
+        dockOk.disabled = false; dockNo.disabled = false;
+        await refreshPendingDock();
     };
 
     /* ── Mobile sidebar ── */
@@ -1151,6 +1369,8 @@ footer { display: none !important; }
                     done.textContent = '✅ ' + (res.message || 'Done.');
                 }
                 card.appendChild(done);
+                scrollBottom();
+                refreshPendingDock();
             } catch (e) {
                 okBtn.disabled = false; noBtn.disabled = false; okBtn.textContent = 'Confirm & run';
                 appendError('Action failed or expired.');
@@ -1164,6 +1384,7 @@ footer { display: none !important; }
             done.style.cssText = 'font-size:12.5px;color:var(--gray-500);margin-top:8px;';
             done.textContent = 'Cancelled — nothing changed.';
             card.appendChild(done);
+            refreshPendingDock();
         };
         actions.appendChild(okBtn); actions.appendChild(noBtn);
         card.appendChild(actions);
@@ -1302,6 +1523,14 @@ footer { display: none !important; }
         }
         let html = '<h4>📋 ' + escPlan(plan.title) + '</h4>'
             + '<div class="lina-plan-totals">' + totalsLine + '</div>';
+        // Thin progress bar from phase states.
+        const phaseList = plan.phases || [];
+        const actionable = phaseList.filter(ph => (ph.total || 0) > 0);
+        if (actionable.length) {
+            const doneCount = actionable.filter(ph => ph.status === 'done').length;
+            const pct = Math.round(doneCount / actionable.length * 100);
+            html += '<div class="lina-plan-progress"><i style="width:' + pct + '%"></i></div>';
+        }
 
         html += '<div class="lina-plan-tree"><ul>';
         if ((tree.routines || []).length) {
@@ -1619,6 +1848,9 @@ footer { display: none !important; }
     refreshAiStatus();
     loadConversations();
     autoResize();
+    refreshPendingDock();
+    // Keep the dock honest while other tabs/devices confirm too.
+    setInterval(() => { if (!isBusy) refreshPendingDock(); }, 25000);
 })();
 </script>
 @endpush
