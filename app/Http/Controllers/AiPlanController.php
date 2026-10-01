@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AiMessage;
 use App\Models\AiPlan;
+use App\Services\AiLogger;
 use App\Services\AiToolService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +28,7 @@ class AiPlanController extends Controller
         }
         if (! $plan->isActionable()) {
             $this->expire($plan);
+            AiLogger::log('plan.structure_expired', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'status' => $plan->status]);
 
             return response()->json(['ok' => false, 'error' => 'This plan has expired. Ask Lina to propose it again.'], 422);
         }
@@ -38,6 +40,7 @@ class AiPlanController extends Controller
         $plan->save();
 
         Log::info('ai.plan.structure_confirmed', ['user_id' => Auth::id(), 'plan_id' => $plan->id]);
+        AiLogger::log('plan.structure_confirmed', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'title' => $plan->title, 'note' => 'structure approved only — nothing created yet until confirm-phase']);
         $this->note($plan, '📋 Structure approved: ' . $plan->title);
 
         return response()->json(['ok' => true, 'plan' => $this->serialize($plan->fresh())]);
@@ -69,14 +72,17 @@ class AiPlanController extends Controller
         }
 
         $messages = [];
+        $phasesRun = 0;
         do {
             $result = $this->tools->executePlanPhase($plan->fresh(), Auth::user());
             if (! ($result['ok'] ?? false)) {
                 Log::warning('ai.plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'error' => $result['message'] ?? null]);
+                AiLogger::error('plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'phase' => $plan->fresh()->current_phase, 'error' => $result['message'] ?? null]);
 
                 return response()->json(['ok' => false, 'error' => $result['message'] ?? 'Phase failed.', 'plan' => $this->serialize($plan->fresh())], 422);
             }
             $messages[] = $result['message'];
+            $phasesRun++;
             $plan = $plan->fresh();
             // Auto-skip zero-count phases inside run_all too.
             $this->advancePastDone($plan);
@@ -85,6 +91,7 @@ class AiPlanController extends Controller
         } while ($request->boolean('run_all') && $plan->status !== AiPlan::STATUS_DONE);
 
         Log::info('ai.plan.phase_executed', ['user_id' => Auth::id(), 'plan_id' => $plan->id]);
+        AiLogger::log('plan.phase_executed', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'phases_run' => $phasesRun, 'run_all' => $request->boolean('run_all'), 'status' => $plan->status, 'messages' => implode(' ', $messages)]);
         $this->note($plan, '✅ ' . implode(' ', $messages));
 
         return response()->json(['ok' => true, 'plan' => $this->serialize($plan->fresh())]);
@@ -98,6 +105,7 @@ class AiPlanController extends Controller
             $plan->status = AiPlan::STATUS_CANCELLED;
             $plan->save();
             Log::info('ai.plan.cancelled', ['user_id' => Auth::id(), 'plan_id' => $plan->id]);
+            AiLogger::log('plan.cancelled', ['user_id' => Auth::id(), 'plan_id' => $plan->id]);
         }
 
         return response()->json(['ok' => true, 'message' => 'Plan cancelled — already-created items stay.']);

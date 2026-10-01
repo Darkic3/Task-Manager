@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AiMessage;
 use App\Models\AiPendingAction;
+use App\Services\AiLogger;
 use App\Services\AiToolService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -30,6 +31,7 @@ class AiActionController extends Controller
             if ($action->isPending() && $action->isExpired()) {
                 $action->markExpired();
             }
+            AiLogger::log('action.confirm_expired', ['user_id' => Auth::id(), 'action_id' => $action->id, 'tool' => $action->tool, 'status' => $action->status]);
 
             return response()->json(['ok' => false, 'error' => 'This confirmation has expired. Ask Lina again.'], 422);
         }
@@ -37,6 +39,8 @@ class AiActionController extends Controller
         // Re-validate at execution time (ownership may have changed).
         $check = $this->tools->validateCall($action->tool, (array) $action->args, Auth::user());
         if (! ($check['ok'] ?? false)) {
+            AiLogger::log('action.confirm_invalid', ['user_id' => Auth::id(), 'action_id' => $action->id, 'tool' => $action->tool, 'error' => $check['error'] ?? 'No longer valid.']);
+
             return response()->json(['ok' => false, 'error' => $check['error'] ?? 'No longer valid.'], 422);
         }
 
@@ -46,6 +50,8 @@ class AiActionController extends Controller
         $result = $this->tools->execute($action->tool, $check['resolved'], Auth::user());
 
         if (! ($result['ok'] ?? false)) {
+            AiLogger::error('action.execute_failed', ['user_id' => Auth::id(), 'action_id' => $action->id, 'tool' => $action->tool, 'error' => $result['message'] ?? 'Execution failed.']);
+
             return response()->json(['ok' => false, 'error' => $result['message'] ?? 'Execution failed.'], 422);
         }
 
@@ -56,6 +62,7 @@ class AiActionController extends Controller
         Log::info('ai.tool.executed', [
             'user_id' => Auth::id(), 'tool' => $action->tool, 'action_id' => $action->id,
         ]);
+        AiLogger::log('action.executed', ['user_id' => Auth::id(), 'action_id' => $action->id, 'tool' => $action->tool, 'message' => $result['message'] ?? null, 'created_id' => $result['id'] ?? null]);
 
         if ($action->conversation_id) {
             AiMessage::create([
@@ -82,6 +89,7 @@ class AiActionController extends Controller
         Log::info('ai.tool.rejected', [
             'user_id' => Auth::id(), 'tool' => $action->tool, 'action_id' => $action->id,
         ]);
+        AiLogger::log('action.rejected', ['user_id' => Auth::id(), 'action_id' => $action->id, 'tool' => $action->tool]);
 
         return response()->json(['ok' => true, 'message' => 'Cancelled — nothing changed.']);
     }

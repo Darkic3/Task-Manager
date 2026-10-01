@@ -13,6 +13,7 @@ use App\Models\Reminder;
 use App\Models\Routine;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\AiLogger;
 use App\Services\AiProviderService;
 use App\Services\AiToolService;
 use App\Services\LinaFallbackBrain;
@@ -125,23 +126,31 @@ class AiChatController extends Controller
         $resolved = $this->ai->resolve($user);
         // Server is the only authority: tools only in agent mode.
         $agentMode = $request->input('mode', 'chat') === 'agent';
+        $rid = AiLogger::newRequestId();
+        AiLogger::log('request.received', ['rid' => $rid, 'endpoint' => 'chat', 'user_id' => $user->id, 'mode' => $agentMode ? 'agent' : 'chat', 'message_preview' => $request->message, 'message_len' => mb_strlen($request->message ?? '')]);
 
         if (! $resolved) {
+            AiLogger::log('request.no_provider', ['rid' => $rid, 'user_id' => $user->id, 'mode' => $agentMode ? 'agent' : 'chat']);
+
             return response()->json(['reply' => 'No AI provider is configured. Go to AI Settings and add an API key for OpenAI, Gemini, Claude, DeepSeek or Meta.'], 200);
         }
+        AiLogger::log('request.resolved', ['rid' => $rid, 'user_id' => $user->id, 'mode' => $agentMode ? 'agent' : 'chat', 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? 'openai']);
 
         try {
             $context = $this->buildContext($user);
         } catch (\Exception $e) {
             \Log::error('AI buildContext error', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+            AiLogger::error('context.failed', ['rid' => $rid, 'user_id' => $user->id, 'error' => $e->getMessage()]);
             $context = '(Could not load user data)';
         }
 
         $messages = $this->buildMessages($user, $context, $request->input('history', []), $request->message, $agentMode ? 'agent' : 'chat');
 
         try {
-            $result = $this->callProviderSyncWithTools($resolved, $messages, $user, $agentMode);
+            $result = $this->callProviderSyncWithTools($resolved, $messages, $user, $agentMode, $rid);
             \Log::info('AI chat response', ['user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'mode' => $agentMode ? 'agent' : 'chat']);
+            $toolNames = collect($result['proposals'] ?? [])->map(fn ($p) => $p['tool'] ?? (isset($p['plan']) ? 'plan_propose' : (isset($p['import']) ? 'workout_plan_propose' : null)))->filter()->all();
+            AiLogger::log('request.completed', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'mode' => $agentMode ? 'agent' : 'chat', 'has_reply' => isset($result['reply']), 'proposals' => count($result['proposals'] ?? []), 'tools' => $toolNames]);
             $payload = ['model' => $resolved['model'], 'provider' => $resolved['provider']];
             if (isset($result['reply'])) {
                 $payload['reply'] = $result['reply'];
@@ -156,6 +165,7 @@ class AiChatController extends Controller
             return response()->json($payload);
         } catch (\Exception $e) {
             \Log::error('AI chat failed', ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'error' => $e->getMessage()]);
+            AiLogger::error('request.failed', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'error' => $e->getMessage()]);
 
             return response()->json(['reply' => 'AI error: '.$e->getMessage()], 200);
         }
@@ -176,6 +186,8 @@ class AiChatController extends Controller
         $user = Auth::user();
         $resolved = $this->ai->resolve($user);
         $agentMode = $request->input('mode', 'chat') === 'agent';
+        $rid = AiLogger::newRequestId();
+        AiLogger::log('request.received', ['rid' => $rid, 'endpoint' => 'stream', 'user_id' => $user->id, 'mode' => $agentMode ? 'agent' : 'chat', 'message_preview' => $request->message, 'message_len' => mb_strlen($request->message ?? ''), 'has_provider' => (bool) $resolved, 'provider' => $resolved['provider'] ?? null, 'model' => $resolved['model'] ?? null, 'type' => $resolved['type'] ?? null]);
 
         // Resolve or create conversation
         $convId = $request->input('conversation_id');
@@ -196,8 +208,9 @@ class AiChatController extends Controller
             $conversation->update(['label' => mb_substr($request->message, 0, 60)]);
         }
 
-        // No provider -> offline fallback
+        // No provider -> offline fallback (read-only, never creates anything)
         if (! $resolved) {
+            AiLogger::log('request.offline_fallback', ['rid' => $rid, 'user_id' => $user->id, 'conversation_id' => $conversation->id, 'reason' => 'no_provider_configured']);
             $fallbackText = (new LinaFallbackBrain($user, $request->message))->respond();
             $offlineConvId = $conversation->id;
             $sseFlush = $this->sseFlushClosure();
@@ -231,6 +244,7 @@ class AiChatController extends Controller
 
         // Agent mode needs function-calling: only OpenAI-compatible providers.
         if ($agentMode && ($resolved['type'] ?? 'openai') !== 'openai') {
+            AiLogger::log('agent.blocked_non_openai', ['rid' => $rid, 'user_id' => $user->id, 'conversation_id' => $conversation->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? null]);
             $msg = 'Agent mode needs an OpenAI-compatible provider (e.g. OpenRouter custom provider). Switch to chat mode, or pick an OpenAI-compatible model in AI Settings — nothing was changed.';
             $conversationId = $conversation->id;
             $model = $resolved['model'];
@@ -254,8 +268,11 @@ class AiChatController extends Controller
 
         // For OpenAI-compatible providers, do true streaming. For Gemini/Anthropic, do sync then chunk.
         if (($resolved['type'] ?? 'openai') === 'openai') {
-            return $this->streamOpenAi($resolved, $messages, $conversation, $agentMode);
+            AiLogger::log('stream.openai_start', ['rid' => $rid, 'user_id' => $user->id, 'conversation_id' => $conversation->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'agent_mode' => $agentMode]);
+
+            return $this->streamOpenAi($resolved, $messages, $conversation, $agentMode, $rid);
         }
+        AiLogger::log('stream.sync_fallback_provider', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? null]);
 
         // Non-OpenAI: sync call then simulate streaming
         try {
@@ -345,18 +362,24 @@ class AiChatController extends Controller
      * Sync dispatch that also supports tool proposals for OpenAI-compatible providers.
      * Returns ['reply'=>string] or ['reply'=>string,'proposal'=>array].
      */
-    private function callProviderSyncWithTools(array $resolved, array $messages, $user, bool $withTools = true): array
+    private function callProviderSyncWithTools(array $resolved, array $messages, $user, bool $withTools = true, ?string $rid = null): array
     {
         $type = $resolved['type'] ?? 'openai';
         if ($type !== 'openai' || ! $withTools) {
+            if ($withTools && $type !== 'openai') {
+                AiLogger::log('agent.blocked_non_openai', ['rid' => $rid, 'user_id' => $user->id ?? null, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $type]);
+            }
+
             return ['reply' => $this->callProviderSync($resolved, $messages)];
         }
 
         $tools = (new AiToolService)->definitions();
         $raw = $this->callOpenAiSyncRaw($resolved['key'], $resolved['config']['base_url'], $messages, $resolved['model'], $tools);
+        AiLogger::log('provider.tool_calls', ['rid' => $rid, 'user_id' => $user->id ?? null, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'tool_call_count' => count($raw['tool_calls'] ?? []), 'tool_names' => collect($raw['tool_calls'] ?? [])->map(fn ($tc) => $tc['function']['name'] ?? '?')->all(), 'reply_len' => mb_strlen($raw['text'] ?? '')]);
 
         if (empty($raw['tool_calls'])) {
             if ($raw['text'] === '') {
+                AiLogger::error('provider.empty_response', ['rid' => $rid, 'user_id' => $user->id ?? null, 'provider' => $resolved['provider'], 'model' => $resolved['model']]);
                 throw new \Exception('Empty response from provider');
             }
 
@@ -435,11 +458,15 @@ class AiChatController extends Controller
             ->where('expires_at', '>', now())
             ->count();
         if ($open >= 5) {
+            AiLogger::log('tool.proposal_capped', ['user_id' => $user->id, 'tool' => $tool, 'reason' => 'too_many_pending']);
+
             return ['error' => 'Too many pending confirmations. Confirm or cancel one first.'];
         }
 
         $check = $service->validateCall($tool, $args, $user);
         if (! ($check['ok'] ?? false)) {
+            AiLogger::log('tool.proposal_invalid', ['user_id' => $user->id, 'tool' => $tool, 'error' => $check['error'] ?? 'Invalid action.', 'args' => $args]);
+
             return ['error' => $check['error'] ?? 'Invalid action.'];
         }
 
@@ -455,6 +482,7 @@ class AiChatController extends Controller
         ]);
 
         \Log::info('ai.tool.proposed', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $action->id]);
+        AiLogger::log('tool.proposed', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $action->id, 'conversation_id' => $conversationId, 'resolved' => $check['resolved']]);
 
         return [
             'action_id' => $action->id,
@@ -491,11 +519,15 @@ class AiChatController extends Controller
             ->where('expires_at', '>', now())
             ->count();
         if ($open >= 3) {
+            AiLogger::log('plan.proposal_capped', ['user_id' => $user->id, 'reason' => 'too_many_open_plans']);
+
             return ['error' => 'Too many open plans. Finish or cancel one first.'];
         }
 
         $check = $service->validateCall('plan_propose', $args, $user);
         if (! ($check['ok'] ?? false)) {
+            AiLogger::log('plan.proposal_invalid', ['user_id' => $user->id, 'error' => $check['error'] ?? 'Invalid plan.']);
+
             return ['error' => $check['error'] ?? 'Invalid plan.'];
         }
 
@@ -512,6 +544,7 @@ class AiChatController extends Controller
         ]);
 
         \Log::info('ai.plan.proposed', ['user_id' => $user->id, 'plan_id' => $plan->id]);
+        AiLogger::log('plan.proposed', ['user_id' => $user->id, 'plan_id' => $plan->id, 'conversation_id' => $conversationId, 'title' => $plan->title, 'totals' => $check['resolved']['totals'] ?? []]);
 
         $controller = app(AiPlanController::class);
 
@@ -766,7 +799,7 @@ class AiChatController extends Controller
     }
 
     /* ── OpenAI streaming ── */
-    private function streamOpenAi(array $resolved, array $messages, AiConversation $conversation, bool $agentMode = true)
+    private function streamOpenAi(array $resolved, array $messages, AiConversation $conversation, bool $agentMode = true, ?string $rid = null)
     {
         $key = $resolved['key'];
         $cfg = $resolved['config'];
@@ -1025,15 +1058,18 @@ class AiChatController extends Controller
     /**
      * Turn accumulated tool_calls into pending actions and emit SSE proposals.
      */
-    public function emitToolProposals(array $toolAccum, int $userId, int $conversationId, callable $sseFlush): void
+    public function emitToolProposals(array $toolAccum, int $userId, int $conversationId, callable $sseFlush, ?string $rid = null): void
     {
         if (empty($toolAccum)) {
+            AiLogger::log('stream.no_tool_calls', ['user_id' => $userId, 'conversation_id' => $conversationId, 'rid' => $rid]);
+
             return;
         }
         $user = User::find($userId);
         if (! $user) {
             return;
         }
+        AiLogger::log('stream.tool_calls_received', ['rid' => $rid, 'user_id' => $userId, 'conversation_id' => $conversationId, 'count' => count($toolAccum), 'names' => collect(array_values($toolAccum))->map(fn ($tc) => $tc['name'] ?? '?')->all()]);
         foreach (array_values($toolAccum) as $tc) {
             $name = $tc['name'] ?? null;
             if (! $name) {
@@ -1044,6 +1080,7 @@ class AiChatController extends Controller
             $packetType = $normalizedName === 'plan_propose'
                 ? 'plan_proposal'
                 : ($normalizedName === 'workout_plan_propose' ? 'workout_import_proposal' : 'tool_proposal');
+            AiLogger::log('stream.proposal_emitted', ['rid' => $rid, 'user_id' => $userId, 'conversation_id' => $conversationId, 'tool' => $normalizedName, 'packet' => $packetType, 'has_error' => isset($proposal['error']), 'action_id' => $proposal['action_id'] ?? null, 'plan_id' => $proposal['plan']['id'] ?? null]);
             echo 'data: '.json_encode(['type' => $packetType] + $proposal)."\n\n";
             $sseFlush();
         }
@@ -1054,7 +1091,7 @@ class AiChatController extends Controller
      * tool JSON (no real function call): tell the user nothing was created
      * instead of leaving raw JSON on screen. No pending action is stored.
      */
-    public function emitToolMissedNotice(string $text, array $toolAccum, callable $sseFlush): void
+    public function emitToolMissedNotice(string $text, array $toolAccum, callable $sseFlush, ?string $rid = null): void
     {
         if (! empty($toolAccum) || trim($text) === '') {
             return;
@@ -1062,8 +1099,11 @@ class AiChatController extends Controller
         // At least two tool-shaped keys -> likely a pasted tool call, not a code example.
         $hits = preg_match_all('/"(title|description|due_date|project_id|projectId|dueDate)"\s*:/', $text);
         if ($hits < 2 || ! str_contains($text, '{')) {
+            AiLogger::log('stream.text_only_no_tools', ['rid' => $rid, 'reply_len' => mb_strlen($text)]);
+
             return;
         }
+        AiLogger::log('stream.tool_missed_text_json', ['rid' => $rid, 'reply_preview' => $text]);
         $notice = '⚠️ I answered in text instead of creating anything — nothing was saved. Please send the request again (or pick a model with function-calling support).';
         echo 'data: '.json_encode(['choices' => [['delta' => ['content' => "\n\n".$notice]]]])."\n\n";
         $sseFlush();
@@ -1185,5 +1225,39 @@ PROMPT;
             $routines->count() ? "ROUTINES ({$routines->count()}):\n{$routineLines}" : null,
             $files->count() ? "FILES ({$files->count()}):\n{$fileLines}" : null,
         ]));
+    }
+
+    /* ── Debug endpoint: one place to diagnose "agent said X but created nothing" ── */
+    public function debug()
+    {
+        $user = Auth::user();
+        $resolved = $this->ai->resolve($user);
+        $enabled = $this->ai->enabledMap($user);
+
+        // Never expose keys — only whether each provider has one.
+        $safeResolved = $resolved ? [
+            'provider' => $resolved['provider'],
+            'model' => $resolved['model'],
+            'type' => $resolved['type'] ?? 'openai',
+        ] : null;
+
+        $pending = AiPendingAction::where('user_id', $user->id)
+            ->latest()->limit(5)
+            ->get(['id', 'tool', 'status', 'expires_at', 'created_at']);
+        $plans = AiPlan::where('user_id', $user->id)
+            ->latest()->limit(3)
+            ->get(['id', 'title', 'status', 'current_phase', 'expires_at', 'created_at']);
+
+        return response()->json([
+            'now' => now()->toIso8601String(),
+            'resolved' => $safeResolved,
+            'enabled' => $enabled,
+            'note' => $safeResolved ? null : 'No provider configured — Lina runs in offline read-only mode and can never create anything.',
+            'agent_ready' => (bool) $safeResolved && ($safeResolved['type'] ?? 'openai') === 'openai',
+            'agent_block_reason' => ! $safeResolved ? 'no_provider' : ((($safeResolved['type'] ?? 'openai') !== 'openai') ? 'non_openai_provider_needs_openrouter_custom' : null),
+            'recent_pending_actions' => $pending,
+            'recent_plans' => $plans,
+            'ai_log_tail' => AiLogger::tail(80),
+        ]);
     }
 }

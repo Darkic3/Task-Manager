@@ -181,6 +181,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/ai/providers/{provider}/test', [AiProviderController::class, 'test'])->name('ai.providers.test');
     Route::post('/ai/chat', [AiChatController::class, 'chat'])->name('ai.chat');
     Route::post('/ai/stream', [AiChatController::class, 'stream'])->name('ai.stream');
+    Route::get('/ai/debug', [AiChatController::class, 'debug'])->name('ai.debug');
     // AI tool actions (confirm/reject with ownership + expiry checks)
     Route::post('/ai/actions/{action}/confirm', [AiActionController::class, 'confirm'])
         ->middleware('throttle:30,1')->name('ai.actions.confirm');
