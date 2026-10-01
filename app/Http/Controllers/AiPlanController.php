@@ -41,7 +41,7 @@ class AiPlanController extends Controller
 
         Log::info('ai.plan.structure_confirmed', ['user_id' => Auth::id(), 'plan_id' => $plan->id]);
         AiLogger::log('plan.structure_confirmed', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'title' => $plan->title, 'note' => 'structure approved only — nothing created yet until confirm-phase']);
-        $this->note($plan, '📋 Structure approved: ' . $plan->title);
+        $this->note($plan, '📋 Structure approved (nothing created yet — run the phases below to build): ' . $plan->title);
 
         return response()->json(['ok' => true, 'plan' => $this->serialize($plan->fresh())]);
     }

@@ -44,10 +44,20 @@ class AiChatController extends Controller
     public function status()
     {
         $user = Auth::user();
+        $resolved = $this->ai->resolve($user);
+        // Never expose API keys to the browser — only provider/model/type.
+        $safe = $resolved ? [
+            'provider' => $resolved['provider'],
+            'model' => $resolved['model'],
+            'type' => $resolved['type'] ?? 'openai',
+        ] : null;
+        $agentReady = (bool) $safe && ($safe['type'] ?? 'openai') === 'openai';
 
         return response()->json([
-            'resolved' => $this->ai->resolve($user),
+            'resolved' => $safe,
             'enabled' => $this->ai->enabledMap($user),
+            'agent_ready' => $agentReady,
+            'agent_block_reason' => ! $safe ? 'no_provider' : ($agentReady ? null : 'non_openai_provider_needs_openrouter_custom'),
             'providers' => collect($this->ai->providersForUser($user))->map(fn ($c) => [
                 'label' => $c['label'],
                 'models' => $c['models'],

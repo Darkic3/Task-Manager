@@ -499,6 +499,9 @@ footer { display: none !important; }
             {{ __('🛠 Agent mode — I can create, edit and complete tasks, routines, reminders, notes and projects. Every action needs your confirmation first.') }}
         </div>
 
+        {{-- Agent blocked warning (non-OpenAI provider / no provider) --}}
+        <div id="linaAgentBlocked" style="display:none;flex-shrink:0;padding:8px 24px;font-size:12.5px;font-weight:600;background:#fef2f2;color:#b91c1c;border-bottom:1px solid #fecaca;"></div>
+
         {{-- Messages --}}
         <div class="lina-messages" id="linaMessages">
             <div class="lina-welcome" id="linaWelcome">
@@ -560,6 +563,10 @@ footer { display: none !important; }
         try { return localStorage.getItem('linaMode') === 'agent' ? 'agent' : 'chat'; }
         catch { return 'chat'; }
     })();
+    // Phase 1: readiness from /ai/status — null = unknown yet.
+    let agentReady = null;
+    let agentBlockReason = null;
+    let agentResolvedLabel = '';
 
     window.setMode = function (mode) {
         chatMode = mode === 'agent' ? 'agent' : 'chat';
@@ -567,13 +574,63 @@ footer { display: none !important; }
         paintMode();
     };
 
+    async function refreshAiStatus() {
+        try {
+            const s = await api('GET', "{{ url('/ai/status') }}");
+            agentReady = !!s.agent_ready;
+            agentBlockReason = s.agent_block_reason || null;
+            agentResolvedLabel = s.resolved ? (s.resolved.provider + '/' + s.resolved.model) : '';
+        } catch {
+            agentReady = null;
+            agentBlockReason = null;
+        }
+        paintMode();
+    }
+
     function paintMode() {
         const c = document.getElementById('linaModeChat');
         const a = document.getElementById('linaModeAgent');
         const b = document.getElementById('linaAgentBanner');
+        const blocked = document.getElementById('linaAgentBlocked');
         if (c) c.classList.toggle('active', chatMode === 'chat');
         if (a) a.classList.toggle('active', chatMode === 'agent');
         if (b) b.style.display = chatMode === 'agent' ? '' : 'none';
+        if (!blocked) return;
+        if (chatMode === 'agent' && agentReady === false) {
+            blocked.style.display = '';
+            const reason = agentBlockReason === 'no_provider'
+                ? 'هیچ پروایدر فعالی تنظیم نشده — لینا فقط حالت آفلاین خواندنی است و چیزی نمی‌سازد.'
+                : 'پروایدر فعلی (' + agentResolvedLabel + ') function-calling ندارد — ایجنت فقط با پروایدر OpenAI-compatible (مثل OpenRouter) کار می‌کند و چیزی ساخته نمی‌شود.';
+            blocked.innerHTML = '⚠️ ایجنت آماده نیست: ' + reason + ' <a href="{{ route('ai.settings') }}" style="font-weight:700;text-decoration:underline;">رفتن به AI Settings</a>';
+        } else {
+            blocked.style.display = 'none';
+            blocked.innerHTML = '';
+        }
+    }
+
+    // Heuristic: does this message ask to CREATE/CHANGE something?
+    function looksLikeBuildIntent(text) {
+        const t = (text || '').toLowerCase();
+        const keywords = ['بساز', 'ایجاد', 'اضافه کن', 'تعریف کن', 'پروژه', 'تسک', 'یادآوری', 'رویداد', 'یاداور', 'برنامه', 'create', 'add ', 'make ', 'build ', 'new project', 'new task', 'remind'];
+        return keywords.some(k => t.includes(k));
+    }
+
+    function showSwitchToAgentHint() {
+        const wrap = document.createElement('div');
+        wrap.className = 'lina-msg-wrap bot';
+        const card = document.createElement('div');
+        card.className = 'lina-tool-card';
+        card.style.cssText = 'border-color:#c4b5fd;background:#faf5ff;';
+        card.innerHTML = '<h4>🛠 به نظر می‌رسد می‌خواهی چیزی ساخته شود</h4>'
+            + '<div style="font-size:12.5px;color:#5b21b6;margin-bottom:8px;">در حالت Chat فقط صحبت می‌کنیم و چیزی ساخته نمی‌شود. برای ساخت واقعی به Agent برو.</div>';
+        const btn = document.createElement('button');
+        btn.className = 'lina-tool-confirm';
+        btn.textContent = 'رفتن به Agent 🛠';
+        btn.onclick = () => { window.setMode('agent'); wrap.remove(); input.focus(); };
+        card.appendChild(btn);
+        wrap.appendChild(card);
+        msgsEl.appendChild(wrap);
+        scrollBottom();
     }
 
     /* ── DOM ── */
@@ -762,8 +819,20 @@ footer { display: none !important; }
         if (!text || isBusy || text.length > MAX_CHARS) return;
         if (!activeConvId) return;
 
+        // Phase 1 guard: agent mode without a capable provider builds nothing.
+        if (chatMode === 'agent' && agentReady === false) {
+            const reason = agentBlockReason === 'no_provider'
+                ? 'هیچ پروایدر فعالی تنظیم نشده — اول در AI Settings کلید اضافه کن.'
+                : 'پروایدر فعلی function-calling ندارد — یک پروایدر OpenAI-compatible انتخاب کن.';
+            appendError('ایجنت آماده نیست و چیزی ساخته نمی‌شود: ' + reason);
+            return;
+        }
+
         // Remove welcome if present
         if (welcome.parentNode) welcome.parentNode.removeChild(welcome);
+
+        // Phase 1 hint: build intent in chat mode never creates anything.
+        const buildHint = chatMode === 'chat' && looksLikeBuildIntent(text);
 
         const timestamp = new Date().toISOString();
         activeMessages.push({ role: 'user', content: text, created_at: timestamp });
@@ -916,6 +985,7 @@ footer { display: none !important; }
                 activeMessages.pop();
             }
 
+            if (buildHint) showSwitchToAgentHint();
             scrollBottom();
 
         } catch (e) {
@@ -1191,6 +1261,11 @@ footer { display: none !important; }
         } else {
             html += '</ul></div>';
         }
+        if (plan.status === 'proposed') {
+            html += '<div class="lina-plan-note muted" style="background:#fffbeb;padding:8px 12px;border-radius:10px;border:1px solid #fde68a;margin-top:8px;">⚠️ تایید ساختار = ساخته شدن نیست. بعد از تایید باید مرحله‌ها را اجرا کنی تا پروژه و تسک‌ها واقعاً ساخته شوند.</div>';
+        } else if (plan.status === 'confirmed' || plan.status === 'executing') {
+            html += '<div class="lina-plan-note muted" style="background:#eff6ff;padding:8px 12px;border-radius:10px;border:1px solid #bfdbfe;margin-top:8px;">📋 ساختار تایید شد ولی هنوز کامل ساخته نشده — مرحله‌های زیر را اجرا کن.</div>';
+        }
         html += '<div class="lina-plan-body"></div>';
         card.innerHTML = html;
         const body = card.querySelector('.lina-plan-body');
@@ -1206,10 +1281,11 @@ footer { display: none !important; }
             buildAllBtn.style.cssText = 'background:linear-gradient(135deg, #4f46e5, #7c3aed);font-weight:700;';
             buildAllBtn.innerHTML = '🚀 ساخت و اجرای کامل پروژه (1-Click)';
 
-            // Step by Step
+            // Step by Step: approve structure AND run the first real phase,
+            // so the user sees actual creation (not just "Structure approved").
             const stepBtn = document.createElement('button');
             stepBtn.className = 'lina-tool-reject';
-            stepBtn.textContent = 'گام‌به‌گام';
+            stepBtn.textContent = 'تایید + اجرای مرحله اول';
 
             // Edit / Revision pill
             const editBtn = document.createElement('button');
@@ -1243,9 +1319,17 @@ footer { display: none !important; }
             stepBtn.onclick = async () => {
                 stepBtn.disabled = true;
                 buildAllBtn.disabled = true;
+                stepBtn.textContent = 'در حال تایید و اجرای مرحله اول...';
                 try {
                     const res = await api('POST', '/ai/plans/' + plan.id + '/confirm-structure');
-                    paintPlan(card, res.plan);
+                    // Immediately run the first pending phase so "approved"
+                    // is visibly different from "built".
+                    try {
+                        const executed = await api('POST', '/ai/plans/' + plan.id + '/confirm-phase', { phase: res.plan.current_phase || 0 });
+                        paintPlan(card, executed.plan);
+                    } catch {
+                        paintPlan(card, res.plan);
+                    }
                 } catch {
                     appendError('خطا در تایید ساختار پلن.');
                     paintPlan(card, plan);
@@ -1433,6 +1517,7 @@ footer { display: none !important; }
 
     /* ── Boot ── */
     paintMode();
+    refreshAiStatus();
     loadConversations();
     autoResize();
 })();
