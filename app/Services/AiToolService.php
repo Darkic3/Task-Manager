@@ -928,6 +928,33 @@ class AiToolService
             sort($args['month_days']);
         }
 
+        // Canonicalize / infer frequency. Smaller models often send a synonym
+        // ("everyday", "every_other_day") or send the schedule fields
+        // (days / month_days / every_n_days) but forget `frequency` entirely,
+        // which used to reject the whole routine instead of creating it.
+        if (isset($args['frequency'])) {
+            $f = strtolower(trim((string) $args['frequency']));
+            $args['frequency'] = [
+                'everyday' => 'daily', 'every_day' => 'daily', 'each_day' => 'daily',
+                'every_week' => 'weekly',
+                'every_month' => 'monthly',
+                'every_other_day' => 'every_n_days', 'everyotherday' => 'every_n_days',
+                'every_2_days' => 'every_n_days', 'everyndays' => 'every_n_days',
+                'every_n_day' => 'every_n_days',
+            ][$f] ?? $f;
+        }
+        if (empty($args['frequency'])) {
+            if (! empty($args['every_n_days'])) {
+                $args['frequency'] = 'every_n_days';
+            } elseif (! empty($args['days'])) {
+                $args['frequency'] = 'weekly';
+            } elseif (! empty($args['month_days'])) {
+                $args['frequency'] = 'monthly';
+            } else {
+                $args['frequency'] = 'daily';
+            }
+        }
+
         $v = Validator::make($args, [
             'title' => 'required|string|max:255',
             'frequency' => 'required|in:daily,weekly,monthly,every_n_days',

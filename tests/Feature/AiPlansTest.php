@@ -88,6 +88,56 @@ class AiPlansTest extends TestCase
         $this->assertEquals('weight', $weigh->value_kind);
     }
 
+    public function test_routine_create_infers_missing_or_synonym_frequency(): void
+    {
+        $user = User::factory()->create();
+        $svc = new AiToolService;
+
+        // every_n_days sent WITHOUT a frequency key (the exact case the user hit).
+        $weigh = $svc->validateCall('routine_create', [
+            'title' => 'Weighing', 'every_n_days' => 2, 'time_period' => 'morning',
+            'tracking_mode' => 'value', 'value_kind' => 'weight', 'value_unit' => 'kg',
+        ], $user);
+        $this->assertTrue($weigh['ok'], $weigh['error'] ?? 'validate failed');
+        $this->assertEquals('every_n_days', $weigh['resolved']['frequency']);
+        $this->assertEquals(2, $weigh['resolved']['every_n_days']);
+
+        // Synonyms are canonicalized.
+        $alias = $svc->validateCall('routine_create', ['title' => 'Everyday', 'frequency' => 'everyday'], $user);
+        $this->assertTrue($alias['ok'], $alias['error'] ?? 'validate failed');
+        $this->assertEquals('daily', $alias['resolved']['frequency']);
+
+        // days given but no frequency -> weekly.
+        $weekly = $svc->validateCall('routine_create', ['title' => 'Gym', 'days' => ['thursday']], $user);
+        $this->assertTrue($weekly['ok'], $weekly['error'] ?? 'validate failed');
+        $this->assertEquals('weekly', $weekly['resolved']['frequency']);
+
+        // Nothing scheduled -> sensible daily default instead of a hard failure.
+        $plain = $svc->validateCall('routine_create', ['title' => 'Plain'], $user);
+        $this->assertTrue($plain['ok'], $plain['error'] ?? 'validate failed');
+        $this->assertEquals('daily', $plain['resolved']['frequency']);
+    }
+
+    public function test_plan_routines_infer_missing_frequency(): void
+    {
+        $user = User::factory()->create();
+        $svc = new AiToolService;
+
+        $check = $svc->validateCall('plan_propose', [
+            'title' => 'روتین‌ها',
+            'routines' => [
+                ['title' => 'Wake Up', 'time_period' => 'morning', 'tracking_mode' => 'value', 'value_kind' => 'time'],
+                ['title' => 'Weighing', 'every_n_days' => 2, 'time_period' => 'morning', 'tracking_mode' => 'value', 'value_kind' => 'weight', 'value_unit' => 'kg'],
+                ['title' => 'SoftSkin Pill', 'every_n_days' => 2, 'time_period' => 'afternoon'],
+            ],
+        ], $user);
+        $this->assertTrue($check['ok'], $check['error'] ?? 'validate failed');
+        $this->assertEquals(3, $check['resolved']['totals']['routines']);
+        $this->assertEquals('daily', $check['resolved']['structure']['routines'][0]['frequency']);
+        $this->assertEquals('every_n_days', $check['resolved']['structure']['routines'][1]['frequency']);
+        $this->assertEquals('every_n_days', $check['resolved']['structure']['routines'][2]['frequency']);
+    }
+
     public function test_plan_rejects_mixed_tree_and_routines(): void
     {
         $user = User::factory()->create();

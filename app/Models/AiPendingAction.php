@@ -15,6 +15,11 @@ class AiPendingAction extends Model
 
     public const EXPIRY_MINUTES = 15;
 
+    // Max unconfirmed tool actions kept per user. Bulk requests (e.g. "add
+    // 10 tasks/routines") arrive as many single tool calls, so this needs
+    // enough headroom to hold the whole batch before the user confirms.
+    public const MAX_OPEN = 30;
+
     protected $fillable = [
         'user_id',
         'conversation_id',

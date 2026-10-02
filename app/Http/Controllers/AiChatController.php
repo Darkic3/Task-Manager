@@ -462,7 +462,7 @@ class AiChatController extends Controller
                 $tc['function']['name'] ?? '',
                 $tc['function']['arguments'] ?? '{}'
             );
-            if (count($proposals) >= 5) {
+            if (count($proposals) >= AiPendingAction::MAX_OPEN) {
                 break; // matches the per-user pending cap
             }
         }
@@ -493,14 +493,15 @@ class AiChatController extends Controller
             ->where('status', AiPendingAction::STATUS_PENDING)
             ->where('expires_at', '>', now())
             ->orderBy('id')
-            ->limit(5)
+            ->limit(AiPendingAction::MAX_OPEN)
             ->get(['id', 'tool', 'preview']);
-        if ($openActions->count() >= 5) {
+        if ($openActions->count() >= AiPendingAction::MAX_OPEN) {
             AiLogger::log('tool.proposal_capped', ['user_id' => $user->id, 'tool' => $tool, 'reason' => 'too_many_pending']);
 
             return [
                 'error' => 'Too many pending confirmations. Confirm or cancel one first.',
                 'code' => 'too_many_pending',
+                'limit' => AiPendingAction::MAX_OPEN,
                 'pending' => $openActions->map(fn ($a) => [
                     'id' => $a->id,
                     'tool' => $a->tool,
@@ -1297,7 +1298,7 @@ PROMPT;
         ] : null;
 
         $pending = AiPendingAction::where('user_id', $user->id)
-            ->latest()->limit(5)
+            ->latest()->limit(AiPendingAction::MAX_OPEN)
             ->get(['id', 'tool', 'status', 'expires_at', 'created_at']);
         $plans = AiPlan::where('user_id', $user->id)
             ->latest()->limit(3)

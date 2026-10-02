@@ -1206,19 +1206,20 @@ footer, .topnav { display: none !important; }
         a.click();
     };
 
-    /* ── Pending-overflow card: 5 unconfirmed actions, nothing is lost ── */
+    /* ── Pending-overflow card: too many unconfirmed actions, nothing is lost ── */
     function renderPendingOverflowCard(p) {
+        const cap = p.limit || 30;
         const wrap = document.createElement('div');
         wrap.className = 'lina-msg-wrap bot';
         const card = document.createElement('div');
         card.className = 'lina-tool-card';
         card.style.cssText = 'border-color:#fcd34d;background:#fffbeb;';
         const title = document.createElement('h4');
-        title.textContent = '⏳ ۵ تایید باز داری — چیزی از دست نرفته';
+        title.textContent = '⏳ ' + cap + ' تایید باز داری — چیزی از دست نرفته';
         card.appendChild(title);
         const hint = document.createElement('div');
         hint.style.cssText = 'font-size:12.5px;color:#92400e;margin-bottom:8px;';
-        hint.textContent = 'برای امنیت، ایجنت بیشتر از ۵ کار تأییدنشده نگه نمی‌دارد. اول این‌ها را تأیید یا لغو کن، بعد ادامه بده:';
+        hint.textContent = 'برای امنیت، ایجنت بیشتر از ' + cap + ' کار تأییدنشده نگه نمی‌دارد. اول این‌ها را تأیید یا لغو کن، بعد ادامه بده:';
         card.appendChild(hint);
         const list = document.createElement('div');
         list.style.cssText = 'font-size:12.5px;line-height:1.9;';
