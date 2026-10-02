@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', $exercise ? 'Edit Exercise' : 'New Exercise')
+@section('title', $exercise ? __('Edit Exercise') : __('New Exercise'))
 
 @push('styles')
 <style>
@@ -10,16 +10,16 @@
 
 @section('content')
 <div class="ef-shell"><div class="ef-wrap">
-    <div class="ef-head"><a class="ef-back" href="{{ route('workouts.exercises.index') }}"><i class="bi bi-arrow-left"></i> Exercise library</a><h1>{{ $exercise ? 'Edit exercise' : 'Add exercise' }}</h1><p>Keep the movement identity stable so its history can follow it across plans.</p></div>
+    <div class="ef-head"><a class="ef-back" href="{{ route('workouts.exercises.index') }}"><i class="bi bi-arrow-left"></i> {{ __('Exercise library') }}</a><h1>{{ $exercise ? __('Edit exercise') : __('Add exercise') }}</h1><p>{{ __('Keep the movement identity stable so its history can follow it across plans.') }}</p></div>
     @if($errors->any())<div class="alert alert-danger small"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
     <form class="ef-card" method="POST" action="{{ $exercise ? route('workouts.exercises.update', $exercise) : route('workouts.exercises.store') }}">
         @csrf @if($exercise) @method('PUT') @endif
-        <div class="ef-field"><label class="ef-label">Exercise name *</label><input class="ef-input" name="name" required maxlength="120" value="{{ old('name', $exercise?->name) }}" placeholder="e.g. Pull-up"></div>
-        <div class="ef-row"><div class="ef-field"><label class="ef-label">Category</label><select class="ef-select" name="category"><option value="">Choose category</option>@foreach(['Push','Pull','Legs','Core','Mobility','Cardio','Recovery','Other'] as $category)<option value="{{ $category }}" @selected(old('category', $exercise?->category) === $category)>{{ $category }}</option>@endforeach</select></div><div class="ef-field"><label class="ef-label">Equipment</label><input class="ef-input" name="equipment" value="{{ old('equipment', implode(', ', $exercise?->equipment ?? [])) }}" placeholder="Bodyweight, dumbbell"></div></div>
-        <div class="ef-field"><label class="ef-label">Aliases</label><input class="ef-input" name="aliases" value="{{ old('aliases', implode(', ', $exercise?->aliases ?? [])) }}" placeholder="Pull Up, بارفیکس"></div>
-        <div class="ef-field"><label class="ef-label">Target muscle groups</label><input class="ef-input" name="muscle_groups" value="{{ old('muscle_groups', implode(', ', $exercise?->muscle_groups ?? [])) }}" placeholder="Lats, biceps, upper back"></div>
-        <div class="ef-field"><label class="ef-label">Form and safety notes</label><textarea class="ef-area" name="instructions" maxlength="2000" placeholder="Optional technique or safety notes...">{{ old('instructions', $exercise?->instructions) }}</textarea></div>
-        <div class="ef-actions"><a class="ef-btn" href="{{ route('workouts.exercises.index') }}">Cancel</a><button class="ef-btn primary" type="submit"><i class="bi bi-check-lg"></i> {{ $exercise ? 'Save changes' : 'Add exercise' }}</button></div>
+        <div class="ef-field"><label class="ef-label">{{ __('Exercise name *') }}</label><input class="ef-input" name="name" required maxlength="120" value="{{ old('name', $exercise?->name) }}" placeholder="{{ __('e.g. Pull-up') }}"></div>
+        <div class="ef-row"><div class="ef-field"><label class="ef-label">{{ __('Category') }}</label><select class="ef-select" name="category"><option value="">{{ __('Choose category') }}</option>@foreach(['Push','Pull','Legs','Core','Mobility','Cardio','Recovery','Other'] as $category)<option value="{{ $category }}" @selected(old('category', $exercise?->category) === $category)>{{ __($category) }}</option>@endforeach</select></div><div class="ef-field"><label class="ef-label">{{ __('Equipment') }}</label><input class="ef-input" name="equipment" value="{{ old('equipment', implode(', ', $exercise?->equipment ?? [])) }}" placeholder="{{ __('Bodyweight, dumbbell') }}"></div></div>
+        <div class="ef-field"><label class="ef-label">{{ __('Aliases') }}</label><input class="ef-input" name="aliases" value="{{ old('aliases', implode(', ', $exercise?->aliases ?? [])) }}" placeholder="{{ __('Pull Up, بارفیکس') }}"></div>
+        <div class="ef-field"><label class="ef-label">{{ __('Target muscle groups') }}</label><input class="ef-input" name="muscle_groups" value="{{ old('muscle_groups', implode(', ', $exercise?->muscle_groups ?? [])) }}" placeholder="{{ __('Lats, biceps, upper back') }}"></div>
+        <div class="ef-field"><label class="ef-label">{{ __('Form and safety notes') }}</label><textarea class="ef-area" name="instructions" maxlength="2000" placeholder="{{ __('Optional technique or safety notes...') }}">{{ old('instructions', $exercise?->instructions) }}</textarea></div>
+        <div class="ef-actions"><a class="ef-btn" href="{{ route('workouts.exercises.index') }}">{{ __('Cancel') }}</a><button class="ef-btn primary" type="submit"><i class="bi bi-check-lg"></i> {{ $exercise ? __('Save changes') : __('Add exercise') }}</button></div>
     </form>
 </div></div>
 @endsection

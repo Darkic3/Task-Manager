@@ -2,7 +2,7 @@
 <div class="pl-period-group" data-period-group="{{ $periodKey }}">
     <div class="pl-period-head">
         <i class="bi {{ $period['icon'] ?? 'bi-inbox' }}" style="color:{{ $period['color'] ?? '#64748b' }};"></i>
-        <span>{{ $period['label'] ?? 'Anytime' }}</span>
+        <span>{{ __($period['label'] ?? 'Anytime') }}</span>
     </div>
     <div class="pl-period-body" data-period-body="{{ $periodKey }}">
         @foreach($rows as $task)

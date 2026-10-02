@@ -2,7 +2,8 @@
     $routineDate = $routineDate ?? now();
     $toggleable  = $toggleable ?? true;
     $record      = $toggleable ? $routine->completionRecord($routineDate) : null;
-    $isDone      = $record !== null;
+    $isDone      = $record !== null && ($record->status ?? 'done') === \App\Models\RoutineCompletion::STATUS_DONE;
+    $isSkipped   = $record !== null && ($record->status ?? 'done') === \App\Models\RoutineCompletion::STATUS_SKIPPED;
     $doneAt      = $record?->completed_at;
     $freqColors  = ['daily' => '#7c3aed', 'weekly' => '#2563eb', 'monthly' => '#d97706', 'every_n_days' => '#0e7490'];
     $fc          = $freqColors[$routine->frequency] ?? '#7c3aed';
@@ -40,12 +41,13 @@
         $modalSub .= ' · ' . $stepCount . ' steps';
     }
 @endphp
-<div class="pl-task pl-routine {{ $isDone ? 'is-done' : '' }}"
+<div class="pl-task pl-routine {{ $isDone ? 'is-done' : '' }} {{ $isSkipped ? 'is-skipped' : '' }}"
      @if($toggleable)
      data-routine-item
      data-id="{{ $routine->id }}"
      data-date="{{ $routineDate->toDateString() }}"
      data-completed="{{ $isDone ? 1 : 0 }}"
+     data-status="{{ $isDone ? 'done' : ($isSkipped ? 'skipped' : 'open') }}"
      data-count="{{ !empty($count) ? 1 : 0 }}"
      @if($useModal)
      data-modal="1"
@@ -126,8 +128,28 @@
                     </button>
                 @endif
             @endif
+            @if($toggleable && !$isAvoid)
+                {{-- ✗ records "did not do it": closes the day without a tick. --}}
+                <button type="button"
+                        class="pl-routine-skip {{ $isSkipped ? 'active' : '' }}"
+                        data-skip-url="{{ route('planner.routines.skip', $routine) }}"
+                        data-id="{{ $routine->id }}"
+                        data-date="{{ $routineDate->toDateString() }}"
+                        title="{{ $isSkipped ? __('Undo skip') : __('Mark as not done') }}"
+                        aria-label="{{ __('Mark as not done') }}"
+                        aria-pressed="{{ $isSkipped ? 'true' : 'false' }}"
+                        onclick="skipRoutine(this)">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            @endif
         </div>
         <div class="pl-task-meta">
+            @if($isSkipped)
+                <span class="pl-skip-tag">
+                    <i class="bi bi-x-circle-fill"></i> {{ __('Not done') }}
+                    @if($record->skip_reason)· {{ __(\App\Models\RoutineCompletion::SKIP_REASONS[$record->skip_reason] ?? $record->skip_reason) }}@endif
+                </span>
+            @endif
             @if($isAvoid)
                 @if($avoidBad)
                     <span class="pl-priority" style="color:#b91c1c;background:#fee2e2;text-transform:none;">

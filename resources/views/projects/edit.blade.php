@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Edit ' . $project->name)
+@section('title', __('Edit') . ' ' . $project->name)
 
 @push('styles')
 <style>
@@ -112,7 +112,7 @@
 
     <div class="pe-topbar">
         <a href="{{ route('projects.show', $project) }}" class="pe-back">
-            <i class="bi bi-arrow-left"></i> Back to <span>{{ $project->name }}</span>
+            <i class="bi bi-arrow-left"></i> {{ __('Back to') }} <span>{{ $project->name }}</span>
         </a>
     </div>
 
@@ -130,21 +130,21 @@
         @endphp
 
         {{-- Name --}}
-        <label for="name" class="pe-inline-lbl">Project name</label>
+        <label for="name" class="pe-inline-lbl">{{ __('Project name') }}</label>
         <input type="text" name="name" id="name"
                class="pe-title-input {{ $errors->has('name') ? 'is-invalid' : '' }}"
-               value="{{ old('name', $project->name) }}" placeholder="Project name" required>
+               value="{{ old('name', $project->name) }}" placeholder="{{ __('Project name') }}" required>
         @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
 
         {{-- Status chips --}}
         <div class="pe-chip-row">
-            <span class="pe-inline-lbl" style="margin-right:2px;">Status</span>
+            <span class="pe-inline-lbl" style="margin-right:2px;">{{ __('Status') }}</span>
             @foreach($statusMap as $key => $info)
                 <span class="pe-chip-opt chip-{{ $info['class'] }}">
                     <input type="radio" name="status" id="status_{{ $key }}" value="{{ $key }}"
                         {{ old('status', $project->status) == $key ? 'checked' : '' }}>
                     <label for="status_{{ $key }}" class="pe-chip">
-                        <span class="pe-dot"></span> {{ $info['label'] }}
+                        <span class="pe-dot"></span> {{ __($info['label']) }}
                     </label>
                 </span>
             @endforeach
@@ -161,10 +161,10 @@
         {{-- Parent / Type --}}
         <div class="pe-grid">
             <div class="pe-field">
-                <label for="parent_id">Parent project</label>
+                <label for="parent_id">{{ __('Parent project') }}</label>
                 <select name="parent_id" id="parent_id"
                         class="pe-input {{ $errors->has('parent_id') ? 'is-invalid' : '' }}">
-                    <option value="">None (top-level)</option>
+                    <option value="">{{ __('None (top-level)') }}</option>
                     @foreach($parentOptions as $opt)
                         <option value="{{ $opt->id }}"
                             {{ (string) old('parent_id', $project->parent_id ?? '') === (string) $opt->id ? 'selected' : '' }}>
@@ -175,31 +175,31 @@
                 @error('parent_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="pe-field">
-                <label for="type">Type</label>
+                <label for="type">{{ __('Type') }}</label>
                 <select name="type" id="type"
                         class="pe-input {{ $errors->has('type') ? 'is-invalid' : '' }}">
                     @foreach(['project' => 'Project', 'subproject' => 'Sub-project', 'lesson' => 'Lesson', 'chapter' => 'Chapter', 'section' => 'Section'] as $val => $label)
-                        <option value="{{ $val }}" {{ old('type', $project->type ?? 'project') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                        <option value="{{ $val }}" {{ old('type', $project->type ?? 'project') === $val ? 'selected' : '' }}>{{ __($label) }}</option>
                     @endforeach
                 </select>
                 @error('type')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="pe-field">
-                <label for="start_date">Start date</label>
+                <label for="start_date">{{ __('Start date') }}</label>
                 <input type="date" name="start_date" id="start_date"
                        class="pe-input {{ $errors->has('start_date') ? 'is-invalid' : '' }}"
                        value="{{ old('start_date', $project->start_date ? \Carbon\Carbon::parse($project->start_date)->format('Y-m-d') : '') }}">
                 @error('start_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="pe-field">
-                <label for="end_date">End date</label>
+                <label for="end_date">{{ __('End date') }}</label>
                 <input type="date" name="end_date" id="end_date"
                        class="pe-input {{ $errors->has('end_date') ? 'is-invalid' : '' }}"
                        value="{{ old('end_date', $project->end_date ? \Carbon\Carbon::parse($project->end_date)->format('Y-m-d') : '') }}">
                 @error('end_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="pe-field">
-                <label for="budget">Budget (USD)</label>
+                <label for="budget">{{ __('Budget (USD)') }}</label>
                 <input type="number" name="budget" id="budget"
                        class="pe-input {{ $errors->has('budget') ? 'is-invalid' : '' }}"
                        value="{{ old('budget', $project->budget) }}" step="0.01" min="0" placeholder="0.00">
@@ -209,9 +209,9 @@
 
         {{-- Action bar --}}
         <div class="pe-actions-bar">
-            <a href="{{ route('projects.show', $project) }}" class="pe-cancel">Cancel</a>
+            <a href="{{ route('projects.show', $project) }}" class="pe-cancel">{{ __('Cancel') }}</a>
             <button type="submit" class="pe-save">
-                <i class="bi bi-check-lg"></i>Save changes
+                <i class="bi bi-check-lg"></i>{{ __('Save changes') }}
             </button>
         </div>
     </form>
@@ -219,14 +219,14 @@
     {{-- Danger Zone — minimal red row (kept per user choice) --}}
     <div class="pe-danger">
         <div class="pe-danger-text">
-            <h6>Delete this project</h6>
-            <p>Permanently removes all tasks, files, and associated data. This cannot be undone.</p>
+            <h6>{{ __('Delete this project') }}</h6>
+            <p>{{ __('Permanently removes all tasks, files, and associated data. This cannot be undone.') }}</p>
         </div>
         <form action="{{ route('projects.destroy', $project) }}" method="POST" id="deleteForm">
             @csrf
             @method('DELETE')
             <button type="button" class="pe-btn-danger" onclick="confirmDelete()">
-                <i class="bi bi-trash"></i>Delete project
+                <i class="bi bi-trash"></i>{{ __('Delete project') }}
             </button>
         </form>
     </div>
@@ -260,14 +260,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (!name) {
             e.preventDefault();
-            alert('Please enter a project name.');
+            alert(@json(__('Please enter a project name.')));
             return;
         }
 
         if (startDateInput.value && endDateInput.value) {
             if (new Date(endDateInput.value) < new Date(startDateInput.value)) {
                 e.preventDefault();
-                alert('End date cannot be before start date.');
+                alert(@json(__('End date cannot be before start date.')));
                 return;
             }
         }
@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize Quill editor
     var quill = new Quill('#quill-editor', {
         theme: 'snow',
-        placeholder: 'Describe your project goals, objectives, and key deliverables…',
+        placeholder: @json(__('Describe your project goals, objectives, and key deliverables…')),
         modules: {
             toolbar: [
                 ['bold', 'italic', 'underline', 'strike'],
@@ -304,8 +304,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function confirmDelete() {
-    if (confirm('Are you sure you want to delete this project? This action cannot be undone and will remove all associated tasks, files, and data.')) {
-        if (confirm('This is your final warning. Are you absolutely sure you want to permanently delete this project?')) {
+    if (confirm(@json(__('Are you sure you want to delete this project? This action cannot be undone and will remove all associated tasks, files, and data.')))) {
+        if (confirm(@json(__('This is your final warning. Are you absolutely sure you want to permanently delete this project?')))) {
             document.getElementById('deleteForm').submit();
         }
     }

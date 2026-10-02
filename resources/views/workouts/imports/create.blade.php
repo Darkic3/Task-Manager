@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Import Workout With AI')
+@section('title', __('Import Workout With AI'))
 
 @push('styles')
 <style>
@@ -9,9 +9,9 @@
 @endpush
 
 @section('content')
-<div class="wi-shell"><div class="wi-wrap"><div class="wi-head"><div class="wi-main"><a class="wi-back" href="{{ route('workouts.plans.index') }}"><i class="bi bi-arrow-left"></i> Workout plans</a><div class="wi-title">Import a workout with AI</div><div class="wi-sub">Paste your full plan. Lina will structure the week and match movements from your library.</div></div></div>
+<div class="wi-shell"><div class="wi-wrap"><div class="wi-head"><div class="wi-main"><a class="wi-back" href="{{ route('workouts.plans.index') }}"><i class="bi bi-arrow-left"></i> {{ __('Workout plans') }}</a><div class="wi-title">{{ __('Import a workout with AI') }}</div><div class="wi-sub">{{ __('Paste your full plan. Lina will structure the week and match movements from your library.') }}</div></div></div>
     @if($errors->any())<div class="alert alert-danger small"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-    <div class="wi-hints"><div class="wi-hint"><i class="bi bi-calendar-week"></i> Seven days and Rest/Recovery are detected.</div><div class="wi-hint"><i class="bi bi-heart-pulse"></i> Existing movements are reused by name and alias.</div><div class="wi-hint"><i class="bi bi-shield-check"></i> Nothing is saved until you approve the preview.</div></div>
-    <form class="wi-card" method="POST" action="{{ route('workouts.imports.store') }}">@csrf<label class="wi-label" for="source">Workout plan text</label><textarea class="wi-source" id="source" name="source" required minlength="20" maxlength="30000" placeholder="Paste your complete weekly plan here...">{{ old('source') }}</textarea><div class="wi-actions"><a class="wi-btn" href="{{ route('workouts.plans.index') }}">Cancel</a><button class="wi-btn primary" type="submit"><i class="bi bi-stars"></i> Parse with AI</button></div></form>
+    <div class="wi-hints"><div class="wi-hint"><i class="bi bi-calendar-week"></i> {{ __('Seven days and Rest/Recovery are detected.') }}</div><div class="wi-hint"><i class="bi bi-heart-pulse"></i> {{ __('Existing movements are reused by name and alias.') }}</div><div class="wi-hint"><i class="bi bi-shield-check"></i> {{ __('Nothing is saved until you approve the preview.') }}</div></div>
+    <form class="wi-card" method="POST" action="{{ route('workouts.imports.store') }}">@csrf<label class="wi-label" for="source">{{ __('Workout plan text') }}</label><textarea class="wi-source" id="source" name="source" required minlength="20" maxlength="30000" placeholder="{{ __('Paste your complete weekly plan here...') }}">{{ old('source') }}</textarea><div class="wi-actions"><a class="wi-btn" href="{{ route('workouts.plans.index') }}">{{ __('Cancel') }}</a><button class="wi-btn primary" type="submit"><i class="bi bi-stars"></i> {{ __('Parse with AI') }}</button></div></form>
 </div></div>
 @endsection

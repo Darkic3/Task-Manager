@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Routine Stats')
+@section('title', __('Routine Stats'))
 
 @push('styles')
 <style>
@@ -90,7 +90,7 @@
     {{-- Header --}}
     <div class="rs-header">
         <div class="d-flex align-items-center" style="position:relative;z-index:1;">
-            <a href="{{ route('routines.index') }}" class="rs-back"><i class="bi bi-arrow-left"></i> Routines</a>
+            <a href="{{ route('routines.index') }}" class="rs-back"><i class="bi bi-arrow-left"></i> {{ __('Routines') }}</a>
         </div>
         <h1 class="rs-header-title">{{ $routine->title }}</h1>
         <p class="rs-header-sub">
@@ -99,16 +99,16 @@
             @endif
             {{ $routine->recurrenceLabel() }}
             @if($routine->timeLabel()) &middot; {{ $routine->timeLabel() }} @endif
-            @if(($routine->cycle_no ?? 1) > 1) &middot; Cycle {{ $routine->cycle_no }} @endif
+            @if(($routine->cycle_no ?? 1) > 1) &middot; {{ __('Cycle') }} {{ $routine->cycle_no }} @endif
             @if(!empty($prevCycle))
-                &middot; prev cycle: {{ $prevCycle['completions'] }} done{{ $prevCycle['last_value'] !== null ? ', last ' . $prevCycle['last_value'] . ' ' . ($prevCycle['unit'] ?? '') : '' }}
+                &middot; {{ __('prev cycle') }}: {{ $prevCycle['completions'] }} {{ __('done') }}{{ $prevCycle['last_value'] !== null ? ', ' . __('last') . ' ' . $prevCycle['last_value'] . ' ' . ($prevCycle['unit'] ?? '') : '' }}
             @endif
         </p>
         <form method="POST" action="{{ route('routines.new-cycle', $routine) }}" style="margin-top:8px;position:relative;z-index:1;"
-              onsubmit="return confirm('Start a new cycle? The current one will be archived with its history.');">
+              onsubmit="return confirm(@json(__('Start a new cycle? The current one will be archived with its history.')));">
             @csrf
             <button type="submit" style="background:white;border:1px solid #e3e4e8;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#7c3aed;cursor:pointer;">
-                <i class="bi bi-arrow-repeat"></i> Start new cycle
+                <i class="bi bi-arrow-repeat"></i> {{ __('Start new cycle') }}
             </button>
         </form>
     </div>
@@ -118,26 +118,26 @@
         <div class="rs-stat">
             <div class="rs-stat-icon" style="background:#fef3c7;color:#d97706;"><i class="bi bi-fire"></i></div>
             <div class="rs-stat-val">{{ $streak['current'] }}</div>
-            <div class="rs-stat-label">{{ !empty($avoid) ? 'Clean streak' : 'Current Streak' }}</div>
-            <div class="rs-stat-sub">{{ $streak['current'] === 1 ? 'day' : 'days' }} in a row</div>
+            <div class="rs-stat-label">{{ !empty($avoid) ? __('Clean streak') : __('Current Streak') }}</div>
+            <div class="rs-stat-sub">{{ $streak['current'] === 1 ? __('day') : __('days') }} {{ __('in a row') }}</div>
         </div>
         <div class="rs-stat">
             <div class="rs-stat-icon" style="background:#ede9fe;color:#7c3aed;"><i class="bi bi-trophy"></i></div>
             <div class="rs-stat-val">{{ $streak['best'] }}</div>
-            <div class="rs-stat-label">Best Streak</div>
-            <div class="rs-stat-sub">all-time record</div>
+            <div class="rs-stat-label">{{ __('Best Streak') }}</div>
+            <div class="rs-stat-sub">{{ __('all-time record') }}</div>
         </div>
         <div class="rs-stat">
             <div class="rs-stat-icon" style="background:#dcfce7;color:#16a34a;"><i class="bi bi-graph-up-arrow"></i></div>
             <div class="rs-stat-val">{{ $adherence['rate'] }}%</div>
-            <div class="rs-stat-label">{{ !empty($avoid) ? 'Clean rate · 30d' : 'Adherence · 30d' }}</div>
-            <div class="rs-stat-sub">{{ $adherence['completed'] }}/{{ $adherence['total'] }} {{ !empty($avoid) ? 'clean' : 'completed' }}</div>
+            <div class="rs-stat-label">{{ !empty($avoid) ? __('Clean rate · 30d') : __('Adherence · 30d') }}</div>
+            <div class="rs-stat-sub">{{ $adherence['completed'] }}/{{ $adherence['total'] }} {{ !empty($avoid) ? __('clean') : __('completed') }}</div>
         </div>
         <div class="rs-stat">
             <div class="rs-stat-icon" style="background:#dbeafe;color:#2563eb;"><i class="bi bi-check2-circle"></i></div>
             <div class="rs-stat-val">{{ !empty($avoid) ? $avoid['slip_total'] : $streak['completed'] }}</div>
-            <div class="rs-stat-label">{{ !empty($avoid) ? 'Total slips' : 'Total Completed' }}</div>
-            <div class="rs-stat-sub">{{ !empty($avoid) ? $avoid['slip_days'].' days with a slip · '.$avoid['cravings'].' cravings' : $streak['rate'].'% over last year' }}</div>
+            <div class="rs-stat-label">{{ !empty($avoid) ? __('Total slips') : __('Total Completed') }}</div>
+            <div class="rs-stat-sub">{{ !empty($avoid) ? $avoid['slip_days'].' '.__('days with a slip').' · '.$avoid['cravings'].' '.__('cravings') : $streak['rate'].'% '.__('over last year') }}</div>
         </div>
     </div>
 
@@ -145,16 +145,16 @@
     <div class="rs-card">
         <div class="rs-card-head">
             <i class="bi bi-grid-3x3-gap-fill" style="color:#7c3aed;"></i>
-            <span class="rs-card-title">Activity</span>
+            <span class="rs-card-title">{{ __('Activity') }}</span>
             <div class="rs-legend">
                 @if(!empty($avoid))
-                    <span class="dot" style="background:#ef4444;"></span> Slipped
-                    <span class="dot" style="background:#7c3aed;margin-left:6px;"></span> Clean
+                    <span class="dot" style="background:#ef4444;"></span> {{ __('Slipped') }}
+                    <span class="dot" style="background:#7c3aed;margin-left:6px;"></span> {{ __('Clean') }}
                 @else
-                    <span class="dot" style="background:#fecaca;"></span> Missed
-                    <span class="dot" style="background:#7c3aed;margin-left:6px;"></span> Done
+                    <span class="dot" style="background:#fecaca;"></span> {{ __('Missed') }}
+                    <span class="dot" style="background:#7c3aed;margin-left:6px;"></span> {{ __('Done') }}
                 @endif
-                <span class="dot" style="background:#f1f2f4;margin-left:6px;"></span> Off
+                <span class="dot" style="background:#f1f2f4;margin-left:6px;"></span> {{ __('Off') }}
             </div>
         </div>
         <div class="rs-card-body">
@@ -166,7 +166,7 @@
                 </div>
                 <div class="hm-row">
                     <div class="hm-weekdays">
-                        <span>Sat</span><span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span>
+                        <span>{{ __('Sat') }}</span><span></span><span>{{ __('Mon') }}</span><span></span><span>{{ __('Wed') }}</span><span></span><span>{{ __('Fri') }}</span>
                     </div>
                     <div class="hm-grid">
                         @foreach($weeks as $week)
@@ -198,8 +198,8 @@
         <div class="rs-card" style="margin-top:14px;">
             <div class="rs-card-head">
                 <i class="bi bi-graph-up" style="color:#0e7490;"></i>
-                <span class="rs-card-title">Value History — {{ $valueStats['label'] }}</span>
-                <span class="rs-legend">last 90 days</span>
+                <span class="rs-card-title">{{ __('Value History') }} — {{ $valueStats['label'] }}</span>
+                <span class="rs-legend">{{ __('last 90 days') }}</span>
             </div>
             <div class="rs-card-body">
                 @if(count($valueStats['points']))
@@ -215,15 +215,15 @@
                     <div class="tr-stats">
                         <div class="tr-stat">
                             <div class="tr-val">{{ $fmtV($valueStats['latest']['value']) }} {{ $unitV }}</div>
-                            <div class="tr-lbl">Latest ({{ $valueStats['latest']['date'] }})</div>
+                            <div class="tr-lbl">{{ __('Latest') }} ({{ $valueStats['latest']['date'] }})</div>
                         </div>
                         <div class="tr-stat">
                             <div class="tr-val">{{ $fmtV($valueStats['pr']) }} {{ $unitV }}</div>
-                            <div class="tr-lbl">Personal record</div>
+                            <div class="tr-lbl">{{ __('Personal record') }}</div>
                         </div>
                         <div class="tr-stat">
                             <div class="tr-val">{{ $fmtV($valueStats['avg']) }}{{ $valueStats['avg'] !== null && $unitV !== '' ? ' ' . $unitV : '' }}</div>
-                            <div class="tr-lbl">{{ $valueStats['mode'] === 'value' ? 'Average' : 'Sessions' }} ({{ count($pts) }})</div>
+                            <div class="tr-lbl">{{ $valueStats['mode'] === 'value' ? __('Average') : __('Sessions') }} ({{ count($pts) }})</div>
                         </div>
                     </div>
                     <div class="tr-chart" style="height:110px;">
@@ -235,17 +235,17 @@
                         @endforeach
                     </div>
                     @if(!empty($valueStats['per_step']))
-                        <div style="margin-top:14px;font-size:12px;font-weight:700;color:#1a1d23;">Last session ({{ $valueStats['last_date'] }})</div>
+                        <div style="margin-top:14px;font-size:12px;font-weight:700;color:#1a1d23;">{{ __('Last session') }} ({{ $valueStats['last_date'] }})</div>
                         @foreach($valueStats['per_step'] as $ps)
                             <div style="font-size:12px;color:#3d4149;margin-top:4px;">
                                 <b>{{ $ps['name'] }}</b> — {{ implode(' · ', $ps['sets']) }}
-                                <span style="color:#8a8f98;">(best {{ $ps['best'] }})</span>
+                                <span style="color:#8a8f98;">({{ __('best') }} {{ $ps['best'] }})</span>
                             </div>
                         @endforeach
                     @endif
                 @else
                     <div class="tr-empty">
-                        <i class="bi bi-graph-up me-1"></i>No values logged yet. Log from the Day page to start the chart.
+                        <i class="bi bi-graph-up me-1"></i>{{ __('No values logged yet. Log from the Day page to start the chart.') }}
                     </div>
                 @endif
             </div>
@@ -257,8 +257,8 @@
         <div class="rs-card" style="margin-top:14px;">
             <div class="rs-card-head">
                 <i class="bi bi-journal-text" style="color:#b91c1c;"></i>
-                <span class="rs-card-title">Cravings &amp; notes</span>
-                <span class="rs-legend">latest first</span>
+                <span class="rs-card-title">{{ __('Cravings & notes') }}</span>
+                <span class="rs-legend">{{ __('latest first') }}</span>
             </div>
             <div class="rs-card-body" style="padding-top:8px;padding-bottom:8px;">
                 @forelse($avoid['recent_notes'] as $n)
@@ -268,7 +268,7 @@
                         <span style="color:#1a1d23;">{{ $n->note ?: '—' }}</span>
                     </div>
                 @empty
-                    <div class="tr-empty">No cravings or notes logged yet.</div>
+                    <div class="tr-empty">{{ __('No cravings or notes logged yet.') }}</div>
                 @endforelse
             </div>
         </div>
@@ -278,8 +278,8 @@
     @if(empty($avoid))
     <div class="rs-card" style="margin-top:14px;">        <div class="rs-card-head">
             <i class="bi bi-stopwatch" style="color:#7c3aed;"></i>
-            <span class="rs-card-title">Completion Tracker</span>
-            <span class="rs-legend">{{ $tracker['count'] }} tracked · last 3 months</span>
+            <span class="rs-card-title">{{ __('Completion Tracker') }}</span>
+            <span class="rs-legend">{{ $tracker['count'] }} {{ __('tracked') }} · {{ __('last 3 months') }}</span>
         </div>
         <div class="rs-card-body">
             @if($tracker['count'])
@@ -294,21 +294,21 @@
                 <div class="tr-stats">
                     <div class="tr-stat">
                         <div class="tr-val">{{ $avgLabel }}</div>
-                        <div class="tr-lbl">Average time</div>
+                        <div class="tr-lbl">{{ __('Average time') }}</div>
                     </div>
                     <div class="tr-stat">
                         <div class="tr-val">
                             @if($off === null)
                                 —
                             @else
-                                {{ abs($off) }} min {{ $off >= 0 ? 'later' : 'earlier' }}
+                                {{ abs($off) }} {{ __('min') }} {{ $off >= 0 ? __('later') : __('earlier') }}
                             @endif
                         </div>
-                        <div class="tr-lbl">Vs scheduled</div>
+                        <div class="tr-lbl">{{ __('Vs scheduled') }}</div>
                     </div>
                     <div class="tr-stat">
                         <div class="tr-val">{{ $peakLabel }}</div>
-                        <div class="tr-lbl">Peak hour</div>
+                        <div class="tr-lbl">{{ __('Peak hour') }}</div>
                     </div>
                 </div>
                 <div class="tr-chart">
@@ -326,7 +326,7 @@
                 </div>
             @else
                 <div class="tr-empty">
-                    <i class="bi bi-stopwatch me-1"></i>No completion times recorded yet. Check off this routine to start tracking.
+                    <i class="bi bi-stopwatch me-1"></i>{{ __('No completion times recorded yet. Check off this routine to start tracking.') }}
                 </div>
             @endif
         </div>

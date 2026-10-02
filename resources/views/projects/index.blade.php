@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Projects')
+@section('title', __('Projects'))
 
 @push('styles')
 <style>
@@ -691,13 +691,13 @@
                             </div>
                             <div class="cu-card-text">
                                 <div class="cu-card-name" title="{{ $project->name }}">{{ $project->name }}</div>
-                                <div class="cu-card-desc">{{ strip_tags($project->description ?? '') ?: 'No description' }}</div>
+                                <div class="cu-card-desc">{{ strip_tags($project->description ?? '') ?: __('No description') }}</div>
                             </div>
                         </div>
 
                         <div class="d-flex align-items-center justify-content-between mb-1">
                             <span class="cu-chip {{ $chipClass }}">
-                                <i class="bi bi-circle-fill" style="font-size:6px;"></i>{{ $chipLabel }}
+                                <i class="bi bi-circle-fill" style="font-size:6px;"></i>{{ __($chipLabel) }}
                             </span>
                             <span style="font-size:11px; color:#8a8f98;">{{ round($progress) }}%</span>
                         </div>
@@ -712,7 +712,7 @@
                             @if($project->end_date)
                                 <span class="{{ $isOverdue ? 'overdue' : '' }}">
                                     <i class="bi bi-calendar3"></i>
-                                    @if($isOverdue) Overdue
+                                    @if($isOverdue) {{ __('Overdue') }}
                                     @else {{ $project->end_date->format('M d') }}
                                     @endif
                                 </span>
@@ -734,13 +734,13 @@
                         </div>
 
                         <div class="cu-card-actions">
-                            <a href="{{ route('projects.tasks.index', $project) }}" class="cu-action-btn" title="Tasks"><i class="bi bi-list-task"></i></a>
-                            <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="View"><i class="bi bi-eye"></i></a>
-                            <a href="{{ route('projects.edit', $project) }}" class="cu-action-btn" title="Edit"><i class="bi bi-pencil"></i></a>
+                            <a href="{{ route('projects.tasks.index', $project) }}" class="cu-action-btn" title="{{ __('Tasks') }}"><i class="bi bi-list-task"></i></a>
+                            <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
+                            <a href="{{ route('projects.edit', $project) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
                             <form action="{{ route('projects.destroy', $project) }}" method="POST" class="d-inline"
-                                  onsubmit="return confirm('Delete this project? This cannot be undone.')">
+                                  onsubmit="return confirm(@json(__('Delete this project? This cannot be undone.')))">
                                 @csrf @method('DELETE')
-                                <button type="submit" class="cu-action-btn danger" title="Delete"><i class="bi bi-trash"></i></button>
+                            <button type="submit" class="cu-action-btn danger" title="{{ __('Delete') }}"><i class="bi bi-trash"></i></button>
                             </form>
                         </div>
                     </div>
@@ -751,10 +751,10 @@
         {{-- List --}}
         <div class="cu-list" id="cuList">
             <div class="cu-list-header">
-                <div>Project</div>
-                <div class="col-meta">Due Date</div>
-                <div class="col-prog">Progress</div>
-                <div>Status</div>
+                <div>{{ __('Project') }}</div>
+                <div class="col-meta">{{ __('Due Date') }}</div>
+                <div class="col-prog">{{ __('Progress') }}</div>
+                <div>{{ __('Status') }}</div>
                 <div></div>
             </div>
             @foreach($projects as $project)
@@ -780,7 +780,7 @@
                     <div class="cu-list-meta col-meta">
                         @if($project->end_date)
                             <span class="{{ $isOverdue ? 'text-danger fw-semibold' : '' }}" style="font-size:11px;">
-                                @if($isOverdue)<i class="bi bi-exclamation-circle me-1"></i>Overdue
+                                @if($isOverdue)<i class="bi bi-exclamation-circle me-1"></i>{{ __('Overdue') }}
                                 @else {{ $project->end_date->format('M d, Y') }}
                                 @endif
                             </span>
@@ -793,14 +793,14 @@
                         </div>
                         <span>{{ round($progress) }}%</span>
                     </div>
-                    <div><span class="cu-chip {{ $chipClass }}"><i class="bi bi-circle-fill" style="font-size:6px;"></i>{{ $chipLabel }}</span></div>
+                    <div><span class="cu-chip {{ $chipClass }}"><i class="bi bi-circle-fill" style="font-size:6px;"></i>{{ __($chipLabel) }}</span></div>
                     <div class="cu-list-actions">
-                        <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="View"><i class="bi bi-eye"></i></a>
-                        <a href="{{ route('projects.edit', $project) }}" class="cu-action-btn" title="Edit"><i class="bi bi-pencil"></i></a>
+                        <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
+                        <a href="{{ route('projects.edit', $project) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
                         <form action="{{ route('projects.destroy', $project) }}" method="POST" class="d-inline"
-                              onsubmit="return confirm('Delete this project?')">
+                              onsubmit="return confirm(@json(__('Delete this project?')))">
                             @csrf @method('DELETE')
-                            <button type="submit" class="cu-action-btn danger" title="Delete"><i class="bi bi-trash"></i></button>
+                            <button type="submit" class="cu-action-btn danger" title="{{ __('Delete') }}"><i class="bi bi-trash"></i></button>
                         </form>
                     </div>
                 </div>
@@ -814,8 +814,8 @@
             @empty
                 <div class="cu-empty" style="border:none;">
                     <div class="cu-empty-icon"><i class="bi bi-diagram-3"></i></div>
-                    <h5>No projects yet</h5>
-                    <p>Create your first project to start organising your work.</p>
+                    <h5>{{ __('No projects yet') }}</h5>
+                    <p>{{ __('Create your first project to start organising your work.') }}</p>
                 </div>
             @endforelse
         </div>
@@ -823,9 +823,9 @@
     @else
         <div class="cu-empty">
             <div class="cu-empty-icon"><i class="bi bi-folder-plus"></i></div>
-            <h5>No projects yet</h5>
-            <p>Create your first project to start organising your work.</p>
-            <a href="{{ route('projects.create') }}" class="cu-empty-btn"><i class="bi bi-plus-lg"></i>Create Project</a>
+            <h5>{{ __('No projects yet') }}</h5>
+            <p>{{ __('Create your first project to start organising your work.') }}</p>
+            <a href="{{ route('projects.create') }}" class="cu-empty-btn"><i class="bi bi-plus-lg"></i>{{ __('Create Project') }}</a>
         </div>
     @endif
 

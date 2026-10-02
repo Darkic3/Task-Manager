@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Routines')
+@section('title', __('Routines'))
 
 @push('styles')
 <style>
@@ -131,25 +131,25 @@
 <div class="rh-wrap">
 
     <div class="rh-topbar">
-        <h1 class="rh-title">Routines</h1>
+        <h1 class="rh-title">{{ __('Routines') }}</h1>
         <span class="rh-count">{{ $routines->count() }}</span>
-        <a href="{{ route('routines.create') }}" class="rh-btn primary"><i class="bi bi-plus-lg"></i> New Routine</a>
+        <a href="{{ route('routines.create') }}" class="rh-btn primary"><i class="bi bi-plus-lg"></i> {{ __('New Routine') }}</a>
     </div>
 
     {{-- Weekly consistency score --}}
     <div class="rh-score">
         <div>
             <div class="rh-score-pct">{{ $weekly['rate'] }}%</div>
-            <div class="rh-score-lbl">This week</div>
+            <div class="rh-score-lbl">{{ __('This week') }}</div>
         </div>
         <div class="rh-score-bar"><div class="rh-score-fill" style="width:{{ $weekly['rate'] }}%;"></div></div>
-        <div class="rh-score-cnt">{{ $weekly['done'] }}/{{ $weekly['total'] }} done</div>
+        <div class="rh-score-cnt">{{ $weekly['done'] }}/{{ $weekly['total'] }} {{ __('done') }}</div>
     </div>
 
     {{-- Frequency filter --}}
     @php $counts = ['all' => $routines->count(), 'daily' => $routines->where('frequency','daily')->count(), 'weekly' => $routines->where('frequency','weekly')->count(), 'monthly' => $routines->where('frequency','monthly')->count(), 'every_n_days' => $routines->where('frequency','every_n_days')->count()]; @endphp
     <div class="rh-filters" id="rhFilters">
-        @foreach(['all' => 'All', 'daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly', 'every_n_days' => 'Every N days'] as $key => $label)
+        @foreach(['all' => __('All'), 'daily' => __('Daily'), 'weekly' => __('Weekly'), 'monthly' => __('Monthly'), 'every_n_days' => __('Every N days')] as $key => $label)
             <button class="rh-chip {{ ($key === 'all') ? 'active' : '' }}" data-filter="{{ $key }}">
                 {{ $label }} <small>{{ $counts[$key] }}</small>
             </button>
@@ -172,8 +172,8 @@
                 $isStep = ($it['kind'] ?? 'routine') === 'step';
                 $pk = $it['period'];
                 $pd = $pk === 'anytime'
-                    ? ['label' => 'No schedule', 'icon' => 'bi-inbox', 'color' => '#64748b']
-                    : (config("routines.periods.{$pk}") ?? ['label' => ucfirst($pk), 'icon' => 'bi-clock', 'color' => '#64748b']);
+                    ? ['label' => __('No schedule'), 'icon' => 'bi-inbox', 'color' => '#64748b']
+                    : (config("routines.periods.{$pk}") ?? ['label' => __(ucfirst($pk)), 'icon' => 'bi-clock', 'color' => '#64748b']);
                 $rowId = $isStep ? ('step-'.$step->id) : ('routine-'.$routine->id);
             @endphp
             @if($pk !== $currentGroup)
@@ -190,11 +190,11 @@
                         <div class="rh-row-title">
                             @if($isStep)
                                 {{ $routine->title }} <span style="color:#94a3b8;">→</span> <span class="rh-step-name">{{ $step->name }}</span>
-                                <span class="rh-step-tag" title="این ردیف یک استپ زمان‌دار است — قابل سورت مستقل"><i class="bi bi-list-check"></i>step</span>
+                                <span class="rh-step-tag" title="{{ __('This row is a timed step — independently sortable') }}"><i class="bi bi-list-check"></i>{{ __('step') }}</span>
                             @else
                                 {{ $routine->title }}
                                 @if(!empty($it['remainder']))
-                                    <span class="rh-step-tag" title="{{ $it['remainder_count'] ?? 0 }} استپ بدون زمان"><i class="bi bi-inbox"></i>other steps</span>
+                                    <span class="rh-step-tag" title="{{ ($it['remainder_count'] ?? 0) . ' ' . __('steps without time') }}"><i class="bi bi-inbox"></i>{{ __('other steps') }}</span>
                                 @endif
                             @endif
                         </div>
@@ -212,10 +212,10 @@
                                 <span class="rh-pill"><i class="bi bi-clock"></i> {{ $routine->timeLabel() }}</span>
                             @endif
                             @if(($routine->ringStreak ?? 0) > 0)
-                                <span class="rh-flame" title="{{ ($routine->behavior_type ?? 'build') === 'avoid' ? 'Clean days in a row' : 'Current streak' }}">{{ ($routine->behavior_type ?? 'build') === 'avoid' ? '🛡️' : '🔥' }}{{ $routine->ringStreak }}</span>
+                                <span class="rh-flame" title="{{ ($routine->behavior_type ?? 'build') === 'avoid' ? __('Clean days in a row') : __('Current streak') }}">{{ ($routine->behavior_type ?? 'build') === 'avoid' ? '🛡️' : '🔥' }}{{ $routine->ringStreak }}</span>
                             @endif
                             @if($routine->ringLast7 !== null)
-                                <span class="last7" title="Last 7 days">
+                                <span class="last7" title="{{ __('Last 7 days') }}">
                                     @foreach($routine->ringLast7 as $sq)
                                         <i class="sq sq-{{ $sq['state'] }}"></i>
                                     @endforeach
@@ -227,18 +227,18 @@
                         </div>
                     </div>
                     <div class="rh-actions">
-                        <a href="{{ route('routines.stats', $routine->id) }}" class="rh-link-btn" title="Stats"><i class="bi bi-graph-up"></i></a>
-                        <a href="{{ route('routines.edit', $routine->id) }}" class="rh-link-btn" title="Edit"><i class="bi bi-pencil"></i></a>
+                        <a href="{{ route('routines.stats', $routine->id) }}" class="rh-link-btn" title="{{ __('Stats') }}"><i class="bi bi-graph-up"></i></a>
+                        <a href="{{ route('routines.edit', $routine->id) }}" class="rh-link-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
                         <div class="dropdown rh-menu">
-                            <button class="rh-kebab" data-bs-toggle="dropdown" aria-expanded="false" title="More">
+                            <button class="rh-kebab" data-bs-toggle="dropdown" aria-expanded="false" title="{{ __('More options') }}">
                                 <i class="bi bi-three-dots"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="{{ route('routines.stats', $routine->id) }}"><i class="bi bi-graph-up me-2"></i>Stats</a></li>
+                                <li><a class="dropdown-item" href="{{ route('routines.stats', $routine->id) }}"><i class="bi bi-graph-up me-2"></i>{{ __('Stats') }}</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
                                     <button class="dropdown-item text-danger" onclick="archiveRoutine{{ md5($routine->id) }}()">
-                                        <i class="bi bi-archive me-2"></i>Archive
+                                        <i class="bi bi-archive me-2"></i>{{ __('Archive') }}
                                     </button>
                                 </li>
                             </ul>
@@ -250,9 +250,9 @@
         @empty
             <div class="rh-empty">
                 <i class="bi bi-arrow-repeat"></i>
-                <h5>No routines yet</h5>
-                <p>Build your first daily or weekly routine to get started.</p>
-                <a href="{{ route('routines.create') }}" class="rh-btn primary" style="display:inline-flex;"><i class="bi bi-plus-lg"></i>Create Routine</a>
+                <h5>{{ __('No routines yet') }}</h5>
+                <p>{{ __('Build your first daily or weekly routine to get started.') }}</p>
+                <a href="{{ route('routines.create') }}" class="rh-btn primary" style="display:inline-flex;"><i class="bi bi-plus-lg"></i>{{ __('Create Routine') }}</a>
             </div>
         @endforelse
     </div>
@@ -302,7 +302,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.archiveRoutine = function(hmac) { };
     @forelse($routines as $routine)
     window['archiveRoutine{{ md5($routine->id) }}'] = function() {
-        if (confirm('Archive "{{ $routine->title }}"? Its history stays saved but it disappears from your lists.')) {
+        if (confirm(@json(__('Archive ":title"? Its history stays saved but it disappears from your lists.', ['title' => $routine->title])))) {
             document.getElementById('archiveForm{{ md5($routine->id) }}').submit();
         }
     };

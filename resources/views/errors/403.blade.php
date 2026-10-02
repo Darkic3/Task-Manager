@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Access Forbidden - Task Manager</title>
+    <title>{{ __('Access Forbidden') }} - {{ __('Task Manager') }}</title>
     <link rel="shortcut icon" href="{{ asset('assets/img/logo-circle.png') }}" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -155,15 +155,14 @@
             </div>
 
             <h1 class="error-code">403</h1>
-            <h2 class="error-title">Access Forbidden</h2>
+            <h2 class="error-title">{{ __('Access Forbidden') }}</h2>
             <p class="error-message">
-                You don't have permission to access this resource.
-                Please contact your administrator if you believe you should have access to this page.
+                {{ __('You don\'t have permission to access this resource. Please contact your administrator if you believe you should have access to this page.') }}
             </p>
 
             <a href="{{ url('/') }}" class="btn-home">
                 <i class="bi bi-house"></i>
-                Back to Dashboard
+                {{ __('Back to Dashboard') }}
             </a>
         </div>
     </div>

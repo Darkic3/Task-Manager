@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Workout Plans | Weekly Cycles & Training Programs')
+@section('title', __('Workout Plans | Weekly Cycles & Training Programs'))
 
 @push('styles')
 <style>
@@ -279,7 +279,7 @@
         box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
     }
     .wp-day-tile.is-today::after {
-        content: 'TODAY';
+        content: '{{ __('TODAY') }}';
         position: absolute;
         top: -6px;
         left: 50%;
@@ -479,26 +479,26 @@
         <div class="wp-head">
             <div class="wp-head-main">
                 <a class="wp-breadcrumb" href="{{ route('dashboard') }}">
-                    <i class="bi bi-house-door"></i> Dashboard <i class="bi bi-chevron-right" style="font-size: 0.7em"></i> Workouts
+                    <i class="bi bi-house-door"></i> {{ __('Dashboard') }} <i class="bi bi-chevron-right" style="font-size: 0.7em"></i> {{ __('Workouts') }}
                 </a>
                 <h1 class="wp-title-h1">
                     <span class="wp-title-icon"><i class="bi bi-activity"></i></span>
-                    Workout Plans & Cycles
+                    {{ __('Workout Plans & Cycles') }}
                 </h1>
-                <p class="wp-subtext">Structure your weekly training split, track progressive overload, and reuse exercise libraries.</p>
+                <p class="wp-subtext">{{ __('Structure your weekly training split, track progressive overload, and reuse exercise libraries.') }}</p>
             </div>
             <div class="wp-actions">
-                <a class="wp-btn" href="{{ route('workouts.exercises.index') }}" title="Exercise Library">
-                    <i class="bi bi-heart-pulse text-danger"></i> <span>Exercises</span>
+                <a class="wp-btn" href="{{ route('workouts.exercises.index') }}" title="{{ __('Exercise Library') }}">
+                    <i class="bi bi-heart-pulse text-danger"></i> <span>{{ __('Exercises') }}</span>
                 </a>
-                <a class="wp-btn" href="{{ route('workouts.imports.create') }}" title="Import Plan with AI">
-                    <i class="bi bi-stars text-primary"></i> <span>Import with AI</span>
+                <a class="wp-btn" href="{{ route('workouts.imports.create') }}" title="{{ __('Import Plan with AI') }}">
+                    <i class="bi bi-stars text-primary"></i> <span>{{ __('Import with AI') }}</span>
                 </a>
-                <a class="wp-btn" href="{{ route('workouts.reports.index') }}" title="Volume Analytics">
-                    <i class="bi bi-bar-chart text-success"></i> <span>Reports</span>
+                <a class="wp-btn" href="{{ route('workouts.reports.index') }}" title="{{ __('Volume Analytics') }}">
+                    <i class="bi bi-bar-chart text-success"></i> <span>{{ __('Reports') }}</span>
                 </a>
                 <a class="wp-btn primary" href="{{ route('workouts.plans.create') }}">
-                    <i class="bi bi-plus-lg"></i> <span>New Plan</span>
+                    <i class="bi bi-plus-lg"></i> <span>{{ __('New Plan') }}</span>
                 </a>
             </div>
         </div>
@@ -510,28 +510,28 @@
                     <div class="wp-stat-icon indigo"><i class="bi bi-collection-play"></i></div>
                     <div>
                         <div class="wp-stat-value">{{ $plans->count() }}</div>
-                        <div class="wp-stat-label">Total Plans</div>
+                        <div class="wp-stat-label">{{ __('Total Plans') }}</div>
                     </div>
                 </div>
                 <div class="wp-stat">
                     <div class="wp-stat-icon green"><i class="bi bi-play-circle-fill"></i></div>
                     <div>
                         <div class="wp-stat-value">{{ $activePlans->count() }}</div>
-                        <div class="wp-stat-label">Active Plans</div>
+                        <div class="wp-stat-label">{{ __('Active Plans') }}</div>
                     </div>
                 </div>
                 <div class="wp-stat">
                     <div class="wp-stat-icon amber"><i class="bi bi-fire"></i></div>
                     <div>
                         <div class="wp-stat-value">{{ $todayPlans->count() }}</div>
-                        <div class="wp-stat-label">Scheduled Today</div>
+                        <div class="wp-stat-label">{{ __('Scheduled Today') }}</div>
                     </div>
                 </div>
                 <div class="wp-stat">
                     <div class="wp-stat-icon sky"><i class="bi bi-lightning-charge"></i></div>
                     <div>
                         <div class="wp-stat-value">{{ $totalMovements }}</div>
-                        <div class="wp-stat-label">Planned Movements</div>
+                        <div class="wp-stat-label">{{ __('Planned Movements') }}</div>
                     </div>
                 </div>
             </div>
@@ -541,7 +541,7 @@
             <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2 p-3 rounded-4 shadow-sm mb-4" role="alert">
                 <i class="bi bi-check-circle-fill fs-5 text-success"></i>
                 <div class="fw-semibold">{{ session('success') }}</div>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ __('Close') }}"></button>
             </div>
         @endif
 
@@ -559,14 +559,14 @@
                             <div>
                                 <h3 class="wp-title m-0">{{ $plan->title }}</h3>
                                 <div class="wp-sub">
-                                    <span>{{ $plan->goal ?: 'General Fitness' }}</span>
+                                    <span>{{ $plan->goal ?: __('General Fitness') }}</span>
                                     @if($plan->week_number)
                                         <span class="dot"></span>
-                                        <span class="badge bg-primary-subtle text-primary border" style="font-size: 10px;">Week {{ $plan->week_number }}</span>
+                                        <span class="badge bg-primary-subtle text-primary border" style="font-size: 10px;">{{ __('Week') }} {{ $plan->week_number }}</span>
                                     @endif
                                     @if($plan->start_date)
                                         <span class="dot"></span>
-                                        <span>Starts {{ $plan->start_date->format('M j') }}</span>
+                                        <span>{{ __('Starts') }} {{ $plan->start_date->format('M j') }}</span>
                                     @endif
                                 </div>
                             </div>

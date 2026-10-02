@@ -14,7 +14,7 @@
      style="--depth:{{ $depth }};">
     <div class="cu-tree-row">
         @if($childCount > 0)
-            <button type="button" class="cu-tree-toggle" data-target="tree-children-{{ $project->id }}" title="Expand/Collapse">
+            <button type="button" class="cu-tree-toggle" data-target="tree-children-{{ $project->id }}" title="{{ __('Expand/Collapse') }}">
                 <i class="bi bi-chevron-down"></i>
             </button>
         @else
@@ -22,17 +22,17 @@
         @endif
         <a href="{{ route('projects.show', $project) }}" class="cu-tree-name" title="{{ $project->name }}">{{ $project->name }}</a>
         @if($project->type !== 'project')
-            <span class="cu-tree-type">{{ $typeLabel }}</span>
+            <span class="cu-tree-type">{{ __($typeLabel) }}</span>
         @endif
-        <span class="cu-tree-meta">{{ $taskTotal }} task{{ $taskTotal != 1 ? 's' : '' }}</span>
+        <span class="cu-tree-meta">{{ $taskTotal }} {{ __($taskTotal != 1 ? 'tasks' : 'task') }}</span>
         <div class="cu-tree-progress">
             <div class="cu-tree-pb"><div class="cu-tree-pb-fill" style="width:{{ $progress }}%;"></div></div>
             <span>{{ round($progress) }}%</span>
         </div>
         <div class="cu-tree-actions">
-            <a href="{{ route('projects.create', ['parent' => $project->id]) }}" class="cu-action-btn" title="Add sub-project"><i class="bi bi-plus"></i></a>
-            <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="View"><i class="bi bi-eye"></i></a>
-            <a href="{{ route('projects.edit', $project) }}" class="cu-action-btn" title="Edit"><i class="bi bi-pencil"></i></a>
+            <a href="{{ route('projects.create', ['parent' => $project->id]) }}" class="cu-action-btn" title="{{ __('Add sub-project') }}"><i class="bi bi-plus"></i></a>
+            <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
+            <a href="{{ route('projects.edit', $project) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
         </div>
     </div>
     @if($childCount > 0)

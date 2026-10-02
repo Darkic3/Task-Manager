@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Create Routine')
+@section('title', __('Create Routine'))
 
 @push('styles')
 <style>
@@ -115,6 +115,8 @@
     .chip-weekly  input:checked + .cu-chip-label { color: #1d4ed8; border-color: #2563eb; background: #dbeafe; }
     .chip-monthly input:checked + .cu-chip-label { color: #b45309; border-color: #d97706; background: #fef3c7; }
     .chip-everyn  input:checked + .cu-chip-label { color: #0e7490; border-color: #06b6d4; background: #cffafe; }
+    .chip-avoid   input:checked + .cu-chip-label { color: #b91c1c; border-color: #ef4444; background: #fee2e2; }
+    .chip-build   input:checked + .cu-chip-label { color: #15803d; border-color: #16a34a; background: #dcfce7; }
 
     /* ── Day / Week / Month pickers ──────────────────────── */
     .cu-picker { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e3e4e8; }
@@ -176,10 +178,10 @@
     {{-- ── Minimal header + single-column form ──────────── --}}
     <div class="cu-header">
         <a href="{{ route('routines.index') }}" class="cu-back">
-            <i class="bi bi-arrow-left"></i> Routines
+            <i class="bi bi-arrow-left"></i> {{ __('Routines') }}
         </a>
-        <h1 class="cu-header-title">Create Routine</h1>
-        <p class="cu-header-sub">Set up your daily, weekly, or monthly routine schedule</p>
+        <h1 class="cu-header-title">{{ __('Create Routine') }}</h1>
+        <p class="cu-header-sub">{{ __('Set up your daily, weekly, or monthly routine schedule') }}</p>
     </div>
 
     {{-- ── Form ───────────────────────────────────────────── --}}
@@ -194,22 +196,22 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon purple"><i class="bi bi-card-text"></i></span>
-                        <span class="cu-section-title">Basic Info</span>
+                        <span class="cu-section-title">{{ __('Basic Info') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field">
-                            <label for="title" class="cu-label">Title <span style="color:#dc2626;">*</span></label>
+                            <label for="title" class="cu-label">{{ __('Title') }} <span style="color:#dc2626;">*</span></label>
                         <input type="text" name="title" id="title"
                                class="cu-input {{ $errors->has('title') ? 'is-invalid' : '' }}"
                                value="{{ old('title') }}"
-                               placeholder="e.g. Morning workout" required>
+                               placeholder="{{ __('e.g. Morning workout') }}" required>
                             @error('title')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                         <div class="cu-field">
-                            <label for="description" class="cu-label">Description</label>
+                            <label for="description" class="cu-label">{{ __('Description') }}</label>
                             <textarea name="description" id="description"
                                       class="cu-textarea {{ $errors->has('description') ? 'is-invalid' : '' }}"
-                                      placeholder="Add details about this routine...">{{ old('description') }}</textarea>
+                                      placeholder="{{ __('Add details about this routine...') }}">{{ old('description') }}</textarea>
                             @error('description')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
@@ -219,39 +221,39 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon blue"><i class="bi bi-calendar3"></i></span>
-                        <span class="cu-section-title">Schedule</span>
-                        <span class="cu-section-sub">Frequency &amp; recurrence</span>
+                        <span class="cu-section-title">{{ __('Schedule') }}</span>
+                        <span class="cu-section-sub">{{ __('Frequency & recurrence') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field">
-                            <label class="cu-label">Frequency <span style="color:#dc2626;">*</span></label>
+                            <label class="cu-label">{{ __('Frequency') }} <span style="color:#dc2626;">*</span></label>
                             <div class="cu-freq-chips">
                                 <div class="cu-chip-opt chip-daily">
                                     <input type="radio" name="frequency" id="freq_daily" value="daily"
                                         {{ old('frequency') == 'daily' ? 'checked' : '' }}>
                                     <label for="freq_daily" class="cu-chip-label">
-                                        <i class="bi bi-sun"></i> Daily
+                                        <i class="bi bi-sun"></i> {{ __('Daily') }}
                                     </label>
                                 </div>
                                 <div class="cu-chip-opt chip-weekly">
                                     <input type="radio" name="frequency" id="freq_weekly" value="weekly"
                                         {{ old('frequency') == 'weekly' ? 'checked' : '' }}>
                                     <label for="freq_weekly" class="cu-chip-label">
-                                        <i class="bi bi-calendar-week"></i> Weekly
+                                        <i class="bi bi-calendar-week"></i> {{ __('Weekly') }}
                                     </label>
                                 </div>
                                 <div class="cu-chip-opt chip-monthly">
                                     <input type="radio" name="frequency" id="freq_monthly" value="monthly"
                                         {{ old('frequency') == 'monthly' ? 'checked' : '' }}>
                                     <label for="freq_monthly" class="cu-chip-label">
-                                        <i class="bi bi-calendar-month"></i> Monthly
+                                        <i class="bi bi-calendar-month"></i> {{ __('Monthly') }}
                                     </label>
                                 </div>
                                 <div class="cu-chip-opt chip-everyn">
                                     <input type="radio" name="frequency" id="freq_everyn" value="every_n_days"
                                         {{ old('frequency') == 'every_n_days' ? 'checked' : '' }}>
                                     <label for="freq_everyn" class="cu-chip-label">
-                                        <i class="bi bi-arrow-left-right"></i> Every N days
+                                        <i class="bi bi-arrow-left-right"></i> {{ __('Every N days') }}
                                     </label>
                                 </div>
                             </div>
@@ -260,21 +262,22 @@
 
                         {{-- Daily: no selection needed --}}
                         <div class="cu-picker" id="picker-daily">
-                            <div class="cu-picker-title">Schedule</div>
+                            <div class="cu-picker-title">{{ __('Schedule') }}</div>
                             <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#5b21b6;font-weight:600;background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:10px 14px;">
-                                <i class="bi bi-sun"></i> This routine runs every day.
+                                <i class="bi bi-sun"></i> {{ __('This routine runs every day.') }}
                             </div>
                         </div>
 
                         {{-- Weekly: pick weekdays --}}
                         <div class="cu-picker" id="picker-weekly">
-                            <div class="cu-picker-title">Select days of the week <span style="color:#dc2626;">*</span></div>
+                            <div class="cu-picker-title">{{ __('Select days of the week') }} <span style="color:#dc2626;">*</span></div>
                             <div class="cu-check-grid">
+                                @php $shortDays = ['saturday'=>'Sat','sunday'=>'Sun','monday'=>'Mon','tuesday'=>'Tue','wednesday'=>'Wed','thursday'=>'Thu','friday'=>'Fri']; @endphp
                                 @foreach(['saturday','sunday','monday','tuesday','wednesday','thursday','friday'] as $day)
                                 <div class="cu-check-item">
                                     <input type="checkbox" name="days[]" value="{{ $day }}" id="day_{{ $day }}"
                                         {{ in_array($day, old('days', [])) ? 'checked' : '' }}>
-                                    <label for="day_{{ $day }}">{{ ucfirst(substr($day,0,3)) }}</label>
+                                    <label for="day_{{ $day }}">{{ __($shortDays[$day]) }}</label>
                                 </div>
                                 @endforeach
                             </div>
@@ -284,7 +287,7 @@
 
                         {{-- Monthly: pick days of month 1-31 --}}
                         <div class="cu-picker" id="picker-monthly">
-                            <div class="cu-picker-title">Select days of the month <span style="color:#dc2626;">*</span></div>
+                            <div class="cu-picker-title">{{ __('Select days of the month') }} <span style="color:#dc2626;">*</span></div>
                             <div class="cu-week-grid">
                                 @for($d = 1; $d <= 31; $d++)
                                 <div class="cu-check-item">
@@ -300,14 +303,14 @@
 
                         {{-- Every N days --}}
                         <div class="cu-picker" id="picker-every_n_days">
-                            <div class="cu-picker-title">Run every how many days?</div>
+                            <div class="cu-picker-title">{{ __('Run every how many days?') }}</div>
                             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                                 <input type="number" name="every_n_days" id="every_n_days"
                                        class="cu-input {{ $errors->has('every_n_days') ? 'is-invalid' : '' }}"
                                        style="width:110px;padding-left:10px;"
                                        min="2" max="60" step="1" value="{{ old('every_n_days', 2) }}">
                                 <span style="font-size:12px;color:#6b7385;">
-                                    <strong>2</strong> = one day on, one day off · <strong>3</strong> = every third day
+                                    {!! __('<b>2</b> = one day on, one day off · <b>3</b> = every third day') !!}
                                 </span>
                             </div>
                             @error('every_n_days')<div class="invalid-feedback">{{ $message }}</div>@enderror
@@ -323,8 +326,8 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon green"><i class="bi bi-clock"></i></span>
-                        <span class="cu-section-title">When</span>
-                        <span class="cu-section-sub">Optional</span>
+                        <span class="cu-section-title">{{ __('When') }}</span>
+                        <span class="cu-section-sub">{{ __('Optional') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field">
@@ -332,30 +335,30 @@
                                 <div class="cu-chip-opt chip-daily">
                                     <input type="radio" name="when_mode" id="when_none" value="none"
                                         {{ $whenMode === 'none' ? 'checked' : '' }}>
-                                    <label for="when_none" class="cu-chip-label"><i class="bi bi-dash-circle"></i> Any time</label>
+                                    <label for="when_none" class="cu-chip-label"><i class="bi bi-dash-circle"></i> {{ __('Any time') }}</label>
                                 </div>
                                 <div class="cu-chip-opt chip-weekly">
                                     <input type="radio" name="when_mode" id="when_period" value="period"
                                         {{ $whenMode === 'period' ? 'checked' : '' }}>
-                                    <label for="when_period" class="cu-chip-label"><i class="bi bi-sunrise"></i> Time of day</label>
+                                    <label for="when_period" class="cu-chip-label"><i class="bi bi-sunrise"></i> {{ __('Time of day') }}</label>
                                 </div>
                                 <div class="cu-chip-opt chip-monthly">
                                     <input type="radio" name="when_mode" id="when_time" value="time"
                                         {{ $whenMode === 'time' ? 'checked' : '' }}>
-                                    <label for="when_time" class="cu-chip-label"><i class="bi bi-clock-history"></i> Exact time</label>
+                                    <label for="when_time" class="cu-chip-label"><i class="bi bi-clock-history"></i> {{ __('Exact time') }}</label>
                                 </div>
                             </div>
                         </div>
 
                         {{-- Time of day --}}
                         <div class="cu-when-panel" id="when-panel-period">
-                            <div class="cu-picker-title">Choose a time of day</div>
+                            <div class="cu-picker-title">{{ __('Choose a time of day') }}</div>
                             <div class="cu-check-grid">
                                 @foreach($periods as $key => $period)
                                 <div class="cu-check-item">
                                     <input type="radio" name="time_period" value="{{ $key }}" id="period_{{ $key }}"
                                         {{ old('time_period') === $key ? 'checked' : '' }}>
-                                    <label for="period_{{ $key }}"><i class="bi {{ $period['icon'] }} me-1"></i>{{ $period['label'] }}</label>
+                                    <label for="period_{{ $key }}"><i class="bi {{ $period['icon'] }} me-1"></i>{{ __($period['label']) }}</label>
                                 </div>
                                 @endforeach
                             </div>
@@ -366,7 +369,7 @@
                         <div class="cu-when-panel" id="when-panel-time">
                             <div class="cu-field-row">
                                 <div class="cu-field" style="margin-bottom:0;">
-                                    <label for="start_time" class="cu-label">Start Time</label>
+                                    <label for="start_time" class="cu-label">{{ __('Start Time') }}</label>
                                     <div class="cu-input-wrap">
                                         <i class="bi bi-clock"></i>
                                         <input type="time" name="start_time" id="start_time"
@@ -376,7 +379,7 @@
                                     @error('start_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
                                 <div class="cu-field" style="margin-bottom:0;">
-                                    <label for="end_time" class="cu-label">End Time</label>
+                                    <label for="end_time" class="cu-label">{{ __('End Time') }}</label>
                                     <div class="cu-input-wrap">
                                         <i class="bi bi-clock-fill"></i>
                                         <input type="time" name="end_time" id="end_time"
@@ -389,9 +392,9 @@
                         </div>
                     </div>
                     <div class="cu-action-bar">
-                        <a href="{{ route('routines.index') }}" class="cu-btn-cancel">Cancel</a>
+                        <a href="{{ route('routines.index') }}" class="cu-btn-cancel">{{ __('Cancel') }}</a>
                         <button type="submit" class="cu-btn-save">
-                            <i class="bi bi-check-lg me-1"></i>Create Routine
+                            <i class="bi bi-check-lg me-1"></i>{{ __('Create Routine') }}
                         </button>
                     </div>
                 </div>
@@ -400,38 +403,39 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon" style="background:#fee2e2;color:#b91c1c;"><i class="bi bi-shield"></i></span>
-                        <span class="cu-section-title">Habit type</span>
-                        <span class="cu-section-sub">Build it or quit it</span>
+                        <span class="cu-section-title">{{ __('Habit type') }}</span>
+                        <span class="cu-section-sub">{{ __('Build it or quit it') }}</span>
                     </div>
                     <div class="cu-section-body">
                         @php $bt = old('behavior_type', 'build'); @endphp
                         <div class="cu-freq-chips">
-                            <div class="cu-chip-opt chip-daily">
+                            <div class="cu-chip-opt chip-build">
                                 <input type="radio" name="behavior_type" id="behavior_build" value="build"
                                     {{ $bt === 'build' ? 'checked' : '' }}>
                                 <label for="behavior_build" class="cu-chip-label">
-                                    <i class="bi bi-check2-circle"></i> Build — do it
+                                    <i class="bi bi-check2-circle"></i> {{ __('Build — do it') }}
                                 </label>
                             </div>
-                            <div class="cu-chip-opt">
+                            <div class="cu-chip-opt chip-avoid">
                                 <input type="radio" name="behavior_type" id="behavior_avoid" value="avoid"
                                     {{ $bt === 'avoid' ? 'checked' : '' }}>
                                 <label for="behavior_avoid" class="cu-chip-label">
-                                    <i class="bi bi-slash-circle"></i> Avoid — forbidden habit
+                                    <i class="bi bi-slash-circle"></i> {{ __('Avoid — forbidden habit') }}
                                 </label>
                             </div>
                         </div>
                         @error('behavior_type')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         <div id="avoid-count-wrap" style="margin-top:10px;{{ $bt === 'avoid' ? '' : 'display:none;' }}">
+                            <input type="hidden" name="count_violations" value="0">
                             <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#1a1d23;cursor:pointer;">
                                 <input type="checkbox" name="count_violations" value="1"
                                     {{ old('count_violations') ? 'checked' : '' }}
                                     style="accent-color:#b91c1c;width:16px;height:16px;">
-                                Log a count per slip <span style="color:#8a8f98;font-size:11px;">(e.g. how many cigarettes)</span>
+                                {{ __('Log a count per slip') }} <span style="color:#8a8f98;font-size:11px;">{{ __('(e.g. how many cigarettes)') }}</span>
                             </label>
                         </div>
                         <div id="avoid-hint" style="font-size:11px;color:#8a8f98;margin-top:8px;{{ $bt === 'avoid' ? '' : 'display:none;' }}">
-                            Avoid habits are never checked off — staying clean is the goal. Log a slip when it happens; each scheduled step can slip independently.
+                            {{ __('Avoid habits are never checked off — staying clean is the goal. Log a slip when it happens; each scheduled step can slip independently.') }}
                         </div>
                     </div>
                 </div>
@@ -440,26 +444,26 @@
                 <div class="cu-section" id="tracking-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon purple"><i class="bi bi-graph-up"></i></span>
-                        <span class="cu-section-title">Tracking</span>
-                        <span class="cu-section-sub">Optional — log a number each day</span>
+                        <span class="cu-section-title">{{ __('Tracking') }}</span>
+                        <span class="cu-section-sub">{{ __('Optional — log a number each day') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <select name="tracking_mode" id="tracking_mode" class="cu-input">
-                            <option value="none" {{ old('tracking_mode', 'none') === 'none' ? 'selected' : '' }}>No tracking — just tick</option>
-                            <option value="value" {{ old('tracking_mode') === 'value' ? 'selected' : '' }}>One value per day (e.g. weight)</option>
-                            <option value="sets" {{ old('tracking_mode') === 'sets' ? 'selected' : '' }}>Sets per step (e.g. workout moves)</option>
+                            <option value="none" {{ old('tracking_mode', 'none') === 'none' ? 'selected' : '' }}>{{ __('No tracking — just tick') }}</option>
+                            <option value="value" {{ old('tracking_mode') === 'value' ? 'selected' : '' }}>{{ __('One value per day (e.g. weight)') }}</option>
+                            <option value="sets" {{ old('tracking_mode') === 'sets' ? 'selected' : '' }}>{{ __('Sets per step (e.g. workout moves)') }}</option>
                         </select>
                         <div id="tracking-value-fields" style="display:flex;gap:6px;margin-top:8px;">
-                            <select name="value_kind" class="cu-input" style="flex:1;" title="Value kind">
+                            <select name="value_kind" class="cu-input" style="flex:1;" title="{{ __('Value kind') }}">
                                 @foreach(['number' => 'Number', 'weight' => 'Weight', 'time' => 'Time', 'reps' => 'Reps', 'percent' => 'Percent'] as $k => $lbl)
-                                    <option value="{{ $k }}" {{ old('value_kind') === $k ? 'selected' : '' }}>{{ $lbl }}</option>
+                                    <option value="{{ $k }}" {{ old('value_kind') === $k ? 'selected' : '' }}>{{ __($lbl) }}</option>
                                 @endforeach
                             </select>
-                            <input type="text" name="value_unit" class="cu-input" style="width:90px;" placeholder="Unit (kg)" maxlength="20" value="{{ old('value_unit') }}">
-                            <input type="text" name="value_label" class="cu-input" style="flex:1;" placeholder="Label (e.g. Weight)" maxlength="100" value="{{ old('value_label') }}">
+                            <input type="text" name="value_unit" class="cu-input" style="width:90px;" placeholder="{{ __('Unit (kg)') }}" maxlength="20" value="{{ old('value_unit') }}">
+                            <input type="text" name="value_label" class="cu-input" style="flex:1;" placeholder="{{ __('Label (e.g. Weight)') }}" maxlength="100" value="{{ old('value_label') }}">
                         </div>
                         <div id="tracking-sets-hint" style="font-size:11px;color:#8a8f98;margin-top:8px;">
-                            Set the number of sets per step below — each set is logged with its number every day.
+                            {{ __('Set the number of sets per step below — each set is logged with its number every day.') }}
                         </div>
                     </div>
                 </div>
@@ -468,16 +472,16 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon purple"><i class="bi bi-list-check"></i></span>
-                        <span class="cu-section-title">Steps</span>
-                        <span class="cu-section-sub">Optional — tick each part to finish</span>
+                        <span class="cu-section-title">{{ __('Steps') }}</span>
+                        <span class="cu-section-sub">{{ __('Optional — tick each part to finish') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div id="stepRows"></div>
                         <button type="button" class="cu-chip-label" style="margin-top:4px;" onclick="addStepRow()">
-                            <i class="bi bi-plus-lg"></i> Add step
+                            <i class="bi bi-plus-lg"></i> {{ __('Add step') }}
                         </button>
                         <div style="font-size:11px;color:#8a8f98;margin-top:8px;">
-                            e.g. "Set 1 (3×15)", "Set 2 (3×15)", "Set 3 (3×15)" — on the Day page the routine auto-completes when all steps are ticked.
+                            {{ __('e.g. "Set 1 (3×15)", "Set 2 (3×15)", "Set 3 (3×15)" — on the Day page the routine auto-completes when all steps are ticked.') }}
                         </div>
                         @error('items.*.name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
@@ -517,20 +521,20 @@ document.addEventListener('DOMContentLoaded', function () {
         wrap.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;';
         wrap.innerHTML = `
             <input type="hidden" name="items[${i}][id]" value="${id}">
-            <input type="text" class="cu-input" name="items[${i}][name]" style="padding-left:10px;flex:1;min-width:140px;" placeholder="e.g. Pull-up" maxlength="255">
-            <select class="cu-input" name="items[${i}][time_period]" style="width:125px;flex-shrink:0;" title="Time of day">
-                <option value="">Any time</option>
+            <input type="text" class="cu-input" name="items[${i}][name]" style="padding-left:10px;flex:1;min-width:140px;" placeholder="{{ __('e.g. Pull-up') }}" maxlength="255">
+            <select class="cu-input" name="items[${i}][time_period]" style="width:125px;flex-shrink:0;" title="{{ __('Time of day') }}">
+                <option value="">{{ __('Any time') }}</option>
                 @foreach(config('routines.periods', []) as $key => $period)
-                <option value="{{ $key }}">{{ $period['label'] }}</option>
+                <option value="{{ $key }}">{{ __($period['label']) }}</option>
                 @endforeach
             </select>
-            <input type="time" class="cu-input" name="items[${i}][scheduled_time]" style="width:112px;flex-shrink:0;" title="Exact time">
-            <span style="display:flex;align-items:center;gap:3px;color:#8a8f98;font-size:12px;font-weight:700;flex-shrink:0;" title="How many sets are logged per day">×
+            <input type="time" class="cu-input" name="items[${i}][scheduled_time]" style="width:112px;flex-shrink:0;" title="{{ __('Exact time') }}">
+            <span style="display:flex;align-items:center;gap:3px;color:#8a8f98;font-size:12px;font-weight:700;flex-shrink:0;" title="{{ __('How many sets are logged per day') }}">×
                 <input type="number" class="cu-input" name="items[${i}][target_sets]" style="width:54px;text-align:center;padding-left:6px;padding-right:6px;" min="1" max="20" value="${sets}">
-                <span style="font-weight:600;">sets</span>
+                <span style="font-weight:600;">{{ __('sets') }}</span>
             </span>
-            <input type="text" class="cu-input" name="items[${i}][unit]" style="width:70px;flex-shrink:0;" placeholder="unit" title="Unit shown next to sets (e.g. kg, reps)" maxlength="20" value="${unit}">
-            <button type="button" class="cu-chip-label" style="padding:4px 8px;color:#dc2626;border-color:#fecaca;flex-shrink:0;" title="Remove"><i class="bi bi-x-lg"></i></button>`;
+            <input type="text" class="cu-input" name="items[${i}][unit]" style="width:70px;flex-shrink:0;" placeholder="{{ __('unit') }}" title="{{ __('Unit shown next to sets (e.g. kg, reps)') }}" maxlength="20" value="${unit}">
+            <button type="button" class="cu-chip-label" style="padding:4px 8px;color:#dc2626;border-color:#fecaca;flex-shrink:0;" title="{{ __('Remove') }}"><i class="bi bi-x-lg"></i></button>`;
         wrap.querySelector('input[type=text]').value = name;
         const periodSelect = wrap.querySelector('select');
         const timeInput = wrap.querySelector('input[type=time]');

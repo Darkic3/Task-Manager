@@ -150,8 +150,8 @@
             if (active.task) bits.push(active.task.title);
             else if (active.project) bits.push(active.project.name);
             if (active.description) bits.push(active.description);
-            subEl.textContent = (active.status === 'paused' ? 'Paused · ' : '') + (bits.join(' — ') || 'Working…');
-            pauseBtn.querySelector('span').textContent = active.status === 'running' ? 'Pause' : 'Resume';
+            subEl.textContent = (active.status === 'paused' ? @json(__('Paused')) + ' · ' : '') + (bits.join(' — ') || @json(__('Working…')));
+            pauseBtn.querySelector('span').textContent = active.status === 'running' ? @json(__('Pause')) : @json(__('Resume'));
         }
         tick();
     }
@@ -198,7 +198,7 @@
             description: document.getElementById('tt-desc').value || null,
             category: document.getElementById('tt-category').value || null,
         }).then(j => { active = j.active; baseElapsed = active.elapsed; baseAt = Date.now(); render(); })
-          .catch(() => alert('Could not start the timer.'));
+          .catch(() => alert(@json(__('Could not start the timer.'))));
     });
 
     pauseBtn.addEventListener('click', () => {
@@ -220,18 +220,18 @@
     });
 
     function loadTasks() {
-        taskSel.innerHTML = '<option value="">Loading…</option>';
+        taskSel.innerHTML = '<option value="">' + @json(__('Loading…')) + '</option>';
         const url = projectSel.value
             ? '{{ route('time.tasks') }}?project_id=' + encodeURIComponent(projectSel.value)
             : '{{ route('time.tasks') }}';
         fetch(url, { headers: { 'Accept': 'application/json' } })
             .then(r => r.json())
             .then(j => {
-                taskSel.innerHTML = '<option value="">No specific task</option>' +
+                taskSel.innerHTML = '<option value="">' + @json(__('No specific task')) + '</option>' +
                     (j.tasks || []).map(t => '<option value="' + t.id + '">' + t.title.replace(/</g, '&lt;') + '</option>').join('');
                 taskSel.disabled = false;
             })
-            .catch(() => { taskSel.innerHTML = '<option value="">Could not load tasks</option>'; });
+            .catch(() => { taskSel.innerHTML = '<option value="">' + @json(__('Could not load tasks')) + '</option>'; });
     }
 
     refresh();

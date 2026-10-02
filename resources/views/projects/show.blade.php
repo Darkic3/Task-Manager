@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', $project->name . ' — Project Details')
+@section('title', $project->name . ' — ' . __('Project Details'))
 
 @push('styles')
 <style>
@@ -121,7 +121,7 @@
 
     <div class="pj-topbar">
         <a href="{{ route('projects.index') }}" class="pj-back">
-            <i class="bi bi-arrow-left"></i> Projects
+            <i class="bi bi-arrow-left"></i> {{ __('Projects') }}
         </a>
         @php $crumbs = $project->breadcrumb(); @endphp
         @if(count($crumbs) > 0)
@@ -134,10 +134,10 @@
         @endif
         <div class="pj-top-actions">
             <a href="{{ route('projects.tasks.index', $project) }}" class="pj-btn primary">
-                <i class="bi bi-list-task"></i> <span>Tasks</span>
+                <i class="bi bi-list-task"></i> <span>{{ __('Tasks') }}</span>
             </a>
             <a href="{{ route('projects.edit', $project) }}" class="pj-btn">
-                <i class="bi bi-pencil"></i> <span>Edit</span>
+                <i class="bi bi-pencil"></i> <span>{{ __('Edit') }}</span>
             </a>
             <button type="button" class="pj-btn danger" onclick="confirmDelete()">
                 <i class="bi bi-trash"></i>
@@ -192,7 +192,7 @@
             {{ name_initials($project->name) }}
         </div>
         <h1 class="pj-title">{{ $project->name }}</h1>
-        <span class="pj-chip {{ $chip['class'] }}">{{ $chip['label'] }}</span>
+        <span class="pj-chip {{ $chip['class'] }}">{{ __($chip['label']) }}</span>
     </div>
 
     <div class="pj-progress">
@@ -200,33 +200,33 @@
         @if($aggTotal > 0)
             <span class="pj-progress-lbl">{{ $aggDone }}/{{ $aggTotal }} · {{ $progress }}%</span>
         @else
-            <span class="pj-progress-lbl">No tasks yet</span>
+            <span class="pj-progress-lbl">{{ __('No tasks yet') }}</span>
         @endif
     </div>
 
     <div class="pj-facts">
         @if($aggTotal > 0)
-            <span class="pj-fact"><i class="bi bi-list-task"></i><strong>{{ $aggDone }}</strong> done · <strong>{{ $aggTodo }}</strong> open</span>
+            <span class="pj-fact"><i class="bi bi-list-task"></i><strong>{{ $aggDone }}</strong> {{ __('done') }} · <strong>{{ $aggTodo }}</strong> {{ __('open') }}</span>
         @endif
-        <span class="pj-fact"><i class="bi bi-people"></i><strong>{{ $teamMembers->count() }}</strong> members</span>
+        <span class="pj-fact"><i class="bi bi-people"></i><strong>{{ $teamMembers->count() }}</strong> {{ __('members') }}</span>
         @if($project->end_date)
             <span class="pj-fact {{ $project->end_date->isPast() ? 'overdue' : '' }}">
-                <i class="bi bi-calendar-event"></i>Due <strong>{{ $project->end_date->format('M d, Y') }}</strong>
+                <i class="bi bi-calendar-event"></i>{{ __('Due') }} <strong>{{ $project->end_date->format('M d, Y') }}</strong>
             </span>
         @endif
         @if($project->budget)
             <span class="pj-fact"><i class="bi bi-currency-dollar"></i><strong>${{ number_format($project->budget, 0) }}</strong></span>
         @endif
         <span class="pj-fact"><i class="bi bi-stopwatch"></i>{{ \App\Models\TimeEntry::formatDuration($project->totalTimeSeconds()) }}</span>
-        <span class="pj-fact"><i class="bi bi-clock-history"></i>Updated {{ $project->updated_at->diffForHumans() }}</span>
+        <span class="pj-fact"><i class="bi bi-clock-history"></i>{{ __('Updated') }} {{ $project->updated_at->diffForHumans() }}</span>
     </div>
 
     @if($project->children->count() > 0)
         <hr class="pj-divider">
         <h2 class="pj-h">
-            Sub-projects <span class="count">· {{ $project->children->count() }}</span>
+            {{ __('Sub-projects') }} <span class="count">· {{ $project->children->count() }}</span>
             <span class="spacer"></span>
-            <a href="{{ route('projects.create', ['parent' => $project->id]) }}" class="pj-mini-btn"><i class="bi bi-plus-lg"></i> Add</a>
+            <a href="{{ route('projects.create', ['parent' => $project->id]) }}" class="pj-mini-btn"><i class="bi bi-plus-lg"></i> {{ __('Add') }}</a>
         </h2>
         <div>
             @foreach($project->children as $child)
@@ -235,7 +235,7 @@
                     <div class="pj-row-av" style="background:#7c3aed;">{{ name_initials($child->name) }}</div>
                     <div class="pj-row-main">
                         <div class="pj-row-title">{{ $child->name }}</div>
-                        <div class="pj-row-sub">{{ $child->tasks->count() }} tasks</div>
+                        <div class="pj-row-sub">{{ $child->tasks->count() }} {{ __('tasks') }}</div>
                     </div>
                     <div class="pj-row-bar"><span style="width:{{ round($childProgress) }}%;"></span></div>
                     <span class="pj-row-val">{{ round($childProgress) }}%</span>
@@ -248,16 +248,16 @@
     @if($recentTime->count() > 0)
         <hr class="pj-divider">
         <h2 class="pj-h">
-            Recent time
+            {{ __('Recent time') }}
             <span class="spacer"></span>
-            <a href="{{ route('time.reports', ['project_id' => $project->id]) }}" class="pj-mini-btn"><i class="bi bi-bar-chart-line"></i> Reports</a>
+            <a href="{{ route('time.reports', ['project_id' => $project->id]) }}" class="pj-mini-btn"><i class="bi bi-bar-chart-line"></i> {{ __('Reports') }}</a>
         </h2>
         <div>
             @foreach($recentTime as $entry)
                 <div class="pj-row">
                     <div class="pj-row-av round" style="background:#eef0f2;color:#8b8d98;"><i class="bi bi-clock" style="font-size:12px;"></i></div>
                     <div class="pj-row-main">
-                        <div class="pj-row-title">{{ $entry->task?->title ?? $entry->description ?? 'Work session' }}</div>
+                        <div class="pj-row-title">{{ $entry->task?->title ?? $entry->description ?? __('Work session') }}</div>
                         <div class="pj-row-sub">{{ $entry->started_at->format('M d, g:i A') }}</div>
                     </div>
                     <span class="pj-row-val">{{ \App\Models\TimeEntry::formatDuration($entry->status === 'stopped' ? (int) $entry->duration_seconds : $entry->elapsedSeconds()) }}</span>
@@ -267,18 +267,18 @@
     @endif
 
     <hr class="pj-divider">
-    <h2 class="pj-h">Description</h2>
+    <h2 class="pj-h">{{ __('Description') }}</h2>
     @if($project->description)
         <div class="pj-desc">{!! $project->description !!}</div>
     @else
-        <p class="pj-muted" style="font-style:italic;">No description. <a href="{{ route('projects.edit', $project) }}">Add one →</a></p>
+        <p class="pj-muted" style="font-style:italic;">{{ __('No description.') }} <a href="{{ route('projects.edit', $project) }}">{{ __('Add one') }} →</a></p>
     @endif
 
     <hr class="pj-divider">
     <h2 class="pj-h">
-        Team <span class="count">· {{ $teamMembers->count() }}</span>
+        {{ __('Team') }} <span class="count">· {{ $teamMembers->count() }}</span>
         <span class="spacer"></span>
-        <button class="pj-mini-btn" data-bs-toggle="modal" data-bs-target="#addMemberModal"><i class="bi bi-plus-lg"></i> Add</button>
+        <button class="pj-mini-btn" data-bs-toggle="modal" data-bs-target="#addMemberModal"><i class="bi bi-plus-lg"></i> {{ __('Add') }}</button>
     </h2>
     <div>
         @forelse($teamMembers as $member)
@@ -292,7 +292,7 @@
                 </div>
             </div>
         @empty
-            <p class="pj-muted" style="font-style:italic;">No team members yet.</p>
+            <p class="pj-muted" style="font-style:italic;">{{ __('No team members yet.') }}</p>
         @endforelse
     </div>
 
@@ -304,24 +304,24 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h6 class="modal-title mb-0">Add team member</h6>
+                <h6 class="modal-title mb-0">{{ __('Add team member') }}</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ route('projects.addMember') }}" method="POST">
                 @csrf
                 <input type="hidden" name="project_id" value="{{ $project->id }}">
                 <div class="modal-body">
-                    <label for="user_id" class="form-label" style="font-size:12px;font-weight:600;color:#3d4149;">Select user</label>
+                    <label for="user_id" class="form-label" style="font-size:12px;font-weight:600;color:#3d4149;">{{ __('Select user') }}</label>
                     <select class="form-select" name="user_id" id="user_id" required style="font-size:13px;">
-                        <option value="">Choose a user…</option>
+                        <option value="">{{ __('Choose a user…') }}</option>
                         @foreach($users as $u)
                             <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
                         @endforeach
                     </select>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-sm btn-primary">Add member</button>
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">{{ __('Cancel') }}</button>
+                    <button type="submit" class="btn btn-sm btn-primary">{{ __('Add member') }}</button>
                 </div>
             </form>
         </div>
@@ -332,7 +332,7 @@
 @push('scripts')
 <script>
 function confirmDelete() {
-    if (confirm('Delete "{{ addslashes($project->name) }}"? All tasks, files and data will be permanently removed. This cannot be undone.')) {
+    if (confirm(@json(__('Delete ":name"? All tasks, files and data will be permanently removed. This cannot be undone.', ['name' => $project->name])))) {
         document.getElementById('deleteForm').submit();
     }
 }

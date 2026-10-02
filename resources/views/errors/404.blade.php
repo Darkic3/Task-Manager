@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Page Not Found - Task Manager</title>
+    <title>{{ __('Page Not Found') }} - {{ __('Task Manager') }}</title>
     <link rel="shortcut icon" href="{{ asset('assets/img/logo-circle.png') }}" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -151,15 +151,14 @@
             </div>
 
             <h1 class="error-code">404</h1>
-            <h2 class="error-title">Page Not Found</h2>
+            <h2 class="error-title">{{ __('Page Not Found') }}</h2>
             <p class="error-message">
-                Sorry, we couldn't find the page you're looking for.
-                The page might have been moved, deleted, or the URL might be incorrect.
+                {{ __('Sorry, we couldn\'t find the page you\'re looking for. The page might have been moved, deleted, or the URL might be incorrect.') }}
             </p>
 
             <a href="{{ url('/') }}" class="btn-home">
                 <i class="bi bi-house"></i>
-                Back to Dashboard
+                {{ __('Back to Dashboard') }}
             </a>
         </div>
     </div>

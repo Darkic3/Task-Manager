@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Server Error - Task Manager</title>
+    <title>{{ __('Server Error') }} - {{ __('Task Manager') }}</title>
     <link rel="shortcut icon" href="{{ asset('assets/img/logo-circle.png') }}" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -155,16 +155,14 @@
             </div>
 
             <h1 class="error-code">500</h1>
-            <h2 class="error-title">Server Error</h2>
+            <h2 class="error-title">{{ __('Server Error') }}</h2>
             <p class="error-message">
-                Oops! Something went wrong on our end.
-                Our team has been notified and we're working to fix this issue.
-                Please try again in a few moments.
+                {{ __('Oops! Something went wrong on our end. Our team has been notified and we\'re working to fix this issue. Please try again in a few moments.') }}
             </p>
 
             <a href="{{ url('/') }}" class="btn-home">
                 <i class="bi bi-house"></i>
-                Back to Dashboard
+                {{ __('Back to Dashboard') }}
             </a>
         </div>
     </div>

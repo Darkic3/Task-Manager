@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Create Project')
+@section('title', __('Create Project'))
 
 @push('styles')
 <style>
@@ -416,8 +416,8 @@
                 <i class="bi bi-arrow-left fs-5" style="color:rgba(255,255,255,.8);"></i>
             </a>
             <div>
-                <h1 class="content-title mb-1">Create New Project</h1>
-                <p class="content-subtitle">Set up a new project to organize your tasks and team</p>
+                <h1 class="content-title mb-1">{{ __('Create New Project') }}</h1>
+                <p class="content-subtitle">{{ __('Set up a new project to organize your tasks and team') }}</p>
             </div>
         </div>
     </div>
@@ -428,32 +428,32 @@
         {{-- ── Left Preview Panel ───────────────────────────── --}}
         <div class="cu-info-panel">
             <div class="cu-info-panel-header">
-                <span>Preview</span>
+                <span>{{ __('Preview') }}</span>
             </div>
             <div class="cu-info-body">
                 <div class="cu-project-avatar-preview" id="previewAvatar">N</div>
-                <div class="cu-preview-name" id="previewName">New Project</div>
-                <div class="cu-preview-hint">Start typing a name&hellip;</div>
+                <div class="cu-preview-name" id="previewName">{{ __('New Project') }}</div>
+                <div class="cu-preview-hint">{!! __('Start typing a name&hellip;') !!}</div>
 
                 <div class="cu-meta-row">
                     <i class="bi bi-circle-fill" style="font-size:7px; color:#8a8f98;"></i>
-                    <span id="previewStatus">Not Started</span>
+                    <span id="previewStatus">{{ __('Not Started') }}</span>
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-calendar-event"></i>
-                    <span>Start&nbsp;<strong id="previewStart">—</strong></span>
+                    <span>{{ __('Start') }}&nbsp;<strong id="previewStart">—</strong></span>
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-calendar-x"></i>
-                    <span>Due&nbsp;<strong id="previewEnd">—</strong></span>
+                    <span>{{ __('Due') }}&nbsp;<strong id="previewEnd">—</strong></span>
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-currency-dollar"></i>
-                    <span>Budget&nbsp;<strong id="previewBudget">—</strong></span>
+                    <span>{{ __('Budget') }}&nbsp;<strong id="previewBudget">—</strong></span>
                 </div>
                 <div class="cu-meta-row">
                     <i class="bi bi-person"></i>
-                    <span>Owner&nbsp;<strong>{{ auth()->user()->name }}</strong></span>
+                    <span>{{ __('Owner') }}&nbsp;<strong>{{ auth()->user()->name }}</strong></span>
                 </div>
             </div>
         </div>
@@ -468,11 +468,11 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon purple"><i class="bi bi-folder2-open"></i></span>
-                        <span class="cu-section-title">General Info</span>
+                        <span class="cu-section-title">{{ __('General Info') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field">
-                            <label for="name" class="cu-label">Project Name <span style="color:#dc2626;">*</span></label>
+                            <label for="name" class="cu-label">{{ __('Project Name') }} <span style="color:#dc2626;">*</span></label>
                             <div class="cu-input-wrap">
                                 <i class="bi bi-folder"></i>
                                 <input type="text"
@@ -480,14 +480,14 @@
                                        id="name"
                                        class="cu-input {{ $errors->has('name') ? 'is-invalid' : '' }}"
                                        value="{{ old('name') }}"
-                                       placeholder="Enter project name"
+                                       placeholder="{{ __('Enter project name') }}"
                                        required>
                             </div>
                             @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
 
                         <div class="cu-field">
-                            <label class="cu-label">Description</label>
+                            <label class="cu-label">{{ __('Description') }}</label>
                             <div class="cu-editor-wrap">
                                 <div id="quill-editor"></div>
                                 <textarea name="description" id="description" style="display:none;">{{ old('description') }}</textarea>
@@ -497,13 +497,13 @@
 
                         <div class="cu-field-row" style="margin-top:12px;">
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="parent_id" class="cu-label">Parent Project</label>
+                                <label for="parent_id" class="cu-label">{{ __('Parent Project') }}</label>
                                 <div class="cu-input-wrap">
                                     <i class="bi bi-diagram-3"></i>
                                     <select name="parent_id" id="parent_id"
                                             class="cu-input no-icon {{ $errors->has('parent_id') ? 'is-invalid' : '' }}"
                                             style="padding-left:34px;">
-                                        <option value="">None (top-level)</option>
+                                        <option value="">{{ __('None (top-level)') }}</option>
                                         @foreach($parentOptions as $opt)
                                             <option value="{{ $opt->id }}"
                                                 {{ (string) old('parent_id', $parent->id ?? '') === (string) $opt->id ? 'selected' : '' }}>
@@ -515,14 +515,14 @@
                                 @error('parent_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="type" class="cu-label">Type</label>
+                                <label for="type" class="cu-label">{{ __('Type') }}</label>
                                 <div class="cu-input-wrap">
                                     <i class="bi bi-tag"></i>
                                     <select name="type" id="type"
                                             class="cu-input no-icon {{ $errors->has('type') ? 'is-invalid' : '' }}"
                                             style="padding-left:34px;">
                                         @foreach(['project' => 'Project', 'subproject' => 'Sub-project', 'lesson' => 'Lesson', 'chapter' => 'Chapter', 'section' => 'Section'] as $val => $label)
-                                            <option value="{{ $val }}" {{ old('type', 'project') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                            <option value="{{ $val }}" {{ old('type', 'project') === $val ? 'selected' : '' }}>{{ __($label) }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -536,12 +536,12 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon blue"><i class="bi bi-calendar3"></i></span>
-                        <span class="cu-section-title">Timeline &amp; Budget</span>
+                        <span class="cu-section-title">{!! __('Timeline & Budget') !!}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-field-row cu-field">
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="start_date" class="cu-label">Start Date</label>
+                                <label for="start_date" class="cu-label">{{ __('Start Date') }}</label>
                                 <div class="cu-input-wrap">
                                     <i class="bi bi-calendar-event"></i>
                                     <input type="date"
@@ -553,7 +553,7 @@
                                 @error('start_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                             <div class="cu-field" style="margin-bottom:0;">
-                                <label for="end_date" class="cu-label">End Date</label>
+                                <label for="end_date" class="cu-label">{{ __('End Date') }}</label>
                                 <div class="cu-input-wrap">
                                     <i class="bi bi-calendar-x"></i>
                                     <input type="date"
@@ -567,7 +567,7 @@
                         </div>
 
                         <div class="cu-field" style="margin-bottom:0; margin-top:12px;">
-                            <label for="budget" class="cu-label">Budget (USD)</label>
+                            <label for="budget" class="cu-label">{{ __('Budget (USD)') }}</label>
                             <div class="cu-input-wrap">
                                 <i class="bi bi-currency-dollar"></i>
                                 <input type="number"
@@ -587,8 +587,8 @@
                 <div class="cu-section">
                     <div class="cu-section-header">
                         <span class="cu-section-icon green"><i class="bi bi-ui-checks"></i></span>
-                        <span class="cu-section-title">Status</span>
-                        <span class="cu-section-subtitle">Select initial state</span>
+                        <span class="cu-section-title">{{ __('Status') }}</span>
+                        <span class="cu-section-subtitle">{{ __('Select initial state') }}</span>
                     </div>
                     <div class="cu-section-body">
                         <div class="cu-status-chips">
@@ -596,30 +596,30 @@
                                 <input type="radio" name="status" id="status_not_started" value="not_started"
                                     {{ old('status', 'not_started') == 'not_started' ? 'checked' : '' }}>
                                 <label for="status_not_started" class="cu-chip-label">
-                                    <span class="cu-chip-dot"></span> Not Started
+                                    <span class="cu-chip-dot"></span> {{ __('Not Started') }}
                                 </label>
                             </div>
                             <div class="cu-chip-option chip-in-progress">
                                 <input type="radio" name="status" id="status_in_progress" value="in_progress"
                                     {{ old('status') == 'in_progress' ? 'checked' : '' }}>
                                 <label for="status_in_progress" class="cu-chip-label">
-                                    <span class="cu-chip-dot"></span> In Progress
+                                    <span class="cu-chip-dot"></span> {{ __('In Progress') }}
                                 </label>
                             </div>
                             <div class="cu-chip-option chip-completed">
                                 <input type="radio" name="status" id="status_completed" value="completed"
                                     {{ old('status') == 'completed' ? 'checked' : '' }}>
                                 <label for="status_completed" class="cu-chip-label">
-                                    <span class="cu-chip-dot"></span> Completed
+                                    <span class="cu-chip-dot"></span> {{ __('Completed') }}
                                 </label>
                             </div>
                         </div>
                         @error('status')<div class="invalid-feedback mt-2">{{ $message }}</div>@enderror
                     </div>
                     <div class="cu-action-bar">
-                        <a href="{{ route('projects.index') }}" class="cu-btn-cancel">Cancel</a>
+                        <a href="{{ route('projects.index') }}" class="cu-btn-cancel">{{ __('Cancel') }}</a>
                         <button type="submit" class="cu-btn-save">
-                            <i class="bi bi-plus-lg me-1"></i>Create Project
+                            <i class="bi bi-plus-lg me-1"></i>{{ __('Create Project') }}
                         </button>
                     </div>
                 </div>
@@ -657,7 +657,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     nameInput.addEventListener('input', function() {
         const v = this.value.trim();
-        previewName.textContent = v || 'New Project';
+        previewName.textContent = v || @json(__('New Project'));
         const letter = (v || 'N')[0].toUpperCase();
         previewAvatar.textContent = letter;
         previewAvatar.style.background = avatarColors[(v.length || 1) % avatarColors.length];
@@ -678,7 +678,7 @@ document.addEventListener('DOMContentLoaded', function() {
         previewBudget.textContent = isNaN(v) ? '—' : '$' + v.toLocaleString('en-US', {maximumFractionDigits:0});
     });
 
-    const statusLabels = { not_started:'Not Started', in_progress:'In Progress', completed:'Completed' };
+    const statusLabels = { not_started:@json(__('Not Started')), in_progress:@json(__('In Progress')), completed:@json(__('Completed')) };
     document.querySelectorAll('input[name="status"]').forEach(function(radio) {
         radio.addEventListener('change', function() {
             previewStatus.textContent = statusLabels[this.value] || this.value;
@@ -692,13 +692,13 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', function(e) {
         if (!nameInput.value.trim()) {
             e.preventDefault();
-            alert('Please enter a project name.');
+            alert(@json(__('Please enter a project name.')));
             return;
         }
         if (startDateInput.value && endDateInput.value) {
             if (new Date(endDateInput.value) < new Date(startDateInput.value)) {
                 e.preventDefault();
-                alert('End date cannot be before start date.');
+                alert(@json(__('End date cannot be before start date.')));
                 return;
             }
         }
@@ -707,7 +707,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ── Quill ─────────────────────────────────────────────────
     var quill = new Quill('#quill-editor', {
         theme: 'snow',
-        placeholder: 'Describe your project goals, objectives, and key deliverables...',
+        placeholder: @json(__('Describe your project goals, objectives, and key deliverables...')),
         modules: {
             toolbar: [
                 ['bold', 'italic', 'underline', 'strike'],

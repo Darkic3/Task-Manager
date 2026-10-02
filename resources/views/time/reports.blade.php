@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Time Reports')
+@section('title', __('Time Reports'))
 
 @push('styles')
 <style>
@@ -76,39 +76,39 @@
 
     <div class="tm-header">
         <div style="position:relative;z-index:1;">
-            <h1 class="tm-header-title"><i class="bi bi-stopwatch me-2"></i>Time Reports</h1>
-            <p class="tm-header-sub">Where your hours went · total {{ \App\Models\TimeEntry::formatDuration($total) }}</p>
+            <h1 class="tm-header-title"><i class="bi bi-stopwatch me-2"></i>{{ __('Time Reports') }}</h1>
+            <p class="tm-header-sub">{{ __('Where your hours went') }} · {{ __('total') }} {{ \App\Models\TimeEntry::formatDuration($total) }}</p>
         </div>
     </div>
 
     <div class="tm-stats">
         <div class="tm-stat">
             <div class="tm-stat-val">{{ \App\Models\TimeEntry::formatDuration($total) }}</div>
-            <div class="tm-stat-label">Total · {{ ucfirst($range) }}</div>
+            <div class="tm-stat-label">{{ __('Total') }} · {{ __(ucfirst($range)) }}</div>
         </div>
         <div class="tm-stat">
             <div class="tm-stat-val">{{ $entries->count() }}</div>
-            <div class="tm-stat-label">Sessions</div>
+            <div class="tm-stat-label">{{ __('Sessions') }}</div>
         </div>
         <div class="tm-stat">
             <div class="tm-stat-val">{{ $perProject->count() }}</div>
-            <div class="tm-stat-label">Projects touched</div>
+            <div class="tm-stat-label">{{ __('Projects touched') }}</div>
         </div>
     </div>
 
     <div class="tm-card">
         <div class="tm-card-head">
-            <span class="tm-card-title">Daily activity</span>
+            <span class="tm-card-title">{{ __('Daily activity') }}</span>
             <div class="tm-card-tools">
                 <div class="tm-toggle">
-                    <a href="{{ route('time.reports', ['range' => 'today', 'project_id' => $projectFilter]) }}" class="{{ $range === 'today' ? 'active' : '' }}">Today</a>
-                    <a href="{{ route('time.reports', ['range' => 'week', 'project_id' => $projectFilter]) }}" class="{{ $range === 'week' ? 'active' : '' }}">Week</a>
-                    <a href="{{ route('time.reports', ['range' => 'month', 'project_id' => $projectFilter]) }}" class="{{ $range === 'month' ? 'active' : '' }}">Month</a>
+                    <a href="{{ route('time.reports', ['range' => 'today', 'project_id' => $projectFilter]) }}" class="{{ $range === 'today' ? 'active' : '' }}">{{ __('Today') }}</a>
+                    <a href="{{ route('time.reports', ['range' => 'week', 'project_id' => $projectFilter]) }}" class="{{ $range === 'week' ? 'active' : '' }}">{{ __('Week') }}</a>
+                    <a href="{{ route('time.reports', ['range' => 'month', 'project_id' => $projectFilter]) }}" class="{{ $range === 'month' ? 'active' : '' }}">{{ __('Month') }}</a>
                 </div>
                 <form method="GET" action="{{ route('time.reports') }}" style="display:inline;">
                     <input type="hidden" name="range" value="{{ $range }}">
                     <select name="project_id" class="tm-select" onchange="this.form.submit()">
-                        <option value="">All projects</option>
+                        <option value="">{{ __('All projects') }}</option>
                         @foreach($projects as $p)
                             <option value="{{ $p->id }}" {{ (string) $projectFilter === (string) $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
                         @endforeach
@@ -126,7 +126,7 @@
             </div>
             <div class="tm-axis">
                 @foreach($days as $day)
-                    <span>{{ substr($day['label'], 0, 1) }}</span>
+                    <span>{{ substr(__($day['label']), 0, 1) }}</span>
                 @endforeach
             </div>
         </div>
@@ -134,7 +134,7 @@
 
     <div class="tm-card">
         <div class="tm-card-head">
-            <span class="tm-card-title">By project</span>
+            <span class="tm-card-title">{{ __('By project') }}</span>
         </div>
         <div class="tm-card-body" style="padding-top:8px; padding-bottom:8px;">
             @forelse($perProject as $name => $seconds)
@@ -146,64 +146,64 @@
                     <span class="tm-proj-time">{{ \App\Models\TimeEntry::formatDuration($seconds) }}</span>
                 </div>
             @empty
-                <div class="tm-empty">No tracked time in this range yet.</div>
+                <div class="tm-empty">{{ __('No tracked time in this range yet.') }}</div>
             @endforelse
         </div>
     </div>
 
     <div class="tm-card">
         <div class="tm-card-head">
-            <span class="tm-card-title">Log time manually</span>
+            <span class="tm-card-title">{{ __('Log time manually') }}</span>
         </div>
         <div class="tm-card-body">
             <form method="POST" action="{{ route('time.entries.store') }}">
                 @csrf
                 <div class="tm-form-row">
                     <div class="tm-field">
-                        <label>Project</label>
+                        <label>{{ __('Project') }}</label>
                         <select name="project_id" class="tm-input" id="tm-manual-project">
-                            <option value="">No project</option>
+                            <option value="">{{ __('No project') }}</option>
                             @foreach($projects as $p)
                                 <option value="{{ $p->id }}">{{ $p->name }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div class="tm-field">
-                        <label>Task</label>
+                        <label>{{ __('Task') }}</label>
                         <select name="task_id" class="tm-input" id="tm-manual-task">
-                            <option value="">No specific task</option>
+                            <option value="">{{ __('No specific task') }}</option>
                         </select>
                     </div>
                 </div>
                 <div class="tm-form-row">
                     <div class="tm-field">
-                        <label>Started at</label>
+                        <label>{{ __('Started at') }}</label>
                         <input type="datetime-local" name="started_at" class="tm-input" required value="{{ now()->subHour()->format('Y-m-d\TH:i') }}">
                     </div>
                     <div class="tm-field">
-                        <label>Ended at</label>
+                        <label>{{ __('Ended at') }}</label>
                         <input type="datetime-local" name="ended_at" class="tm-input" required value="{{ now()->format('Y-m-d\TH:i') }}">
                     </div>
                 </div>
                 <div class="tm-field">
-                    <label>Description</label>
-                    <input type="text" name="description" class="tm-input" placeholder="What did you work on?" maxlength="500">
+                    <label>{{ __('Description') }}</label>
+                    <input type="text" name="description" class="tm-input" placeholder="{{ __('What did you work on?') }}" maxlength="500">
                 </div>
-                <button type="submit" class="tm-save"><i class="bi bi-check-lg me-1"></i>Save Entry</button>
+                <button type="submit" class="tm-save"><i class="bi bi-check-lg me-1"></i>{{ __('Save Entry') }}</button>
             </form>
         </div>
     </div>
 
     <div class="tm-card">
         <div class="tm-card-head">
-            <span class="tm-card-title">Sessions</span>
+            <span class="tm-card-title">{{ __('Sessions') }}</span>
         </div>
         <div class="tm-card-body" style="padding:8px 16px;">
             @if($entries->count())
                 <div style="overflow-x:auto;">
                     <table class="tm-table">
                         <thead>
-                            <tr><th>Date</th><th>Project</th><th>Task</th><th>Notes</th><th>Duration</th><th></th></tr>
+                            <tr><th>{{ __('Date') }}</th><th>{{ __('Project') }}</th><th>{{ __('Task') }}</th><th>{{ __('Notes') }}</th><th>{{ __('Duration') }}</th><th></th></tr>
                         </thead>
                         <tbody>
                             @foreach($entries as $entry)
@@ -214,9 +214,9 @@
                                     <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $entry->description ?? '—' }}</td>
                                     <td style="font-weight:700; white-space:nowrap;">{{ \App\Models\TimeEntry::formatDuration((int) $entry->duration_seconds) }}</td>
                                     <td>
-                                        <form action="{{ route('time.entries.destroy', $entry) }}" method="POST" onsubmit="return confirm('Delete this entry?');">
+                                        <form action="{{ route('time.entries.destroy', $entry) }}" method="POST" onsubmit="return confirm(@json(__('Delete this entry?')));">
                                             @csrf @method('DELETE')
-                                            <button type="submit" class="tm-del" title="Delete"><i class="bi bi-trash"></i></button>
+                                            <button type="submit" class="tm-del" title="{{ __('Delete') }}"><i class="bi bi-trash"></i></button>
                                         </form>
                                     </td>
                                 </tr>
@@ -225,7 +225,7 @@
                     </table>
                 </div>
             @else
-                <div class="tm-empty">No sessions in this range.</div>
+                <div class="tm-empty">{{ __('No sessions in this range.') }}</div>
             @endif
         </div>
     </div>
@@ -244,18 +244,18 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     function loadTasks() {
-        taskSel.innerHTML = '<option value="">Loading…</option>';
+        taskSel.innerHTML = '<option value="">' + @json(__('Loading…')) + '</option>';
         const url = projectSel.value
             ? '{{ route('time.tasks') }}?project_id=' + encodeURIComponent(projectSel.value)
             : '{{ route('time.tasks') }}';
         fetch(url, { headers: { 'Accept': 'application/json' } })
             .then(r => r.json())
             .then(j => {
-                taskSel.innerHTML = '<option value="">No specific task</option>' +
+                taskSel.innerHTML = '<option value="">' + @json(__('No specific task')) + '</option>' +
                     (j.tasks || []).map(t => '<option value="' + t.id + '">' + String(t.title).replace(/</g, '&lt;') + '</option>').join('');
                 taskSel.disabled = false;
             })
-            .catch(() => { taskSel.innerHTML = '<option value="">Could not load tasks</option>'; });
+            .catch(() => { taskSel.innerHTML = '<option value="">' + @json(__('Could not load tasks')) + '</option>'; });
     }
     loadTasks();
 });

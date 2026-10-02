@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Track')
+@section('title', __('Track'))
 
 @push('styles')
 <style>
@@ -44,15 +44,15 @@
 @section('content')
 <div class="main-content">
     <div class="tk-header">
-        <h1 class="tk-header-title">Track</h1>
-        <p class="tk-header-sub">Measurable routines — latest values at a glance</p>
+        <h1 class="tk-header-title">{{ __('Track') }}</h1>
+        <p class="tk-header-sub">{{ __('Measurable routines — latest values at a glance') }}</p>
     </div>
 
     @if($kinds->count())
         <div class="tk-filters">
-            <a href="{{ route('track.index') }}" class="tk-chip {{ !$kind ? 'active' : '' }}">All</a>
+            <a href="{{ route('track.index') }}" class="tk-chip {{ !$kind ? 'active' : '' }}">{{ __('All') }}</a>
             @foreach($kinds as $k)
-                <a href="{{ route('track.index', ['kind' => $k]) }}" class="tk-chip {{ $kind === $k ? 'active' : '' }}">{{ ucfirst($k) }}</a>
+                <a href="{{ route('track.index', ['kind' => $k]) }}" class="tk-chip {{ $kind === $k ? 'active' : '' }}">{{ __(ucfirst($k)) }}</a>
             @endforeach
         </div>
     @endif
@@ -68,7 +68,7 @@
                 <div class="tk-card">
                     <div class="tk-card-head">
                         <span class="tk-card-title">{{ $r->title }}</span>
-                        <span class="tk-kind">{{ $r->tracking_mode === 'sets' ? 'sets' : ($r->value_kind ?? 'value') }}</span>
+                        <span class="tk-kind">{{ __($r->tracking_mode === 'sets' ? 'Sets' : ucfirst($r->value_kind ?? 'value')) }}</span>
                     </div>
                     <div class="tk-card-body">
                         @if($card['latest'] !== null)
@@ -83,15 +83,15 @@
                             @if($card['delta'] !== null)
                                 <div class="tk-delta {{ $card['delta'] > 0 ? 'up' : ($card['delta'] < 0 ? 'down' : 'flat') }}">
                                     {{ $card['delta'] > 0 ? '▲' : ($card['delta'] < 0 ? '▼' : '●') }}
-                                    {{ $isTime ? abs((int) round($card['delta'])) . 'm' : $card['delta'] }}
+                                    {{ $isTime ? abs((int) round($card['delta'])) . __('m') : $card['delta'] }}
                                 </div>
                             @endif
                             <div class="tk-date">{{ $card['latest_date'] }}</div>
                         @else
-                            <div class="tk-date">No logs yet — log from the Day page.</div>
+                            <div class="tk-date">{{ __('No logs yet — log from the Day page.') }}</div>
                         @endif
                         @if(count($spark))
-                            <div class="tk-spark" title="Last {{ count($spark) }} days">
+                            <div class="tk-spark" title="{{ __('Last :count days', ['count' => count($spark)]) }}">
                                 @foreach($spark as $i => $v)
                                     <div class="tk-bar" style="height:{{ max(4, round($v / $max * 100)) }}%;" title="{{ $card['spark_labels'][$i] ?? '' }}: {{ ($card['is_time'] ?? false) ? \App\Models\Routine::minutesToTimeValue($v) : $v }}"></div>
                                 @endforeach
@@ -106,15 +106,15 @@
                         @endif
                     </div>
                     <div class="tk-card-foot">
-                        <a href="{{ route('routines.stats', $r) }}">Full stats</a>
-                        <a href="{{ route('routines.edit', $r) }}">Edit routine</a>
+                        <a href="{{ route('routines.stats', $r) }}">{{ __('Full stats') }}</a>
+                        <a href="{{ route('routines.edit', $r) }}">{{ __('Edit routine') }}</a>
                     </div>
                 </div>
             @endforeach
         </div>
     @else
         <div class="tk-empty">
-            No tracked routines yet. Edit a routine and enable Tracking (value or sets).
+            {{ __('No tracked routines yet. Edit a routine and enable Tracking (value or sets).') }}
         </div>
     @endif
 </div>

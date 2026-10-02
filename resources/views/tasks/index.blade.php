@@ -596,7 +596,7 @@
                         <span>{{ $task->user->name }}</span>
                     </div>
                 @else
-                    <span style="color:#c4c9d4;">Unassigned</span>
+                    <span style="color:#c4c9d4;">{{ __('Unassigned') }}</span>
                 @endif
             </div>
             <div class="cu-due {{ $task->due_date && \Carbon\Carbon::parse($task->due_date)->startOfDay()->lt(now()->startOfDay()) && $task->status !== 'completed' ? 'overdue' : '' }}" style="font-size:12px;">
@@ -629,8 +629,8 @@
         @empty
             <div class="cu-empty">
                 <div class="cu-empty-icon"><i class="bi bi-diagram-3"></i></div>
-                <h5>No tasks yet</h5>
-                <p>Create your first task to get started.</p>
+                <h5>{{ __('No tasks yet') }}</h5>
+                <p>{{ __('Create your first task to get started.') }}</p>
             </div>
         @endforelse
     </div>

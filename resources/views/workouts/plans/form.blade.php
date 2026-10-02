@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', $plan ? 'Edit Workout Plan' : 'Build Workout Plan')
+@section('title', $plan ? __('Edit Workout Plan') : __('Build Workout Plan'))
 
 @push('styles')
 <style>
@@ -9,7 +9,7 @@
 @endpush
 
 @php
-    $defaultDays = collect($weekdays)->map(fn ($weekday, $index) => ['weekday' => $weekday, 'title' => 'Rest', 'type' => 'rest', 'notes' => '', 'exercises' => []])->all();
+    $defaultDays = collect($weekdays)->map(fn ($weekday, $index) => ['weekday' => $weekday, 'title' => __('Rest'), 'type' => 'rest', 'notes' => '', 'exercises' => []])->all();
     $storedDays = $plan ? $plan->orderedDays()->map(fn ($day) => ['weekday' => $day->weekday, 'title' => $day->title, 'type' => $day->type, 'notes' => $day->notes, 'exercises' => $day->exercises->map(fn ($item) => $item->only(['exercise_id','section','target_sets','rep_min','rep_max','duration_seconds','target_weight','target_rir','rest_seconds','tempo','side_mode','is_amrap','is_circuit','circuit_rounds','circuit_rest_seconds','alternatives','notes']))->values()->all()])->values()->all() : $defaultDays;
     $initialDays = old('days', $storedDays);
     $initialRules = old('rules', $plan?->rules->pluck('rule_text')->all() ?? []);
@@ -18,35 +18,35 @@
 
 @section('content')
 <div class="wb-shell"><div class="wb-wrap">
-    <div class="wb-head"><div class="wb-head-main"><a class="wb-back" href="{{ route('workouts.plans.index') }}"><i class="bi bi-arrow-left"></i> Workout plans</a><h1>{{ $plan ? 'Edit workout plan' : 'Build a workout plan' }}</h1><p>One structured week, seven days, reusable movements.</p></div><a class="wb-btn" href="{{ route('workouts.exercises.index') }}"><i class="bi bi-heart-pulse"></i><span>Exercise library</span></a></div>
+    <div class="wb-head"><div class="wb-head-main"><a class="wb-back" href="{{ route('workouts.plans.index') }}"><i class="bi bi-arrow-left"></i> {{ __('Workout plans') }}</a><h1>{{ $plan ? __('Edit workout plan') : __('Build a workout plan') }}</h1><p>{{ __('One structured week, seven days, reusable movements.') }}</p></div><a class="wb-btn" href="{{ route('workouts.exercises.index') }}"><i class="bi bi-heart-pulse"></i><span>{{ __('Exercise library') }}</span></a></div>
     @if($errors->any())<div class="alert alert-danger wb-error"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
     <form method="POST" action="{{ $plan ? route('workouts.plans.update', $plan) : route('workouts.plans.store') }}" id="workoutBuilder">
         @csrf @if($plan) @method('PUT') @endif
         <div class="wb-layout">
             <aside class="wb-panel">
-                <div class="wb-field"><label class="wb-label">Plan name *</label><input class="wb-input" name="title" required maxlength="160" value="{{ old('title', $plan?->title) }}" placeholder="Week 13 — Training Plan"></div>
-                <div class="wb-field"><label class="wb-label">Goal</label><input class="wb-input" name="goal" value="{{ old('goal', $plan?->goal) }}" placeholder="Strength + Muscle Gain"></div>
-                <div class="wb-field"><label class="wb-label">Week number</label><input class="wb-input" type="number" min="1" name="week_number" value="{{ old('week_number', $plan?->week_number) }}" placeholder="13"></div>
-                <div class="wb-field"><label class="wb-label">Start date</label><input class="wb-input" type="date" name="start_date" value="{{ old('start_date', $plan?->start_date?->format('Y-m-d')) }}"></div>
-                <div class="wb-field"><label class="wb-label">Status</label><select class="wb-select" name="status"><option value="draft" @selected(old('status', $plan?->status ?? 'draft') === 'draft')>Draft</option><option value="active" @selected(old('status', $plan?->status) === 'active')>Active</option></select></div>
-                <div class="wb-field"><label class="wb-label">Plan notes</label><textarea class="wb-textarea" name="description" placeholder="Goal, context, general guidance...">{{ old('description', $plan?->description) }}</textarea></div>
-                <div class="wb-rules"><label class="wb-label">Rules</label><div id="rulesList"></div><button type="button" class="wb-add" onclick="addRule()"><i class="bi bi-plus"></i> Add rule</button><p class="wb-help mt-2">Example: Main exercises → RIR 1–2</p></div>
-                <div class="wb-week-nav">@foreach($initialDays as $index => $day)<button type="button" class="wb-day-tab {{ $day['type'] }} {{ $index === 0 ? 'active' : '' }}" data-day-tab="{{ $index }}"><span>{{ strtoupper(substr($day['weekday'],0,2)) }}</span><strong data-day-label="{{ $index }}">{{ $day['title'] }}</strong><small data-day-count="{{ $index }}">{{ count($day['exercises'] ?? []) }}</small></button>@endforeach</div>
+                <div class="wb-field"><label class="wb-label">{{ __('Plan name *') }}</label><input class="wb-input" name="title" required maxlength="160" value="{{ old('title', $plan?->title) }}" placeholder="{{ __('Week 13 — Training Plan') }}"></div>
+                <div class="wb-field"><label class="wb-label">{{ __('Goal') }}</label><input class="wb-input" name="goal" value="{{ old('goal', $plan?->goal) }}" placeholder="{{ __('Strength + Muscle Gain') }}"></div>
+                <div class="wb-field"><label class="wb-label">{{ __('Week number') }}</label><input class="wb-input" type="number" min="1" name="week_number" value="{{ old('week_number', $plan?->week_number) }}" placeholder="13"></div>
+                <div class="wb-field"><label class="wb-label">{{ __('Start date') }}</label><input class="wb-input" type="date" name="start_date" value="{{ old('start_date', $plan?->start_date?->format('Y-m-d')) }}"></div>
+                <div class="wb-field"><label class="wb-label">{{ __('Status') }}</label><select class="wb-select" name="status"><option value="draft" @selected(old('status', $plan?->status ?? 'draft') === 'draft')>{{ __('Draft') }}</option><option value="active" @selected(old('status', $plan?->status) === 'active')>{{ __('Active') }}</option></select></div>
+                <div class="wb-field"><label class="wb-label">{{ __('Plan notes') }}</label><textarea class="wb-textarea" name="description" placeholder="{{ __('Goal, context, general guidance...') }}">{{ old('description', $plan?->description) }}</textarea></div>
+                <div class="wb-rules"><label class="wb-label">{{ __('Rules') }}</label><div id="rulesList"></div><button type="button" class="wb-add" onclick="addRule()"><i class="bi bi-plus"></i> {{ __('Add rule') }}</button><p class="wb-help mt-2">{{ __('Example: Main exercises → RIR 1–2') }}</p></div>
+                <div class="wb-week-nav">@foreach($initialDays as $index => $day)<button type="button" class="wb-day-tab {{ $day['type'] }} {{ $index === 0 ? 'active' : '' }}" data-day-tab="{{ $index }}"><span>{{ __(strtoupper(substr($day['weekday'],0,2))) }}</span><strong data-day-label="{{ $index }}">{{ $day['title'] }}</strong><small data-day-count="{{ $index }}">{{ count($day['exercises'] ?? []) }}</small></button>@endforeach</div>
             </aside>
             <main>
                 @foreach($initialDays as $index => $day)
                     <section class="wb-day-content {{ $index === 0 ? 'active' : '' }}" data-day-content="{{ $index }}">
-                        <div class="wb-day-panel"><div class="wb-day-head"><div class="wb-day-head-main"><div class="wb-day-title" data-day-heading="{{ $index }}">{{ $day['title'] }}</div><div class="wb-day-sub">{{ ucfirst($day['weekday']) }} · Configure this day</div></div><input type="hidden" name="days[{{ $index }}][weekday]" value="{{ $day['weekday'] }}"></div>
-                            <div class="wb-day-body"><div class="wb-field"><label class="wb-label">Day title *</label><input class="wb-input day-title-input" data-index="{{ $index }}" name="days[{{ $index }}][title]" required maxlength="120" value="{{ $day['title'] }}"></div>
-                                <div class="wb-type-row"><div class="wb-type"><input type="radio" id="day-{{ $index }}-training" name="days[{{ $index }}][type]" value="training" @checked($day['type'] === 'training')><label for="day-{{ $index }}-training"><i class="bi bi-lightning-charge"></i> Training</label></div><div class="wb-type recovery"><input type="radio" id="day-{{ $index }}-recovery" name="days[{{ $index }}][type]" value="recovery" @checked($day['type'] === 'recovery')><label for="day-{{ $index }}-recovery"><i class="bi bi-heart-pulse"></i> Recovery</label></div><div class="wb-type rest"><input type="radio" id="day-{{ $index }}-rest" name="days[{{ $index }}][type]" value="rest" @checked($day['type'] === 'rest')><label for="day-{{ $index }}-rest"><i class="bi bi-moon"></i> Rest</label></div></div>
-                                <div class="wb-field"><label class="wb-label">Day notes</label><textarea class="wb-textarea" name="days[{{ $index }}][notes]" placeholder="Optional instructions or recovery notes...">{{ $day['notes'] ?? '' }}</textarea></div>
-                                <div class="wb-exercises" id="exercises-{{ $index }}"></div><button type="button" class="wb-add" onclick="addExercise({{ $index }})"><i class="bi bi-plus-lg"></i> Add movement</button><div class="wb-rest-note" data-rest-note="{{ $index }}" style="display:{{ $day['type'] === 'rest' && !count($day['exercises'] ?? []) ? 'block' : 'none' }};margin-top:10px;"><i class="bi bi-moon-stars"></i> A rest day has no planned movements.</div>
+                        <div class="wb-day-panel"><div class="wb-day-head"><div class="wb-day-head-main"><div class="wb-day-title" data-day-heading="{{ $index }}">{{ $day['title'] }}</div><div class="wb-day-sub">{{ __(ucfirst($day['weekday'])) }} · {{ __('Configure this day') }}</div></div><input type="hidden" name="days[{{ $index }}][weekday]" value="{{ $day['weekday'] }}"></div>
+                            <div class="wb-day-body"><div class="wb-field"><label class="wb-label">{{ __('Day title *') }}</label><input class="wb-input day-title-input" data-index="{{ $index }}" name="days[{{ $index }}][title]" required maxlength="120" value="{{ $day['title'] }}"></div>
+                                <div class="wb-type-row"><div class="wb-type"><input type="radio" id="day-{{ $index }}-training" name="days[{{ $index }}][type]" value="training" @checked($day['type'] === 'training')><label for="day-{{ $index }}-training"><i class="bi bi-lightning-charge"></i> {{ __('Training') }}</label></div><div class="wb-type recovery"><input type="radio" id="day-{{ $index }}-recovery" name="days[{{ $index }}][type]" value="recovery" @checked($day['type'] === 'recovery')><label for="day-{{ $index }}-recovery"><i class="bi bi-heart-pulse"></i> {{ __('Recovery') }}</label></div><div class="wb-type rest"><input type="radio" id="day-{{ $index }}-rest" name="days[{{ $index }}][type]" value="rest" @checked($day['type'] === 'rest')><label for="day-{{ $index }}-rest"><i class="bi bi-moon"></i> {{ __('Rest') }}</label></div></div>
+                                <div class="wb-field"><label class="wb-label">{{ __('Day notes') }}</label><textarea class="wb-textarea" name="days[{{ $index }}][notes]" placeholder="{{ __('Optional instructions or recovery notes...') }}">{{ $day['notes'] ?? '' }}</textarea></div>
+                                <div class="wb-exercises" id="exercises-{{ $index }}"></div><button type="button" class="wb-add" onclick="addExercise({{ $index }})"><i class="bi bi-plus-lg"></i> {{ __('Add movement') }}</button><div class="wb-rest-note" data-rest-note="{{ $index }}" style="display:{{ $day['type'] === 'rest' && !count($day['exercises'] ?? []) ? 'block' : 'none' }};margin-top:10px;"><i class="bi bi-moon-stars"></i> {{ __('A rest day has no planned movements.') }}</div>
                             </div></div>
                     </section>
                 @endforeach
             </main>
         </div>
-        <div class="wb-savebar"><a class="wb-btn" href="{{ route('workouts.plans.index') }}">Cancel</a><button class="wb-btn primary" type="submit"><i class="bi bi-check-lg"></i> {{ $plan ? 'Save changes' : 'Create plan' }}</button></div>
+        <div class="wb-savebar"><a class="wb-btn" href="{{ route('workouts.plans.index') }}">{{ __('Cancel') }}</a><button class="wb-btn primary" type="submit"><i class="bi bi-check-lg"></i> {{ $plan ? __('Save changes') : __('Create plan') }}</button></div>
     </form>
 </div></div>
 @endsection
@@ -56,8 +56,39 @@
 const exerciseOptions = @json($exerciseOptions);
 const initialDays = @json($initialDays);
 const initialRules = @json($initialRules);
+const I18N_FORM = {
+    chooseMovement: @json(__('Choose movement...')),
+    remove: @json(__('Remove')),
+    section: @json(__('Section')),
+    warmup: @json(__('Warm-up')),
+    main: @json(__('Main')),
+    accessory: @json(__('Accessory')),
+    cooldown: @json(__('Cooldown')),
+    sets: @json(__('Sets')),
+    minReps: @json(__('Min reps')),
+    maxReps: @json(__('Max reps')),
+    rirTarget: @json(__('RIR target')),
+    restSec: @json(__('Rest (sec)')),
+    durationSec: @json(__('Duration (sec)')),
+    weight: @json(__('Weight')),
+    tempo: @json(__('Tempo')),
+    side: @json(__('Side')),
+    both: @json(__('Both')),
+    perSide: @json(__('Per side')),
+    alternating: @json(__('Alternating')),
+    amrap: @json(__('AMRAP')),
+    no: @json(__('No')),
+    yes: @json(__('Yes')),
+    circuit: @json(__('Circuit')),
+    circuitRounds: @json(__('Circuit rounds')),
+    roundRestSec: @json(__('Round rest (sec)')),
+    altMovements: @json(__('Optional alternative movements')),
+    movementNotes: @json(__('Movement notes, tempo cue, safety instruction...')),
+    rulePlaceholder: @json(__('e.g. Form over reps')),
+    untitledDay: @json(__('Untitled day'))
+};
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
-const optionMarkup = selected => '<option value="">Choose movement...</option>' + exerciseOptions.map(e => `<option value="${e.id}" ${String(e.id) === String(selected) ? 'selected' : ''}>${esc(e.name)}${e.category ? ' · ' + esc(e.category) : ''}</option>`).join('');
+const optionMarkup = selected => '<option value="">' + I18N_FORM.chooseMovement + '</option>' + exerciseOptions.map(e => `<option value="${e.id}" ${String(e.id) === String(selected) ? 'selected' : ''}>${esc(e.name)}${e.category ? ' · ' + esc(e.category) : ''}</option>`).join('');
 const alternativeMarkup = selected => exerciseOptions.map(e => `<option value="${e.id}" ${(selected || []).map(String).includes(String(e.id)) ? 'selected' : ''}>${esc(e.name)}</option>`).join('');
 const rowState = {};
 function addExercise(dayIndex, values = {}) {
@@ -66,16 +97,16 @@ function addExercise(dayIndex, values = {}) {
     rowState[dayIndex] = index + 1;
     const prefix = `days[${dayIndex}][exercises][${index}]`;
     const row = document.createElement('div'); row.className = 'wb-ex';
-    row.innerHTML = `<div class="wb-ex-top"><i class="bi bi-grip-vertical wb-drag"></i><select class="wb-select" name="${prefix}[exercise_id]" required>${optionMarkup(values.exercise_id)}</select><button class="wb-remove" type="button" title="Remove"><i class="bi bi-x-lg"></i></button></div>
-        <div class="wb-ex-fields"><div class="wb-ex-field"><label>Section</label><select name="${prefix}[section]"><option value="warmup">Warm-up</option><option value="main" selected>Main</option><option value="accessory">Accessory</option><option value="cooldown">Cooldown</option></select></div><div class="wb-ex-field"><label>Sets</label><input type="number" min="1" max="99" name="${prefix}[target_sets]" value="${esc(values.target_sets)}"></div><div class="wb-ex-field"><label>Min reps</label><input type="number" min="1" name="${prefix}[rep_min]" value="${esc(values.rep_min)}"></div><div class="wb-ex-field"><label>Max reps</label><input type="number" min="1" name="${prefix}[rep_max]" value="${esc(values.rep_max)}"></div><div class="wb-ex-field"><label>RIR target</label><input type="number" min="0" max="10" step="0.5" name="${prefix}[target_rir]" value="${esc(values.target_rir)}"></div><div class="wb-ex-field"><label>Rest (sec)</label><input type="number" min="0" name="${prefix}[rest_seconds]" value="${esc(values.rest_seconds)}"></div><div class="wb-ex-field"><label>Duration (sec)</label><input type="number" min="1" name="${prefix}[duration_seconds]" value="${esc(values.duration_seconds)}"></div><div class="wb-ex-field"><label>Weight</label><input type="number" min="0" step="0.01" name="${prefix}[target_weight]" value="${esc(values.target_weight)}"></div><div class="wb-ex-field"><label>Tempo</label><input type="text" maxlength="40" name="${prefix}[tempo]" value="${esc(values.tempo)}" placeholder="3-1-1"></div><div class="wb-ex-field"><label>Side</label><select name="${prefix}[side_mode]"><option value="">Both</option><option value="per_side" ${values.side_mode === 'per_side' ? 'selected' : ''}>Per side</option><option value="alternating" ${values.side_mode === 'alternating' ? 'selected' : ''}>Alternating</option></select></div><div class="wb-ex-field"><label>AMRAP</label><select name="${prefix}[is_amrap]"><option value="0">No</option><option value="1" ${values.is_amrap ? 'selected' : ''}>Yes</option></select></div><div class="wb-ex-field"><label>Circuit</label><select name="${prefix}[is_circuit]"><option value="0">No</option><option value="1" ${values.is_circuit ? 'selected' : ''}>Yes</option></select></div></div>
-        <div class="wb-ex-fields"><div class="wb-ex-field"><label>Circuit rounds</label><input type="number" min="1" max="30" name="${prefix}[circuit_rounds]" value="${esc(values.circuit_rounds)}"></div><div class="wb-ex-field"><label>Round rest (sec)</label><input type="number" min="0" name="${prefix}[circuit_rest_seconds]" value="${esc(values.circuit_rest_seconds)}"></div></div><select class="wb-select mt-2" name="${prefix}[alternatives][]" multiple title="Optional alternative movements">${alternativeMarkup(values.alternatives)}</select><input class="wb-ex-note" maxlength="2000" name="${prefix}[notes]" value="${esc(values.notes)}" placeholder="Movement notes, tempo cue, safety instruction...">`;
+    row.innerHTML = `<div class="wb-ex-top"><i class="bi bi-grip-vertical wb-drag"></i><select class="wb-select" name="${prefix}[exercise_id]" required>${optionMarkup(values.exercise_id)}</select><button class="wb-remove" type="button" title="${I18N_FORM.remove}"><i class="bi bi-x-lg"></i></button></div>
+        <div class="wb-ex-fields"><div class="wb-ex-field"><label>${I18N_FORM.section}</label><select name="${prefix}[section]"><option value="warmup">${I18N_FORM.warmup}</option><option value="main" selected>${I18N_FORM.main}</option><option value="accessory">${I18N_FORM.accessory}</option><option value="cooldown">${I18N_FORM.cooldown}</option></select></div><div class="wb-ex-field"><label>${I18N_FORM.sets}</label><input type="number" min="1" max="99" name="${prefix}[target_sets]" value="${esc(values.target_sets)}"></div><div class="wb-ex-field"><label>${I18N_FORM.minReps}</label><input type="number" min="1" name="${prefix}[rep_min]" value="${esc(values.rep_min)}"></div><div class="wb-ex-field"><label>${I18N_FORM.maxReps}</label><input type="number" min="1" name="${prefix}[rep_max]" value="${esc(values.rep_max)}"></div><div class="wb-ex-field"><label>${I18N_FORM.rirTarget}</label><input type="number" min="0" max="10" step="0.5" name="${prefix}[target_rir]" value="${esc(values.target_rir)}"></div><div class="wb-ex-field"><label>${I18N_FORM.restSec}</label><input type="number" min="0" name="${prefix}[rest_seconds]" value="${esc(values.rest_seconds)}"></div><div class="wb-ex-field"><label>${I18N_FORM.durationSec}</label><input type="number" min="1" name="${prefix}[duration_seconds]" value="${esc(values.duration_seconds)}"></div><div class="wb-ex-field"><label>${I18N_FORM.weight}</label><input type="number" min="0" step="0.01" name="${prefix}[target_weight]" value="${esc(values.target_weight)}"></div><div class="wb-ex-field"><label>${I18N_FORM.tempo}</label><input type="text" maxlength="40" name="${prefix}[tempo]" value="${esc(values.tempo)}" placeholder="3-1-1"></div><div class="wb-ex-field"><label>${I18N_FORM.side}</label><select name="${prefix}[side_mode]"><option value="">${I18N_FORM.both}</option><option value="per_side" ${values.side_mode === 'per_side' ? 'selected' : ''}>${I18N_FORM.perSide}</option><option value="alternating" ${values.side_mode === 'alternating' ? 'selected' : ''}>${I18N_FORM.alternating}</option></select></div><div class="wb-ex-field"><label>${I18N_FORM.amrap}</label><select name="${prefix}[is_amrap]"><option value="0">${I18N_FORM.no}</option><option value="1" ${values.is_amrap ? 'selected' : ''}>${I18N_FORM.yes}</option></select></div><div class="wb-ex-field"><label>${I18N_FORM.circuit}</label><select name="${prefix}[is_circuit]"><option value="0">${I18N_FORM.no}</option><option value="1" ${values.is_circuit ? 'selected' : ''}>${I18N_FORM.yes}</option></select></div></div>
+        <div class="wb-ex-fields"><div class="wb-ex-field"><label>${I18N_FORM.circuitRounds}</label><input type="number" min="1" max="30" name="${prefix}[circuit_rounds]" value="${esc(values.circuit_rounds)}"></div><div class="wb-ex-field"><label>${I18N_FORM.roundRestSec}</label><input type="number" min="0" name="${prefix}[circuit_rest_seconds]" value="${esc(values.circuit_rest_seconds)}"></div></div><select class="wb-select mt-2" name="${prefix}[alternatives][]" multiple title="${I18N_FORM.altMovements}">${alternativeMarkup(values.alternatives)}</select><input class="wb-ex-note" maxlength="2000" name="${prefix}[notes]" value="${esc(values.notes)}" placeholder="${I18N_FORM.movementNotes}">`;
     row.querySelector('.wb-remove').addEventListener('click', () => { row.remove(); updateDayCount(dayIndex); });
     container.appendChild(row); updateDayCount(dayIndex);
 }
 function updateDayCount(dayIndex) { const count = document.querySelectorAll(`#exercises-${dayIndex} .wb-ex`).length; document.querySelector(`[data-day-count="${dayIndex}"]`).textContent = count; const type = document.querySelector(`input[name="days[${dayIndex}][type]"]:checked`)?.value; document.querySelector(`[data-rest-note="${dayIndex}"]`).style.display = type === 'rest' && count === 0 ? 'block' : 'none'; }
-function addRule(value = '') { const list = document.getElementById('rulesList'), index = list.children.length; const row = document.createElement('div'); row.className = 'wb-rule-row'; row.innerHTML = `<input class="wb-input" name="rules[${index}]" maxlength="500" value="${esc(value)}" placeholder="e.g. Form over reps"><button type="button" class="wb-rule-remove"><i class="bi bi-x-lg"></i></button>`; row.querySelector('button').onclick = () => row.remove(); list.appendChild(row); }
+function addRule(value = '') { const list = document.getElementById('rulesList'), index = list.children.length; const row = document.createElement('div'); row.className = 'wb-rule-row'; row.innerHTML = `<input class="wb-input" name="rules[${index}]" maxlength="500" value="${esc(value)}" placeholder="${I18N_FORM.rulePlaceholder}"><button type="button" class="wb-rule-remove"><i class="bi bi-x-lg"></i></button>`; row.querySelector('button').onclick = () => row.remove(); list.appendChild(row); }
 document.querySelectorAll('[data-day-tab]').forEach(tab => tab.addEventListener('click', () => { const index = tab.dataset.dayTab; document.querySelectorAll('[data-day-tab], [data-day-content]').forEach(el => el.classList.remove('active')); tab.classList.add('active'); document.querySelector(`[data-day-content="${index}"]`).classList.add('active'); }));
-document.querySelectorAll('.day-title-input').forEach(input => input.addEventListener('input', () => { document.querySelector(`[data-day-label="${input.dataset.index}"]`).textContent = input.value || 'Untitled day'; document.querySelector(`[data-day-heading="${input.dataset.index}"]`).textContent = input.value || 'Untitled day'; }));
+document.querySelectorAll('.day-title-input').forEach(input => input.addEventListener('input', () => { document.querySelector(`[data-day-label="${input.dataset.index}"]`).textContent = input.value || I18N_FORM.untitledDay; document.querySelector(`[data-day-heading="${input.dataset.index}"]`).textContent = input.value || I18N_FORM.untitledDay; }));
 document.querySelectorAll('input[type="radio"][name*="[type]"]').forEach(input => input.addEventListener('change', () => updateDayCount(input.name.match(/days\[(\d+)\]/)[1])));
 initialDays.forEach((day, dayIndex) => (day.exercises || []).forEach(exercise => addExercise(dayIndex, exercise))); initialRules.forEach(rule => addRule(rule));
 </script>
