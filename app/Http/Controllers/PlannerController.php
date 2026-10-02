@@ -790,6 +790,8 @@ class PlannerController extends Controller
                 'time_label' => $activeStep['time_label'],
                 'time_period' => $activeStep['time_period'] ?? null,
                 'scheduled_time' => $activeStep['scheduled_time'] ?? null,
+                'step_id' => $activeStep['id'] ?? null,
+                'sort_order' => (int) ($steps->firstWhere('id', $activeStep['id'])?->sort_order ?? 0),
             ] : null;
             $routine->avoidDayQty = $isAvoid
                 ? (int) ($violationMap['routine'][(int) $routine->id][$dayKey] ?? 0)
@@ -1172,6 +1174,8 @@ class PlannerController extends Controller
                     'time_label' => $activeStep['time_label'],
                     'time_period' => $activeStep['time_period'] ?? null,
                     'scheduled_time' => $activeStep['scheduled_time'] ?? null,
+                    'step_id' => $activeStep['id'] ?? null,
+                    'sort_order' => (int) ($steps->firstWhere('id', $activeStep['id'])?->sort_order ?? 0),
                 ];
                 $routine->activeStepSortKey = $activeStep['sort_key'];
             } else {

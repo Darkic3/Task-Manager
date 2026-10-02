@@ -122,10 +122,12 @@ class PlannerRescheduleTest extends TestCase
         $response = $this->actingAs($user)->get(route('routines.index'));
 
         $response->assertOk();
-        $routines = $response->viewData('routines');
+        // The page renders from `displayItems` (period-group → manual order),
+        // not the raw unsorted routines collection.
+        $items = $response->viewData('displayItems');
         $this->assertSame(
             ['Morning First', 'Morning Second', 'Zed Evening'],
-            $routines->pluck('title')->all()
+            array_column($items, 'title')
         );
         $response->assertSee('Morning First', false);
     }
@@ -194,9 +196,29 @@ class PlannerRescheduleTest extends TestCase
         $routines = $this->actingAs($user)->get(route('routines.index'));
 
         $plannerOrder = $planner->viewData('routines')->sortBy(fn ($r) => $r->sortKey())->pluck('title')->all();
-        $routinesOrder = $routines->viewData('routines')->pluck('title')->all();
+        $routinesOrder = array_column($routines->viewData('displayItems'), 'title');
         $this->assertSame($routinesOrder, array_values($plannerOrder));
         $this->assertSame(['Stretch', 'Meditation', 'Journal', 'Evening Walk'], $routinesOrder);
+    }
+
+    public function test_planner_honors_exploded_step_order_like_the_routines_page(): void
+    {
+        $user = User::factory()->create();
+
+        // Wake Up: a plain morning routine, dragged to the very top (order 0).
+        Routine::create(['user_id' => $user->id, 'title' => 'Wake Up', 'frequency' => 'daily', 'time_period' => 'morning', 'sort_order' => 0]);
+
+        // Cobra Pose: an "exploded" routine (no own schedule). Its morning step
+        // sits below Wake Up on the routines page, so its step sort_order is 10.
+        $cobra = Routine::create(['user_id' => $user->id, 'title' => 'Cobra Pose', 'frequency' => 'daily']);
+        \App\Models\RoutineChecklistItem::create(['routine_id' => $cobra->id, 'user_id' => $user->id, 'name' => 'Morning', 'sort_order' => 10, 'time_period' => 'morning']);
+        \App\Models\RoutineChecklistItem::create(['routine_id' => $cobra->id, 'user_id' => $user->id, 'name' => 'Noon', 'sort_order' => 20, 'time_period' => 'noon']);
+        \App\Models\RoutineChecklistItem::create(['routine_id' => $cobra->id, 'user_id' => $user->id, 'name' => 'Night', 'sort_order' => 30, 'time_period' => 'night']);
+
+        $planner = $this->actingAs($user)->get(route('planner.index'));
+
+        $order = $planner->viewData('routines')->pluck('title')->values()->all();
+        $this->assertSame(['Wake Up', 'Cobra Pose'], $order);
     }
 
     public function test_dynamic_date_navigation_label_shows_today_tomorrow_yesterday(): void
