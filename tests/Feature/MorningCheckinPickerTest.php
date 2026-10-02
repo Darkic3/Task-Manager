@@ -45,6 +45,75 @@ class MorningCheckinPickerTest extends TestCase
         $response->assertDontSee('pl-time-field', false);
     }
 
+    public function test_time_picker_display_and_modal_are_styled(): void
+    {
+        $user = User::factory()->create();
+
+        $html = $this->actingAs($user)->get(route('planner.index'))->assertOk()->getContent();
+
+        // The shared picker's display must ship its own rules — the component
+        // is used by the routine rows and the next-up modal.
+        foreach ([
+            '.tp-display',
+            '.tp-digits',
+            '.tp-sep',
+            '.tp-cap',
+            '.tp-step',
+            '.tp-period',
+            '.tp-chip',
+            '.tp-presets',
+            '.tp-compact .tp-display',
+        ] as $selector) {
+            $this->assertStringContainsString($selector, $html, "Missing picker style {$selector}");
+        }
+
+        // Routine detail modal surface.
+        foreach ([
+            '.pl-modal-dialog',
+            '.pl-modal-head',
+            '.pl-modal-title',
+            '.pl-modal-x',
+            '.pl-modal-body',
+        ] as $selector) {
+            $this->assertStringContainsString($selector, $html, "Missing modal style {$selector}");
+        }
+
+        // Both keyframes must be defined for the entrance motion to run.
+        $this->assertStringContainsString('@keyframes plModalIn', $html);
+        $this->assertStringContainsString('@keyframes plSheetIn', $html);
+    }
+
+    public function test_time_picker_keeps_its_control_markup(): void
+    {
+        $user = User::factory()->create();
+        $this->wakeRoutine($user);
+
+        $html = $this->actingAs($user)
+            ->withSession(['locale' => 'fa'])
+            ->get(route('planner.index'))
+            ->assertOk()
+            ->getContent();
+
+        // Styling must not cost the picker any of its hooks: the JS binds
+        // exclusively through these data attributes.
+        foreach ([
+            'data-tp',
+            'data-tp-value',
+            'data-tp-h',
+            'data-tp-m',
+            'data-tp-period',
+            'data-tp-step="h:1"',
+            'data-tp-step="h:-1"',
+            'data-tp-step="m:1"',
+            'data-tp-step="m:-1"',
+            'data-tp-preset="now"',
+            'data-tp-adjust="-15"',
+            'data-tp-adjust="15"',
+        ] as $hook) {
+            $this->assertStringContainsString($hook, $html, "Missing picker hook {$hook}");
+        }
+    }
+
     public function test_next_up_modal_uses_shared_picker(): void
     {
         $user = User::factory()->create();

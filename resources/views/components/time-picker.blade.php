@@ -22,54 +22,97 @@
 @endphp
 @push('styles')
 <style>
+    /* ── Time display ── */
+    .tp {
+        --tp-accent: #7c3aed;
+        --tp-accent-soft: #f6f3ff;
+        --tp-line: #e6e4f0;
+        --tp-ink: #1a1d23;
+        --tp-muted: #8a8f98;
+    }
     .tp-display {
-        display: flex; align-items: center; justify-content: center; gap: 12px;
-        background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
-        border: 1.5px solid #e0e7ff; border-radius: 14px; padding: 14px 12px;
+        position: relative;
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+        background: var(--tp-accent-soft);
+        border: 1px solid var(--tp-line); border-radius: 16px;
+        padding: 18px 16px 16px;
     }
-    .tp-col { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    /* Subtle top highlight so the panel reads as a raised surface */
+    .tp-display::before {
+        content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+        background: linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,0) 55%);
+    }
+    .tp-col {
+        position: relative;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;
+        min-width: 62px;
+    }
     .tp-digits {
-        font-size: 2.1rem; font-weight: 800; color: #1e1b4b; line-height: 1;
-        min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums;
+        font-size: 2.4rem; font-weight: 800; color: var(--tp-ink); line-height: 1;
+        min-width: 2.2ch; text-align: center;
+        font-variant-numeric: tabular-nums; letter-spacing: -.01em;
     }
-    .tp-sep { font-size: 1.7rem; font-weight: 800; color: #a5b4fc; line-height: 1; }
-    .tp-cap { font-size: .68rem; font-weight: 700; color: #6366f1; }
+    .tp-sep {
+        font-size: 1.8rem; font-weight: 800; color: #c4b5fd; line-height: 1;
+        align-self: flex-start; margin-top: 4px;
+    }
+    .tp-cap {
+        font-size: .66rem; font-weight: 700; color: var(--tp-muted);
+        text-transform: uppercase; letter-spacing: .06em; order: 4;
+    }
     .tp-step {
-        width: 34px; height: 34px; border-radius: 50%;
-        border: 1.5px solid #c7d2fe; background: #fff; color: #4f46e5;
+        width: 36px; height: 36px; border-radius: 50%;
+        border: 1px solid var(--tp-line); background: #fff; color: var(--tp-accent);
         font-size: 1.15rem; font-weight: 700; line-height: 1; cursor: pointer;
         display: grid; place-items: center; padding: 0;
-        transition: background .15s ease, color .15s ease, transform .12s ease;
+        box-shadow: 0 1px 2px rgba(15,23,42,.06);
+        transition: background .15s ease, color .15s ease, border-color .15s ease,
+                    transform .12s ease, box-shadow .15s ease;
     }
-    .tp-step:hover { background: #4f46e5; border-color: #4f46e5; color: #fff; }
-    .tp-step:active { transform: scale(.93); }
-    .tp-step:focus-visible { outline: 3px solid rgba(99, 102, 241, .4); outline-offset: 2px; }
+    .tp-step:hover {
+        background: var(--tp-accent); border-color: var(--tp-accent); color: #fff;
+        box-shadow: 0 3px 8px -2px rgba(124,58,237,.45);
+    }
+    .tp-step:active { transform: scale(.92); }
+    .tp-step:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(124,58,237,.28); }
     .tp-period {
-        font-size: .78rem; font-weight: 800; color: #7c3aed;
-        background: #ede9fe; padding: 4px 12px; border-radius: 999px; white-space: nowrap;
+        align-self: center;
+        font-size: .74rem; font-weight: 800; color: var(--tp-accent);
+        background: #fff; border: 1px solid var(--tp-line);
+        padding: 4px 12px; border-radius: 999px; white-space: nowrap;
     }
-    .tp-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; justify-content: center; }
+    .tp-presets { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; justify-content: center; }
     .tp-chip {
-        padding: 7px 14px; border-radius: 999px; border: 1.5px solid #e0e7ff;
-        background: #fff; color: #475569; font-size: .82rem; font-weight: 700;
+        padding: 7px 14px; border-radius: 999px; border: 1px solid var(--tp-line);
+        background: #fff; color: #4b5563; font-size: .82rem; font-weight: 700;
         cursor: pointer; font-variant-numeric: tabular-nums;
         transition: border-color .15s ease, color .15s ease, background .15s ease, transform .12s ease;
     }
-    .tp-chip:hover { border-color: #6366f1; color: #4f46e5; background: #eef2ff; transform: translateY(-1px); }
+    .tp-chip:hover { border-color: #c4b5fd; color: var(--tp-accent); background: var(--tp-accent-soft); }
     .tp-chip.is-active {
-        background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        border-color: transparent; color: #fff;
-        box-shadow: 0 4px 10px rgba(99, 102, 241, .35);
+        background: var(--tp-accent); border-color: var(--tp-accent); color: #fff;
+        box-shadow: 0 2px 8px -2px rgba(124,58,237,.4);
     }
+    .tp-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(124,58,237,.25); }
     .tp-chip-now { border-style: dashed; }
-    /* Compact variant (inline rows) */
-    .tp-compact .tp-display { padding: 8px 10px; gap: 8px; border-radius: 12px; }
-    .tp-compact .tp-digits { font-size: 1.25rem; }
-    .tp-compact .tp-period { font-size: .7rem; padding: 3px 10px; }
-    .tp-step-sm { width: 30px; height: 30px; font-size: 1rem; }
-    .tp-compact .tp-chip { padding: 5px 12px; font-size: .76rem; }
+
+    /* Compact variant (inline routine rows) */
+    .tp-compact .tp-display { padding: 7px 9px; gap: 5px; border-radius: 11px; }
+    .tp-compact .tp-display::before { display: none; }
+    .tp-compact .tp-digits { font-size: 1.2rem; min-width: 3.2ch; }
+    .tp-compact .tp-period { font-size: .68rem; padding: 2px 8px; }
+    .tp-compact .tp-chip { padding: 5px 10px; font-size: .74rem; }
+    .tp-step-sm { width: 28px; height: 28px; font-size: 1rem; }
+
+    @media (max-width: 380px) {
+        .tp-display { padding: 14px 10px 12px; gap: 3px; }
+        .tp-digits { font-size: 1.9rem; }
+        .tp-col { min-width: 54px; }
+        .tp-step { width: 32px; height: 32px; }
+    }
     @media (prefers-reduced-motion: reduce) {
         .tp-step, .tp-chip { transition: none; }
+        .tp-step:active { transform: none; }
     }
 </style>
 @endpush
