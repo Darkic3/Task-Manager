@@ -143,9 +143,12 @@ class AiPlansTest extends TestCase
         );
         $this->assertFalse($svc->validateCall('plan_propose', $tooManySubs, $user)['ok']);
 
-        $empty = $this->workoutArgs();
-        $empty['subprojects'][0]['tasks'] = [];
-        $this->assertFalse($svc->validateCall('plan_propose', $empty, $user)['ok']);
+        $bare = $this->workoutArgs();
+        $bare['subprojects'][0]['tasks'] = [];
+        $bare['project']['tasks'] = [];
+        $ok = $svc->validateCall('plan_propose', $bare, $user);
+        $this->assertTrue($ok['ok'], $ok['error'] ?? 'validate failed');
+        $this->assertEquals(0, $ok['resolved']['totals']['tasks']);
 
         $long = $this->workoutArgs();
         $long['subprojects'][0]['tasks'][0]['title'] = str_repeat('x', 121);

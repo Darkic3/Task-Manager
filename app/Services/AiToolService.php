@@ -1315,8 +1315,8 @@ class AiToolService
             return $notes;
         }
 
-        if ($taskCount < 1 && empty($reminders) && empty($notes)) {
-            return $this->fail('The plan must contain at least one task, reminder, or note.');
+        if ($taskCount < 1 && empty($roots) && empty($reminders) && empty($notes)) {
+            return $this->fail('The plan is empty: add a project (with tasks), a reminder, a note, or at least one task.');
         }
         if ($taskCount > \App\Models\AiPlan::MAX_TASKS) {
             return $this->fail('Too many tasks (max ' . \App\Models\AiPlan::MAX_TASKS . '). Split into smaller plans.');

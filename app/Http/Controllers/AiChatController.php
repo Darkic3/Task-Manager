@@ -20,6 +20,7 @@ use App\Services\LinaFallbackBrain;
 use GuzzleHttp\Client;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class AiChatController extends Controller
 {
@@ -128,9 +129,15 @@ class AiChatController extends Controller
             'message' => 'required|string|max:8000',
             'history' => 'nullable|array|max:40',
             'history.*.role' => 'required|in:user,assistant',
-            'history.*.content' => 'required|string|max:8000',
+            'history.*.content' => 'nullable|string|max:8000',
             'mode' => 'nullable|in:chat,agent',
         ]);
+
+        // Drop empty/whitespace-only turns (tool-only replies) before prompting.
+        $history = array_values(array_filter(
+            (array) $request->input('history', []),
+            fn ($m) => is_array($m) && trim((string) ($m['content'] ?? '')) !== ''
+        ));
 
         $user = Auth::user();
         $resolved = $this->ai->resolve($user);
@@ -154,7 +161,7 @@ class AiChatController extends Controller
             $context = '(Could not load user data)';
         }
 
-        $messages = $this->buildMessages($user, $context, $request->input('history', []), $request->message, $agentMode ? 'agent' : 'chat');
+        $messages = $this->buildMessages($user, $context, $history, $request->message, $agentMode ? 'agent' : 'chat');
 
         try {
             $result = $this->callProviderSyncWithTools($resolved, $messages, $user, $agentMode, $rid);
@@ -184,14 +191,33 @@ class AiChatController extends Controller
     /* ── Streaming ── */
     public function stream(Request $request)
     {
-        $request->validate([
+        // This endpoint is consumed by fetch() as SSE. Always answer validation
+        // problems as JSON (never a 302 redirect), otherwise fetch follows the
+        // redirect to an HTML page and the UI can only say "No response received."
+        $validator = Validator::make($request->all(), [
             'message' => 'required|string|max:8000',
             'conversation_id' => 'nullable|integer',
             'history' => 'nullable|array|max:40',
             'history.*.role' => 'required|in:user,assistant',
-            'history.*.content' => 'required|string|max:8000',
+            'history.*.content' => 'nullable|string|max:8000',
             'mode' => 'nullable|in:chat,agent',
         ]);
+        if ($validator->fails()) {
+            AiLogger::log('request.invalid', ['endpoint' => 'stream', 'user_id' => Auth::id(), 'errors' => $validator->errors()->toArray()]);
+
+            return response()->json([
+                'message' => 'Invalid request: '.$validator->errors()->first(),
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Drop empty/whitespace-only turns (e.g. a tool-only reply stored as
+        // just newlines) — they carry no usable context and some clients send
+        // them without content at all.
+        $history = array_values(array_filter(
+            (array) $request->input('history', []),
+            fn ($m) => is_array($m) && trim((string) ($m['content'] ?? '')) !== ''
+        ));
 
         $user = Auth::user();
         $resolved = $this->ai->resolve($user);
@@ -250,7 +276,7 @@ class AiChatController extends Controller
             $context = '(Could not load user data)';
         }
 
-        $messages = $this->buildMessages($user, $context, $request->input('history', []), $request->message, $agentMode ? 'agent' : 'chat');
+        $messages = $this->buildMessages($user, $context, $history, $request->message, $agentMode ? 'agent' : 'chat');
 
         // Agent mode needs function-calling: only OpenAI-compatible providers.
         if ($agentMode && ($resolved['type'] ?? 'openai') !== 'openai') {
@@ -929,8 +955,8 @@ class AiChatController extends Controller
                         }
                         $data = substr($line, 6);
                         if ($data === '[DONE]') {
-                            if ($accumulatedText) {
-                                AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => $accumulatedText, 'model' => $model]);
+                            if (trim($accumulatedText) !== '') {
+                                AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => trim($accumulatedText), 'model' => $model]);
                                 AiConversation::where('id', $conversationId)->touch();
                             }
                             if ($agentMode) {
@@ -950,18 +976,18 @@ class AiChatController extends Controller
                             // {"error":{"type":"upstream_error",...}} on streaming only).
                             // If nothing was streamed yet, fall back to a sync call which
                             // often still works, instead of showing the raw error.
-                            if ($accumulatedText === '' && empty($toolAccum)) {
+                            if (trim($accumulatedText) === '' && empty($toolAccum)) {
                                 \Log::warning('AI stream mid-stream provider error, falling back to sync', ['provider' => $provider, 'model' => $model, 'error' => $providerError]);
                                 try {
                                     $raw = $this->callOpenAiSyncRaw($key, $endpoint, $messages, $model, $tools);
-                                    $fallbackText = $raw['text'] !== '' ? $raw['text'] : null;
+                                    $fallbackText = trim($raw['text'] ?? '') !== '' ? $raw['text'] : null;
                                     $fallbackTools = $raw['tool_calls'] ?? [];
                                 } catch (\Exception $e2) {
                                     $fallbackText = null;
                                     $fallbackTools = [];
                                     \Log::warning('AI stream sync fallback also failed', ['provider' => $provider, 'error' => $e2->getMessage()]);
                                 }
-                                if ($fallbackText !== null && $fallbackText !== '') {
+                                if ($fallbackText !== null && trim($fallbackText) !== '') {
                                     $accumulatedText = $fallbackText;
                                     foreach (str_split($fallbackText, 5) as $chunk) {
                                         echo 'data: '.json_encode(['choices' => [['delta' => ['content' => $chunk]]]])."\n\n";
@@ -994,8 +1020,8 @@ class AiChatController extends Controller
                                     return;
                                 }
                             }
-                            if ($accumulatedText) {
-                                AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => $accumulatedText, 'model' => $model]);
+                            if (trim($accumulatedText) !== '') {
+                                AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => trim($accumulatedText), 'model' => $model]);
                                 AiConversation::where('id', $conversationId)->touch();
                             }
                             echo 'data: '.json_encode(['error' => $providerError])."\n\n";
@@ -1026,7 +1052,8 @@ class AiChatController extends Controller
                 $sseFlush();
             }
             // Persist if we exited without [DONE]
-            if ($accumulatedText) {
+            if (trim($accumulatedText) !== '') {
+                $accumulatedText = trim($accumulatedText);
                 try {
                     $exists = AiMessage::where('conversation_id', $conversationId)->where('role', 'assistant')->where('content', $accumulatedText)->exists();
                     if (! $exists) {

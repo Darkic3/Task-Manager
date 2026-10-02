@@ -19,12 +19,47 @@ class AiPageRenderTest extends TestCase
             ->assertSee('linaMessages', false)
             ->assertSee('linaDock', false)
             ->assertSee('lina-cap-grid', false)
-            ->assertSee('linaPendingPill', false);
+            ->assertSee('linaPendingPill', false)
+            ->assertSee('text/event-stream', false)
+            ->assertSee('expected SSE', false);
     }
 
     public function test_ai_chat_page_requires_auth(): void
     {
         $this->get(route('ai.index'))->assertRedirect(route('login'));
+    }
+
+    public function test_ai_stream_validation_returns_json_not_redirect(): void
+    {
+        $user = User::factory()->create();
+
+        // A plain form POST (like the SSE fetch without Accept: application/json)
+        // must not 302 back to /ai on validation failure; the UI cannot parse
+        // an HTML redirect as SSE and would only show "No response received."
+        $this->actingAs($user)->post(route('ai.stream'), [
+            'message' => 'hi',
+            'history' => [['role' => 'bot', 'content' => 'x']],
+            'mode' => 'agent',
+        ])->assertStatus(422)->assertJsonStructure(['message', 'errors']);
+    }
+
+    public function test_ai_stream_ignores_whitespace_only_history_entries(): void
+    {
+        $user = User::factory()->create();
+
+        // A tool-only reply is stored as just newlines; sending it back must
+        // not fail validation and must not reach the model as a turn.
+        $res = $this->actingAs($user)->post(route('ai.stream'), [
+            'message' => 'hi',
+            'history' => [
+                ['role' => 'assistant', 'content' => "\n\n"],
+                ['role' => 'user', 'content' => 'real'],
+            ],
+            'mode' => 'agent',
+        ]);
+
+        $res->assertOk();
+        $this->assertStringContainsString('lina-offline', $res->streamedContent());
     }
 
     public function test_ai_page_stylesheet_is_well_formed_and_covers_js_hooks(): void

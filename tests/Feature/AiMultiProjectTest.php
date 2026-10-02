@@ -12,6 +12,7 @@ use App\Services\AiToolService;
 use App\Services\FaDateParser;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class AiMultiProjectTest extends TestCase
@@ -61,6 +62,74 @@ class AiMultiProjectTest extends TestCase
         $this->assertEquals(3, $phases[0]['total']);
         $this->assertEquals('reminders', $phases[4]['key']);
         $this->assertEquals('notes', $phases[5]['key']);
+    }
+
+    public function test_projects_without_tasks_are_allowed(): void
+    {
+        $user = User::factory()->create();
+        $svc = new AiToolService;
+        $check = $svc->validateCall('plan_propose', [
+            'title' => 'سه پروژه بدون تسک',
+            'projects' => [
+                ['name' => 'برساز'],
+                ['name' => 'ذخیره انرژی'],
+                ['name' => 'Task Manager'],
+            ],
+        ], $user);
+        $this->assertTrue($check['ok'], $check['error'] ?? 'validate failed');
+        $this->assertEquals(3, $check['resolved']['totals']['projects']);
+        $this->assertEquals(0, $check['resolved']['totals']['tasks']);
+
+        $plan = AiPlan::create([
+            'user_id' => $user->id,
+            'title' => $check['resolved']['title'],
+            'structure' => $check['resolved']['structure'],
+            'phases' => $svc->buildPlanPhases($check['resolved']['structure']),
+            'status' => AiPlan::STATUS_PROPOSED,
+            'current_phase' => 0,
+            'expires_at' => now()->addMinutes(15),
+            'idempotency_key' => bin2hex(random_bytes(16)),
+        ]);
+
+        // Projects phase runs; tasks phase is pre-marked done.
+        $this->assertEquals('done', $plan->phases[2]['status']);
+        $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $plan))->assertOk();
+        $this->actingAs($user)->postJson(route('ai.plans.confirm-phase', $plan), ['phase' => 0, 'run_all' => true])
+            ->assertOk()->assertJsonPath('plan.status', 'done');
+        $this->assertEquals(3, Project::where('user_id', $user->id)->whereNull('parent_id')->count());
+        $this->assertEquals(0, Task::where('user_id', $user->id)->count());
+    }
+
+    public function test_projects_without_tasks_via_chat_creates_plan_packet(): void
+    {
+        $user = User::factory()->create();
+        \App\Models\AiSetting::create([
+            'user_id' => $user->id, 'default_provider' => 'openai',
+            'openai_key' => 'sk-test-key', 'openai_model' => 'gpt-4o-mini',
+        ]);
+
+        Http::fake(fn () => Http::response(['choices' => [['message' => [
+            'content' => '',
+            'tool_calls' => [[
+                'id' => 'call_1', 'type' => 'function',
+                'function' => ['name' => 'plan_propose', 'arguments' => json_encode([
+                    'title' => 'سه پروژه بدون تسک',
+                    'projects' => [
+                        ['name' => 'برساز'],
+                        ['name' => 'ذخیره انرژی'],
+                        ['name' => 'Task Manager'],
+                    ],
+                ])],
+            ]],
+        ]]]], 200));
+
+        $this->actingAs($user)->postJson(route('ai.chat'), ['message' => 'سه پروژه بساز', 'mode' => 'agent'])
+            ->assertOk()
+            ->assertJsonPath('proposal.plan.title', 'سه پروژه بدون تسک')
+            ->assertJsonPath('proposal.plan.preview.totals.projects', 3)
+            ->assertJsonPath('proposal.plan.preview.totals.tasks', 0);
+
+        $this->assertDatabaseHas('ai_plans', ['user_id' => $user->id, 'status' => 'proposed']);
     }
 
     public function test_multi_project_run_all_builds_everything(): void

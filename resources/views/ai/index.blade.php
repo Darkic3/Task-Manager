@@ -905,28 +905,55 @@ footer, .topnav { display: none !important; }
         const typingEl = appendTyping();
         isBusy = true; sendBtn.disabled = true;
 
-        const historyPayload = activeMessages.slice(0, -1).slice(-MAX_HISTORY).map(m => ({
-            role: m.role === 'assistant' ? 'assistant' : 'user',
-            content: m.content,
-        }));
+        const historyPayload = activeMessages.slice(0, -1).slice(-MAX_HISTORY)
+            .map(m => ({
+                role: m.role === 'assistant' ? 'assistant' : 'user',
+                content: (m.content ?? '').toString(),
+            }))
+            // Drop empty/whitespace-only turns (e.g. a tool-only reply) — the
+            // server validation rejects a history entry without real content.
+            .filter(m => m.content.trim() !== '');
 
         let accumulatedText = '';
         let selectedModel   = null;
         let streamWrap      = null;
         let streamBubbleEl  = null;
         let streamMetaEl    = null;
+        let proposalRendered = false;
+        let errorShown       = false;
+        let sawToolCall      = false;
 
         try {
             const res = await fetch(STREAM_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
                 body: JSON.stringify({ message: text, conversation_id: activeConvId, history: historyPayload, mode: chatMode }),
             });
 
             typingEl.remove();
 
             if (!res.ok) {
-                appendError('Server error ' + res.status + '. Please try again.');
+                let detail = '';
+                try {
+                    const errJson = await res.clone().json();
+                    detail = errJson.message
+                        || Object.values(errJson.errors || {}).flat().join(' ')
+                        || (typeof errJson.error === 'string' ? errJson.error : '');
+                } catch { /* non-JSON error body */ }
+                appendError('Server error ' + res.status + (detail ? ': ' + detail : '') + '. Please try again.');
+                activeMessages.pop();
+                return;
+            }
+
+            // A 302 (usually auth -> login) is followed automatically by fetch.
+            // If the final response is not SSE, do not parse it as a stream;
+            // otherwise an HTML login page ends up as "No response received."
+            const responseType = res.headers.get('content-type') || '';
+            if (!responseType.includes('text/event-stream')) {
+                const where = res.redirected && res.url ? ' Final URL: ' + res.url : '';
+                appendError('AI stream failed: expected SSE but received "' + (responseType || 'unknown content type') + '".'
+                    + ' This usually means the session expired or the request was redirected.' + where
+                    + ' Please reload the page and log in again if needed.');
                 activeMessages.pop();
                 return;
             }
@@ -974,20 +1001,23 @@ footer, .topnav { display: none !important; }
                         const json = JSON.parse(data);
                         if (json.type === 'tool_proposal' && json.action_id) {
                             // Server is authoritative, but never render action cards in chat mode.
-                            if (chatMode === 'agent') renderProposalCard(json);
+                            if (chatMode === 'agent') { proposalRendered = true; renderProposalCard(json); }
                             else console.warn('[Lina] proposal ignored in chat mode');
                         } else if (json.type === 'tool_proposal' && json.error) {
+                            errorShown = true;
                             if (json.code === 'too_many_pending' && chatMode === 'agent') renderPendingOverflowCard(json);
                             else appendError(json.error);
                         } else if (json.type === 'plan_proposal' && json.plan) {
-                            if (chatMode === 'agent') renderPlanCard(json.plan);
+                            if (chatMode === 'agent') { proposalRendered = true; renderPlanCard(json.plan); }
                             else console.warn('[Lina] plan ignored in chat mode');
                         } else if (json.type === 'plan_proposal' && json.error) {
+                            errorShown = true;
                             appendError(json.error);
                         } else if (json.type === 'workout_import_proposal' && json.import) {
-                            if (chatMode === 'agent') renderWorkoutImportCard(json.import);
+                            if (chatMode === 'agent') { proposalRendered = true; renderWorkoutImportCard(json.import); }
                             else console.warn('[Lina] workout import ignored in chat mode');
                         } else if (json.type === 'workout_import_proposal' && json.error) {
+                            errorShown = true;
                             appendError(json.error);
                         } else if (json.conversation_id !== undefined && json.choices === undefined) {
                             // Our metadata packet: { model, conversation_id }
@@ -999,11 +1029,19 @@ footer, .topnav { display: none !important; }
                                 streamMetaEl.prepend(tag);
                             }
                         } else if (json.error) {
+                            errorShown = true;
                             streamBubbleEl.classList.remove('lina-streaming');
                             const errMsg = typeof json.error === 'string' ? json.error : (json.error?.message || 'Something went wrong. Please try again.');
                             streamBubbleEl.textContent = '⚠ ' + errMsg;
                         } else {
-                            const token = json.choices?.[0]?.delta?.content || '';
+                            const delta = json.choices?.[0]?.delta;
+                            if (delta && Array.isArray(delta.tool_calls) && delta.tool_calls.length) {
+                                // Model is making a tool call (no text). The server
+                                // will emit the proposal packet; never show
+                                // "No response received." for this.
+                                sawToolCall = true;
+                            }
+                            const token = delta?.content || '';
                             if (token) {
                                 accumulatedText += token;
                                 streamBubbleEl.textContent = accumulatedText;
@@ -1016,7 +1054,8 @@ footer, .topnav { display: none !important; }
 
             // Final markdown render
             streamBubbleEl.classList.remove('lina-streaming');
-            if (accumulatedText) {
+            if (accumulatedText.trim()) {
+                accumulatedText = accumulatedText.trim();
                 streamBubbleEl.innerHTML = typeof marked !== 'undefined'
                     ? marked.parse(accumulatedText)
                     : accumulatedText.replace(/\n/g, '<br>');
@@ -1036,8 +1075,14 @@ footer, .topnav { display: none !important; }
                 // Refresh conv list so updated_at order updates
                 api('GET', CONV_URL).then(c => { conversations = c; renderConvList(); }).catch(() => {});
             } else if (!streamBubbleEl.textContent.includes('⚠')) {
-                streamBubbleEl.textContent = 'No response received.';
-                activeMessages.pop();
+                if (proposalRendered || errorShown || sawToolCall) {
+                    // The plan/tool card or the error already replaced the reply;
+                    // drop the empty streaming bubble instead of a misleading message.
+                    if (streamWrap && streamWrap.parentNode) streamWrap.parentNode.removeChild(streamWrap);
+                } else {
+                    streamBubbleEl.textContent = 'No response received.';
+                    activeMessages.pop();
+                }
             }
 
             if (buildHint) showSwitchToAgentHint();
