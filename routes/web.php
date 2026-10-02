@@ -71,6 +71,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::resource('routines', RoutineController::class)->except(['show']);
     Route::post('routines/reorder', [RoutineController::class, 'reorder'])->name('routines.reorder');
+    Route::post('routines/steps/reorder', [RoutineController::class, 'reorderSteps'])->name('routines.steps.reorder');
     Route::prefix('workouts')->name('workouts.')->group(function () {
         Route::resource('exercises', ExerciseController::class)->except(['show']);
         Route::resource('plans', WorkoutPlanController::class)->except(['show'])->parameters(['plans' => 'workoutPlan']);

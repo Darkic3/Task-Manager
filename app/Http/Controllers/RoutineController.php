@@ -19,9 +19,11 @@ class RoutineController extends Controller
         $today = now()->startOfDay();
         // One shared order everywhere (sortKey): period slot → manual drag
         // order → exact time → title — so My Day mirrors this page exactly.
-        $routines = $user->routines()->get()
-            ->sortBy(fn ($r) => $r->sortKey())
-            ->values();
+        // Routines WITHOUT their own schedule but WITH timed steps (e.g.
+        // Cobra Pose: morning/noon/night steps) are "exploded" into one row
+        // per timed step, so each step can be sorted/prioritized in its own
+        // time-of-day group against the other routines.
+        $routines = $user->routines()->with(['checklistItems' => fn ($q) => $q->orderBy('sort_order')->orderBy('id')])->get();
 
         // Batch: one completions query for [today-1y .. today]; ring math is pure PHP.
         $from = $today->copy()->subYear()->startOfDay();
@@ -59,18 +61,143 @@ class RoutineController extends Controller
 
         $weekly = $this->weeklyConsistencyFromLoaded($routines, $today);
 
-        return view('routines.index', compact('routines', 'weekly'));
+        // Build display rows: explode unscheduled routines with timed steps
+        // into one row per timed step (e.g. Cobra Pose → Morning/Noon/Night).
+        $displayItems = $this->buildDisplayItems($routines);
+
+        return view('routines.index', compact('routines', 'weekly', 'displayItems'));
+    }
+
+    /**
+     * Explode routines without their own schedule but with timed steps into
+     * one sortable row per timed step. Every row carries:
+     * kind (routine|step), period key, manual order and a sort key so the
+     * view can group by time-of-day and order inside each group.
+     */
+    private function buildDisplayItems($routines): array
+    {
+        $items = [];
+
+        foreach ($routines as $routine) {
+            $steps = $routine->relationLoaded('checklistItems')
+                ? $routine->checklistItems
+                : $routine->checklistItems()->orderBy('sort_order')->orderBy('id')->get();
+
+            $timed = $steps->filter(fn ($s) => $s->hasSchedule())->values();
+            $untimedCount = $steps->count() - $timed->count();
+
+            // Explode only when the routine itself is unscheduled but its
+            // steps carry times — otherwise a single routine row is enough
+            // (planner already floats it to its active step via sortKey).
+            if (! $routine->hasSchedule() && $timed->isNotEmpty()) {
+                foreach ($timed as $step) {
+                    $period = $step->time_period ?: $this->hourToPeriodKey((string) $step->scheduled_time);
+                    $items[] = [
+                        'kind' => 'step',
+                        'period' => $period,
+                        'routine' => $routine,
+                        'step' => $step,
+                        'manual' => (int) ($step->sort_order ?? 0),
+                        'time' => $step->scheduled_time ? substr((string) $step->scheduled_time, 0, 5) : '99:99',
+                        'title' => $routine->title.' → '.$step->name,
+                    ];
+                }
+                // Steps without any time stay behind as a single "other steps" row.
+                if ($untimedCount > 0 || $steps->isEmpty()) {
+                    $items[] = [
+                        'kind' => 'routine',
+                        'period' => 'anytime',
+                        'routine' => $routine,
+                        'step' => null,
+                        'manual' => (int) ($routine->sort_order ?? 0),
+                        'time' => '99:99',
+                        'title' => $routine->title,
+                        'remainder' => true,
+                        'remainder_count' => $untimedCount,
+                    ];
+                }
+
+                continue;
+            }
+
+            $period = $routine->time_period
+                ?: ($routine->start_time ? $this->hourToPeriodKey((string) $routine->start_time) : null)
+                ?: ($timed->isNotEmpty()
+                    ? ($timed->sortBy(fn ($s) => $s->sortKey())->first()->time_period
+                        ?: $this->hourToPeriodKey((string) ($timed->sortBy(fn ($s) => $s->sortKey())->first()->scheduled_time ?? '')))
+                    : 'anytime');
+
+            $items[] = [
+                'kind' => 'routine',
+                'period' => $period ?: 'anytime',
+                'routine' => $routine,
+                'step' => null,
+                'manual' => (int) ($routine->sort_order ?? 0),
+                'time' => $routine->start_time ? Carbon::parse($routine->start_time)->format('H:i') : '99:99',
+                'title' => $routine->title,
+            ];
+        }
+
+        $orderOf = fn ($pk) => $pk === 'anytime' ? 99 : (int) config("routines.periods.{$pk}.order", 99);
+
+        usort($items, function ($a, $b) use ($orderOf) {
+            $oa = $orderOf($a['period']);
+            $ob = $orderOf($b['period']);
+            if ($oa !== $ob) {
+                return $oa <=> $ob;
+            }
+            if ($a['manual'] !== $b['manual']) {
+                return $a['manual'] <=> $b['manual'];
+            }
+            if ($a['time'] !== $b['time']) {
+                return strcmp($a['time'], $b['time']);
+            }
+
+            return strcmp(mb_strtolower($a['title']), mb_strtolower($b['title']));
+        });
+
+        return $items;
+    }
+
+    private function hourToPeriodKey(?string $time): string
+    {
+        if (! $time) {
+            return 'anytime';
+        }
+        try {
+            $h = (int) Carbon::parse($time)->format('G');
+            if ($h < 12) {
+                return 'morning';
+            }
+            if ($h < 14) {
+                return 'noon';
+            }
+            if ($h < 18) {
+                return 'afternoon';
+            }
+            if ($h < 21) {
+                return 'evening';
+            }
+
+            return 'night';
+        } catch (\Exception $e) {
+            return 'anytime';
+        }
     }
 
     /**
      * Persist drag order of routines within a time period group.
+     * Accepts an optional time_period per item so a routine row dropped
+     * into another group also moves its schedule there.
      */
     public function reorder(Request $request)
     {
+        $periodKeys = array_keys(config('routines.periods', []));
         $data = $request->validate([
             'items' => 'required|array|min:1|max:100',
             'items.*.id' => 'required|integer',
-            'items.*.sort_order' => 'required|integer|min:0|max:9999',
+            'items.*.sort_order' => 'required|integer|min:0|max:99999',
+            'items.*.time_period' => 'nullable|string',
         ]);
 
         $routines = Routine::where('user_id', Auth::id())
@@ -84,7 +211,64 @@ class RoutineController extends Controller
                 continue;
             }
             $routine->sort_order = $item['sort_order'];
+            // Cross-group drop: retime the routine (period groups only;
+            // 'anytime' clears the period, exact times stay untouched).
+            if (array_key_exists('time_period', $item)) {
+                $tp = $item['time_period'];
+                if ($tp === null || $tp === 'anytime' || $tp === '') {
+                    $routine->time_period = null;
+                } elseif (in_array($tp, $periodKeys, true)) {
+                    $routine->time_period = $tp;
+                    $routine->start_time = null;
+                    $routine->end_time = null;
+                }
+            }
             $routine->save();
+            $updated++;
+        }
+
+        return response()->json(['ok' => true, 'updated' => $updated]);
+    }
+
+    /**
+     * Persist drag order of exploded timed steps (e.g. Cobra Pose steps)
+     * inside a time-of-day group, and retime a step when it is dropped
+     * into a different group. Each step keeps its own sort_order so
+     * morning/noon/night steps of one routine can be prioritized
+     * independently against the other routines.
+     */
+    public function reorderSteps(Request $request)
+    {
+        $periodKeys = array_keys(config('routines.periods', []));
+        $data = $request->validate([
+            'items' => 'required|array|min:1|max:100',
+            'items.*.id' => 'required|integer',
+            'items.*.sort_order' => 'required|integer|min:0|max:99999',
+            'items.*.time_period' => 'nullable|string',
+        ]);
+
+        $steps = \App\Models\RoutineChecklistItem::where('user_id', Auth::id())
+            ->whereIn('id', collect($data['items'])->pluck('id'))
+            ->get()->keyBy('id');
+
+        $updated = 0;
+        foreach ($data['items'] as $item) {
+            $step = $steps->get($item['id']);
+            if (! $step) {
+                continue;
+            }
+            $step->sort_order = $item['sort_order'];
+            if (array_key_exists('time_period', $item)) {
+                $tp = $item['time_period'];
+                if ($tp === null || $tp === 'anytime' || $tp === '') {
+                    $step->time_period = null;
+                    // Keep an exact time if it had one, otherwise unscheduled.
+                } elseif (in_array($tp, $periodKeys, true)) {
+                    $step->time_period = $tp;
+                    $step->scheduled_time = null;
+                }
+            }
+            $step->save();
             $updated++;
         }
 

@@ -114,7 +114,15 @@
 .rh-item.dragging { opacity:.4; }
 .rh-item.drop-before .rh-card { box-shadow:inset 0 3px 0 0 #7c3aed; }
 .rh-item.drop-after .rh-card { box-shadow:inset 0 -3px 0 0 #7c3aed; }
+.rh-item[data-kind="step"] .rh-card { border-left:3px solid #0ea5e9; background:#f8fdff; }
+.rh-step-tag {
+    display:inline-flex; align-items:center; gap:4px; padding:1px 8px; border-radius:20px;
+    font-size:10.5px; font-weight:700; background:#e0f2fe; color:#0369a1;
+}
+.rh-step-name { font-weight:700; color:#0c4a6e; }
 .rh-item[style*="display: none"] { cursor:default; }
+.rh-hint { font-size:11.5px; color:#8b8d98; margin:0 0 10px 2px; }
+.rh-hint i { color:#0ea5e9; }
 </style>
 @endpush
 
@@ -149,32 +157,58 @@
     </div>
 
     <div class="rh-list" id="rhList">
-        @php $currentGroup = null; @endphp
-        @forelse($routines as $routine)
+        @php
+            $items = $displayItems ?? [];
+            // Group counts for heads (exploded steps count in their own slot).
+            $groupCounts = [];
+            foreach ($items as $it) { $groupCounts[$it['period']] = ($groupCounts[$it['period']] ?? 0) + 1; }
+            $currentGroup = null;
+        @endphp
+        <p class="rh-hint"><i class="bi bi-info-circle"></i> روتین‌هایی که خودشان زمان ندارند ولی استپ‌هایشان زمان دارد (مثل Cobra Pose) اینجا خرد شده‌اند — هر استپ در تایم خودش قرار گرفته تا بتوانی نسبت به بقیه روتین‌ها سورت و اولویت‌بندی کنی. جابه‌جایی درون هر گروه ذخیره می‌شود؛ انداختن استپ در گروه دیگر، تایمش را عوض می‌کند.</p>
+        @forelse($items as $it)
             @php
-                $pk = $routine->time_period ?: 'anytime';
+                $routine = $it['routine'];
+                $step = $it['step'] ?? null;
+                $isStep = ($it['kind'] ?? 'routine') === 'step';
+                $pk = $it['period'];
                 $pd = $pk === 'anytime'
                     ? ['label' => 'No schedule', 'icon' => 'bi-inbox', 'color' => '#64748b']
                     : (config("routines.periods.{$pk}") ?? ['label' => ucfirst($pk), 'icon' => 'bi-clock', 'color' => '#64748b']);
+                $rowId = $isStep ? ('step-'.$step->id) : ('routine-'.$routine->id);
             @endphp
             @if($pk !== $currentGroup)
                 @php $currentGroup = $pk; @endphp
-                <div class="rh-group-head" data-group-head="{{ $pk }}">
+                <div class="rh-group-head" data-group-head="{{ $pk }}" data-period="{{ $pk }}">
                     <i class="bi {{ $pd['icon'] }}" style="color:{{ $pd['color'] }};"></i>
                     <span>{{ $pd['label'] }}</span>
-                    <small>{{ $routines->where('time_period', $pk === 'anytime' ? null : $pk)->count() }}</small>
+                    <small>{{ $groupCounts[$pk] ?? 0 }}</small>
                 </div>
             @endif
-            <div class="rh-item" data-frequency="{{ $routine->frequency }}" data-period="{{ $pk }}" data-id="{{ $routine->id }}" draggable="true">
+            <div class="rh-item" data-kind="{{ $isStep ? 'step' : 'routine' }}" data-frequency="{{ $routine->frequency }}" data-period="{{ $pk }}" data-id="{{ $isStep ? $step->id : $routine->id }}" data-routine-id="{{ $routine->id }}" draggable="true">
                 <div class="rh-card">
                     <div class="rh-body">
-                        <div class="rh-row-title">{{ $routine->title }}</div>
+                        <div class="rh-row-title">
+                            @if($isStep)
+                                {{ $routine->title }} <span style="color:#94a3b8;">→</span> <span class="rh-step-name">{{ $step->name }}</span>
+                                <span class="rh-step-tag" title="این ردیف یک استپ زمان‌دار است — قابل سورت مستقل"><i class="bi bi-list-check"></i>step</span>
+                            @else
+                                {{ $routine->title }}
+                                @if(!empty($it['remainder']))
+                                    <span class="rh-step-tag" title="{{ $it['remainder_count'] ?? 0 }} استپ بدون زمان"><i class="bi bi-inbox"></i>other steps</span>
+                                @endif
+                            @endif
+                        </div>
                         <div class="rh-row-meta">
                             <span class="rh-pill"><i class="bi bi-arrow-repeat"></i> {{ $routine->recurrenceLabel() }}</span>
                             @if(($routine->behavior_type ?? 'build') === 'avoid')
                                 <span class="rh-pill" style="background:#fee2e2;color:#b91c1c;" title="Forbidden habit — staying clean is the goal"><i class="bi bi-slash-circle"></i> ترک‌کردنی</span>
                             @endif
-                            @if($routine->timeLabel())
+                            @if($isStep)
+                                @php $sl = $step->scheduleLabel(); $si = $step->scheduleIcon(); $sc = $step->scheduleColor() ?? '#0369a1'; @endphp
+                                @if($sl)
+                                    <span class="rh-pill" style="background:{{ $sc }}1a;color:{{ $sc }};"><i class="bi {{ $si }}"></i> {{ $sl }}</span>
+                                @endif
+                            @elseif($routine->timeLabel())
                                 <span class="rh-pill"><i class="bi bi-clock"></i> {{ $routine->timeLabel() }}</span>
                             @endif
                             @if(($routine->ringStreak ?? 0) > 0)
@@ -212,9 +246,6 @@
                     </div>
                 </div>
 
-                <form action="{{ route('routines.destroy', $routine->id) }}" method="POST" id="archiveForm{{ md5($routine->id) }}" style="display:none;">
-                    @csrf @method('DELETE')
-                </form>
             </div>
         @empty
             <div class="rh-empty">
@@ -225,6 +256,12 @@
             </div>
         @endforelse
     </div>
+    {{-- One hidden archive form per routine (step rows share the parent form) --}}
+    @foreach($routines as $ar)
+        <form action="{{ route('routines.destroy', $ar->id) }}" method="POST" id="archiveForm{{ md5($ar->id) }}" style="display:none;">
+            @csrf @method('DELETE')
+        </form>
+    @endforeach
 
 </div>
 </div>
@@ -272,18 +309,39 @@ document.addEventListener('DOMContentLoaded', function() {
     @empty
     @endforelse
 
-    /* ── Drag & drop: reorder routines inside one period group ── */
+    /* ── Drag & drop: routines + exploded timed steps ──
+       - Same-group drop reorders priorities (routines → routines.sort_order,
+         steps → checklist_items.sort_order, so each Cobra-style step keeps
+         its own rank against the other routines in that time slot).
+       - Dropping a STEP into another time group retimes it there.
+       - Dropping a ROUTINE into another group moves its schedule there. */
     (function () {
         const list = document.getElementById('rhList');
         if (!list) return;
         const REORDER_URL = '{{ route('routines.reorder') }}';
-        let dragItem = null, dropTarget = null, dropPos = null;
+        const STEPS_URL = '{{ route('routines.steps.reorder') }}';
+        let dragItem = null, dropTarget = null, dropPos = null, dropGroup = null;
 
         const clearMarks = () => {
             list.querySelectorAll('.drop-before,.drop-after')
                 .forEach(el => el.classList.remove('drop-before', 'drop-after'));
+            list.querySelectorAll('.rh-group-head').forEach(h => h.style.outline = '');
             dropTarget = null;
             dropPos = null;
+            dropGroup = null;
+        };
+
+        const post = async (url, items) => {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                },
+                body: JSON.stringify({ items }),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
         };
 
         list.addEventListener('dragstart', e => {
@@ -292,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function() {
             dragItem = item;
             item.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
-            try { e.dataTransfer.setData('text/plain', String(item.dataset.id)); } catch (_) {}
+            try { e.dataTransfer.setData('text/plain', item.dataset.kind + ':' + item.dataset.id); } catch (_) {}
         });
 
         list.addEventListener('dragend', () => {
@@ -303,38 +361,80 @@ document.addEventListener('DOMContentLoaded', function() {
 
         list.addEventListener('dragover', e => {
             if (!dragItem) return;
+            const head = e.target.closest('.rh-group-head');
             const item = e.target.closest('.rh-item');
-            if (!item || item === dragItem || item.dataset.period !== dragItem.dataset.period) return;
+            // Allow dropping on empty group heads too (cross-group move).
+            if (head && !item) {
+                e.preventDefault();
+                clearMarks();
+                dropGroup = head.dataset.period;
+                head.style.outline = '2px dashed #7c3aed';
+                return;
+            }
+            if (!item || item === dragItem) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             clearMarks();
             const r = item.getBoundingClientRect();
             dropTarget = item;
+            dropGroup = item.dataset.period;
             dropPos = e.clientY < r.top + r.height / 2 ? 'before' : 'after';
             item.classList.add('drop-' + dropPos);
         });
 
         list.addEventListener('drop', async e => {
-            if (!dragItem || !dropTarget) return;
+            if (!dragItem) return;
             e.preventDefault();
-            dropPos === 'before'
-                ? dropTarget.parentNode.insertBefore(dragItem, dropTarget)
-                : dropTarget.parentNode.insertBefore(dragItem, dropTarget.nextSibling);
+            const fromPeriod = dragItem.dataset.period;
+            let toPeriod = fromPeriod;
+            if (dropTarget) {
+                toPeriod = dropTarget.dataset.period;
+                dropPos === 'before'
+                    ? dropTarget.parentNode.insertBefore(dragItem, dropTarget)
+                    : dropTarget.parentNode.insertBefore(dragItem, dropTarget.nextSibling);
+            } else if (dropGroup) {
+                toPeriod = dropGroup;
+                // Append at end of that group.
+                const head = list.querySelector(`.rh-group-head[data-period="${toPeriod}"]`);
+                let el = head ? head.nextElementSibling : null, last = null;
+                while (el && !el.classList.contains('rh-group-head')) {
+                    if (el.classList.contains('rh-item')) last = el;
+                    el = el.nextElementSibling;
+                }
+                last ? last.parentNode.insertBefore(dragItem, last.nextSibling)
+                     : head?.parentNode.insertBefore(dragItem, head.nextSibling);
+            } else {
+                clearMarks();
+                return;
+            }
+            const moved = fromPeriod !== toPeriod;
+            dragItem.dataset.period = toPeriod;
             clearMarks();
-            const key = dragItem.dataset.period;
-            const items = [...list.querySelectorAll(`.rh-item[data-period="${key}"]`)]
-                .map((el, i) => ({ id: Number(el.dataset.id), sort_order: i * 10 }));
+            syncGroupHeads();
             try {
-                const res = await fetch(REORDER_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    },
-                    body: JSON.stringify({ items }),
-                });
-                if (!res.ok) throw new Error('HTTP ' + res.status);
+                if (moved) {
+                    // Persist the retime first, then the new order in target group.
+                    if (dragItem.dataset.kind === 'step') {
+                        await post(STEPS_URL, [{ id: Number(dragItem.dataset.id), sort_order: 0, time_period: toPeriod }]);
+                    } else {
+                        await post(REORDER_URL, [{ id: Number(dragItem.dataset.id), sort_order: 0, time_period: toPeriod }]);
+                    }
+                    // Reload so groups/counts/sort keys rebuild cleanly.
+                    location.reload();
+                    return;
+                }
+                // Same-group reorder: persist per-kind orders sharing one numeric space.
+                const groupItems = [...list.querySelectorAll(`.rh-item[data-period="${toPeriod}"]`)];
+                const routines = groupItems.filter(el => el.dataset.kind !== 'step')
+                    .map((el, i) => ({ el, order: groupItems.indexOf(el) * 10 }));
+                const steps = groupItems.filter(el => el.dataset.kind === 'step')
+                    .map(el => ({ el, order: groupItems.indexOf(el) * 10 }));
+                if (routines.length) {
+                    await post(REORDER_URL, routines.map(r => ({ id: Number(r.el.dataset.id), sort_order: r.order })));
+                }
+                if (steps.length) {
+                    await post(STEPS_URL, steps.map(s => ({ id: Number(s.el.dataset.id), sort_order: s.order })));
+                }
             } catch (err) {
                 console.error('[Routines] reorder failed', err);
             }

@@ -356,12 +356,16 @@ class Routine extends Model
      * The single ordering used everywhere (Routines page, My Day, Dashboard):
      * time-period slot -> manual drag order -> exact start time -> title.
      * When steps have schedules and an active step is resolved, its schedule is used.
+     * For routines WITHOUT their own schedule (exploded into steps on the
+     * Routines page), the active step's manual order is used so each timed
+     * step can be prioritized independently against other routines.
      * Fixed-width pieces keep plain string comparison byte-wise correct.
      */
     public function sortKey(): string
     {
         $period = $this->time_period;
         $startTime = $this->start_time;
+        $manualOrder = (int) $this->sort_order;
 
         if (! empty($this->activeStepSchedule)) {
             if (! empty($this->activeStepSchedule['time_period'])) {
@@ -369,6 +373,12 @@ class Routine extends Model
             }
             if (! empty($this->activeStepSchedule['scheduled_time'])) {
                 $startTime = $this->activeStepSchedule['scheduled_time'];
+            }
+            // Exploded routines: no own schedule -> step's own sort_order wins,
+            // so morning/noon/night steps of one routine (e.g. Cobra Pose)
+            // can sit in different day slots with independent priorities.
+            if (! $this->hasSchedule() && isset($this->activeStepSchedule['sort_order'])) {
+                $manualOrder = (int) $this->activeStepSchedule['sort_order'];
             }
         }
 
@@ -381,7 +391,7 @@ class Routine extends Model
             : '99:99';
 
         return str_pad((string) $slot, 2, '0', STR_PAD_LEFT)
-            . str_pad((string) (int) $this->sort_order, 4, '0', STR_PAD_LEFT)
+            . str_pad((string) (int) $manualOrder, 4, '0', STR_PAD_LEFT)
             . $time
             . '-' . mb_strtolower((string) $this->title);
     }
