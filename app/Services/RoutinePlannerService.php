@@ -73,6 +73,9 @@ class RoutinePlannerService
             $list = $rows->get($step->id, collect());
             $step->setRelation('completions', $list);
             foreach ($list as $row) {
+                if (($row->status ?? 'done') !== 'done') {
+                    continue;
+                }
                 $key = $row->completed_date instanceof Carbon
                     ? $row->completed_date->toDateString()
                     : Carbon::parse($row->completed_date)->toDateString();
@@ -228,6 +231,7 @@ class RoutinePlannerService
             } else {
                 $completedSet = $routine->relationLoaded('completions')
                     ? $routine->completions
+                        ->filter(fn ($c) => ($c->status ?? RoutineCompletion::STATUS_DONE) === RoutineCompletion::STATUS_DONE)
                         ->map(fn ($c) => $c->completed_date instanceof Carbon
                             ? $c->completed_date->toDateString()
                             : Carbon::parse($c->completed_date)->toDateString())
@@ -251,6 +255,11 @@ class RoutinePlannerService
                     'id' => $s->id,
                     'name' => $s->name,
                     'completed' => $isAvoid ? false : isset($stepMap[(int) $s->id][$dayKey]),
+                    'skipped' => ! $isAvoid && $s->relationLoaded('completions')
+                        && $s->completions->contains(fn ($c) => ($c->status ?? null) === 'skipped'
+                            && ($c->completed_date instanceof Carbon
+                                ? $c->completed_date->toDateString()
+                                : Carbon::parse($c->completed_date)->toDateString()) === $dayKey),
                     'violated' => $violatedQty > 0,
                     'violation_qty' => $violatedQty,
                     'target_sets' => (int) ($s->target_sets ?? 1),
@@ -277,7 +286,7 @@ class RoutinePlannerService
             $hasSchedule = fn ($s) => ! empty($s['period_label']) || ! empty($s['time_label']);
             $isSettled = $isAvoid
                 ? fn ($s) => ! empty($s['violated'])
-                : fn ($s) => ! empty($s['completed']);
+                : fn ($s) => ! empty($s['completed']) || ! empty($s['skipped']);
 
             $activeStep = $routine->ringSteps->first(fn ($s) => ! $isSettled($s) && $hasSchedule($s));
             if (! $activeStep) {

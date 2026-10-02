@@ -199,5 +199,19 @@
     "Value": "Value",
     "Done": "Done",
     "This Week": "This Week",
-    "Go to Today": "Go to Today"
+    "Go to Today": "Go to Today",
+    "Mark as failed": "Mark as failed",
+    "Failed": "Failed",
+    "Undo fail": "Undo fail",
+    "Mark failed": "Mark failed",
+    "Fail note": "Fail note",
+    "Why did this fail? (optional)": "Why did this fail? (optional)",
+    "Reschedule to": "Reschedule to",
+    "No reschedule": "No reschedule",
+    "In 3 days": "In 3 days",
+    "Next week": "Next week",
+    "Mark step as not done": "Mark step as not done",
+    "Step skipped": "Step skipped",
+    "Skip remaining": "Skip remaining",
+    "Skip the remaining open steps": "Skip the remaining open steps"
 }

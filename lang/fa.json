@@ -1451,5 +1451,19 @@
     "step": "مرحله",
     "steps without time": "مرحله بدون زمان",
     "tracked": "رهگیری‌شده",
-    "Create your first task to get started.": "اولین تسک خود را بسازید تا شروع کنید."
+    "Create your first task to get started.": "اولین تسک خود را بسازید تا شروع کنید.",
+    "Mark as failed": "ثبت شکست",
+    "Failed": "شکست خورد",
+    "Undo fail": "لغو شکست",
+    "Mark failed": "ثبت شکست",
+    "Fail note": "یادداشت شکست",
+    "Why did this fail? (optional)": "چرا شکست خورد؟ (اختیاری)",
+    "Reschedule to": "موکول به",
+    "No reschedule": "بدون موکول کردن",
+    "In 3 days": "۳ روز دیگر",
+    "Next week": "هفته بعد",
+    "Mark step as not done": "ثبت استپ به‌عنوان انجام‌نشده",
+    "Step skipped": "استپ انجام نشد",
+    "Skip remaining": "رد کردن بقیه",
+    "Skip the remaining open steps": "رد کردن بقیه استپ‌های باز"
 }

@@ -111,10 +111,16 @@
                         <span class="steps-count bad" title="Steps with a slip today">{{ $slipped }}/{{ $routine->ringSteps->count() }} slips</span>
                     @endif
                 @else
-                    @php $stepsDone = $routine->ringSteps->where('completed', true)->count(); @endphp
+                    @php
+                        $stepsDone = $routine->ringSteps->where('completed', true)->count();
+                        $stepsSkipped = $routine->ringSteps->where('skipped', true)->count();
+                    @endphp
                     <span class="steps-count {{ $stepsDone === $routine->ringSteps->count() ? 'all' : '' }}">
                         {{ $stepsDone }}/{{ $routine->ringSteps->count() }}
                     </span>
+                    @if($stepsSkipped > 0)
+                        <span class="steps-skipped" data-skip-count title="{{ $stepsSkipped }} step(s) marked as not done">✗{{ $stepsSkipped }}</span>
+                    @endif
                 @endif
             @endif
             @if($hasDetails)
@@ -147,7 +153,7 @@
             @if($isSkipped)
                 <span class="pl-skip-tag">
                     <i class="bi bi-x-circle-fill"></i> {{ __('Not done') }}
-                    @if($record->skip_reason)· {{ __(\App\Models\RoutineCompletion::SKIP_REASONS[$record->skip_reason] ?? $record->skip_reason) }}@endif
+                    @if(!empty($record->skip_reason) && isset(\App\Models\RoutineCompletion::SKIP_REASONS[$record->skip_reason]))· {{ __(\App\Models\RoutineCompletion::SKIP_REASONS[$record->skip_reason]) }}@endif
                 </span>
             @endif
             @if($isAvoid)
@@ -236,8 +242,13 @@
             @else
             <div class="pl-steps">
                 @foreach($routine->ringSteps as $step)
+                    @php $stepSkipped = !empty($step['skipped']); @endphp
+                    <span class="pl-step-wrap {{ $step['completed'] ? 'done' : '' }} {{ $stepSkipped ? 'is-skipped' : '' }}"
+                          data-step-wrap data-id="{{ $step['id'] }}"
+                          data-routine="{{ $routine->id }}"
+                          data-date="{{ $routineDate->toDateString() }}">
                     <button type="button"
-                            class="pl-step {{ $step['completed'] ? 'done' : '' }}"
+                            class="pl-step {{ $step['completed'] ? 'done' : '' }} {{ $stepSkipped ? 'is-skipped' : '' }}"
                             data-step-item data-id="{{ $step['id'] }}"
                             data-routine="{{ $routine->id }}"
                             data-date="{{ $routineDate->toDateString() }}"
@@ -245,7 +256,7 @@
                             data-tracked="{{ $trackMode }}"
                             data-logged="{{ !empty($step['sets']) ? 1 : 0 }}"
                             onclick="toggleCheckItem(this)">
-                        <i class="bi {{ $step['completed'] ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
+                        <i class="bi {{ $stepSkipped ? 'bi-x-circle' : ($step['completed'] ? 'bi-check-circle-fill' : 'bi-circle') }}"></i>
                         {{ $step['name'] }}
                         @if(!empty($step['period_label']) || !empty($step['time_label']))
                             <span class="pl-step-schedule" style="color:{{ $step['period_color'] ?: '#64748b' }};">
@@ -254,8 +265,32 @@
                             </span>
                         @endif
                     </button>
+                    <button type="button"
+                            class="pl-step-skip {{ $stepSkipped ? 'active' : '' }}"
+                            data-step-skip data-id="{{ $step['id'] }}"
+                            data-date="{{ $routineDate->toDateString() }}"
+                            data-skip-url="{{ route('planner.check-items.skip', $step['id']) }}"
+                            title="{{ $stepSkipped ? __('Undo skip') : __('Mark step as not done') }}"
+                            aria-label="{{ __('Mark step as not done') }}"
+                            aria-pressed="{{ $stepSkipped ? 'true' : 'false' }}"
+                            onclick="event.stopPropagation(); skipStep(this)">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                    </span>
                 @endforeach
             </div>
+            @php
+                $openSteps = $routine->ringSteps->where('completed', false)->where('skipped', false)->count();
+                $skippedSteps = $routine->ringSteps->where('skipped', true)->count();
+            @endphp
+            @if($openSteps > 0 && $skippedSteps > 0)
+                <button type="button" class="pl-skip-rest" data-skip-rest
+                        data-routine="{{ $routine->id }}"
+                        data-date="{{ $routineDate->toDateString() }}"
+                        title="{{ __('Skip the remaining open steps') }}">
+                    {{ __('Skip remaining') }} (<span data-skip-rest-n>{{ $openSteps }}</span>)
+                </button>
+            @endif
             @endif
         @endif
 

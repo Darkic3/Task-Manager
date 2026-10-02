@@ -219,6 +219,61 @@ class RoutineTrackingTest extends TestCase
         $this->assertStringContainsString('pl-expand-modal', $html);
     }
 
+    public function test_routine_modal_body_rebuilds_each_group_as_cards(): void
+    {
+        $user = User::factory()->create();
+        // Sets mode renders both the step list and the sets log, so a single
+        // fixture exercises the two layouts that need reconstructing.
+        $this->setsRoutine($user);
+
+        $html = $this->actingAs($user)->get(route('planner.index', ['view' => 'day']))
+            ->assertOk()
+            ->getContent();
+
+        // Steps become full-width rows inside the modal, with the schedule
+        // badge pushed to the trailing edge of each row.
+        $this->assertMatchesRegularExpression(
+            '/\.pl-modal-body \.pl-steps\{\s*flex-direction:column/',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.pl-modal-body \.pl-step\{\s*width:100%/',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.pl-modal-body \.pl-step-schedule\{\s*margin-inline-start:auto/',
+            $html
+        );
+
+        // Sets: name takes its own line above the inputs.
+        $this->assertMatchesRegularExpression(
+            '/\.pl-modal-body \.pl-logset-name\{\s*flex:1 1 100%/',
+            $html
+        );
+
+        // Value log field is a stretched, full-height input.
+        $this->assertStringContainsString('.pl-modal-body .pl-log > input[type="number"]{', $html);
+
+        // Avoid panels and slip rows get their own card surfaces.
+        $this->assertStringContainsString('.pl-modal-body .pl-avoid-panel{', $html);
+        $this->assertStringContainsString('.pl-modal-body .pl-step.avoid{', $html);
+
+        // Section caps exist only in the modal scope — the inline accordion
+        // must keep the compact chip layout.
+        $this->assertMatchesRegularExpression(
+            '/\.pl-modal-body \.pl-steps:not\(\.pl-avoid-steps\)::before\{\s*content:/',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.pl-modal-body \.pl-logsets::before\{\s*content:/',
+            $html
+        );
+
+        // No phantom spacer: an empty content:'' ::before must not exist on
+        // .pl-log (it would add a blank line above the value input).
+        $this->assertSame(0, preg_match('/\.pl-modal-body \.pl-log::before\{/', $html));
+    }
+
     public function test_modal_log_save_closes_modal_and_enter_submits(): void
     {
         $user = User::factory()->create();

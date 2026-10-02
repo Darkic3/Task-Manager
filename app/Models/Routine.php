@@ -449,13 +449,17 @@ class Routine extends Model
 
     public function completedOn($date): bool
     {
+        $isDone = fn ($c) => ($c->status ?? RoutineCompletion::STATUS_DONE) === RoutineCompletion::STATUS_DONE;
+
         if ($this->relationLoaded('completions')) {
             $key = RoutineCompletion::dateKey($date);
 
-            return $this->completions->contains(fn ($c) => $this->completionDateEquals($c, $key));
+            return $this->completions->contains(fn ($c) => $isDone($c) && $this->completionDateEquals($c, $key));
         }
 
-        return $this->completionRecord($date) !== null;
+        $record = $this->completionRecord($date);
+
+        return $record !== null && $isDone($record);
     }
 
     public function completionRecord($date): ?RoutineCompletion
@@ -474,6 +478,7 @@ class Routine extends Model
     /**
      * Toggle completion for the given date. Returns true when now completed.
      * Idempotent: re-checking after an uncheck never creates duplicate rows.
+     * A previously skipped day converts straight to done when checked.
      */
     public function toggleOn($date): bool
     {
@@ -484,9 +489,13 @@ class Routine extends Model
             ->where('completed_date', $key)
             ->get();
 
-        if ($existing->isNotEmpty()) {
-            $existing->each->delete();
+        $wasDone = $existing->contains(
+            fn ($c) => ($c->status ?? RoutineCompletion::STATUS_DONE) === RoutineCompletion::STATUS_DONE
+        );
 
+        $existing->each->delete();
+
+        if ($wasDone) {
             return false;
         }
 
@@ -495,6 +504,41 @@ class Routine extends Model
             'routine_id' => $this->id,
             'completed_date' => $key,
             'completed_at' => now(),
+            'status' => RoutineCompletion::STATUS_DONE,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Record "did not do it" for the given date. Returns true when the day
+     * now carries a skipped record, false when the skip was undone.
+     * A completed day converts straight to skipped.
+     */
+    public function skipOn($date, ?string $reason = null): bool
+    {
+        $key = RoutineCompletion::dateKey($date);
+
+        $existing = $this->completions()
+            ->where('user_id', $this->user_id)
+            ->where('completed_date', $key)
+            ->get();
+
+        $wasSkipped = $existing->contains(fn ($c) => $c->status === RoutineCompletion::STATUS_SKIPPED);
+
+        $existing->each->delete();
+
+        if ($wasSkipped) {
+            return false;
+        }
+
+        RoutineCompletion::create([
+            'user_id' => $this->user_id,
+            'routine_id' => $this->id,
+            'completed_date' => $key,
+            'completed_at' => null,
+            'status' => RoutineCompletion::STATUS_SKIPPED,
+            'skip_reason' => $reason,
         ]);
 
         return true;
@@ -658,9 +702,11 @@ class Routine extends Model
     {
         $from = $start->toDateString();
         $to = $end->toDateString();
+        $isDone = fn ($c) => ($c->status ?? RoutineCompletion::STATUS_DONE) === RoutineCompletion::STATUS_DONE;
 
         if ($this->relationLoaded('completions')) {
             return $this->completions
+                ->filter($isDone)
                 ->map(fn ($c) => $c->completed_date instanceof Carbon
                     ? $c->completed_date->toDateString()
                     : Carbon::parse($c->completed_date)->toDateString())
@@ -670,6 +716,7 @@ class Routine extends Model
         }
 
         return $this->completions()
+            ->where('status', RoutineCompletion::STATUS_DONE)
             ->whereBetween('completed_date', [$from, $to])
             ->pluck('completed_date')
             ->map(fn ($date) => Carbon::parse($date)->toDateString())

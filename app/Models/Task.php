@@ -26,11 +26,14 @@ class Task extends Model
         'sort_order',
         'completed_at',
         'estimated_hours',
+        'failed_at',
+        'fail_note',
     ];
 
     protected $casts = [
         'due_date' => 'date',
         'completed_at' => 'datetime',
+        'failed_at' => 'datetime',
         'auto_weight' => 'boolean',
     ];
 
@@ -287,6 +290,34 @@ class Task extends Model
     public function checklistItems()
     {
         return $this->hasMany(ChecklistItem::class);
+    }
+
+    /**
+     * Explicit "failed / won't do it" marker (independent of status).
+     * A failed task renders red with its note until it is undone or completed.
+     */
+    public function isFailed(): bool
+    {
+        return $this->failed_at !== null;
+    }
+
+    public function fail(?string $note = null, $rescheduleDate = null): void
+    {
+        $this->failed_at = now();
+        if ($note !== null) {
+            $this->fail_note = mb_substr(trim($note), 0, 2000) ?: null;
+        }
+        if ($rescheduleDate) {
+            $this->due_date = Carbon::parse($rescheduleDate)->toDateString();
+        }
+        $this->save();
+    }
+
+    public function unfail(): void
+    {
+        $this->failed_at = null;
+        $this->fail_note = null;
+        $this->save();
     }
 
     /**

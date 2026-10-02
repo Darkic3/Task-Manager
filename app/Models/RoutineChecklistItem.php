@@ -44,6 +44,9 @@ class RoutineChecklistItem extends Model
 
         if ($this->relationLoaded('completions')) {
             return $this->completions->contains(function ($c) use ($key) {
+                if (($c->status ?? RoutineCheckitemCompletion::STATUS_DONE) !== RoutineCheckitemCompletion::STATUS_DONE) {
+                    return false;
+                }
                 $value = $c->completed_date ?? null;
                 if ($value instanceof \Carbon\Carbon) {
                     return $value->toDateString() === $key;
@@ -58,11 +61,45 @@ class RoutineChecklistItem extends Model
 
         return $this->completions()
             ->where('completed_date', $key)
+            ->where('status', RoutineCheckitemCompletion::STATUS_DONE)
             ->exists();
+    }
+
+    public function skippedOn($date): bool
+    {
+        return $this->skipRecord($date) !== null;
+    }
+
+    public function skipRecord($date): ?RoutineCheckitemCompletion
+    {
+        $key = RoutineCheckitemCompletion::dateKey($date);
+
+        if ($this->relationLoaded('completions')) {
+            return $this->completions->first(function ($c) use ($key) {
+                if (($c->status ?? null) !== RoutineCheckitemCompletion::STATUS_SKIPPED) {
+                    return false;
+                }
+                $value = $c->completed_date ?? null;
+                if ($value instanceof \Carbon\Carbon) {
+                    return $value->toDateString() === $key;
+                }
+                if (is_string($value) && strlen($value) >= 10) {
+                    return substr($value, 0, 10) === $key;
+                }
+
+                return false;
+            });
+        }
+
+        return $this->completions()
+            ->where('completed_date', $key)
+            ->where('status', RoutineCheckitemCompletion::STATUS_SKIPPED)
+            ->first();
     }
 
     /**
      * Idempotent per-date toggle, mirroring Routine::toggleOn().
+     * A previously skipped step converts straight to done when checked.
      */
     public function toggleOn($date): bool
     {
@@ -70,9 +107,13 @@ class RoutineChecklistItem extends Model
 
         $existing = $this->completions()->where('completed_date', $key)->get();
 
-        if ($existing->isNotEmpty()) {
-            $existing->each->delete();
+        $wasDone = $existing->contains(
+            fn ($c) => ($c->status ?? RoutineCheckitemCompletion::STATUS_DONE) === RoutineCheckitemCompletion::STATUS_DONE
+        );
 
+        $existing->each->delete();
+
+        if ($wasDone) {
             return false;
         }
 
@@ -80,6 +121,39 @@ class RoutineChecklistItem extends Model
             'user_id' => $this->user_id,
             'completed_date' => $key,
             'completed_at' => now(),
+            'status' => RoutineCheckitemCompletion::STATUS_DONE,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Record "did not do it" for a single step. Returns true when the step
+     * now carries a skipped record, false when the skip was undone.
+     * A completed step converts straight to skipped.
+     */
+    public function skipOn($date, ?string $reason = null): bool
+    {
+        $key = RoutineCheckitemCompletion::dateKey($date);
+
+        $existing = $this->completions()->where('completed_date', $key)->get();
+
+        $wasSkipped = $existing->contains(
+            fn ($c) => ($c->status ?? null) === RoutineCheckitemCompletion::STATUS_SKIPPED
+        );
+
+        $existing->each->delete();
+
+        if ($wasSkipped) {
+            return false;
+        }
+
+        $this->completions()->create([
+            'user_id' => $this->user_id,
+            'completed_date' => $key,
+            'completed_at' => null,
+            'status' => RoutineCheckitemCompletion::STATUS_SKIPPED,
+            'skip_reason' => $reason,
         ]);
 
         return true;

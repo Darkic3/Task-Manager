@@ -229,6 +229,11 @@ class PlannerController extends Controller
         $completed = $task->status !== 'completed';
         $task->status = $completed ? 'completed' : 'to_do';
         $task->completed_at = $completed ? now() : null;
+        // Completing closes the loop: any earlier fail marker is cleared.
+        if ($completed) {
+            $task->failed_at = null;
+            $task->fail_note = null;
+        }
         $task->save();
 
         return response()->json([
@@ -236,6 +241,49 @@ class PlannerController extends Controller
             'status' => $task->status,
             'completed' => $completed,
             'completed_at' => $task->completed_at?->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Mark a task as failed ("won't do it") with an optional note and an
+     * optional reschedule date chosen on the spot. The task renders red with
+     * its note until it is undone or completed.
+     */
+    public function failTask(Request $request, Task $task)
+    {
+        abort_if($task->user_id !== Auth::id(), 403);
+        abort_if($task->status === 'completed', 422, 'Completed tasks cannot be marked as failed.');
+
+        $data = $request->validate([
+            'note' => 'nullable|string|max:2000',
+            'reschedule_date' => 'nullable|date',
+        ]);
+
+        $task->fail($data['note'] ?? null, $data['reschedule_date'] ?? null);
+
+        return response()->json([
+            'ok' => true,
+            'failed' => true,
+            'failed_at' => $task->failed_at?->toIso8601String(),
+            'fail_note' => $task->fail_note,
+            'due_date' => $task->due_date?->toDateString(),
+            'rescheduled' => ! empty($data['reschedule_date']),
+        ]);
+    }
+
+    /**
+     * Undo a task fail marker (note is cleared too).
+     */
+    public function unfailTask(Task $task)
+    {
+        abort_if($task->user_id !== Auth::id(), 403);
+
+        $task->unfail();
+
+        return response()->json([
+            'ok' => true,
+            'failed' => false,
+            'due_date' => $task->due_date?->toDateString(),
         ]);
     }
 
@@ -423,6 +471,15 @@ class PlannerController extends Controller
         abort_if($routine->isAvoid(), 422, 'Avoid habits cannot be checked off.');
 
         $date = $this->parseDate($request->input('date'));
+
+        // Tracked (input-based, not checkbox) routines can only complete
+        // through logged numbers — a bare tick with no logged value must
+        // never mark them done. Otherwise the day stays open (pending).
+        // The only other way out is the explicit ✗ "did not do it".
+        if ($routine->isTracked() && ! $routine->completedOn($date)) {
+            $this->abortUnlessTrackedInputsLogged($routine, $date);
+        }
+
         $completed = $routine->toggleOn($date);
 
         /* Keep per-step completions in sync with the whole-routine toggle (batched). */
@@ -431,6 +488,7 @@ class PlannerController extends Controller
             $key = RoutineCheckitemCompletion::dateKey($date);
             $doneIds = RoutineCheckitemCompletion::whereIn('checklist_item_id', $items->pluck('id'))
                 ->where('completed_date', $key)
+                ->where('status', RoutineCheckitemCompletion::STATUS_DONE)
                 ->pluck('checklist_item_id')
                 ->map(fn ($id) => (int) $id)
                 ->flip();
@@ -454,8 +512,77 @@ class PlannerController extends Controller
     }
 
     /**
+     * Guard for input-based routines: completing the whole routine with a
+     * bare tick is refused unless the numbers behind it were actually logged.
+     * Value mode needs its daily value; sets mode needs every step to carry
+     * at least one logged set (mirrors the per-step tick guard).
+     */
+    private function abortUnlessTrackedInputsLogged(Routine $routine, Carbon $date): void
+    {
+        $key = $date->toDateString();
+
+        if ($routine->tracking_mode === Routine::TRACKING_VALUE) {
+            $hasValue = \App\Models\RoutineLog::where('user_id', $routine->user_id)
+                ->where('routine_id', $routine->id)
+                ->where('completed_date', $key)
+                ->whereNull('checklist_item_id')
+                ->exists();
+            abort_if(! $hasValue, 422, 'Log a value for this routine first.');
+
+            return;
+        }
+
+        if ($routine->tracking_mode === Routine::TRACKING_SETS) {
+            $items = $routine->checklistItems()->get();
+            // A sets routine with no steps has no inputs — checkbox still applies.
+            if ($items->isEmpty()) {
+                return;
+            }
+            $loggedItemIds = \App\Models\RoutineLog::where('user_id', $routine->user_id)
+                ->where('routine_id', $routine->id)
+                ->where('completed_date', $key)
+                ->whereNotNull('checklist_item_id')
+                ->distinct()
+                ->pluck('checklist_item_id')
+                ->map(fn ($id) => (int) $id)
+                ->flip();
+            $missing = $items->reject(fn ($it) => isset($loggedItemIds[(int) $it->id]))->count();
+            abort_if($missing > 0, 422, 'Log the numbers for every step first.');
+        }
+    }
+
+    /**
+     * Mark a routine as "did not do it" for a date (or undo it). Lets a
+     * missed day be recorded instead of silently staying open; skipped days
+     * count as missed in streaks/rings but carry no completion timestamp.
+     */
+    public function skipRoutine(Request $request, Routine $routine)
+    {
+        abort_if($routine->user_id !== Auth::id(), 403);
+        // Avoid habits already track failure via slips; a ✗ would double-count.
+        abort_if($routine->isAvoid(), 422, 'Avoid habits record slips instead of skips.');
+
+        $data = $request->validate([
+            'date' => 'nullable|date',
+            'reason' => 'nullable|in:'.implode(',', array_keys(RoutineCompletion::SKIP_REASONS)),
+        ]);
+
+        $date = $this->parseDate($data['date'] ?? null);
+        $skipped = $routine->skipOn($date, $data['reason'] ?? null);
+
+        return response()->json([
+            'ok' => true,
+            'skipped' => $skipped,
+            'date' => $date->toDateString(),
+            'streak' => $routine->fresh()->streakStats($date)['current'],
+        ]);
+    }
+
+    /**
      * Toggle a single step of a routine; when every step is done the routine
      * itself completes for that day (and un-completes if a step is undone).
+     * Skipped steps never count as done; completing a step reopens a
+     * routine-level skip for that day.
      */
     public function toggleCheckItem(Request $request, RoutineChecklistItem $item)
     {
@@ -466,6 +593,15 @@ class PlannerController extends Controller
         $itemCompleted = $item->toggleOn($date);
 
         $routine = $item->routine;
+
+        // A fresh tick reopens the day when the whole routine was marked "not done".
+        if ($itemCompleted) {
+            $routine->completions()
+                ->where('user_id', $routine->user_id)
+                ->where('completed_date', RoutineCheckitemCompletion::dateKey($date))
+                ->where('status', RoutineCompletion::STATUS_SKIPPED)
+                ->delete();
+        }
 
         // Tracked sets-mode steps need a logged number: completing the tick
         // without one is reverted (the UI must ask for the number first).
@@ -486,6 +622,7 @@ class PlannerController extends Controller
         $doneIds = $items->isNotEmpty()
             ? RoutineCheckitemCompletion::whereIn('checklist_item_id', $items->pluck('id'))
                 ->where('completed_date', $key)
+                ->where('status', RoutineCheckitemCompletion::STATUS_DONE)
                 ->pluck('checklist_item_id')
                 ->map(fn ($id) => (int) $id)
                 ->flip()
@@ -496,12 +633,34 @@ class PlannerController extends Controller
 
         $routineCompleted = $routine->completedOn($date);
         if ($allDone && ! $routineCompleted) {
-            $routine->toggleOn($date);
-            $routineCompleted = true;
+            // Value-mode routines complete through their logged value, never
+            // through bare step ticks alone.
+            if ($routine->tracking_mode === Routine::TRACKING_VALUE) {
+                $hasValue = \App\Models\RoutineLog::where('user_id', $routine->user_id)
+                    ->where('routine_id', $routine->id)
+                    ->where('completed_date', $key)
+                    ->whereNull('checklist_item_id')
+                    ->exists();
+                if ($hasValue) {
+                    $routine->toggleOn($date);
+                    $routineCompleted = true;
+                }
+            } else {
+                $routine->toggleOn($date);
+                $routineCompleted = true;
+            }
         } elseif (! $allDone && $routineCompleted) {
             $routine->toggleOn($date);
             $routineCompleted = false;
         }
+
+        // Fresh reads: preloaded relations are stale after the writes above.
+        $routineSkippedNow = $routine->completions()
+            ->where('user_id', $routine->user_id)
+            ->where('completed_date', $key)
+            ->where('status', RoutineCompletion::STATUS_SKIPPED)
+            ->exists();
+        [$stepsSkippedNow] = $this->stepSkipCounts($routine, $date);
 
         return response()->json([
             'ok' => true,
@@ -509,10 +668,98 @@ class PlannerController extends Controller
             'completed' => $itemCompleted,
             'routine_id' => $routine->id,
             'routine_completed' => $routineCompleted,
+            'routine_skipped' => $routineSkippedNow,
             'steps_done' => $done,
             'steps_total' => $total,
+            'steps_skipped' => $stepsSkippedNow,
             'streak' => $routine->fresh()->streakStats($date)['current'],
         ]);
+    }
+
+    /**
+     * Mark a single routine step as "did not do it" (or undo it). A skipped
+     * step is settled for guidance (Next Up moves past it) but never counts
+     * as done, so it can never auto-complete the routine by itself.
+     * When the last open step is skipped, the whole routine closes as
+     * skipped for the day (auto marker); reopening any step reopens it.
+     */
+    public function skipCheckItem(Request $request, RoutineChecklistItem $item)
+    {
+        abort_if($item->user_id !== Auth::id(), 403);
+        abort_if($item->routine->isAvoid(), 422, 'Avoid-habit steps record slips instead of skips.');
+
+        $data = $request->validate([
+            'date' => 'nullable|date',
+            'reason' => 'nullable|in:'.implode(',', array_keys(RoutineCompletion::SKIP_REASONS)),
+        ]);
+
+        $date = $this->parseDate($data['date'] ?? null);
+        $skipped = $item->skipOn($date, $data['reason'] ?? null);
+        $routineSkipped = $this->syncRoutineSkipWithSteps($item->routine, $date);
+
+        [$stepsSkipped, $stepsTotal] = $this->stepSkipCounts($item->routine, $date);
+
+        return response()->json([
+            'ok' => true,
+            'skipped' => $skipped,
+            'item_id' => $item->id,
+            'routine_id' => $item->routine_id,
+            'date' => $date->toDateString(),
+            'routine_skipped' => $routineSkipped,
+            'steps_skipped' => $stepsSkipped,
+            'steps_total' => $stepsTotal,
+        ]);
+    }
+
+    /**
+     * Keep the routine-level skip in sync with its steps: all steps skipped
+     * closes the day (auto marker, manual rows untouched); any reopened step
+     * reopens an auto-closed day (manual rows stay sticky).
+     *
+     * @return bool whether the routine carries a skip record now
+     */
+    private function syncRoutineSkipWithSteps(Routine $routine, Carbon $date): bool
+    {
+        $key = RoutineCompletion::dateKey($date);
+        $items = $routine->checklistItems()->get();
+
+        $allSkipped = $items->isNotEmpty() && $items->every(fn ($it) => $it->skippedOn($date));
+
+        // Fresh query: the preloaded relation is stale after skipOn writes.
+        $record = $routine->completions()
+            ->where('user_id', $routine->user_id)
+            ->where('completed_date', $key)
+            ->where('status', RoutineCompletion::STATUS_SKIPPED)
+            ->first();
+        $isSkipped = $record !== null;
+
+        if ($allSkipped && ! $isSkipped) {
+            $routine->skipOn($date, RoutineCompletion::AUTO_ALL_STEPS);
+            $isSkipped = true;
+        } elseif (! $allSkipped && $isSkipped
+            && ($record->skip_reason ?? null) === RoutineCompletion::AUTO_ALL_STEPS) {
+            $routine->completions()
+                ->where('user_id', $routine->user_id)
+                ->where('completed_date', $key)
+                ->where('status', RoutineCompletion::STATUS_SKIPPED)
+                ->delete();
+            $isSkipped = false;
+        }
+
+        return $isSkipped;
+    }
+
+    /**
+     * @return array{int, int} [skipped steps, total steps] for the date
+     */
+    private function stepSkipCounts(Routine $routine, Carbon $date): array
+    {
+        $items = $routine->checklistItems()->get();
+
+        return [
+            $items->filter(fn ($it) => $it->skippedOn($date))->count(),
+            $items->count(),
+        ];
     }
 
     /**
@@ -533,6 +780,25 @@ class PlannerController extends Controller
         ]);
 
         $at = ! empty($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : now();
+        // Plain mode (count_violations = false): one slip per day is enough — dedupe.
+        if (! $routine->count_violations) {
+            $existing = $routine->violations()
+                ->where('occurred_date', $date->toDateString())
+                ->whereNull('checklist_item_id')
+                ->first();
+            if ($existing) {
+                return response()->json([
+                    'ok' => true,
+                    'violation_id' => $existing->id,
+                    'routine_id' => $routine->id,
+                    'date' => $date->toDateString(),
+                    'violated' => true,
+                    'day_qty' => $routine->fresh()->violationQtyOn($date),
+                    'already_violated' => true,
+                ]);
+            }
+        }
+
         $violation = $routine->violations()->create([
             'checklist_item_id' => null,
             'user_id' => Auth::id(),
@@ -572,6 +838,32 @@ class PlannerController extends Controller
         ]);
 
         $at = ! empty($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : now();
+        // Plain mode: one slip per step per day is enough — dedupe.
+        if (! $routine->count_violations) {
+            $existing = $routine->violations()
+                ->where('checklist_item_id', $item->id)
+                ->where('occurred_date', $date->toDateString())
+                ->first();
+            if ($existing) {
+                $stepQty = (int) $routine->violations()
+                    ->where('checklist_item_id', $item->id)
+                    ->where('occurred_date', $date->toDateString())
+                    ->sum('quantity');
+
+                return response()->json([
+                    'ok' => true,
+                    'violation_id' => $existing->id,
+                    'routine_id' => $routine->id,
+                    'item_id' => $item->id,
+                    'date' => $date->toDateString(),
+                    'violated' => true,
+                    'step_qty' => $stepQty,
+                    'day_qty' => $routine->violationQtyOn($date),
+                    'already_violated' => true,
+                ]);
+            }
+        }
+
         $violation = $routine->violations()->create([
             'checklist_item_id' => $item->id,
             'user_id' => Auth::id(),
@@ -650,7 +942,8 @@ class PlannerController extends Controller
      */
     private function buildNextUp($pending, $todayRoutines, Carbon $date): ?array
     {
-        $task = $pending->first();
+        // Failed tasks are closed for now (red state) — never suggested.
+        $task = $pending->first(fn ($t) => ! $t->failed_at);
         if ($task) {
             $task->loadMissing('checklistItems');
             $items = $task->checklistItems;
@@ -666,14 +959,18 @@ class PlannerController extends Controller
             ];
         }
 
-        $routine = $todayRoutines->first(fn ($r) => ! $r->completedOn($date));
+        // Skip done and explicitly marked "did not do it" — a skipped routine
+        // is closed for the day and must not resurface as the next suggestion.
+        $routine = $todayRoutines->first(fn ($r) => ! $r->completedOn($date)
+            && ! ($r->completionRecord($date)?->status === RoutineCompletion::STATUS_SKIPPED));
         if ($routine) {
             $steps = collect($routine->ringSteps ?? []);
             $isAvoid = $routine->isAvoid();
             // Avoid habits guide the first step without a slip, never a check.
+            // Skipped steps are settled too — guidance moves past them.
             $nextStep = $isAvoid
                 ? $steps->first(fn ($s) => empty($s['violated']))
-                : $steps->first(fn ($s) => empty($s['completed']));
+                : $steps->first(fn ($s) => empty($s['completed']) && empty($s['skipped']));
 
             return [
                 'type' => 'routine',
@@ -704,6 +1001,7 @@ class PlannerController extends Controller
             Task::where('user_id', $user->id)
                 ->whereDate('due_date', $date->toDateString())
                 ->where('status', '!=', 'completed')
+                ->whereNull('failed_at')
                 ->with('project:id,name')
                 ->get()
         );
@@ -753,6 +1051,11 @@ class PlannerController extends Controller
                 'id' => $s->id,
                 'name' => $s->name,
                 'completed' => $isAvoid ? false : isset($stepMap[(int) $s->id][$dayKey]),
+                'skipped' => ! $isAvoid && $s->relationLoaded('completions')
+                    && $s->completions->contains(fn ($c) => ($c->status ?? null) === RoutineCheckitemCompletion::STATUS_SKIPPED
+                        && ($c->completed_date instanceof Carbon
+                            ? $c->completed_date->toDateString()
+                            : Carbon::parse($c->completed_date)->toDateString()) === $dayKey),
                 'violated' => $violatedQty > 0,
                 'violation_qty' => $violatedQty,
                 'target_sets' => (int) ($s->target_sets ?? 1),
@@ -779,7 +1082,7 @@ class PlannerController extends Controller
             $hasSchedule = fn ($s) => ! empty($s['period_label']) || ! empty($s['time_label']);
             $isSettled = $isAvoid
                 ? fn ($s) => ! empty($s['violated'])
-                : fn ($s) => ! empty($s['completed']);
+                : fn ($s) => ! empty($s['completed']) || ! empty($s['skipped']);
             $activeStep = $routine->ringSteps->first(fn ($s) => ! $isSettled($s) && $hasSchedule($s));
             $activeStep ??= $routine->ringSteps->last(fn ($s) => $hasSchedule($s));
             $routine->activeStepSortKey = $activeStep['sort_key'] ?? null;
@@ -968,6 +1271,11 @@ class PlannerController extends Controller
             $list = $rows->get($step->id, collect());
             $step->setRelation('completions', $list);
             foreach ($list as $row) {
+                // Only done rows drive the completed lookup; skipped steps
+                // carry their own flag (see decorateHabitMetricsBulk).
+                if (($row->status ?? RoutineCheckitemCompletion::STATUS_DONE) !== RoutineCheckitemCompletion::STATUS_DONE) {
+                    continue;
+                }
                 $key = $row->completed_date instanceof Carbon
                     ? $row->completed_date->toDateString()
                     : Carbon::parse($row->completed_date)->toDateString();
@@ -1108,6 +1416,7 @@ class PlannerController extends Controller
             } else {
                 $completedSet = $routine->relationLoaded('completions')
                     ? $routine->completions
+                        ->filter(fn ($c) => ($c->status ?? RoutineCompletion::STATUS_DONE) === RoutineCompletion::STATUS_DONE)
                         ->map(fn ($c) => $c->completed_date instanceof Carbon
                             ? $c->completed_date->toDateString()
                             : Carbon::parse($c->completed_date)->toDateString())
@@ -1131,6 +1440,11 @@ class PlannerController extends Controller
                 'id' => $s->id,
                 'name' => $s->name,
                 'completed' => $isAvoid ? false : isset($stepMap[(int) $s->id][$dayKey]),
+                'skipped' => ! $isAvoid && $s->relationLoaded('completions')
+                    && $s->completions->contains(fn ($c) => ($c->status ?? null) === RoutineCheckitemCompletion::STATUS_SKIPPED
+                        && ($c->completed_date instanceof Carbon
+                            ? $c->completed_date->toDateString()
+                            : Carbon::parse($c->completed_date)->toDateString()) === $dayKey),
                 'violated' => $violatedQty > 0,
                 'violation_qty' => $violatedQty,
                 'target_sets' => (int) ($s->target_sets ?? 1),
@@ -1159,7 +1473,7 @@ class PlannerController extends Controller
             // step counts as settled for the day, the rest stay open.
             $isSettled = $isAvoid
                 ? fn ($s) => ! empty($s['violated'])
-                : fn ($s) => ! empty($s['completed']);
+                : fn ($s) => ! empty($s['completed']) || ! empty($s['skipped']);
 
             $activeStep = $routine->ringSteps->first(fn ($s) => ! $isSettled($s) && $hasSchedule($s));
             if (! $activeStep) {
@@ -1267,6 +1581,7 @@ class PlannerController extends Controller
         $key = RoutineCheckitemCompletion::dateKey($date);
         $stepDone = RoutineCheckitemCompletion::where('checklist_item_id', $item->id)
             ->where('completed_date', $key)
+            ->where('status', RoutineCheckitemCompletion::STATUS_DONE)
             ->exists();
         if (! $stepDone) {
             RoutineCheckitemCompletion::create([
@@ -1289,6 +1604,7 @@ class PlannerController extends Controller
             ->mapWithKeys(function ($it) use ($key) {
                 $done = RoutineCheckitemCompletion::where('checklist_item_id', $it->id)
                     ->where('completed_date', $key)
+                    ->where('status', RoutineCheckitemCompletion::STATUS_DONE)
                     ->exists();
 
                 return [(int) $it->id => $done];

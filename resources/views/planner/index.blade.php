@@ -100,6 +100,43 @@
     .pl-expand:hover{color:#7c3aed;background:#faf5ff;}
     .pl-expand i{transition:transform .15s;}
     .pl-expand.open i{transform:rotate(180deg);}
+
+    /* ✗ "did not do it" button + skipped-day state */
+    .pl-routine-skip{
+        width:21px;height:21px;flex-shrink:0;display:inline-grid;place-items:center;
+        border:1px solid #e5e7eb;background:#fafbfc;color:#c1c4cc;border-radius:50%;
+        font-size:9px;line-height:1;cursor:pointer;padding:0;transition:all .12s;
+    }
+    .pl-routine-skip:hover{border-color:#fca5a5;background:#fef2f2;color:#dc2626;}
+    .pl-routine-skip.active{background:#ef4444;border-color:#ef4444;color:#fff;}
+    .pl-routine-skip:disabled{opacity:.5;cursor:wait;}
+    .pl-routine-skip:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(239,68,68,.25);}
+    .pl-skip-tag{
+        font-size:10.5px;font-weight:700;color:#b91c1c;background:#fee2e2;
+        border-radius:20px;padding:1px 8px;display:inline-flex;align-items:center;gap:4px;
+        text-transform:none;white-space:nowrap;
+    }
+    .pl-task.is-skipped .pl-task-title{text-decoration:line-through;color:#94a3b8;}
+    .pl-task.is-skipped .pl-task-meta{opacity:.8;}
+    /* Failed tasks: explicit "won't do it" — red failed state with note. */
+    .pl-task.is-failed{background:#fff7f7;border-color:#f3c2c2;}
+    .pl-task.is-failed:hover{border-color:#f0a8a8;box-shadow:0 3px 12px rgba(220,38,38,.08);}
+    .pl-task.is-failed .pl-task-title{color:#b91c1c;}
+    .pl-task.is-failed .pl-check-box{border-color:#f0a8a8;}
+    .pl-fail-tag{
+        font-size:10.5px;font-weight:800;color:#fff;background:#dc2626;
+        border-radius:20px;padding:1px 9px;display:inline-flex;align-items:center;gap:4px;
+        text-transform:none;white-space:nowrap;letter-spacing:0;
+    }
+    .pl-fail-note{
+        font-size:11px;color:#991b1b;background:#fef2f2;border:1px solid #fbd5d5;
+        border-radius:8px;padding:4px 9px;margin-top:6px;line-height:1.5;word-break:break-word;
+        display:flex;align-items:flex-start;gap:6px;
+    }
+    .pl-fail-note i{flex-shrink:0;margin-top:2px;}
+    .pl-task-act-fail:hover{background:#dc2626 !important;border-color:#dc2626 !important;color:#fff !important;
+        transform:translateY(-1px);box-shadow:0 4px 10px rgba(220,38,38,.28);}
+    .pl-task-act-fail.active{background:#dc2626 !important;border-color:#dc2626 !important;color:#fff !important;}
     /* Clicking the routine row expands its details */
     .pl-routine[data-routine-item] .pl-task-title,
     .pl-routine[data-routine-item] .pl-task-meta{cursor:pointer;}
@@ -161,42 +198,211 @@
     .pl-modal-body::-webkit-scrollbar-thumb{background:#dcdee3;border-radius:99px;border:2px solid #fff;}
     .pl-modal-body::-webkit-scrollbar-thumb:hover{background:#c8ccd3;}
 
-    /* Rows inside the modal read as grouped cards rather than loose chips */
-    .pl-modal-body .pl-details{display:block;}
-    .pl-modal-body .pl-log{
-        display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:0;
-        background:#fcfcfd;border:1px solid #eef0f4;border-radius:12px;padding:10px 12px;
+    /* ── Modal body: the moved .pl-details panel, rebuilt for reading ──
+       Everything in here had inline-row sizing. Inside a 540px modal the
+       same chips and inputs read as a loose pile, so each group is
+       reconstructed as a full-width card stack in the modal only. */
+    .pl-modal-body .pl-details{display:flex;flex-direction:column;gap:16px;}
+
+    /* Section caps: tiny translated labels, scoped to the modal only so the
+       inline accordion keeps its compact chip layout. Only selectors that
+       receive real content are given the ::before box, so no phantom
+       spacers appear on avoid steps or value logs. */
+    .pl-modal-body .pl-steps:not(.pl-avoid-steps)::before,
+    .pl-modal-body .pl-logsets::before{
+        content:'';display:block;width:100%;
+        font-size:10.5px;font-weight:800;letter-spacing:.06em;
+        color:#9599a3;
     }
+    .pl-modal-body .pl-steps:not(.pl-avoid-steps)::before{content:'{{ __('Steps') }}';}
+    .pl-modal-body .pl-logsets::before{content:'{{ __('Sets') }}';}
+
+    /* Steps: chips become full-width rows */
+    .pl-modal-body .pl-steps{flex-direction:column;flex-wrap:nowrap;gap:7px;margin-top:0;}
+    .pl-modal-body .pl-step{
+        width:100%;padding:10px 13px;border-radius:12px;
+        border:1px solid #e9ebef;background:#fff;
+        font-size:12.5px;color:#3d4149;gap:8px;
+        transition:background .12s,border-color .15s;
+    }
+    .pl-modal-body .pl-step i{font-size:15px;flex-shrink:0;}
+    .pl-modal-body .pl-step:hover{border-color:#ddd6fe;background:#fcfcfd;color:#1a1d23;}
+    .pl-modal-body .pl-step.done{background:#f4fbf7;border-color:#bcdfc9;color:#29774b;}
+    .pl-modal-body .pl-step.done i{color:#30a46c;}
+    .pl-modal-body .pl-step-schedule{
+        margin-inline-start:auto;font-size:10.5px;gap:4px;
+        padding:2px 8px;border-radius:99px;background:#fafbfc;
+        border:1px solid #eef0f3;
+    }
+    .pl-modal-body .pl-step.done .pl-step-schedule{background:#fff;border-color:#d3ecd9;}
+
+    /* Sets: name on its own line, inputs + Log beneath */
     .pl-modal-body .pl-logsets{gap:8px;margin-top:0;}
     .pl-modal-body .pl-logset{
-        background:#fff;border:1px solid #e9ebef;border-radius:11px;padding:10px 12px;
+        background:#fcfcfd;border:1px solid #e9ebef;border-radius:12px;padding:11px 13px;
     }
     .pl-modal-body .pl-logset:hover{border-color:#ddd9ea;}
-    .pl-modal-body .pl-logset-name{font-size:12.5px;font-weight:700;color:#1a1d23;}
-    .pl-modal-body .pl-logset input{
-        width:76px;padding:6px 9px;font-size:12.5px;
-        border:1px solid #e3e4e8;border-radius:8px;text-align:center;
-        font-variant-numeric:tabular-nums;outline:none;transition:border-color .15s,box-shadow .15s;
+    .pl-modal-body .pl-logset-name{
+        flex:1 1 100%;display:flex;align-items:center;gap:6px;
+        font-weight:700;color:#1a1d23;margin-bottom:2px;
     }
-    .pl-modal-body .pl-logset input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    .pl-modal-body .pl-logset-name .pl-step-schedule{margin-inline-start:auto;}
+    .pl-modal-body .pl-logset input{
+        width:62px;height:32px;padding:0;text-align:center;
+        border:1px solid #e3e4e8;border-radius:9px;font-size:12.5px;
+        font-variant-numeric:tabular-nums;font-weight:600;color:#1a1d23;
+        outline:none;background:#fff;
+        transition:border-color .15s,box-shadow .15s;
+    }
+    .pl-modal-body .pl-logset input:hover{border-color:#d6d9de;}
+    .pl-modal-body .pl-logset input:focus{
+        border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);
+    }
+    .pl-modal-body .pl-logset input.has-val{border-color:#a9dfbf;background:#f3fbf6;}
+
+    /* Value log: single well with the input, action and saved chip aligned */
+    .pl-modal-body .pl-log{
+        background:#ffffff;border:1px solid #e9ebef;border-radius:12px;
+        padding:12px 13px;gap:9px;margin-top:0;flex-wrap:nowrap;
+    }
+    /* Time logs carry the compact picker + button + saved chip; let them
+       breathe onto a second line instead of clipping. Inside the modal the
+       compact picker is scaled up — the inline row sizing is too small for
+       a 540px dialog and hurts tap targets. */
+    .pl-modal-body .pl-log.is-time{flex-wrap:wrap;}
+    .pl-modal-body .pl-log.is-time .tp{flex:1 1 100%;}
+    .pl-modal-body .tp-compact .tp-display{padding:10px 12px;gap:7px;border-radius:13px;}
+    .pl-modal-body .tp-compact .tp-digits{font-size:1.45rem;}
+    .pl-modal-body .tp-compact .tp-period{font-size:.72rem;padding:3px 10px;}
+    .pl-modal-body .tp-compact .tp-step-sm{width:32px;height:32px;font-size:1.05rem;}
+    .pl-modal-body .tp-compact .tp-chip{padding:6px 12px;font-size:.78rem;}
+    .pl-modal-body .pl-log > input[type="number"]{
+        flex:1;min-width:0;width:auto;height:36px;
+        border:1px solid #e5e7eb;border-radius:9px;text-align:center;
+        font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;color:#1a1d23;
+        outline:none;transition:border-color .15s,box-shadow .15s;
+    }
+    .pl-modal-body .pl-log > input[type="number"]:focus{
+        border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);
+    }
+
+    /* Action + inputs inside the modal share one button style */
     .pl-modal-body .pl-logset button,
-    .pl-modal-body .pl-log button{
-        display:inline-flex;align-items:center;gap:5px;
-        padding:6px 14px;border-radius:9px;
+    .pl-modal-body .pl-log button,
+    .pl-modal-body .pl-avoid-panel button{
+        display:inline-flex;align-items:center;justify-content:center;gap:5px;
+        height:32px;padding:0 15px;border-radius:9px;
         border:1px solid #ddd6fe;background:#faf5ff;color:#7c3aed;
-        font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;
+        font-size:12px;font-weight:700;cursor:pointer;
+        transition:background .15s,transform .1s;flex-shrink:0;
     }
     .pl-modal-body .pl-logset button:hover,
-    .pl-modal-body .pl-log button:hover{background:#ede9fe;}
+    .pl-modal-body .pl-log button:hover,
+    .pl-modal-body .pl-avoid-panel button:hover{background:#ede9fe;}
+    .pl-modal-body .pl-logset button:active,
+    .pl-modal-body .pl-log button:active,
+    .pl-modal-body .pl-avoid-panel button:active{transform:scale(.97);}
     .pl-modal-body .pl-logset button:disabled,
-    .pl-modal-body .pl-log button:disabled{opacity:.5;cursor:wait;}
-    .pl-modal-body .pl-steps{gap:7px;margin-top:0;}
-    .pl-modal-body .pl-step{
-        font-size:12px;padding:5px 12px;
-        border:1px solid #e5e7eb;background:#fcfcfd;color:#6b6f78;border-radius:20px;
+    .pl-modal-body .pl-log button:disabled,
+    .pl-modal-body .pl-avoid-panel button:disabled{opacity:.5;cursor:wait;transform:none;}
+
+    /* Avoid logging panels: soft red card, fields stacked by width */
+    .pl-modal-body .pl-avoid-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:0;}
+    .pl-modal-body .pl-avoid-panel{
+        margin-top:0;padding:11px 13px;
+        background:#fffafa;border:1px solid #f2dede;border-radius:12px;
     }
-    .pl-modal-body .pl-step:hover{border-color:#c4b5fd;color:#7c3aed;background:#faf5ff;}
-    .pl-modal-body .pl-step.done{background:#e3f5ec;border-color:#a9dfbf;color:#29774b;}
+    .pl-modal-body .pl-avoid-panel form{gap:7px;}
+    .pl-modal-body .pl-avoid-panel input,
+    .pl-modal-body .pl-avoid-panel select{
+        height:32px;padding:0 10px;font-size:12.5px;border-radius:9px;
+        transition:border-color .15s,box-shadow .15s;
+    }
+    .pl-modal-body .pl-avoid-panel input:focus,
+    .pl-modal-body .pl-avoid-panel select:focus{
+        border-color:#c4b5fd;box-shadow:0 0 0 3px rgba(124,58,237,.1);
+    }
+    .pl-modal-body .pl-avoid-panel button{
+        background:#b91c1c;border-color:#b91c1c;color:#fff;height:32px;
+        padding:0 16px;border-radius:9px;font-size:12px;font-weight:700;
+        cursor:pointer;display:inline-flex;align-items:center;gap:5px;
+        transition:background .15s;
+    }
+    .pl-modal-body .pl-avoid-panel button:hover{background:#991b1b;}
+
+    /* Avoid step rows keep their shield icon and slip action */
+    .pl-modal-body .pl-step.avoid{
+        background:#fff;border-color:#f3e2e2;padding-inline-end:10px;
+    }
+    .pl-modal-body .pl-step.avoid:hover{border-color:#f3e2e2;color:#3d4149;}
+    .pl-modal-body .pl-step.avoid.violated{background:#fdf3f3;border-color:#fca5a5;color:#b91c1c;}
+    .pl-modal-body .pl-step.avoid.violated i{color:#dc2626;}
+    .pl-modal-body .pl-step-slipbtn{
+        height:26px;padding:0 11px;border-radius:99px;
+        border:1px solid #fca5a5;background:#fff;color:#b91c1c;
+        font-size:10.5px;font-weight:700;cursor:pointer;flex-shrink:0;
+        transition:background .15s;
+    }
+    .pl-modal-body .pl-step-slipbtn:hover{background:#fee2e2;}
+
+    /* Logged state chip */
+    .pl-modal-body .pl-log-saved{
+        display:inline-flex;align-items:center;gap:4px;flex-shrink:0;
+        height:26px;padding:0 11px;border-radius:99px;
+        font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;
+    }
+
+    /* Routine modal footer: quick Done / Not-done without hunting the row. */
+    .pl-modal-foot{
+        display:flex;align-items:center;gap:10px;
+        padding:12px 18px;border-top:1px solid #eef0f4;background:#fafbfc;flex-shrink:0;
+    }
+    .pl-modal-foot[hidden]{display:none;}
+    .pl-modal-status{
+        font-size:11.5px;font-weight:700;color:#8a8f98;
+        display:inline-flex;align-items:center;gap:6px;min-width:0;
+    }
+    .pl-modal-status.is-done{color:#15803d;}
+    .pl-modal-status.is-skipped{color:#b91c1c;}
+    .pl-modal-foot-actions{margin-inline-start:auto;display:flex;gap:8px;flex-shrink:0;}
+    .pl-modal-foot-btn{
+        display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 16px;
+        border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;border:1px solid transparent;
+        transition:all .15s;
+    }
+    .pl-modal-foot-btn.done{background:linear-gradient(135deg,#16a34a 0%,#15803d 100%);color:#fff;border-color:#15803d;}
+    .pl-modal-foot-btn.done:hover{filter:brightness(.95);transform:translateY(-1px);}
+    .pl-modal-foot-btn.skip{background:#fff;border-color:#fca5a5;color:#b91c1c;}
+    .pl-modal-foot-btn.skip:hover{background:#fef2f2;}
+    .pl-modal-foot-btn.skip.active{background:#ef4444;border-color:#ef4444;color:#fff;}
+    .pl-modal-foot-btn:disabled{opacity:.5;cursor:wait;transform:none;}
+
+    /* Inline (non-modal) routine log inputs: same tap targets as the modal. */
+    .pl-details .pl-log input[type="number"]{height:32px;border-radius:9px;font-weight:600;}
+    .pl-details .pl-log input[type="number"]:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    .pl-details .pl-logset input{height:30px;border-radius:8px;font-weight:600;}
+    .pl-details .pl-logset input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    .pl-details .pl-log button,.pl-details .pl-logset button{height:30px;border-radius:8px;}
+
+    /* Task fail modal specifics (reuses .pl-qa dialog chrome). */
+    .pl-fail-taskname{
+        font-size:13px;font-weight:700;color:#1a1d23;background:#fef2f2;
+        border:1px solid #fbd5d5;border-radius:9px;padding:8px 12px;line-height:1.45;
+        word-break:break-word;
+    }
+    .pl-fail-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#8a8f98;}
+    .pl-fail-note-input{min-height:56px;resize:vertical;line-height:1.5;}
+    .pl-qa-chips button.picked{background:#fee2e2;border-color:#fca5a5;color:#b91c1c;}
+    .pl-fail-cancel{
+        background:#fff;color:#6b7385;border:1px solid #e3e4e8;border-radius:9px;
+        padding:8px 18px;font-size:12.5px;font-weight:700;cursor:pointer;
+    }
+    .pl-fail-cancel:hover{background:#f5f6f8;}
+    .pl-fail-submit{
+        background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%) !important;
+        border-color:#b91c1c !important;
+    }
+    .pl-fail-submit:hover{background:linear-gradient(135deg,#b91c1c 0%,#991b1b 100%) !important;}
 
     @keyframes plSheetIn{from{transform:translateY(100%);}to{transform:none;}}
     @media (max-width: 560px) {
@@ -207,6 +413,9 @@
             animation:plSheetIn .24s cubic-bezier(.16,1,.3,1);
         }
         .pl-modal-body{padding:14px 16px calc(16px + env(safe-area-inset-bottom));}
+        .pl-modal-body .pl-avoid-panel form{flex-direction:column;align-items:stretch;}
+        .pl-modal-body .pl-avoid-panel input,
+        .pl-modal-body .pl-avoid-panel select{width:100%;}
     }
     @media (prefers-reduced-motion: reduce) {
         .pl-modal-dialog{animation:none;}
@@ -359,7 +568,44 @@
         font-size:10px;font-weight:700;text-transform:none;white-space:nowrap;
     }
     .pl-step-schedule i{font-size:11px;color:inherit;}
-    .pl-modal-body .pl-step-schedule{font-size:9.5px;}
+    /* Per-step ✗ "did not do it": tiny circle attached to the step chip. */
+    .pl-step-wrap{display:inline-flex;align-items:center;}
+    .pl-step-wrap .pl-step-skip{
+        width:18px;height:18px;flex-shrink:0;display:inline-grid;place-items:center;
+        border:1px solid #e5e7eb;background:#fff;color:#c1c4cc;border-radius:50%;
+        font-size:8px;line-height:1;cursor:pointer;padding:0;margin-inline-start:-7px;
+        opacity:0;transition:opacity .12s,all .12s;position:relative;z-index:1;
+    }
+    .pl-step-wrap:hover .pl-step-skip,.pl-step-wrap:focus-within .pl-step-skip,
+    .pl-step-wrap .pl-step-skip.active{opacity:1;}
+    .pl-step-wrap .pl-step-skip:hover{border-color:#fca5a5;background:#fef2f2;color:#dc2626;}
+    .pl-step-wrap .pl-step-skip.active{background:#ef4444;border-color:#ef4444;color:#fff;opacity:1;}
+    .pl-step-wrap .pl-step-skip:disabled{opacity:.5;cursor:wait;}
+    .pl-step-wrap.is-skipped .pl-step,
+    .pl-step.is-skipped{background:#fef2f2;border-color:#fca5a5;color:#b91c1c;}
+    .pl-step-wrap.is-skipped .pl-step i,
+    .pl-step.is-skipped i{color:#dc2626;}
+    /* Partial-fail badge on the routine title (some steps skipped). */
+    .steps-skipped{
+        font-size:10.5px;font-weight:800;color:#b91c1c;background:#fee2e2;
+        border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:1px;white-space:nowrap;
+    }
+    /* "Skip remaining" helper under partially skipped steps. */
+    .pl-skip-rest{
+        display:inline-flex;align-items:center;gap:5px;margin-top:7px;
+        padding:3px 12px;border-radius:20px;border:1px dashed #fca5a5;
+        background:transparent;color:#b91c1c;font-size:11px;font-weight:700;cursor:pointer;
+        transition:all .12s;
+    }
+    .pl-skip-rest:hover{background:#fef2f2;border-style:solid;}
+    .pl-skip-rest:disabled{opacity:.5;cursor:wait;}
+    /* Skipped steps read as full-width rows inside the routine modal. */
+    .pl-modal-body .pl-step-wrap{width:100%;display:flex;align-items:stretch;gap:8px;}
+    .pl-modal-body .pl-step-wrap .pl-step{flex:1;min-width:0;}
+    .pl-modal-body .pl-step-wrap .pl-step-skip{
+        opacity:1;margin-inline-start:0;width:32px;height:auto;min-height:32px;
+        border-radius:10px;font-size:11px;align-self:stretch;
+    }
     .steps-count{
         font-size:10.5px;font-weight:700;color:#8a8f98;background:#f2f3f5;
         border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:1px;
@@ -1015,6 +1261,51 @@
                 <button type="button" class="pl-modal-x" data-modal-close aria-label="Close">&times;</button>
             </div>
             <div class="pl-modal-body" data-modal-body></div>
+            <div class="pl-modal-foot" data-modal-foot hidden>
+                <span class="pl-modal-status" data-modal-status></span>
+                <span class="pl-modal-foot-actions">
+                    <button type="button" class="pl-modal-foot-btn skip" data-modal-skip>
+                        <i class="bi bi-x-lg"></i> {{ __('Not done') }}
+                    </button>
+                    <button type="button" class="pl-modal-foot-btn done" data-modal-done>
+                        <i class="bi bi-check-lg"></i> {{ __('Done') }}
+                    </button>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    {{-- Task fail modal: note + optional reschedule in one step --}}
+    <div class="pl-qa" id="plFailModal" hidden>
+        <div class="pl-qa-backdrop" data-fail-close></div>
+        <div class="pl-qa-dialog" role="dialog" aria-modal="true" aria-labelledby="plFailTitle">
+            <div class="pl-qa-head">
+                <span class="pl-qa-title" id="plFailTitle">{{ __('Mark as failed') }}</span>
+                <button type="button" class="pl-qa-x" data-fail-close aria-label="{{ __('Close') }}">&times;</button>
+            </div>
+            <form class="pl-qa-form" data-fail-form onsubmit="return submitFailModal(this)">
+                <div class="pl-fail-taskname" data-fail-taskname></div>
+                <label class="pl-fail-label" for="plFailNote">{{ __('Fail note') }}</label>
+                <textarea name="note" id="plFailNote" class="pl-qa-input pl-fail-note-input"
+                          rows="2" maxlength="2000"
+                          placeholder="{{ __('Why did this fail? (optional)') }}"></textarea>
+                <label class="pl-fail-label">{{ __('Reschedule to') }}</label>
+                <div class="pl-qa-chips" data-fail-chips>
+                    <button type="button" data-fail-day="">{{ __('No reschedule') }}</button>
+                    <button type="button" data-fail-day="+1">{{ __('Tomorrow') }}</button>
+                    <button type="button" data-fail-day="+3">{{ __('In 3 days') }}</button>
+                    <button type="button" data-fail-day="+7">{{ __('Next week') }}</button>
+                </div>
+                <div class="pl-qa-row">
+                    <input type="date" name="reschedule_date" data-fail-date aria-label="{{ __('Reschedule to') }}">
+                </div>
+                <div class="pl-qa-actions">
+                    <button type="button" class="pl-fail-cancel" data-fail-close>{{ __('Cancel') }}</button>
+                    <button type="submit" class="pl-fail-submit">
+                        <i class="bi bi-x-octagon"></i> {{ __('Mark failed') }}
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1111,6 +1402,17 @@
 @push('scripts')
 <script>
     let PL_CSRF = '{{ csrf_token() }}';
+    const PL_SKIP_I18N = {
+        notDone: @json(__('Not done')),
+        mark: @json(__('Mark as not done')),
+        undo: @json(__('Undo skip')),
+        markStep: @json(__('Mark step as not done')),
+    };
+    const PL_FAIL_I18N = {
+        failed: @json(__('Failed')),
+        mark: @json(__('Mark as failed')),
+        undo: @json(__('Undo fail')),
+    };
     const plRawFetch = window.fetch.bind(window);
 
     /* One POST wrapper for the whole page: sends the live CSRF token and, when
@@ -1232,7 +1534,16 @@
         } catch (e) {
             if (e.message !== 'GONE') {
                 cb.checked = !cb.checked;
-                console.error('[Planner] routine toggle failed', e);
+                /* Tracked routines refuse a bare tick with no logged numbers:
+                   surface the reason instead of failing silently. */
+                if (e.status === 422 && e.response) {
+                    e.response.json().then(
+                        j => plShowToast(j.message || 'Log the numbers first.'),
+                        () => plShowToast('Log the numbers first.')
+                    );
+                } else {
+                    console.error('[Planner] routine toggle failed', e);
+                }
             }
         } finally {
             cb.disabled = false;
@@ -1245,7 +1556,12 @@
             headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
         }).then(res => {
             if (res.status === 404) { plHandleGone(); throw new Error('GONE'); }
-            if (!res.ok) throw new Error('HTTP ' + res.status);
+            if (!res.ok) {
+                const err = new Error('HTTP ' + res.status);
+                err.status = res.status;
+                err.response = res;
+                throw err;
+            }
             return res.json();
         });
     }
@@ -1256,17 +1572,297 @@
             row.dataset.completed = completed ? '1' : '0';
             const box = row.querySelector('input[type="checkbox"]');
             if (box) box.checked = completed;
+            /* Ticking off a previously skipped day converts it server-side,
+               so clear the skip visuals here as well. */
+            if (completed) applyRoutineSkip(id, date, false);
+            row.dataset.status = completed ? 'done'
+                : (row.classList.contains('is-skipped') ? 'skipped' : 'open');
         });
+        if (typeof refreshRoutineModalFoot === 'function') refreshRoutineModalFoot();
+    }
+
+    /* ── ✗ mark / unmark a routine as "did not do it" ── */
+    async function skipRoutine(btn) {
+        const url = btn.dataset.skipUrl;
+        const id = btn.dataset.id;
+        const date = btn.dataset.date;
+        btn.disabled = true;
+        try {
+            const json = await plFetch(url + (url.includes('?') ? '&' : '?') + 'date=' + encodeURIComponent(date), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
+            }).then(res => {
+                if (res.status === 404) { plHandleGone(); throw new Error('GONE'); }
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            });
+            applyRoutineSkip(id, date, !!json.skipped);
+            if (json.skipped) {
+                hideRoutineToast();
+                refreshRoutineCounters();
+            } else {
+                refreshRoutineCounters();
+            }
+            setStreak(id, json.streak ?? 0, !json.skipped);
+        } catch (e) {
+            if (e.message !== 'GONE') console.error('[Planner] routine skip failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function applyRoutineSkip(id, date, skipped) {
+        document.querySelectorAll('[data-routine-item][data-id="' + id + '"][data-date="' + date + '"]').forEach(row => {
+            row.classList.toggle('is-skipped', skipped);
+            if (skipped) {
+                row.classList.remove('is-done');
+                row.dataset.completed = '0';
+                const box = row.querySelector('input[type="checkbox"]');
+                if (box) box.checked = false;
+            }
+            row.dataset.status = skipped ? 'skipped'
+                : (row.classList.contains('is-done') ? 'done' : 'open');
+
+            const sb = row.querySelector('.pl-routine-skip');
+            if (sb) {
+                sb.classList.toggle('active', skipped);
+                sb.title = skipped ? PL_SKIP_I18N.undo : PL_SKIP_I18N.mark;
+                sb.setAttribute('aria-pressed', skipped ? 'true' : 'false');
+            }
+
+            const meta = row.querySelector('.pl-task-meta');
+            const tag = row.querySelector('.pl-skip-tag');
+            if (skipped && !tag && meta) {
+                const el = document.createElement('span');
+                el.className = 'pl-skip-tag';
+                el.innerHTML = '<i class="bi bi-x-circle-fill"></i> ' + PL_SKIP_I18N.notDone;
+                meta.prepend(el);
+            } else if (!skipped && tag) {
+                tag.remove();
+            }
+        });
+        if (typeof refreshRoutineModalFoot === 'function') refreshRoutineModalFoot();
     }
 
     /* Reflect whole-routine toggles on the step chips too */
     function syncStepButtons(id, date, completed) {
         document.querySelectorAll('[data-step-item][data-routine="' + id + '"][data-date="' + date + '"]').forEach(btn => {
+            /* Unchecking never touches explicitly skipped steps (server-side
+               they are left alone too). */
+            if (!completed && btn.closest('[data-step-wrap]')?.classList.contains('is-skipped')) return;
             btn.classList.toggle('done', completed);
             const i = btn.querySelector('i');
             if (i) i.className = 'bi ' + (completed ? 'bi-check-circle-fill' : 'bi-circle');
         });
+        /* A whole-routine check converts step skips to done server-side. */
+        if (completed) {
+            document.querySelectorAll('[data-step-wrap][data-routine="' + id + '"][data-date="' + date + '"]').forEach(w => {
+                w.classList.remove('is-skipped');
+                w.querySelectorAll('.pl-step').forEach(b => b.classList.remove('is-skipped'));
+                const sb = w.querySelector('[data-step-skip]');
+                if (sb) {
+                    sb.classList.remove('active');
+                    sb.title = PL_SKIP_I18N.markStep;
+                    sb.setAttribute('aria-pressed', 'false');
+                }
+            });
+        }
         refreshStepCounts();
+    }
+
+    /* ── ✗ mark / unmark a single routine step as "did not do it" ── */
+    async function skipStep(btn) {
+        btn.disabled = true;
+        try {
+            await skipStepRequest(btn);
+        } catch (e) {
+            if (e.message !== 'GONE') console.error('[Planner] step skip failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function applyStepSkip(itemId, routineId, date, skipped) {
+        const sel = '[data-step-wrap][data-id="' + itemId + '"]'
+            + (routineId ? '[data-routine="' + routineId + '"]' : '')
+            + '[data-date="' + date + '"]';
+        document.querySelectorAll(sel).forEach(w => {
+            w.classList.toggle('is-skipped', skipped);
+            const main = w.querySelector('[data-step-item]');
+            if (main) {
+                main.classList.toggle('is-skipped', skipped);
+                if (skipped) {
+                    main.classList.remove('done');
+                    const i = main.querySelector('i');
+                    if (i) i.className = 'bi bi-x-circle';
+                } else {
+                    const i = main.querySelector('i');
+                    if (i && !main.classList.contains('done')) i.className = 'bi bi-circle';
+                }
+            }
+            const sb = w.querySelector('[data-step-skip]');
+            if (sb) {
+                sb.classList.toggle('active', skipped);
+                sb.title = skipped ? PL_SKIP_I18N.undo : PL_SKIP_I18N.markStep;
+                sb.setAttribute('aria-pressed', skipped ? 'true' : 'false');
+            }
+        });
+        /* A skipped-then-ticked step clears its skip server-side. */
+        if (!skipped && routineId) {
+            document.querySelectorAll('[data-step-item][data-id="' + itemId + '"][data-routine="' + routineId + '"][data-date="' + date + '"]').forEach(b => {
+                b.classList.remove('is-skipped');
+            });
+        }
+    }
+
+    /* ── Task fail flow: note + optional reschedule, red failed state ── */
+    const plFailModal = document.getElementById('plFailModal');
+    let plFailTask = null;
+
+    document.addEventListener('click', function (e) {
+        const failBtn = e.target.closest('[data-fail-task]');
+        if (failBtn) {
+            e.stopPropagation();
+            const id = failBtn.dataset.id;
+            if (failBtn.classList.contains('active')) {
+                unfailTask(id, failBtn);
+            } else {
+                openFailModal(id, failBtn);
+            }
+            return;
+        }
+        if (e.target.closest('[data-fail-close]')) {
+            if (plFailModal) plFailModal.hidden = true;
+        }
+    });
+
+    function openFailModal(id, btn) {
+        if (!plFailModal) return;
+        const row = btn.closest('[data-task-item]');
+        const title = row ? (row.querySelector('.pl-task-title')?.textContent || '').trim() : '';
+        plFailTask = {
+            id,
+            failUrl: btn.dataset.failUrl,
+            row,
+        };
+        plFailModal.querySelector('[data-fail-taskname]').textContent = title;
+        plFailModal.querySelector('[data-fail-form]').reset();
+        plFailModal.querySelectorAll('[data-fail-chips] button').forEach(b => b.classList.remove('picked', 'active'));
+        const noRes = plFailModal.querySelector('[data-fail-day=""]');
+        if (noRes) noRes.classList.add('picked');
+        plFailModal.hidden = false;
+        setTimeout(() => plFailModal.querySelector('#plFailNote')?.focus(), 60);
+    }
+
+    document.addEventListener('click', function (e) {
+        const chip = e.target.closest('[data-fail-day]');
+        if (!chip || !plFailModal || chip.closest('#plFailModal') === null) return;
+        e.preventDefault();
+        plFailModal.querySelectorAll('[data-fail-chips] button').forEach(b => b.classList.remove('picked', 'active'));
+        chip.classList.add('picked');
+        const dateInput = plFailModal.querySelector('[data-fail-date]');
+        const off = chip.dataset.failDay;
+        if (!off) {
+            if (dateInput) dateInput.value = '';
+            return;
+        }
+        const d = new Date();
+        d.setDate(d.getDate() + parseInt(off, 10));
+        if (dateInput) dateInput.value = d.toISOString().slice(0, 10);
+    });
+
+    async function submitFailModal(form) {
+        if (!plFailTask) return false;
+        const btn = form.querySelector('[type="submit"]');
+        const note = form.querySelector('#plFailNote')?.value || '';
+        const reschedule = form.querySelector('[data-fail-date]')?.value || '';
+        btn.disabled = true;
+        try {
+            const json = await plFetch(plFailTask.failUrl, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ note, reschedule_date: reschedule || null }),
+            }).then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            });
+            plFailModal.hidden = true;
+            if (json.rescheduled) {
+                /* The task moved to another day — reload so groups stay truthful. */
+                location.reload();
+                return false;
+            }
+            applyTaskFail(plFailTask.id, true, json.fail_note || note || '');
+            refreshNextUp();
+        } catch (e) {
+            console.error('[Planner] task fail failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+        return false;
+    }
+
+    async function unfailTask(id, btn) {
+        const url = btn.dataset.unfailUrl;
+        btn.disabled = true;
+        try {
+            await plFetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
+            }).then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            });
+            applyTaskFail(id, false, '');
+            refreshNextUp();
+        } catch (e) {
+            console.error('[Planner] task unfail failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function applyTaskFail(id, failed, note) {
+        document.querySelectorAll('[data-task-item][data-id="' + id + '"]').forEach(row => {
+            row.classList.toggle('is-failed', failed);
+            row.dataset.failed = failed ? '1' : '0';
+            const fb = row.querySelector('[data-fail-task]');
+            if (fb) {
+                fb.classList.toggle('active', failed);
+                fb.title = failed ? PL_FAIL_I18N.undo : PL_FAIL_I18N.mark;
+                fb.setAttribute('aria-label', failed ? PL_FAIL_I18N.undo : PL_FAIL_I18N.mark);
+                const ic = fb.querySelector('i');
+                if (ic) ic.className = 'bi ' + (failed ? 'bi-arrow-counterclockwise' : 'bi-x-octagon');
+            }
+            let tag = row.querySelector('.pl-fail-tag');
+            const meta = row.querySelector('.pl-task-meta');
+            if (failed && !tag && meta) {
+                tag = document.createElement('span');
+                tag.className = 'pl-fail-tag';
+                tag.innerHTML = '<i class="bi bi-x-circle-fill"></i> ' + PL_FAIL_I18N.failed;
+                meta.prepend(tag);
+            } else if (!failed && tag) {
+                tag.remove();
+            }
+            let noteEl = row.querySelector('.pl-fail-note');
+            if (failed && note) {
+                if (!noteEl && row.querySelector('.pl-task-body')) {
+                    noteEl = document.createElement('div');
+                    noteEl.className = 'pl-fail-note';
+                    row.querySelector('.pl-task-body').appendChild(noteEl);
+                }
+                if (noteEl) {
+                    noteEl.title = note;
+                    noteEl.innerHTML = '';
+                    const ic = document.createElement('i');
+                    ic.className = 'bi bi-chat-left-text';
+                    noteEl.appendChild(ic);
+                    noteEl.appendChild(document.createTextNode(' ' + (note.length > 120 ? note.slice(0, 120) + '…' : note)));
+                }
+            } else if (!failed && noteEl) {
+                noteEl.remove();
+            }
+        });
     }
 
     function refreshStepCounts() {
@@ -1279,8 +1875,83 @@
                 badge.textContent = done + '/' + steps.length;
                 badge.classList.toggle('all', done === steps.length);
             }
+            /* Partial-fail badge: how many steps are marked "not done". */
+            const skipped = row.querySelectorAll('[data-step-wrap].is-skipped').length;
+            let skipBadge = row.querySelector('[data-skip-count]');
+            if (skipped > 0) {
+                if (!skipBadge && badge) {
+                    skipBadge = document.createElement('span');
+                    skipBadge.className = 'steps-skipped';
+                    skipBadge.setAttribute('data-skip-count', '');
+                    badge.after(skipBadge);
+                }
+                if (skipBadge) skipBadge.textContent = '✗' + skipped;
+            } else if (skipBadge) {
+                skipBadge.remove();
+            }
+            /* "Skip remaining" helper shows only on partial skips. */
+            const open = [...steps].filter(s =>
+                !s.classList.contains('done')
+                && !s.closest('[data-step-wrap]')?.classList.contains('is-skipped')).length;
+            const restBtn = row.querySelector('[data-skip-rest]');
+            if (restBtn) {
+                const show = open > 0 && skipped > 0;
+                restBtn.style.display = show ? '' : 'none';
+                const n = restBtn.querySelector('[data-skip-rest-n]');
+                if (n) n.textContent = open;
+            }
         });
     }
+
+    /* Skip every still-open step of a routine, one call per step. */
+    async function skipRemainingSteps(btn) {
+        const routineId = btn.dataset.routine;
+        const date = btn.dataset.date;
+        const row = btn.closest('[data-routine-item]');
+        btn.disabled = true;
+        try {
+            const targets = [...(row ? row.querySelectorAll('[data-step-wrap]') : [])]
+                .filter(w => !w.classList.contains('is-skipped'))
+                .map(w => w.querySelector('[data-step-skip]'))
+                .filter(sb => sb && !sb.disabled);
+            for (const sb of targets) {
+                /* Re-check: an earlier call may have closed the set. */
+                if (sb.closest('[data-step-wrap]')?.classList.contains('is-skipped')) continue;
+                sb.disabled = true;
+                try { await skipStepRequest(sb); } finally { sb.disabled = false; }
+            }
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function skipStepRequest(sb) {
+        const url = sb.dataset.skipUrl;
+        const date = sb.dataset.date;
+        return plFetch(url + (url.includes('?') ? '&' : '?') + 'date=' + encodeURIComponent(date), {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
+        }).then(res => {
+            if (res.status === 404) { plHandleGone(); throw new Error('GONE'); }
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        }).then(json => {
+            const wrap = sb.closest('[data-step-wrap]');
+            applyStepSkip(sb.dataset.id, wrap ? wrap.dataset.routine : null, date, !!json.skipped);
+            if (json.routine_id && json.date) applyRoutineSkip(json.routine_id, json.date, !!json.routine_skipped);
+            refreshStepCounts();
+            refreshRoutineCounters();
+            refreshNextUp();
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        const rest = e.target.closest('[data-skip-rest]');
+        if (rest) {
+            e.stopPropagation();
+            skipRemainingSteps(rest);
+        }
+    });
 
     async function toggleCheckItem(btn) {
         /* Tracked sets-mode steps need a logged number first — ticking alone is not allowed */
@@ -1317,6 +1988,8 @@
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const json = await res.json();
 
+            /* Ticking a skipped step converts it to done server-side. */
+            if (json.completed) applyStepSkip(btn.dataset.id, btn.dataset.routine, btn.dataset.date, false);
             btn.classList.toggle('done', !!json.completed);
             const i = btn.querySelector('i');
             if (i) i.className = 'bi ' + (json.completed ? 'bi-check-circle-fill' : 'bi-circle');
@@ -1328,6 +2001,10 @@
                 if (json.routine_completed && json.streak != null) setStreak(json.routine_id, json.streak);
                 refreshRoutineCounters();
                 if (json.routine_completed) maybeCelebrate();
+            }
+            /* completing a step reopens a skipped day server-side — mirror it */
+            if (json.routine_skipped !== undefined) {
+                applyRoutineSkip(json.routine_id, btn.dataset.date, !!json.routine_skipped);
             }
         } catch (e) {
             if (e.message !== 'GONE') console.error('[Planner] step toggle failed', e);
@@ -1626,10 +2303,47 @@
         plModal.querySelector('[data-modal-sub]').textContent = row.dataset.modalSub || '';
         plModal.hidden = false;
         document.body.classList.add('pl-modal-open');
-        plModalState = { details, placeholder };
+        plModalState = { details, placeholder, id: row.dataset.id, date: row.dataset.date };
+        refreshRoutineModalFoot();
 
         const firstInput = plModalBody.querySelector('input');
         if (firstInput) setTimeout(() => firstInput.focus(), 60);
+    }
+
+    /* Modal footer: quick Done / Not-done driving the underlying row. */
+    function refreshRoutineModalFoot() {
+        const foot = plModal ? plModal.querySelector('[data-modal-foot]') : null;
+        if (!foot || !plModalState) return;
+        const row = document.querySelector('[data-routine-item][data-id="' + plModalState.id + '"][data-date="' + plModalState.date + '"]');
+        foot.hidden = false;
+        const status = foot.querySelector('[data-modal-status]');
+        const doneBtn = foot.querySelector('[data-modal-done]');
+        const skipBtn = foot.querySelector('[data-modal-skip]');
+        const st = row ? (row.dataset.status || (row.dataset.completed === '1' ? 'done' : 'open')) : 'open';
+        if (status) {
+            status.className = 'pl-modal-status' + (st === 'done' ? ' is-done' : st === 'skipped' ? ' is-skipped' : '');
+            status.textContent = st === 'done' ? '✓ ' + (row?.querySelector('.flame')?.textContent || '') : st === 'skipped' ? '✗ ' + PL_SKIP_I18N.notDone : '';
+        }
+        if (skipBtn) skipBtn.classList.toggle('active', st === 'skipped');
+    }
+
+    if (plModal) {
+        const doneBtn = plModal.querySelector('[data-modal-done]');
+        if (doneBtn) doneBtn.addEventListener('click', function () {
+            if (!plModalState) return;
+            const row = document.querySelector('[data-routine-item][data-id="' + plModalState.id + '"][data-date="' + plModalState.date + '"]');
+            const box = row ? row.querySelector('input[type="checkbox"]') : null;
+            if (box && !box.disabled) box.click();
+            setTimeout(refreshRoutineModalFoot, 350);
+        });
+        const skipBtn = plModal.querySelector('[data-modal-skip]');
+        if (skipBtn) skipBtn.addEventListener('click', function () {
+            if (!plModalState) return;
+            const row = document.querySelector('[data-routine-item][data-id="' + plModalState.id + '"][data-date="' + plModalState.date + '"]');
+            const sb = row ? row.querySelector('.pl-routine-skip') : null;
+            if (sb && !sb.disabled) sb.click();
+            setTimeout(refreshRoutineModalFoot, 350);
+        });
     }
 
     function closeRoutineModal() {

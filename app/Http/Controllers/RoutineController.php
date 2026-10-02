@@ -711,7 +711,7 @@ class RoutineController extends Controller
         // applies to avoid routines — it enables per-slip quantity input.
         $data['behavior_type'] = $data['behavior_type'] ?? Routine::BEHAVIOR_BUILD;
         $data['count_violations'] = $data['behavior_type'] === Routine::BEHAVIOR_AVOID
-            && ! empty($data['count_violations']);
+            && $request->boolean('count_violations');
 
         // Avoid routines never use metric tracking — slips are the metric.
         if ($data['behavior_type'] === Routine::BEHAVIOR_AVOID) {

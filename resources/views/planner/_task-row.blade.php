@@ -1,7 +1,8 @@
 @php
     $isDone = $task->status === 'completed';
+    $isFailed = ! $isDone && ! empty($task->failed_at);
     $priorityColors = ['high' => '#dc2626', 'medium' => '#d97706', 'low' => '#16a34a'];
-    $pc = $priorityColors[$task->priority] ?? '#94a3b8';
+    $pc = $isFailed ? '#dc2626' : ($priorityColors[$task->priority] ?? '#94a3b8');
     $due = $task->due_date ? \Carbon\Carbon::parse($task->due_date) : null;
     $isOverdue = $due && ! $isDone && $due->lt(today());
     $periodLabel = method_exists($task, 'periodLabel') ? $task->periodLabel() : null;
@@ -11,11 +12,12 @@
     $postponeMode = $postpone ?? 'tomorrow';
     $canDrag = !empty($draggable) && ! $isDone;
 @endphp
-<div class="pl-task {{ $isDone ? 'is-done' : '' }}"
+<div class="pl-task {{ $isDone ? 'is-done' : '' }} {{ $isFailed ? 'is-failed' : '' }}"
      data-task-item
      data-id="{{ $task->id }}"
      data-period="{{ $task->time_period ?: 'anytime' }}"
      data-completed="{{ $isDone ? 1 : 0 }}"
+     data-failed="{{ $isFailed ? 1 : 0 }}"
      data-count="{{ !empty($count) ? 1 : 0 }}"
      @if($canDrag) draggable="true" @endif
      style="border-left:3px solid {{ $pc }};">
@@ -32,7 +34,11 @@
     <div class="pl-task-body" ondblclick="window.location='{{ route('tasks.show', $task->id) }}'">
         <div class="pl-task-title">{{ $task->title }}</div>
         <div class="pl-task-meta">
-            <span class="pl-priority" style="color:{{ $pc }};background:{{ $pc }}1a;">{{ __(ucfirst($task->priority)) }}</span>
+            @if($isFailed)
+                <span class="pl-fail-tag" @if(!empty($task->fail_note)) title="{{ $task->fail_note }}" @endif>
+                    <i class="bi bi-x-circle-fill"></i> {{ __('Failed') }}
+                </span>
+            @endif            <span class="pl-priority" style="color:{{ $pc }};background:{{ $pc }}1a;">{{ __(ucfirst($task->priority)) }}</span>
             @if($task->project)
                 <span class="pl-proj"><i class="bi bi-folder"></i> {{ $task->project->name }}</span>
             @endif
@@ -71,6 +77,11 @@
                 </span>
             @endif
         </div>
+        @if($isFailed && !empty($task->fail_note))
+            <div class="pl-fail-note" title="{{ $task->fail_note }}">
+                <i class="bi bi-chat-left-text"></i> {{ \Illuminate\Support\Str::limit($task->fail_note, 120) }}
+            </div>
+        @endif
     </div>
 
     {{-- Quick Actions Bar --}}
@@ -112,6 +123,18 @@
                     title="{{ __('Remove from My Day') }}"
                     aria-label="{{ __('Remove from My Day') }}">
                 <i class="bi bi-x-lg"></i>
+            </button>
+
+            {{-- Fail (explicit "won't do it" with note + optional reschedule) --}}
+            <button type="button"
+                    class="pl-task-act pl-task-act-fail {{ $isFailed ? 'active' : '' }}"
+                    data-fail-task
+                    data-id="{{ $task->id }}"
+                    data-fail-url="{{ route('planner.tasks.fail', $task) }}"
+                    data-unfail-url="{{ route('planner.tasks.unfail', $task) }}"
+                    title="{{ $isFailed ? __('Undo fail') : __('Mark as failed') }}"
+                    aria-label="{{ $isFailed ? __('Undo fail') : __('Mark as failed') }}">
+                <i class="bi {{ $isFailed ? 'bi-arrow-counterclockwise' : 'bi-x-octagon' }}"></i>
             </button>
         @endif
         <a href="{{ route('tasks.show', $task->id) }}" class="pl-task-open" title="{{ __('Open task details') }}">

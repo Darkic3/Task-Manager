@@ -11,11 +11,16 @@ class RoutineCheckitemCompletion extends Model
 {
     use HasFactory;
 
+    public const STATUS_DONE = 'done';
+    public const STATUS_SKIPPED = 'skipped';
+
     protected $fillable = [
         'checklist_item_id',
         'user_id',
         'completed_date',
         'completed_at',
+        'status',
+        'skip_reason',
     ];
 
     protected $casts = [

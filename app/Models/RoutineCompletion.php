@@ -21,6 +21,13 @@ class RoutineCompletion extends Model
         'off_plan' => 'Off plan',
     ];
 
+    /**
+     * Internal marker (stored in skip_reason) for routine skips created
+     * automatically because every step was skipped — never shown as a
+     * reason, and only auto rows are auto-removed when a step reopens.
+     */
+    public const AUTO_ALL_STEPS = 'auto_all_steps';
+
     protected $fillable = [
         'user_id',
         'routine_id',
