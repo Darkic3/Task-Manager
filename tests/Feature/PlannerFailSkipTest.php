@@ -503,4 +503,102 @@ class PlannerFailSkipTest extends TestCase
         $this->actingAs($user)->postJson(route('planner.check-items.toggle', $steps[0]))
             ->assertOk()->assertJsonPath('routine_skipped', false);
     }
+
+    /* ── Failed / settled day rendering ── */
+
+    public function test_toggle_refused_on_skipped_day(): void
+    {
+        $user = User::factory()->create();
+        [$routine] = $this->threeStepRoutine($user);
+
+        $this->actingAs($user)->postJson(route('planner.routines.skip', $routine))->assertOk();
+        $this->actingAs($user)
+            ->postJson(route('planner.routines.toggle', $routine), ['date' => now()->toDateString()])
+            ->assertStatus(422);
+
+        $this->assertFalse($routine->fresh()->completedOn(now()));
+    }
+
+    public function test_toggle_refused_when_all_steps_resolved(): void
+    {
+        $user = User::factory()->create();
+        [$routine, $steps] = $this->threeStepRoutine($user);
+
+        $this->actingAs($user)->postJson(route('planner.check-items.toggle', $steps[0]))->assertOk();
+        $this->actingAs($user)->postJson(route('planner.check-items.skip', $steps[1]))->assertOk();
+        $this->actingAs($user)->postJson(route('planner.check-items.skip', $steps[2]))->assertOk();
+
+        $this->actingAs($user)
+            ->postJson(route('planner.routines.toggle', $routine), ['date' => now()->toDateString()])
+            ->assertStatus(422);
+    }
+
+    public function test_undo_auto_routine_skip_reopens_its_steps(): void
+    {
+        $user = User::factory()->create();
+        [$routine, $steps] = $this->threeStepRoutine($user);
+
+        foreach ($steps as $step) {
+            $this->actingAs($user)->postJson(route('planner.check-items.skip', $step))->assertOk();
+        }
+
+        $this->actingAs($user)->postJson(route('planner.routines.skip', $routine))
+            ->assertOk()->assertJson(['ok' => true, 'skipped' => false, 'steps_reopened' => true]);
+
+        foreach ($steps as $step) {
+            $this->assertFalse($step->fresh()->skippedOn(now()));
+        }
+        $this->assertNull(
+            $routine->fresh()->completions()->where('completed_date', now()->toDateString())->first()
+        );
+    }
+
+    public function test_partial_settled_renders_locked_completed_look(): void
+    {
+        $user = User::factory()->create();
+        [$routine, $steps] = $this->threeStepRoutine($user);
+
+        $this->actingAs($user)->postJson(route('planner.check-items.toggle', $steps[0]))->assertOk();
+        $this->actingAs($user)->postJson(route('planner.check-items.skip', $steps[1]))->assertOk();
+        $this->actingAs($user)->postJson(route('planner.check-items.skip', $steps[2]))->assertOk();
+
+        $html = $this->dayHtml($user);
+
+        $this->assertStringContainsString('is-settled', $html);
+        $this->assertStringContainsString('data-status="settled"', $html);
+        $this->assertStringContainsString('disabled', $html);
+    }
+
+    public function test_failed_day_renders_locked_red_ring(): void
+    {
+        $user = User::factory()->create();
+        [$routine] = $this->threeStepRoutine($user);
+
+        $this->actingAs($user)->postJson(route('planner.routines.skip', $routine))->assertOk();
+
+        $html = $this->dayHtml($user);
+
+        $this->assertStringContainsString('is-skipped', $html);
+        $this->assertStringContainsString('data-status="skipped"', $html);
+        $this->assertStringContainsString('disabled', $html);
+        $this->assertStringContainsString('bi-x-lg', $html);
+    }
+
+    public function test_next_up_skips_partially_settled_routine(): void
+    {
+        $user = User::factory()->create();
+        [$settled, $steps] = $this->threeStepRoutine($user);
+        $settled->update(['title' => 'Settled trio']);
+        $open = Routine::factory()->create([
+            'user_id' => $user->id, 'frequency' => 'daily', 'title' => 'Open solo',
+        ]);
+
+        $this->actingAs($user)->postJson(route('planner.check-items.toggle', $steps[0]))->assertOk();
+        $this->actingAs($user)->postJson(route('planner.check-items.skip', $steps[1]))->assertOk();
+        $this->actingAs($user)->postJson(route('planner.check-items.skip', $steps[2]))->assertOk();
+
+        $html = $this->nextUpHtml($user);
+        $this->assertStringContainsString('Open solo', $html);
+        $this->assertStringNotContainsString('Settled trio', $html);
+    }
 }

@@ -472,12 +472,18 @@ class PlannerController extends Controller
 
         $date = $this->parseDate($request->input('date'));
 
-        // Tracked (input-based, not checkbox) routines can only complete
-        // through logged numbers — a bare tick with no logged value must
-        // never mark them done. Otherwise the day stays open (pending).
-        // The only other way out is the explicit ✗ "did not do it".
-        if ($routine->isTracked() && ! $routine->completedOn($date)) {
-            $this->abortUnlessTrackedInputsLogged($routine, $date);
+        // A failed day reopens through ✗ first — a bare tick can never
+        // silently convert it back to done.
+        if (! $routine->completedOn($date)) {
+            $this->abortIfDayClosed($routine, $date);
+
+            // Tracked (input-based, not checkbox) routines can only complete
+            // through logged numbers — a bare tick with no logged value must
+            // never mark them done. Otherwise the day stays open (pending).
+            // The only other way out is the explicit ✗ "did not do it".
+            if ($routine->isTracked()) {
+                $this->abortUnlessTrackedInputsLogged($routine, $date);
+            }
         }
 
         $completed = $routine->toggleOn($date);
@@ -509,6 +515,29 @@ class PlannerController extends Controller
             'streak' => $routine->fresh()->streakStats($date)['current'],
             'items' => $items->map(fn ($it) => ['id' => $it->id, 'completed' => $completed])->values(),
         ]);
+    }
+
+    /**
+     * Refuse a whole-routine tick when the day is already closed: either an
+     * explicit skip row exists, or — for step routines — every step is
+     * already resolved (done or skipped) so there is nothing to bulk-toggle.
+     * Reopening happens step by step (unskip / log), never by re-ticking.
+     */
+    private function abortIfDayClosed(Routine $routine, Carbon $date): void
+    {
+        $key = $date->toDateString();
+
+        $skipped = $routine->completions()
+            ->where('user_id', $routine->user_id)
+            ->where('completed_date', $key)
+            ->where('status', RoutineCompletion::STATUS_SKIPPED)
+            ->exists();
+        abort_if($skipped, 422, 'Reopen the day first (undo the skip).');
+
+        $items = $routine->checklistItems()->get();
+        if ($items->isNotEmpty() && $items->every(fn ($it) => $it->completedOn($date) || $it->skippedOn($date))) {
+            abort(422, 'All steps are already resolved.');
+        }
     }
 
     /**
@@ -555,6 +584,8 @@ class PlannerController extends Controller
      * Mark a routine as "did not do it" for a date (or undo it). Lets a
      * missed day be recorded instead of silently staying open; skipped days
      * count as missed in streaks/rings but carry no completion timestamp.
+     * Undoing an AUTO-closed day (all steps were skipped) also reopens the
+     * step skips — otherwise the day would look untouched yet stay failed.
      */
     public function skipRoutine(Request $request, Routine $routine)
     {
@@ -568,12 +599,34 @@ class PlannerController extends Controller
         ]);
 
         $date = $this->parseDate($data['date'] ?? null);
+        $key = $date->toDateString();
+
+        $priorAuto = $routine->completions()
+            ->where('user_id', $routine->user_id)
+            ->where('completed_date', $key)
+            ->where('status', RoutineCompletion::STATUS_SKIPPED)
+            ->where('skip_reason', RoutineCompletion::AUTO_ALL_STEPS)
+            ->exists();
+
         $skipped = $routine->skipOn($date, $data['reason'] ?? null);
+
+        $stepsReopened = false;
+        if (! $skipped && $priorAuto) {
+            $itemIds = $routine->checklistItems()->pluck('id');
+            if ($itemIds->isNotEmpty()) {
+                $stepsReopened = (bool) RoutineCheckitemCompletion::whereIn('checklist_item_id', $itemIds)
+                    ->where('completed_date', $key)
+                    ->where('status', RoutineCheckitemCompletion::STATUS_SKIPPED)
+                    ->delete();
+            }
+        }
 
         return response()->json([
             'ok' => true,
             'skipped' => $skipped,
-            'date' => $date->toDateString(),
+            'date' => $key,
+            'routine_skipped' => $skipped,
+            'steps_reopened' => $stepsReopened,
             'streak' => $routine->fresh()->streakStats($date)['current'],
         ]);
     }
@@ -961,8 +1014,28 @@ class PlannerController extends Controller
 
         // Skip done and explicitly marked "did not do it" — a skipped routine
         // is closed for the day and must not resurface as the next suggestion.
-        $routine = $todayRoutines->first(fn ($r) => ! $r->completedOn($date)
-            && ! ($r->completionRecord($date)?->status === RoutineCompletion::STATUS_SKIPPED));
+        // Fully resolved step routines (every step done, skipped or slipped)
+        // are settled too: there is nothing left to guide to.
+        $routine = $todayRoutines->first(function ($r) use ($date) {
+            if ($r->completedOn($date)) {
+                return false;
+            }
+            if (($r->completionRecord($date)?->status ?? null) === RoutineCompletion::STATUS_SKIPPED) {
+                return false;
+            }
+            $steps = collect($r->ringSteps ?? []);
+            if ($steps->isNotEmpty()) {
+                $isAvoid = $r->isAvoid();
+                $open = $steps->first(fn ($s) => $isAvoid
+                    ? empty($s['violated'])
+                    : (empty($s['completed']) && empty($s['skipped'])));
+                if (! $open) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
         if ($routine) {
             $steps = collect($routine->ringSteps ?? []);
             $isAvoid = $routine->isAvoid();

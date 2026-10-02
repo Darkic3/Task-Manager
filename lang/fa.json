@@ -1465,5 +1465,9 @@
     "Mark step as not done": "ثبت استپ به‌عنوان انجام‌نشده",
     "Step skipped": "استپ انجام نشد",
     "Skip remaining": "رد کردن بقیه",
-    "Skip the remaining open steps": "رد کردن بقیه استپ‌های باز"
+    "Skip the remaining open steps": "رد کردن بقیه استپ‌های باز",
+    "Settled": "بسته شد",
+    "Settled for today": "امروز بسته شد",
+    "Failed for today — reopen a step to continue": "امروز fail شد — یک استپ را باز کن تا ادامه بدهی",
+    "Every step is resolved": "همه استپ‌ها تعیین‌تکلیف شدند"
 }

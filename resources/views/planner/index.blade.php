@@ -118,6 +118,23 @@
     }
     .pl-task.is-skipped .pl-task-title{text-decoration:line-through;color:#94a3b8;}
     .pl-task.is-skipped .pl-task-meta{opacity:.8;}
+    /* Fully failed: the habit ring itself turns red with an ✗ core. */
+    .pl-task.is-skipped .habit-ring .ring-fg{stroke:#ef4444;}
+    .pl-task.is-skipped .habit-ring .ring-bg{stroke:#fee2e2;}
+    .pl-task.is-skipped .routine-check-box{border-color:#fca5a5;color:#dc2626;}
+    /* Partially settled (every step resolved, mix of done + failed):
+       closed look, locked checked box, green settled tag. */
+    .pl-task.is-settled{background:#fafbfc;}
+    .pl-task.is-settled .pl-task-title{color:#475569;}
+    .pl-settled-tag{
+        font-size:10.5px;font-weight:800;color:#15803d;background:#e9f9f0;
+        border:1px solid #bbf7d0;border-radius:20px;padding:1px 9px;margin-left:6px;
+        display:inline-flex;align-items:center;gap:4px;white-space:nowrap;vertical-align:1px;
+    }
+    /* Locked bulk checkbox: reopening happens step by step, never by re-tick. */
+    .pl-habit.is-locked{cursor:not-allowed;}
+    .pl-habit.is-locked input:disabled + .habit-ring,
+    .pl-habit.is-locked input:disabled + .routine-check-box{cursor:not-allowed;}
     /* Failed tasks: explicit "won't do it" — red failed state with note. */
     .pl-task.is-failed{background:#fff7f7;border-color:#f3c2c2;}
     .pl-task.is-failed:hover{border-color:#f0a8a8;box-shadow:0 3px 12px rgba(220,38,38,.08);}
@@ -1407,6 +1424,7 @@
         mark: @json(__('Mark as not done')),
         undo: @json(__('Undo skip')),
         markStep: @json(__('Mark step as not done')),
+        settled: @json(__('Settled')),
     };
     const PL_FAIL_I18N = {
         failed: @json(__('Failed')),
@@ -1597,6 +1615,12 @@
                 return res.json();
             });
             applyRoutineSkip(id, date, !!json.skipped);
+            /* Undoing an auto-closed day reopens its step skips too. */
+            if (json.steps_reopened) {
+                document.querySelectorAll('[data-step-wrap][data-routine="' + id + '"][data-date="' + date + '"].is-skipped')
+                    .forEach(w => applyStepSkip(w.dataset.id, id, date, false));
+            }
+            refreshStepCounts();
             if (json.skipped) {
                 hideRoutineToast();
                 refreshRoutineCounters();
@@ -1899,6 +1923,47 @@
                 restBtn.style.display = show ? '' : 'none';
                 const n = restBtn.querySelector('[data-skip-rest-n]');
                 if (n) n.textContent = open;
+            }
+            /* Resolved-state sync (no reload): lock the bulk checkbox when the
+               day is failed or fully settled; settled renders checked. */
+            const box = row.querySelector('.pl-habit input[type="checkbox"]');
+            if (!box) return;
+            const isDone = row.classList.contains('is-done');
+            let failed = row.classList.contains('is-skipped');
+            if (!isDone && !failed && steps.length > 0 && skipped === steps.length) {
+                failed = true;
+                row.classList.add('is-skipped');
+                row.dataset.status = 'skipped';
+            }
+            const settled = !isDone && !failed && steps.length > 0 && open === 0 && done > 0;
+            row.classList.toggle('is-settled', settled);
+            if (settled) {
+                row.dataset.status = 'settled';
+            } else if (!isDone && !failed && row.dataset.status === 'settled') {
+                row.dataset.status = 'open';
+            }
+            box.disabled = failed || settled;
+            if (!isDone) box.checked = settled;
+            box.closest('.pl-habit')?.classList.toggle('is-locked', failed || settled);
+            const core = row.querySelector('.routine-check-box i');
+            if (core) core.className = 'bi ' + (failed ? 'bi-x-lg' : 'bi-check-lg');
+            const sb = row.querySelector('.pl-routine-skip');
+            if (sb && failed !== sb.classList.contains('active')) {
+                sb.classList.toggle('active', failed);
+                sb.setAttribute('aria-pressed', failed ? 'true' : 'false');
+            }
+            let settledTag = row.querySelector('[data-settled-tag]');
+            if (settled && !settledTag) {
+                const title = row.querySelector('.pl-task-title');
+                if (title) {
+                    settledTag = document.createElement('span');
+                    settledTag.className = 'pl-settled-tag';
+                    settledTag.setAttribute('data-settled-tag', '');
+                    settledTag.textContent = '✓ ' + (PL_SKIP_I18N.settled || 'Settled');
+                    title.appendChild(settledTag);
+                }
+            } else if (!settled && settledTag) {
+                settledTag.remove();
             }
         });
     }
@@ -2325,6 +2390,12 @@
             status.textContent = st === 'done' ? '✓ ' + (row?.querySelector('.flame')?.textContent || '') : st === 'skipped' ? '✗ ' + PL_SKIP_I18N.notDone : '';
         }
         if (skipBtn) skipBtn.classList.toggle('active', st === 'skipped');
+        /* A locked day (failed / settled) has no bulk action: the footer
+           Done mirrors the row checkbox lock. */
+        if (doneBtn) {
+            const locked = !row || row.querySelector('.pl-habit input[type="checkbox"]')?.disabled;
+            doneBtn.disabled = !!locked;
+        }
     }
 
     if (plModal) {

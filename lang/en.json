@@ -213,5 +213,9 @@
     "Mark step as not done": "Mark step as not done",
     "Step skipped": "Step skipped",
     "Skip remaining": "Skip remaining",
-    "Skip the remaining open steps": "Skip the remaining open steps"
+    "Skip the remaining open steps": "Skip the remaining open steps",
+    "Settled": "Settled",
+    "Settled for today": "Settled for today",
+    "Failed for today — reopen a step to continue": "Failed for today — reopen a step to continue",
+    "Every step is resolved": "Every step is resolved"
 }

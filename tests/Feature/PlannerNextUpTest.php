@@ -212,10 +212,11 @@ class PlannerNextUpTest extends TestCase
         $html = $this->nextUpHtml($user);
         $this->assertStringContainsString('Night', $html);
 
-        // Finish night (routine auto-completes) → badge stays on the last step's time (Night).
-        $night->toggleOn(now());
+        // Finish night through the real endpoint → routine auto-completes and
+        // leaves Next Up (a fully resolved routine is settled, not suggested).
+        $this->actingAs($user)->postJson(route('planner.check-items.toggle', $night))->assertOk();
         $html = $this->nextUpHtml($user);
-        $this->assertStringContainsString('Night', $html);
+        $this->assertStringNotContainsString('pl-next-card', $html);
     }
 
     public function test_todays_routines_sort_by_active_step_schedule(): void

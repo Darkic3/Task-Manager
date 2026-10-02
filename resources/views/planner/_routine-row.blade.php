@@ -40,14 +40,27 @@
     if ($stepCount > 0) {
         $modalSub .= ' · ' . $stepCount . ' steps';
     }
+
+    /* Day-state derived from steps (build routines only): fully failed and
+       partially settled days lock the bulk checkbox — reopening happens
+       step by step (unskip / log), never by re-ticking. */
+    $stepsDoneN = $toggleable && ! $isAvoid && ! empty($routine->ringSteps)
+        ? collect($routine->ringSteps)->where('completed', true)->count() : 0;
+    $stepsSkippedN = $toggleable && ! $isAvoid && ! empty($routine->ringSteps)
+        ? collect($routine->ringSteps)->where('skipped', true)->count() : 0;
+    $stepsOpenN = max(0, $stepCount - $stepsDoneN - $stepsSkippedN);
+    $allStepsSkipped = $stepCount > 0 && $stepsSkippedN === $stepCount;
+    $failedDay = $isSkipped || $allStepsSkipped;
+    $settledPartial = ! $isDone && ! $failedDay && $stepCount > 0 && $stepsOpenN === 0 && $stepsDoneN > 0;
+    $checkLocked = $failedDay || $settledPartial;
 @endphp
-<div class="pl-task pl-routine {{ $isDone ? 'is-done' : '' }} {{ $isSkipped ? 'is-skipped' : '' }}"
+<div class="pl-task pl-routine {{ $isDone ? 'is-done' : '' }} {{ $failedDay ? 'is-skipped' : '' }} {{ $settledPartial ? 'is-settled' : '' }}"
      @if($toggleable)
      data-routine-item
      data-id="{{ $routine->id }}"
      data-date="{{ $routineDate->toDateString() }}"
      data-completed="{{ $isDone ? 1 : 0 }}"
-     data-status="{{ $isDone ? 'done' : ($isSkipped ? 'skipped' : 'open') }}"
+     data-status="{{ $isDone ? 'done' : ($failedDay ? 'skipped' : ($settledPartial ? 'settled' : 'open')) }}"
      data-count="{{ !empty($count) ? 1 : 0 }}"
      @if($useModal)
      data-modal="1"
@@ -65,9 +78,10 @@
                 <i class="bi {{ $avoidBad ? 'bi-shield-fill-exclamation' : 'bi-shield-fill-check' }}"></i>
             </span>
         @else
-        <label class="pl-habit" title="{{ $isDone ? 'Mark as not done' : 'Mark as done' }}{{ $ringRate !== null ? ' · ' . $ringRate . '% adherence (30d)' : '' }}">
+        <label class="pl-habit {{ $checkLocked ? 'is-locked' : '' }}" title="{{ $failedDay ? __('Failed for today — reopen a step to continue') : ($settledPartial ? __('Settled for today') : ($isDone ? 'Mark as not done' : 'Mark as done')) }}{{ $ringRate !== null ? ' · ' . $ringRate . '% adherence (30d)' : '' }}">
             <input type="checkbox"
-                   {{ $isDone ? 'checked' : '' }}
+                   {{ ($isDone || $settledPartial) ? 'checked' : '' }}
+                   {{ $checkLocked ? 'disabled' : '' }}
                    data-url="{{ route('planner.routines.toggle', $routine) }}"
                    data-id="{{ $routine->id }}"
                    data-date="{{ $routineDate->toDateString() }}"
@@ -79,10 +93,10 @@
                         <circle class="ring-fg"
                                 style="stroke-dasharray:{{ number_format($ringC, 1, '.', '') }};stroke-dashoffset:{{ number_format($ringOffset, 1, '.', '') }};"></circle>
                     </svg>
-                    <span class="routine-check-box"><i class="bi bi-check-lg"></i></span>
+                    <span class="routine-check-box"><i class="bi {{ $failedDay ? 'bi-x-lg' : 'bi-check-lg' }}"></i></span>
                 </span>
             @else
-                <span class="routine-check-box"><i class="bi bi-check-lg"></i></span>
+                <span class="routine-check-box"><i class="bi {{ $failedDay ? 'bi-x-lg' : 'bi-check-lg' }}"></i></span>
             @endif
         </label>
         @endif
@@ -137,23 +151,28 @@
             @if($toggleable && !$isAvoid)
                 {{-- ✗ records "did not do it": closes the day without a tick. --}}
                 <button type="button"
-                        class="pl-routine-skip {{ $isSkipped ? 'active' : '' }}"
+                        class="pl-routine-skip {{ $failedDay ? 'active' : '' }}"
                         data-skip-url="{{ route('planner.routines.skip', $routine) }}"
                         data-id="{{ $routine->id }}"
                         data-date="{{ $routineDate->toDateString() }}"
-                        title="{{ $isSkipped ? __('Undo skip') : __('Mark as not done') }}"
+                        title="{{ $failedDay ? __('Undo skip') : __('Mark as not done') }}"
                         aria-label="{{ __('Mark as not done') }}"
-                        aria-pressed="{{ $isSkipped ? 'true' : 'false' }}"
+                        aria-pressed="{{ $failedDay ? 'true' : 'false' }}"
                         onclick="skipRoutine(this)">
                     <i class="bi bi-x-lg"></i>
                 </button>
             @endif
+            @if($settledPartial)
+                <span class="pl-settled-tag" data-settled-tag title="{{ __('Every step is resolved') }}">
+                    <i class="bi bi-check-all"></i> {{ __('Settled') }}
+                </span>
+            @endif
         </div>
         <div class="pl-task-meta">
-            @if($isSkipped)
+            @if($failedDay)
                 <span class="pl-skip-tag">
                     <i class="bi bi-x-circle-fill"></i> {{ __('Not done') }}
-                    @if(!empty($record->skip_reason) && isset(\App\Models\RoutineCompletion::SKIP_REASONS[$record->skip_reason]))· {{ __(\App\Models\RoutineCompletion::SKIP_REASONS[$record->skip_reason]) }}@endif
+                    @if($isSkipped && !empty($record->skip_reason) && isset(\App\Models\RoutineCompletion::SKIP_REASONS[$record->skip_reason]))· {{ __(\App\Models\RoutineCompletion::SKIP_REASONS[$record->skip_reason]) }}@endif
                 </span>
             @endif
             @if($isAvoid)
