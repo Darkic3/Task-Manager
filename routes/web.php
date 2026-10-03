@@ -150,9 +150,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/planner/check-items/{item}/slip', [PlannerController::class, 'logStepViolation'])->name('planner.check-items.slip');
     Route::post('/planner/routines/{routine}/note', [PlannerController::class, 'logRoutineNote'])->name('planner.routines.note');
     Route::delete('/planner/violations/{violation}', [PlannerController::class, 'destroyViolation'])->name('planner.violations.destroy');
-    Route::patch('/planner/violations/{violation}', [PlannerController::class, 'updateViolation'])->name('planner.violations.update');
     Route::delete('/planner/notes/{note}', [PlannerController::class, 'destroyNote'])->name('planner.notes.destroy');
-    Route::patch('/planner/notes/{note}', [PlannerController::class, 'updateNote'])->name('planner.notes.update');
     Route::get('/planner/routines/{routine}/suggestions', [PlannerController::class, 'avoidSuggestions'])->name('planner.routines.suggestions');
     Route::get('/planner/routines/{routine}/history', [PlannerController::class, 'avoidHistory'])->name('planner.routines.history');
     Route::post('/planner/task-items/{item}/toggle', [PlannerController::class, 'toggleTaskCheckItem'])->name('planner.task-items.toggle');

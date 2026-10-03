@@ -1001,57 +1001,6 @@ class PlannerController extends Controller
     }
 
     /**
-     * Update a slip (violation) - only today's slips can be edited.
-     */
-    public function updateViolation(Request $request, \App\Models\RoutineViolation $violation)
-    {
-        abort_if($violation->user_id !== Auth::id(), 403);
-        $today = today()->toDateString();
-        $violDate = $violation->occurred_date instanceof Carbon ? $violation->occurred_date->toDateString() : substr((string) $violation->occurred_date, 0, 10);
-        abort_if($violDate !== $today, 422, __('Only today\'s slips can be edited.'));
-
-        $data = $request->validate([
-            'quantity' => 'nullable|integer|min:1|max:100000',
-            'trigger' => 'nullable|string|max:100',
-            'note' => 'nullable|string|max:2000',
-            'occurred_at' => 'nullable|date',
-        ]);
-
-        if (array_key_exists('quantity', $data) && $data['quantity'] !== null) {
-            $violation->quantity = (int) $data['quantity'];
-        }
-        if (array_key_exists('trigger', $data)) {
-            $violation->trigger = $data['trigger'];
-        }
-        if (array_key_exists('note', $data)) {
-            $violation->note = $data['note'];
-        }
-        if (!empty($data['occurred_at'])) {
-            $violation->occurred_at = Carbon::parse($data['occurred_at']);
-        }
-        $violation->save();
-
-        $routine = $violation->routine;
-        $dateKey = $violDate;
-        $dayQty = $routine->fresh()->violationQtyOn(Carbon::parse($dateKey));
-        $stepQty = null;
-        if ($violation->checklist_item_id) {
-            $stepQty = (int) $routine->violations()->where('checklist_item_id', $violation->checklist_item_id)->where('occurred_date', $dateKey)->sum('quantity');
-        }
-
-        return response()->json([
-            'ok' => true,
-            'violation_id' => $violation->id,
-            'routine_id' => $violation->routine_id,
-            'item_id' => $violation->checklist_item_id,
-            'date' => $dateKey,
-            'day_qty' => $dayQty,
-            'step_qty' => $stepQty,
-            'violation' => $violation->fresh(),
-        ]);
-    }
-
-    /**
      * Undo a craving/note - only within 10 minutes of creation.
      */
     public function destroyNote(Request $request, \App\Models\RoutineNote $note)
@@ -1064,34 +1013,6 @@ class PlannerController extends Controller
         abort_if($createdAt->diffInSeconds(now()) > 600, 410, __('Undo window expired.'));
         $note->delete();
         return response()->json(['ok' => true]);
-    }
-
-    /**
-     * Update a craving/note - only today's notes can be edited.
-     */
-    public function updateNote(Request $request, \App\Models\RoutineNote $note)
-    {
-        abort_if($note->user_id !== Auth::id(), 403);
-        $today = today()->toDateString();
-        $noteDate = $note->occurred_at instanceof Carbon ? $note->occurred_at->toDateString() : Carbon::parse($note->occurred_at)->toDateString();
-        abort_if($noteDate !== $today, 422, __('Only today\'s notes can be edited.'));
-
-        $data = $request->validate([
-            'kind' => 'nullable|in:craving,note',
-            'note' => 'nullable|string|max:2000',
-            'occurred_at' => 'nullable|date',
-        ]);
-        if (array_key_exists('kind', $data) && $data['kind'] !== null) {
-            $note->kind = $data['kind'];
-        }
-        if (array_key_exists('note', $data)) {
-            $note->note = $data['note'];
-        }
-        if (!empty($data['occurred_at'])) {
-            $note->occurred_at = Carbon::parse($data['occurred_at']);
-        }
-        $note->save();
-        return response()->json(['ok' => true, 'note' => $note->fresh()]);
     }
 
     /**

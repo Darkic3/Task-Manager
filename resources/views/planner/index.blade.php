@@ -1036,30 +1036,7 @@
     .pl-day .pl-task{padding:7px 9px;}
     .pl-day .pl-task-title{font-size:12px;}
     .pl-day-empty{padding:14px 8px;text-align:center;color:#c4c9d4;font-size:11px;}
-    /* ── Avoid slip/notes today list + delete/edit ── */
-    .pl-violations-today{margin:6px 0 8px;padding:6px 8px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;}
-    .pl-violations-today.routine-level{margin-top:8px;}
-    .pl-notes-today{margin:6px 0 8px;padding:6px 8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;}
-    .pl-violations-title{font-size:11px;font-weight:700;color:#8a8f98;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
-    .pl-slip-row{display:flex;align-items:center;gap:6px;padding:4px 6px;background:white;border:1px solid #e3e4e8;border-radius:6px;margin-bottom:4px;font-size:12px;}
-    .pl-slip-row:last-child{margin-bottom:0;}
-    .pl-slip-info{flex:1;display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap;color:#3d4149;}
-    .pl-slip-trigger{color:#b91c1c;font-weight:600;}
-    .pl-slip-note{color:#6b7385;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;}
-    .pl-slip-time{color:#adb0b8;font-size:11px;margin-left:auto;}
-    .pl-note-kind{font-weight:700;color:#0369a1;font-size:11px;text-transform:uppercase;}
-    .pl-slip-edit,.pl-slip-del{width:26px;height:26px;border-radius:6px;border:1px solid transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;flex-shrink:0;}
-    .pl-slip-edit{background:#f1f5f9;color:#64748b;border-color:#e2e8f0;}
-    .pl-slip-edit:hover{background:#e0f2fe;color:#0369a1;border-color:#bae6fd;}
-    .pl-slip-del{background:#fef2f2;color:#dc2626;border-color:#fecaca;}
-    .pl-slip-del:hover{background:#fee2e2;border-color:#fca5a5;}
-    .pl-violation-edit-panel{margin:4px 0 6px;padding:8px;background:#fafbfc;border:1px solid #e3e4e8;border-radius:8px;}
-    .pl-violation-edit-panel form{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
-    .pl-violation-edit-panel input,.pl-violation-edit-panel select{padding:5px 8px;border:1px solid #d3d5db;border-radius:6px;font-size:12px;flex:1;min-width:80px;}
-    .pl-violation-edit-panel button{padding:5px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;}
-    .pl-violation-edit-panel button[type=submit]{background:#7c3aed;color:white;border:1px solid #7c3aed;}
-    .pl-violation-edit-panel button[type=button]{background:white;color:#6b7385;border:1px solid #d3d5db;}
-    /* ── Phase 0: avoid confirm modal + persistent undo stack ── */
+    /* ── Avoid confirm modal + persistent undo stack ── */
     #plAvoidUndoStack{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:1075;display:flex;flex-direction:column;gap:8px;align-items:center;}
     .pl-undo-bar{background:#1f2328;color:#fff;font-size:13px;padding:9px 14px;border-radius:10px;display:flex;align-items:center;gap:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);white-space:nowrap;}
     .pl-undo-bar .pl-undo-count{color:#fca5a5;font-weight:800;font-variant-numeric:tabular-nums;}
@@ -2907,26 +2884,7 @@
         plToastTimer = setTimeout(hideRoutineToast, 4500);
     }
 
-    function plShowToastWithUndo(message, undoFn, durationMs) {
-        const toast = document.getElementById('plToast');
-        if (!toast) return;
-        toast.replaceChildren();
-        const span = document.createElement('span');
-        span.textContent = message;
-        toast.appendChild(span);
-        if (undoFn) {
-            const undo = document.createElement('button');
-            undo.type = 'button';
-            undo.textContent = '{{ __('Undo') }}';
-            undo.onclick = () => { hideRoutineToast(); undoFn(); };
-            toast.appendChild(undo);
-        }
-        toast.classList.add('show');
-        clearTimeout(plToastTimer);
-        plToastTimer = setTimeout(hideRoutineToast, durationMs || 600000);
-    }
-
-    /* Undo-only (10 min): no permanent delete/edit UI in Phase 0 */
+    /* Undo-only (10 min): no permanent delete/edit UI */
     async function undoViolation(violationId) {
         const entry = plGetUndos().find(u => String(u.id) === String(violationId) && u.type === 'violation');
         try {
@@ -2963,12 +2921,6 @@
             plShowToast(e.message.includes('410') ? @json(__('Undo window expired.')) : @json(__('Could not undo')));
         }
     }
-    /* Back-compat aliases (old toast handlers) */
-    const deleteViolation = undoViolation;
-    const deleteNote = undoNote;
-    function submitEditViolation() { return false; }
-    function submitEditNote() { return false; }
-
     /* ── Phase 3: avoid history modal ── */
     const plHistoryState = { routineId: null, routineTitle: '', type: 'all', range: 30, page: 1, hasMore: false, loading: false };
     function openAvoidHistory(routineId, routineTitle) {
