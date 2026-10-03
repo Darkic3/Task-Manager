@@ -1512,5 +1512,20 @@
     "Mood & peak hour": "حال و ساعت اوج",
     "Avg mood": "میانگین حال",
     "Exact timestamps power this analysis.": "ساعت دقیق ثبت، پایه این تحلیل است.",
-    "Slips by hour": "لغزش‌ها بر اساس ساعت"
+    "Slips by hour": "لغزش‌ها بر اساس ساعت",
+    "Measurable": "قابل‌اندازه‌گیری",
+    "All tracking": "همه رهگیری‌ها",
+    "No tracking": "بدون رهگیری",
+    "Build habits": "عادت‌های سازنده",
+    "Build habit": "عادت سازنده",
+    "Measurable habit": "عادت قابل‌اندازه‌گیری",
+    "Avoid habit": "عادت ترک‌کردنی",
+    "View in Track": "مشاهده در پیگیری",
+    "View tab": "مشاهده تب",
+    "Clean rate": "نرخ پاکی",
+    "Slipped today": "امروز لغزش داشت",
+    "No plain build habits yet.": "هنوز عادت سازنده ساده‌ای نیست.",
+    "No avoid habits yet.": "هنوز عادت ترک‌کردنی نیست.",
+    "Build · Measurable · Avoid — each habit type tracked its own way": "سازنده · قابل‌اندازه‌گیری · ترک‌کردنی — هر نوع عادت به شیوه خودش",
+    "Slips · last 30 days": "لغزش‌ها · ۳۰ روز اخیر"
 }

@@ -156,6 +156,25 @@
         @endforeach
     </div>
 
+    {{-- Behavior + tracking filters (client-side, combined with frequency) --}}
+    @php
+        $behaviorCounts = ['all' => $routines->count(), 'build' => $routines->where('behavior_type', '!=', 'avoid')->count(), 'avoid' => $routines->where('behavior_type', 'avoid')->count()];
+        $trackingCounts = ['all' => $routines->count(), 'none' => $routines->where('tracking_mode', 'none')->count(), 'value' => $routines->where('tracking_mode', 'value')->count(), 'sets' => $routines->where('tracking_mode', 'sets')->count()];
+    @endphp
+    <div class="rh-filters" id="rhBehaviorFilters">
+        @foreach(['all' => __('All'), 'build' => __('Build'), 'avoid' => __('Avoid')] as $key => $label)
+            <button class="rh-chip {{ ($key === 'all') ? 'active' : '' }}" data-behavior="{{ $key }}">
+                {{ $label }} <small>{{ $behaviorCounts[$key] }}</small>
+            </button>
+        @endforeach
+        <span style="align-self:center;color:#c4c9d4;">|</span>
+        @foreach(['all' => __('All tracking'), 'none' => __('No tracking'), 'value' => __('Value'), 'sets' => __('Sets')] as $key => $label)
+            <button class="rh-chip {{ ($key === 'all') ? 'active' : '' }}" data-tracking="{{ $key }}">
+                {{ $label }} <small>{{ $trackingCounts[$key] }}</small>
+            </button>
+        @endforeach
+    </div>
+
     <div class="rh-list" id="rhList">
         @php
             $items = $displayItems ?? [];
@@ -184,7 +203,7 @@
                     <small>{{ $groupCounts[$pk] ?? 0 }}</small>
                 </div>
             @endif
-            <div class="rh-item" data-kind="{{ $isStep ? 'step' : 'routine' }}" data-frequency="{{ $routine->frequency }}" data-period="{{ $pk }}" data-id="{{ $isStep ? $step->id : $routine->id }}" data-routine-id="{{ $routine->id }}" draggable="true">
+            <div class="rh-item" data-kind="{{ $isStep ? 'step' : 'routine' }}" data-frequency="{{ $routine->frequency }}" data-behavior="{{ ($routine->behavior_type ?? 'build') === 'avoid' ? 'avoid' : 'build' }}" data-tracking="{{ $routine->tracking_mode ?? 'none' }}" data-period="{{ $pk }}" data-id="{{ $isStep ? $step->id : $routine->id }}" data-routine-id="{{ $routine->id }}" draggable="true">
                 <div class="rh-card">
                     <div class="rh-body">
                         <div class="rh-row-title">
@@ -270,19 +289,43 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    /* Frequency filter chips */
+    /* Combined filters: frequency + behavior + tracking */
     const chips = document.querySelectorAll('#rhFilters .rh-chip');
+    const behaviorChips = document.querySelectorAll('#rhBehaviorFilters [data-behavior]');
+    const trackingChips = document.querySelectorAll('#rhBehaviorFilters [data-tracking]');
     const items = document.querySelectorAll('.rh-item');
+    let activeFreq = 'all', activeBehavior = 'all', activeTracking = 'all';
+    function applyRhFilters() {
+        items.forEach(item => {
+            const show = (activeFreq === 'all' || item.dataset.frequency === activeFreq)
+                && (activeBehavior === 'all' || item.dataset.behavior === activeBehavior)
+                && (activeTracking === 'all' || item.dataset.tracking === activeTracking);
+            item.style.display = show ? '' : 'none';
+        });
+        syncGroupHeads();
+    }
     chips.forEach(chip => {
         chip.addEventListener('click', () => {
             chips.forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
-            const f = chip.dataset.filter;
-            items.forEach(item => {
-                const show = f === 'all' || item.dataset.frequency === f;
-                item.style.display = show ? '' : 'none';
-            });
-            syncGroupHeads();
+            activeFreq = chip.dataset.filter;
+            applyRhFilters();
+        });
+    });
+    behaviorChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            behaviorChips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            activeBehavior = chip.dataset.behavior;
+            applyRhFilters();
+        });
+    });
+    trackingChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            trackingChips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            activeTracking = chip.dataset.tracking;
+            applyRhFilters();
         });
     });
 

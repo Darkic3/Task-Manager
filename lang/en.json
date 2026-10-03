@@ -260,5 +260,20 @@
     "Avg mood": "Avg mood",
     "Exact timestamps power this analysis.": "Exact timestamps power this analysis.",
     "Slips by hour": "Slips by hour",
-    "History": "History"
+    "History": "History",
+    "Measurable": "Measurable",
+    "All tracking": "All tracking",
+    "No tracking": "No tracking",
+    "Build habits": "Build habits",
+    "Build habit": "Build habit",
+    "Measurable habit": "Measurable habit",
+    "Avoid habit": "Avoid habit",
+    "View in Track": "View in Track",
+    "View tab": "View tab",
+    "Clean rate": "Clean rate",
+    "Slipped today": "Slipped today",
+    "No plain build habits yet.": "No plain build habits yet.",
+    "No avoid habits yet.": "No avoid habits yet.",
+    "Build · Measurable · Avoid — each habit type tracked its own way": "Build · Measurable · Avoid — each habit type tracked its own way",
+    "Slips · last 30 days": "Slips · last 30 days"
 }

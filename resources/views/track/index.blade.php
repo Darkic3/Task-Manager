@@ -12,6 +12,17 @@
     }
     .tk-header-title{font-weight:700;font-size:18px;margin:0;}
     .tk-header-sub{font-size:12.5px;opacity:.85;margin:2px 0 0;}
+    /* ── Tabs ── */
+    .tk-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+    .tk-tab{
+        display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:12.5px;font-weight:700;text-decoration:none;
+        background:white;border:1px solid #e3e4e8;color:#64748b;transition:all .12s;
+    }
+    .tk-tab small{font-weight:800;background:#f1f5f9;border-radius:12px;padding:0 7px;font-size:11px;}
+    .tk-tab:hover{border-color:#0e7490;color:#0e7490;}
+    .tk-tab.active{background:#0e7490;border-color:#0e7490;color:white;}
+    .tk-tab.active small{background:rgba(255,255,255,.22);}
+    .tk-tab.avoid.active{background:#b91c1c;border-color:#b91c1c;}
     .tk-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
     .tk-chip{
         padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;text-decoration:none;
@@ -22,7 +33,9 @@
     .tk-card{background:white;border:1px solid #e3e4e8;border-radius:10px;overflow:hidden;}
     .tk-card-head{padding:10px 16px;background:#fafbfc;border-bottom:1px solid #e3e4e8;display:flex;align-items:center;gap:8px;}
     .tk-card-title{font-size:13px;font-weight:700;color:#1a1d23;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .tk-kind{font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:20px;background:#ecfeff;color:#0e7490;text-transform:uppercase;letter-spacing:.3px;}
+    .tk-kind{font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:20px;background:#ecfeff;color:#0e7490;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
+    .tk-kind.build{background:#dcfce7;color:#15803d;}
+    .tk-kind.avoid{background:#fee2e2;color:#b91c1c;}
     .tk-card-body{padding:12px 16px;}
     .tk-latest{font-size:26px;font-weight:800;color:#1a1d23;line-height:1;}
     .tk-latest small{font-size:13px;color:#8a8f98;font-weight:600;}
@@ -32,12 +45,42 @@
     .tk-spark{display:flex;align-items:flex-end;gap:2px;height:44px;margin-top:10px;}
     .tk-bar{flex:1;min-height:2px;background:#a5f3fc;border-radius:2px 2px 0 0;}
     .tk-bar:last-child{background:#0e7490;}
+    .tk-bar.slip{background:#fca5a5;}
+    .tk-bar.slip:last-child{background:#dc2626;}
     .tk-steps{margin-top:10px;display:flex;flex-direction:column;gap:4px;}
     .tk-step{font-size:11.5px;color:#3d4149;background:#fafbfc;border:1px solid #eef0f3;border-radius:7px;padding:4px 9px;}
     .tk-step b{color:#0e7490;}
     .tk-card-foot{padding:8px 16px;border-top:1px solid #eef0f3;display:flex;gap:12px;}
     .tk-card-foot a{font-size:12px;font-weight:600;color:#7c3aed;text-decoration:none;}
     .tk-empty{background:white;border:1px dashed #d8dae0;border-radius:10px;padding:34px;text-align:center;color:#8a8f98;font-size:13px;}
+    .tk-empty a{color:#7c3aed;font-weight:700;}
+    /* ── Avoid summary strip ── */
+    .tk-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;}
+    .tk-sum{background:white;border:1px solid #e3e4e8;border-radius:10px;padding:10px 14px;}
+    .tk-sum.red{border-inline-start:3px solid #ef4444;}
+    .tk-sum.green{border-inline-start:3px solid #16a34a;}
+    .tk-sum-val{font-size:20px;font-weight:800;color:#1a1d23;line-height:1.2;}
+    .tk-sum-lbl{font-size:10.5px;color:#8a8f98;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+    /* ── Build ring + strips ── */
+    .tk-ring-row{display:flex;align-items:center;gap:10px;}
+    .tk-ring{width:44px;height:44px;flex-shrink:0;}
+    .tk-strip{display:flex;gap:3px;margin-top:10px;}
+    .tk-sq{flex:1;height:10px;border-radius:3px;background:#f1f2f4;}
+    .tk-sq.done{background:#16a34a;} .tk-sq.missed{background:#fecaca;}
+    .tk-sq.today{box-shadow:inset 0 0 0 1.5px #0e7490;background:#ecfeff;}
+    .tk-sq.future{background:#fafbfc;box-shadow:inset 0 0 0 1px #eef0f3;}
+    .tk-sq.violated{background:#ef4444;}
+    .tk-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+    .tk-pill{font-size:11px;font-weight:600;background:#f8fafc;border:1px solid #eef0f3;border-radius:12px;padding:2px 9px;color:#475569;}
+    .tk-pill.danger{background:#fef2f2;border-color:#fecaca;color:#b91c1c;}
+    .tk-pill.info{background:#f0f9ff;border-color:#bae6fd;color:#0369a1;}
+    .tk-pill.violet{background:#f5f3ff;border-color:#ddd6fe;color:#7c3aed;}
+    .tk-flame{font-size:12px;font-weight:800;color:#d97706;}
+    .tk-section{margin-bottom:18px;}
+    .tk-section-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+    .tk-section-title{font-size:13px;font-weight:800;color:#1a1d23;}
+    .tk-section-count{font-size:11px;font-weight:800;color:#8a8f98;background:white;border:1px solid #e3e4e8;border-radius:12px;padding:0 8px;}
+    .tk-section-link{margin-inline-start:auto;font-size:12px;font-weight:700;color:#0e7490;text-decoration:none;}
 </style>
 @endpush
 
@@ -45,77 +88,130 @@
 <div class="main-content">
     <div class="tk-header">
         <h1 class="tk-header-title">{{ __('Track') }}</h1>
-        <p class="tk-header-sub">{{ __('Measurable routines — latest values at a glance') }}</p>
+        <p class="tk-header-sub">{{ __('Build · Measurable · Avoid — each habit type tracked its own way') }}</p>
     </div>
 
-    @if($kinds->count())
-        <div class="tk-filters">
-            <a href="{{ route('track.index') }}" class="tk-chip {{ !$kind ? 'active' : '' }}">{{ __('All') }}</a>
-            @foreach($kinds as $k)
-                <a href="{{ route('track.index', ['kind' => $k]) }}" class="tk-chip {{ $kind === $k ? 'active' : '' }}">{{ __(ucfirst($k)) }}</a>
-            @endforeach
+    @php
+        $tab = $tab ?? 'all';
+        $tabUrl = fn ($t) => route('track.index', array_filter(['tab' => $t === 'all' ? null : $t]));
+    @endphp
+    <div class="tk-tabs">
+        <a href="{{ $tabUrl('all') }}" class="tk-tab {{ $tab === 'all' ? 'active' : '' }}">🌐 {{ __('All') }} <small>{{ $counts['all'] ?? 0 }}</small></a>
+        <a href="{{ $tabUrl('build') }}" class="tk-tab {{ $tab === 'build' ? 'active' : '' }}">🌱 {{ __('Build') }} <small>{{ $counts['build'] ?? 0 }}</small></a>
+        <a href="{{ $tabUrl('measurable') }}" class="tk-tab {{ $tab === 'measurable' ? 'active' : '' }}">📊 {{ __('Measurable') }} <small>{{ $counts['measurable'] ?? 0 }}</small></a>
+        <a href="{{ $tabUrl('avoid') }}" class="tk-tab avoid {{ $tab === 'avoid' ? 'active' : '' }}">🛡️ {{ __('Avoid') }} <small>{{ $counts['avoid'] ?? 0 }}</small></a>
+    </div>
+
+    {{-- ══ Avoid summary strip ══ --}}
+    @if(in_array($tab, ['all', 'avoid']) && !empty($avoidSummary) && ($avoidSummary['routines'] ?? 0))
+        <div class="tk-summary">
+            <div class="tk-sum green"><div class="tk-sum-val">{{ $avoidSummary['clean_rate'] }}%</div><div class="tk-sum-lbl">{{ __('Clean rate') }}</div></div>
+            <div class="tk-sum green"><div class="tk-sum-val">{{ $avoidSummary['clean_days'] }}</div><div class="tk-sum-lbl">{{ __('Clean days') }}</div></div>
+            <div class="tk-sum red"><div class="tk-sum-val">{{ $avoidSummary['slip_total'] }}</div><div class="tk-sum-lbl">{{ __('Slips') }} / {{ $avoidSummary['slip_days'] }} {{ __('days') }}</div></div>
+            <div class="tk-sum"><div class="tk-sum-val">🔥{{ $avoidSummary['best_clean_streak'] }}</div><div class="tk-sum-lbl">{{ __('Best clean streak') }}</div></div>
+            <div class="tk-sum"><div class="tk-sum-val">{{ $avoidSummary['mood_avg'] !== null ? $avoidSummary['mood_avg'] . '/10' : '—' }}</div><div class="tk-sum-lbl">{{ __('Avg mood') }} · ⏰ {{ sprintf('%02d:00', $avoidSummary['peak_hour'] ?? 0) }}</div></div>
+            <div class="tk-sum"><div class="tk-sum-val">{{ $avoidSummary['cravings'] }}/{{ $avoidSummary['notes'] }}</div><div class="tk-sum-lbl">{{ __('Cravings / notes') }}</div></div>
         </div>
     @endif
 
-    @if($cards->count())
-        <div class="tk-grid">
-            @foreach($cards as $card)
-                @php
-                    $r = $card['routine'];
-                    $spark = $card['spark'] ?? [];
-                    $max = $spark ? max(max($spark), 1) : 1;
-                @endphp
-                <div class="tk-card">
-                    <div class="tk-card-head">
-                        <span class="tk-card-title">{{ $r->title }}</span>
-                        <span class="tk-kind">{{ __($r->tracking_mode === 'sets' ? 'Sets' : ucfirst($r->value_kind ?? 'value')) }}</span>
-                    </div>
-                    <div class="tk-card-body">
-                        @if($card['latest'] !== null)
-                            @php $isTime = $card['is_time'] ?? false; @endphp
-                            <div class="tk-latest">
-                                @if($isTime)
-                                    {{ \App\Models\Routine::minutesToTimeValue($card['latest']) }}
-                                @else
-                                    {{ rtrim(rtrim(number_format($card['latest'], 2, '.', ''), '0'), '.') }} <small>{{ $card['unit'] ?? ($card['latest_suffix'] ?? '') }}</small>
-                                @endif
-                            </div>
-                            @if($card['delta'] !== null)
-                                <div class="tk-delta {{ $card['delta'] > 0 ? 'up' : ($card['delta'] < 0 ? 'down' : 'flat') }}">
-                                    {{ $card['delta'] > 0 ? '▲' : ($card['delta'] < 0 ? '▼' : '●') }}
-                                    {{ $isTime ? abs((int) round($card['delta'])) . __('m') : $card['delta'] }}
-                                </div>
-                            @endif
-                            <div class="tk-date">{{ $card['latest_date'] }}</div>
-                        @else
-                            <div class="tk-date">{{ __('No logs yet — log from the Day page.') }}</div>
-                        @endif
-                        @if(count($spark))
-                            <div class="tk-spark" title="{{ __('Last :count days', ['count' => count($spark)]) }}">
-                                @foreach($spark as $i => $v)
-                                    <div class="tk-bar" style="height:{{ max(4, round($v / $max * 100)) }}%;" title="{{ $card['spark_labels'][$i] ?? '' }}: {{ ($card['is_time'] ?? false) ? \App\Models\Routine::minutesToTimeValue($v) : $v }}"></div>
-                                @endforeach
-                            </div>
-                        @endif
-                        @if(!empty($card['per_step']))
-                            <div class="tk-steps">
-                                @foreach($card['per_step'] as $ps)
-                                    <div class="tk-step"><b>{{ $ps['name'] }}</b> — {{ implode(' · ', $ps['sets']) }}</div>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
-                    <div class="tk-card-foot">
-                        <a href="{{ route('routines.stats', $r) }}">{{ __('Full stats') }}</a>
-                        <a href="{{ route('routines.edit', $r) }}">{{ __('Edit routine') }}</a>
-                    </div>
+    @if($tab === 'all')
+        {{-- ══ BUILD section ══ --}}
+        <div class="tk-section">
+            <div class="tk-section-head">
+                <span class="tk-section-title">🌱 {{ __('Build habits') }}</span>
+                <span class="tk-section-count">{{ $buildCards->count() }}</span>
+                <a class="tk-section-link" href="{{ $tabUrl('build') }}">{{ __('View tab') }} ←</a>
+            </div>
+            @if($buildCards->count())
+                <div class="tk-grid">
+                    @foreach($buildCards->take(6) as $card)
+                        @include('track._build-card', ['card' => $card])
+                    @endforeach
                 </div>
-            @endforeach
+            @else
+                <div class="tk-empty">{{ __('No plain build habits yet.') }} <a href="{{ route('routines.create') }}">{{ __('Add one') }}</a></div>
+            @endif
         </div>
-    @else
-        <div class="tk-empty">
-            {{ __('No tracked routines yet. Edit a routine and enable Tracking (value or sets).') }}
+
+        {{-- ══ MEASURABLE section ══ --}}
+        <div class="tk-section">
+            <div class="tk-section-head">
+                <span class="tk-section-title">📊 {{ __('Measurable') }}</span>
+                <span class="tk-section-count">{{ $cards->count() }}</span>
+                <a class="tk-section-link" href="{{ $tabUrl('measurable') }}">{{ __('View tab') }} ←</a>
+            </div>
+            @if($cards->count())
+                <div class="tk-grid">
+                    @foreach($cards->take(6) as $card)
+                        @include('track._measurable-card', ['card' => $card])
+                    @endforeach
+                </div>
+            @else
+                <div class="tk-empty">{{ __('No tracked routines yet. Edit a routine and enable Tracking (value or sets).') }}</div>
+            @endif
         </div>
+
+        {{-- ══ AVOID section ══ --}}
+        <div class="tk-section">
+            <div class="tk-section-head">
+                <span class="tk-section-title">🛡️ {{ __('Avoid habits') }}</span>
+                <span class="tk-section-count">{{ $avoidCards->count() }}</span>
+                <a class="tk-section-link" href="{{ $tabUrl('avoid') }}">{{ __('View tab') }} ←</a>
+            </div>
+            @if($avoidCards->count())
+                <div class="tk-grid">
+                    @foreach($avoidCards->take(6) as $card)
+                        @include('track._avoid-card', ['card' => $card])
+                    @endforeach
+                </div>
+            @else
+                <div class="tk-empty">{{ __('No avoid habits yet.') }} <a href="{{ route('routines.create') }}">{{ __('Add one') }}</a></div>
+            @endif
+        </div>
+    @endif
+
+    @if($tab === 'build')
+        @if($buildCards->count())
+            <div class="tk-grid">
+                @foreach($buildCards as $card)
+                    @include('track._build-card', ['card' => $card])
+                @endforeach
+            </div>
+        @else
+            <div class="tk-empty">🌱 {{ __('No plain build habits yet.') }} <a href="{{ route('routines.create') }}">{{ __('Add one') }}</a></div>
+        @endif
+    @endif
+
+    @if($tab === 'measurable')
+        @if($kinds->count())
+            <div class="tk-filters">
+                <a href="{{ route('track.index', ['tab' => 'measurable']) }}" class="tk-chip {{ !$kind ? 'active' : '' }}">{{ __('All') }}</a>
+                @foreach($kinds as $k)
+                    <a href="{{ route('track.index', ['tab' => 'measurable', 'kind' => $k]) }}" class="tk-chip {{ $kind === $k ? 'active' : '' }}">{{ __(ucfirst($k)) }}</a>
+                @endforeach
+            </div>
+        @endif
+        @if($cards->count())
+            <div class="tk-grid">
+                @foreach($cards as $card)
+                    @include('track._measurable-card', ['card' => $card])
+                @endforeach
+            </div>
+        @else
+            <div class="tk-empty">{{ __('No tracked routines yet. Edit a routine and enable Tracking (value or sets).') }}</div>
+        @endif
+    @endif
+
+    @if($tab === 'avoid')
+        @if($avoidCards->count())
+            <div class="tk-grid">
+                @foreach($avoidCards as $card)
+                    @include('track._avoid-card', ['card' => $card])
+                @endforeach
+            </div>
+        @else
+            <div class="tk-empty">🛡️ {{ __('No avoid habits yet.') }} <a href="{{ route('routines.create') }}">{{ __('Add one') }}</a></div>
+        @endif
     @endif
 </div>
 @endsection

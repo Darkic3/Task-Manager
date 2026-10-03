@@ -111,6 +111,16 @@
                 <i class="bi bi-arrow-repeat"></i> {{ __('Start new cycle') }}
             </button>
         </form>
+        {{-- Habit-type banner: links this routine to its Track tab --}}
+        @php
+            $trackTab = !empty($avoid) ? 'avoid' : (($routine->tracking_mode ?? 'none') !== 'none' ? 'measurable' : 'build');
+            $trackKind = ['build' => __('Build habit'), 'measurable' => __('Measurable habit'), 'avoid' => __('Avoid habit')][$trackTab];
+            $trackColor = ['build' => '#15803d', 'measurable' => '#0e7490', 'avoid' => '#b91c1c'][$trackTab];
+            $trackBg = ['build' => '#dcfce7', 'measurable' => '#ecfeff', 'avoid' => '#fee2e2'][$trackTab];
+        @endphp
+        <a href="{{ route('track.index', ['tab' => $trackTab]) }}" style="display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:7px 14px;border-radius:20px;background:{{ $trackBg }};color:{{ $trackColor }};font-size:12px;font-weight:800;text-decoration:none;position:relative;z-index:1;">
+            <i class="bi bi-grid-1x2"></i> {{ $trackKind }} · {{ __('View in Track') }} ←
+        </a>
     </div>
 
     {{-- Stat cards --}}
