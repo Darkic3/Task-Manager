@@ -57,20 +57,29 @@ class AiToolService
                 'status' => ['type' => 'string', 'enum' => ['to_do', 'in_progress', 'on_hold', 'in_review', 'completed']],
                 'description' => ['type' => 'string'],
             ], ['title']),
-            $this->fn('task_update', 'Edit a task by ID', [
-                'id' => ['type' => 'integer'],
-                'title' => ['type' => 'string'],
+            $this->fn('task_update', 'Edit a task. Pass id, or task (title) with optional project scope — the title is resolved automatically, never ask the user for IDs', [
+                'id' => ['type' => 'integer', 'description' => 'Task ID (preferred when known)'],
+                'task' => ['type' => 'string', 'description' => 'Task title or ID (used when id is omitted)'],
+                'project' => ['type' => 'string', 'description' => 'Project name or ID to scope the title lookup (when titles repeat)'],
+                'project_id' => ['type' => 'integer', 'description' => 'Project ID to scope the title lookup'],
+                'title' => ['type' => 'string', 'description' => 'New title'],
                 'due_date' => $date(),
                 'priority' => ['type' => 'string', 'enum' => ['low', 'medium', 'high']],
                 'status' => ['type' => 'string', 'enum' => ['to_do', 'in_progress', 'on_hold', 'in_review', 'completed']],
                 'description' => ['type' => 'string'],
-            ], ['id']),
-            $this->fn('task_complete', 'Mark a task completed by ID', [
-                'id' => ['type' => 'integer'],
-            ], ['id']),
-            $this->fn('task_delete', 'Delete a task by ID (shows subtask impact before confirm)', [
-                'id' => ['type' => 'integer'],
-            ], ['id']),
+            ], []),
+            $this->fn('task_complete', 'Mark a task completed. Pass id, or task (title) with optional project scope', [
+                'id' => ['type' => 'integer', 'description' => 'Task ID (preferred when known)'],
+                'task' => ['type' => 'string', 'description' => 'Task title or ID (used when id is omitted)'],
+                'project' => ['type' => 'string', 'description' => 'Project name or ID to scope the title lookup'],
+                'project_id' => ['type' => 'integer', 'description' => 'Project ID to scope the title lookup'],
+            ], []),
+            $this->fn('task_delete', 'Delete a task (shows subtask impact before confirm). Pass id, or task (title) with optional project scope', [
+                'id' => ['type' => 'integer', 'description' => 'Task ID (preferred when known)'],
+                'task' => ['type' => 'string', 'description' => 'Task title or ID (used when id is omitted)'],
+                'project' => ['type' => 'string', 'description' => 'Project name or ID to scope the title lookup'],
+                'project_id' => ['type' => 'integer', 'description' => 'Project ID to scope the title lookup'],
+            ], []),
             $this->fn('reminder_create', 'Create a reminder. Compute date/time yourself from today\'s date (e.g. "امروز ساعت 6 بعد از ظهر" → today 18:00).', [
                 'title' => ['type' => 'string'],
                 'date' => $date(),
@@ -121,10 +130,13 @@ class AiToolService
             $this->fn('report_generate', 'Build a read-only workspace summary (tasks, routines, time, workouts + insights) for today/week/month. Nothing is created or changed.', [
                 'range' => ['type' => 'string', 'enum' => ['today', 'week', 'month'], 'description' => 'Report window (default week)'],
             ], []),
-            $this->fn('checklist_add', 'Add a checklist item to a task', [
-                'task_id' => ['type' => 'integer'],
+            $this->fn('checklist_add', 'Add a checklist item to a task. Pass task_id, or task (title) with optional project scope', [
+                'task_id' => ['type' => 'integer', 'description' => 'Task ID (preferred when known)'],
+                'task' => ['type' => 'string', 'description' => 'Task title or ID (used when task_id is omitted)'],
+                'project' => ['type' => 'string', 'description' => 'Project name or ID to scope the title lookup'],
+                'project_id' => ['type' => 'integer', 'description' => 'Project ID to scope the title lookup'],
                 'name' => ['type' => 'string'],
-            ], ['task_id', 'name']),
+            ], ['name']),
             $this->fn('checklist_toggle', 'Toggle a checklist item completed state', [
                 'id' => ['type' => 'integer'],
             ], ['id']),
@@ -404,8 +416,8 @@ class AiToolService
         return match ($tool) {
             'task_create' => $this->validateTaskCreate($args, $user),
             'task_update' => $this->validateTaskUpdate($args, $user),
-            'task_complete' => $this->validateOwned($args, $user, Task::class, 'id'),
-            'task_delete' => $this->validateOwned($args, $user, Task::class, 'id'),
+            'task_complete' => $this->validateTaskComplete($args, $user),
+            'task_delete' => $this->validateTaskDelete($args, $user),
             'reminder_create' => $this->validateReminderCreate($args),
             'reminder_complete' => $this->validateOwned($args, $user, Reminder::class, 'id'),
             'reminder_delete' => $this->validateOwned($args, $user, Reminder::class, 'id'),
@@ -437,6 +449,8 @@ class AiToolService
 
         return match ($tool) {
             'task_delete' => $this->previewTaskDelete($resolved),
+            'task_update' => ['title' => 'Update task', 'rows' => $this->rows($resolved, ['task_title', 'title', 'due_date', 'priority', 'status', 'description'])],
+            'task_complete' => ['title' => 'Complete task', 'rows' => $this->rows($resolved, ['task_title'])],
             'project_create' => ['title' => isset($resolved['parent_id']) ? 'Create sub-project' : 'Create project', 'rows' => $this->rows($resolved, ['name', 'parent_name', 'status', 'description'])],
             'task_create' => ['title' => isset($resolved['parent_id']) ? 'Create subtask' : 'Create task', 'rows' => $this->rows($resolved, ['title', 'project_name', 'parent_title', 'due_date', 'priority', 'status'])],
             'reminder_create' => ['title' => 'Create reminder', 'rows' => $this->rows($resolved, ['title', 'date', 'time', 'priority'])],
@@ -571,7 +585,10 @@ class AiToolService
     private function validateTaskUpdate(array $args, $user): array
     {
         $v = Validator::make($args, [
-            'id' => 'required|integer',
+            'id' => 'nullable|integer',
+            'task' => 'nullable|string|max:255',
+            'project' => 'nullable|string|max:255',
+            'project_id' => 'nullable|integer',
             'title' => 'nullable|string|max:255',
             'due_date' => 'nullable|date',
             'priority' => 'nullable|in:low,medium,high',
@@ -581,18 +598,57 @@ class AiToolService
         if ($v->fails()) {
             return $this->fail($v->errors()->first());
         }
-        $task = Task::where('id', $args['id'])->where('user_id', $user->id)->first();
-        if (! $task) {
-            return $this->fail('Task not found or not yours.');
+        $r = $this->resolveTask($args, $user);
+        if (isset($r['error'])) {
+            return $this->fail($r['error']);
         }
+        $task = $r['task'];
 
-        return ['ok' => true, 'error' => null, 'resolved' => array_merge(['id' => $task->id], array_filter([
+        return ['ok' => true, 'error' => null, 'resolved' => array_merge(['id' => $task->id, 'task_title' => $task->title], array_filter([
             'title' => $args['title'] ?? null,
             'due_date' => $args['due_date'] ?? null,
             'priority' => $args['priority'] ?? null,
             'status' => $args['status'] ?? null,
             'description' => $args['description'] ?? null,
         ], fn ($x) => $x !== null))];
+    }
+
+    private function validateTaskComplete(array $args, $user): array
+    {
+        $v = Validator::make($args, [
+            'id' => 'nullable|integer',
+            'task' => 'nullable|string|max:255',
+            'project' => 'nullable|string|max:255',
+            'project_id' => 'nullable|integer',
+        ]);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+        $r = $this->resolveTask($args, $user);
+        if (isset($r['error'])) {
+            return $this->fail($r['error']);
+        }
+
+        return ['ok' => true, 'error' => null, 'resolved' => ['id' => $r['task']->id, 'task_title' => $r['task']->title]];
+    }
+
+    private function validateTaskDelete(array $args, $user): array
+    {
+        $v = Validator::make($args, [
+            'id' => 'nullable|integer',
+            'task' => 'nullable|string|max:255',
+            'project' => 'nullable|string|max:255',
+            'project_id' => 'nullable|integer',
+        ]);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+        $r = $this->resolveTask($args, $user);
+        if (isset($r['error'])) {
+            return $this->fail($r['error']);
+        }
+
+        return ['ok' => true, 'error' => null, 'resolved' => ['id' => $r['task']->id, 'title' => $r['task']->title]];
     }
 
     private function validateOwned(array $args, $user, string $model, string $key = 'id'): array
@@ -888,16 +944,23 @@ class AiToolService
 
     private function validateChecklistAdd(array $args, $user): array
     {
-        $v = Validator::make($args, ['task_id' => 'required|integer', 'name' => 'required|string|max:255']);
+        $v = Validator::make($args, [
+            'task_id' => 'nullable|integer',
+            'task' => 'nullable|string|max:255',
+            'project' => 'nullable|string|max:255',
+            'project_id' => 'nullable|integer',
+            'name' => 'required|string|max:255',
+        ]);
         if ($v->fails()) {
             return $this->fail($v->errors()->first());
         }
-        $task = Task::where('id', $args['task_id'])->where('user_id', $user->id)->first();
-        if (! $task) {
-            return $this->fail('Task not found or not yours.');
+        $r = $this->resolveTask($args, $user, 'task_id', 'task');
+        if (isset($r['error'])) {
+            return $this->fail($r['error']);
         }
+        $task = $r['task'];
 
-        return ['ok' => true, 'error' => null, 'resolved' => ['task_id' => $task->id, 'name' => $args['name']]];
+        return ['ok' => true, 'error' => null, 'resolved' => ['task_id' => $task->id, 'task_title' => $task->title, 'name' => $args['name']]];
     }
 
     private function validateChecklistToggle(array $args, $user): array
@@ -1038,8 +1101,73 @@ class AiToolService
     }
 
     /**
-     * Resolve a tracked routine by ID or name (owned by the user).
+     * Resolve a task by ID or title (owned by the user), optionally scoped
+     * to a project. Exact title match wins, otherwise a LIKE search.
+     * Returns ['task' => Task] or ['error' => message the model can act on].
      */
+    private function resolveTask(array $args, $user, string $idKey = 'id', string $titleKey = 'task'): array
+    {
+        if (! empty($args[$idKey])) {
+            $task = Task::where('id', (int) $args[$idKey])->where('user_id', $user->id)->first();
+            if (! $task) {
+                return ['error' => 'Task not found or not yours.'];
+            }
+
+            return ['task' => $task];
+        }
+
+        $needle = trim((string) ($args[$titleKey] ?? ''));
+        if ($needle === '') {
+            return ['error' => 'Pass the task id or its title (task).'];
+        }
+        if (is_numeric($needle)) {
+            $task = Task::where('id', (int) $needle)->where('user_id', $user->id)->first();
+            if (! $task) {
+                return ['error' => 'Task not found or not yours.'];
+            }
+
+            return ['task' => $task];
+        }
+
+        $query = Task::where('user_id', $user->id);
+        $projectName = null;
+        if (! empty($args['project_id'])) {
+            $query->where('project_id', (int) $args['project_id']);
+        } elseif (! empty($args['project'])) {
+            $pneedle = $args['project'];
+            $project = is_numeric($pneedle)
+                ? Project::where('id', (int) $pneedle)->where('user_id', $user->id)->first()
+                : Project::where('user_id', $user->id)->where('name', 'like', "%{$pneedle}%")->first();
+            if (! $project) {
+                return ['error' => "Project '{$pneedle}' not found."];
+            }
+            $query->where('project_id', $project->id);
+            $projectName = $project->name;
+        }
+
+        $exact = (clone $query)->where('title', $needle)->get();
+        $matches = $exact->isNotEmpty()
+            ? $exact
+            : (clone $query)->where('title', 'like', "%{$needle}%")->limit(6)->get();
+
+        if ($matches->isEmpty()) {
+            $scope = $projectName ? " in project '{$projectName}'" : '';
+
+            return ['error' => "Task '{$needle}' not found{$scope}."];
+        }
+        if ($matches->count() > 1) {
+            $list = $matches->take(5)->map(fn ($t) => "'{$t->title}'")->join(', ');
+            $hint = $projectName ? ' Pass the task id to pick one.' : ' Pass project to disambiguate, or the task id.';
+
+            return ['error' => "Multiple tasks match '{$needle}': {$list}.{$hint}"];
+        }
+
+        return ['task' => $matches->first()];
+    }
+
+    /**
+      * Resolve a tracked routine by ID or name (owned by the user).
+      */
     private function resolveRoutine(array $args, $user): ?Routine
     {
         if (! empty($args['routine_id'])) {

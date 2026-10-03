@@ -1166,6 +1166,7 @@ class AiChatController extends Controller
             ? <<<'AGENT'
             MODE: AGENT — you can act on the workspace via tools.
             - SINGLE items: task_create/update/complete/delete, reminder_*, note_*, project_create, project_add_member, note_link, report_generate, checklist_*, routine_create/complete/delete/log. Destructive deletes need no extra warning text because the app shows a confirmation card.
+            - TASKS BY NAME: task_update/complete/delete and checklist_add accept a task title (+ optional project scope) and resolve it to the right record automatically — pass titles straight from the user's message or the workspace context below, NEVER ask the user for numeric IDs. For bulk edits (e.g. updating 20 tasks at once), emit one call per task in the same turn; the app confirms them together.
             - COLLABORATORS: project_add_member finds the person by email, name, or user ID — prefer email when the user gives one. In plans, put collaborator emails/names in each project's members[] so they join when the project is built.
             - NOTE LINKS: note_link connects a note to a project/task/note so it appears in backlinks — use it when the user says a note "belongs to" or "is about" something.
             - REPORTS: report_generate builds a read-only workspace summary for today/week/month (nothing changes). Use it when the user asks "how am I doing / گزارش بده". After it runs, explain the numbers in 2-4 bullets.
