@@ -271,7 +271,7 @@
                                   data-date="{{ $routineDate->toDateString() }}"
                                   data-routine-id="{{ $routine->id }}"
                                   data-suggest-url="{{ route('planner.routines.suggestions', $routine) }}"
-                                  onsubmit="return submitStepSlip(this)">
+                                  onsubmit="return submitStepSlip(this, event)">
                                 <div class="pl-avoid-grid">
                                     @if($countMode)
                                         <input type="number" name="quantity" min="1" value="1" title="{{ __('Quantity') }}" aria-label="{{ __('Quantity') }}" class="pl-avoid-qty">
@@ -367,7 +367,7 @@
                       data-date="{{ $routineDate->toDateString() }}"
                       data-routine-id="{{ $routine->id }}"
                       data-suggest-url="{{ route('planner.routines.suggestions', $routine) }}"
-                      onsubmit="return submitRoutineSlip(this)">
+                      onsubmit="return submitRoutineSlip(this, event)">
                     <div class="pl-avoid-grid">
                         @if($countMode)
                             <input type="number" name="quantity" min="1" value="1" title="{{ __('Quantity') }}" aria-label="{{ __('Quantity') }}" class="pl-avoid-qty">
@@ -399,7 +399,7 @@
                       data-date="{{ $routineDate->toDateString() }}"
                       data-routine-id="{{ $routine->id }}"
                       data-suggest-url="{{ route('planner.routines.suggestions', $routine) }}"
-                      onsubmit="return submitRoutineNote(this)">
+                      onsubmit="return submitRoutineNote(this, event)">
                     <div class="pl-avoid-grid">
                         <select name="kind" aria-label="{{ __('Kind') }}">
                             <option value="craving">{{ __('Craving') }}</option>

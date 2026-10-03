@@ -2527,7 +2527,8 @@
         return res.json();
     }
 
-    async function submitRoutineSlip(form) {
+    async function submitRoutineSlip(form, e) {
+        if (e) e.preventDefault();
         const btn = form.querySelector('button[type=submit]');
         const ok = await plConfirmSlip(form, false);
         if (!ok) return false;
@@ -2550,7 +2551,8 @@
         return false;
     }
 
-    async function submitStepSlip(form) {
+    async function submitStepSlip(form, e) {
+        if (e) e.preventDefault();
         const btn = form.querySelector('button[type=submit]');
         const ok = await plConfirmSlip(form, false);
         if (!ok) return false;
@@ -2573,7 +2575,8 @@
         return false;
     }
 
-    async function submitRoutineNote(form) {
+    async function submitRoutineNote(form, e) {
+        if (e) e.preventDefault();
         const btn = form.querySelector('button[type=submit]');
         const ok = await plConfirmSlip(form, true);
         if (!ok) return false;
