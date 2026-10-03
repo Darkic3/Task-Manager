@@ -185,6 +185,28 @@
                         <i class="bi bi-shield-check"></i> پاک تا الان
                     </span>
                 @endif
+                @php
+                    $lastSlip = $routine->relationLoaded('violations') ? $routine->violations->sortByDesc('occurred_at')->first() : null;
+                    $lastNote = $routine->relationLoaded('routineNotes') ? $routine->routineNotes->sortByDesc('occurred_at')->first() : null;
+                    $lastEntry = null;
+                    if ($lastSlip && $lastNote) {
+                        $lastEntry = $lastSlip->occurred_at->gt($lastNote->occurred_at) ? ['t' => 'slip', 'at' => $lastSlip->occurred_at, 'x' => $lastSlip->trigger] : ['t' => $lastNote->kind, 'at' => $lastNote->occurred_at, 'x' => $lastNote->trigger];
+                    } elseif ($lastSlip) {
+                        $lastEntry = ['t' => 'slip', 'at' => $lastSlip->occurred_at, 'x' => $lastSlip->trigger];
+                    } elseif ($lastNote) {
+                        $lastEntry = ['t' => $lastNote->kind, 'at' => $lastNote->occurred_at, 'x' => $lastNote->trigger];
+                    }
+                @endphp
+                @if($lastEntry)
+                    <span class="pl-avoid-last" title="{{ __('Last entry') }}">
+                        {{ $lastEntry['at']->format('m/d H:i') }}{{ $lastEntry['x'] ? ' · ' . \Illuminate\Support\Str::limit($lastEntry['x'], 18) : '' }}
+                    </span>
+                @endif
+                @if($toggleable)
+                    <button type="button" class="pl-avoid-history-btn" data-avoid-history="{{ $routine->id }}" data-routine-title="{{ $routine->title }}">
+                        <i class="bi bi-clock-history"></i> {{ __('History') }}
+                    </button>
+                @endif
             @endif
             @if($active)
                 <span class="pl-priority" style="color:{{ $accent }};background:{{ $accent }}1a;text-transform:none;">

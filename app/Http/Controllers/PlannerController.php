@@ -1173,6 +1173,111 @@ class PlannerController extends Controller
     }
 
     /**
+     * Unified history for one avoid routine: slips + cravings/notes merged,
+     * newest first, with type + date filters. Single organized place for the
+     * user's slips/cravings (Phase 3).
+     */
+    public function avoidHistory(Request $request, Routine $routine)
+    {
+        abort_if($routine->user_id !== Auth::id(), 403);
+
+        $data = $request->validate([
+            'type' => 'nullable|in:all,slip,craving,note',
+            'from' => 'nullable|date',
+            'to' => 'nullable|date',
+            'trigger' => 'nullable|string|max:100',
+            'per_page' => 'nullable|integer|min:5|max:50',
+        ]);
+
+        $type = $data['type'] ?? 'all';
+        $perPage = (int) ($data['per_page'] ?? 20);
+        $to = !empty($data['to']) ? Carbon::parse($data['to'])->endOfDay() : now()->endOfDay();
+        $from = !empty($data['from']) ? Carbon::parse($data['from'])->startOfDay() : $to->copy()->subDays(29)->startOfDay();
+        if ($from->gt($to)) {
+            [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
+        }
+
+        $items = collect();
+
+        if (in_array($type, ['all', 'slip'])) {
+            $vq = \App\Models\RoutineViolation::where('user_id', Auth::id())
+                ->where('routine_id', $routine->id)
+                ->whereBetween('occurred_at', [$from, $to])
+                ->with('item:id,name')
+                ->orderByDesc('occurred_at');
+            if (!empty($data['trigger'])) {
+                $vq->where('trigger', 'like', '%' . $data['trigger'] . '%');
+            }
+            $vq->chunk(500, function ($rows) use (&$items) {
+                foreach ($rows as $v) {
+                    $items->push([
+                        'id' => $v->id,
+                        'entry_type' => 'slip',
+                        'kind' => null,
+                        'occurred_at' => $v->occurred_at?->toIso8601String(),
+                        'occurred_label' => $v->occurred_at ? $v->occurred_at->format('Y-m-d H:i') : null,
+                        'quantity' => (int) ($v->quantity ?? 1),
+                        'mood' => $v->mood,
+                        'location' => $v->location,
+                        'trigger' => $v->trigger,
+                        'note' => $v->note,
+                        'step' => $v->item?->name,
+                    ]);
+                }
+            });
+        }
+
+        if (in_array($type, ['all', 'craving', 'note'])) {
+            $nq = \App\Models\RoutineNote::where('user_id', Auth::id())
+                ->where('routine_id', $routine->id)
+                ->whereBetween('occurred_at', [$from, $to])
+                ->with('item:id,name')
+                ->orderByDesc('occurred_at');
+            if ($type === 'craving' || $type === 'note') {
+                $nq->where('kind', $type);
+            }
+            if (!empty($data['trigger'])) {
+                $nq->where('trigger', 'like', '%' . $data['trigger'] . '%');
+            }
+            $nq->chunk(500, function ($rows) use (&$items) {
+                foreach ($rows as $n) {
+                    $items->push([
+                        'id' => $n->id,
+                        'entry_type' => $n->kind === 'craving' ? 'craving' : 'note',
+                        'kind' => $n->kind,
+                        'occurred_at' => $n->occurred_at?->toIso8601String(),
+                        'occurred_label' => $n->occurred_at ? $n->occurred_at->format('Y-m-d H:i') : null,
+                        'quantity' => null,
+                        'mood' => $n->mood,
+                        'location' => $n->location,
+                        'trigger' => $n->trigger,
+                        'note' => $n->note,
+                        'step' => $n->item?->name,
+                    ]);
+                }
+            });
+        }
+
+        $sorted = $items->sortByDesc('occurred_at')->values();
+        $page = max(1, (int) $request->input('page', 1));
+        $total = $sorted->count();
+        $paged = $sorted->slice(($page - 1) * $perPage, $perPage)->values();
+
+        return response()->json([
+            'ok' => true,
+            'routine_id' => $routine->id,
+            'type' => $type,
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'page' => $page,
+            'per_page' => $perPage,
+            'total' => $total,
+            'has_more' => $total > $page * $perPage,
+            'items' => $paged,
+        ]);
+    }
+
+    /**
      * Log a craving or free note for a routine (optionally one step), with an
      * exact timestamp so reports can use it later.
      */

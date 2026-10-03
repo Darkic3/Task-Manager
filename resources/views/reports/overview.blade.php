@@ -943,6 +943,14 @@
                         <span class="rp-list-name">{{ __('Cravings / notes') }}</span>
                         <span class="rp-list-val" style="margin-inline-start:auto;">{{ $avoid['cravings'] }} / {{ $avoid['notes'] }}</span>
                     </div>
+                    <div class="rp-list-row">
+                        <span class="rp-list-name">{{ __('Avg mood') }}</span>
+                        <span class="rp-list-val" style="margin-inline-start:auto;">{{ $avoid['mood_avg'] !== null ? $avoid['mood_avg'] . ' / 10 (' . $avoid['mood_count'] . ')' : '—' }}</span>
+                    </div>
+                    <div class="rp-list-row">
+                        <span class="rp-list-name">{{ __('Peak hour') }}</span>
+                        <span class="rp-list-val" style="margin-inline-start:auto;">{{ sprintf('%02d:00', $avoid['peak_hour'] ?? 0) }}</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -991,17 +999,59 @@
                 </div>
             </div>
         </div>
+        <div class="rp-grid2">
+            <div class="rp-card">
+                <div class="rp-card-header">
+                    <span class="rp-card-title"><i class="bi bi-geo-alt"></i> {{ __('Top locations') }}</span>
+                </div>
+                <div class="rp-card-body" style="padding-top:10px;padding-bottom:10px;">
+                    @forelse($avoid['top_locations'] ?? [] as $t => $n)
+                        <div class="rp-list-row">
+                            <span class="rp-list-name">{{ $t }}</span>
+                            <span class="rp-list-val" style="margin-inline-start:auto;background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:12px;font-size:11px;">×{{ $n }}</span>
+                        </div>
+                    @empty
+                        <div class="rp-empty-state">
+                            <i class="bi bi-geo-alt"></i>
+                            <span>{{ __('Nothing logged yet.') }}</span>
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+            <div class="rp-card">
+                <div class="rp-card-header">
+                    <span class="rp-card-title"><i class="bi bi-clock-history"></i> {{ __('Slips by hour') }}</span>
+                </div>
+                <div class="rp-card-body">
+                    <div class="rp-chart-container" style="height:90px;">
+                        @foreach($avoid['per_hour'] ?? [] as $h => $n)
+                            <div class="rp-bar-col" title="{{ sprintf('%02d:00', $h) }} — {{ $n }}">
+                                <div class="rp-bar-inner red" style="height: {{ ($maxH = max(1, max($avoid['per_hour'] ?? [1]))) ? round($n / $maxH * 100) : 2 }}%;{{ $n ? '' : 'opacity:.25;' }}"></div>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="rp-axis-row">
+                        @foreach($avoid['per_hour'] ?? [] as $h => $n)
+                            <span class="rp-axis-cell">{{ in_array($h, [0, 6, 12, 18]) ? sprintf('%02d', $h) : '' }}</span>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="rp-card">
             <div class="rp-card-header">
                 <span class="rp-card-title"><i class="bi bi-chat-left-quote"></i> {{ __('Recent cravings & notes') }}</span>
             </div>
             <div class="rp-card-body" style="padding-top:10px;padding-bottom:10px;">
                 @forelse($avoid['recent_notes'] as $n)
-                    <div class="rp-list-row">
+                    <div class="rp-list-row" style="flex-wrap:wrap;gap:6px;">
                         <span class="rp-pill-tag" style="background:{{ $n->kind === 'craving' ? '#fee2e2;color:#b91c1c' : '#f1f5f9;color:#475569' }};">
                             {{ $n->kind === 'craving' ? __('Craving') : __('Note') }}
                         </span>
                         <span style="color:#94a3b8;font-size:11.5px;white-space:nowrap;">{{ $n->occurred_at ? app_datetime($n->occurred_at, 'M d · H:i') : '' }}</span>
+                        @if($n->trigger)<span style="color:#b91c1c;font-size:11.5px;font-weight:600;">{{ $n->trigger }}</span>@endif
+                        @if($n->location)<span style="color:#0369a1;font-size:11.5px;">📍 {{ $n->location }}</span>@endif
+                        @if($n->mood)<span style="background:#f5f3ff;color:#7c3aed;font-size:11px;padding:1px 8px;border-radius:12px;font-weight:700;">{{ $n->mood }}/10</span>@endif
                         <span style="color:#1e293b;font-weight:500;">{{ $n->note ?: '—' }}</span>
                     </div>
                 @empty

@@ -405,6 +405,30 @@ class RoutineController extends Controller
                 'rate' => $am['rate'],
             ];
             $adherence = ['completed' => $am['clean'], 'total' => $am['total'], 'rate' => $am['rate']];
+            $monthAgo = $today->copy()->subDays(29)->startOfDay();
+            $monthViolations = $routine->violations()->whereBetween('occurred_date', [$monthAgo->toDateString(), $today->toDateString()])->get();
+            $perDay = [];
+            $cursor = $monthAgo->copy();
+            while ($cursor->lte($today)) {
+                $perDay[$cursor->toDateString()] = 0;
+                $cursor->addDay();
+            }
+            foreach ($monthViolations as $v) {
+                $k = $v->occurred_date instanceof Carbon ? $v->occurred_date->toDateString() : Carbon::parse($v->occurred_date)->toDateString();
+                if (array_key_exists($k, $perDay)) {
+                    $perDay[$k] += (int) ($v->quantity ?? 1);
+                }
+            }
+            $topTriggers = $monthViolations->filter(fn ($v) => $v->trigger)->groupBy(fn ($v) => mb_strtolower(trim((string) $v->trigger)))->map->count()->sortDesc()->take(5);
+            $topLocations = $monthViolations->filter(fn ($v) => $v->location)->groupBy(fn ($v) => mb_strtolower(trim((string) $v->location)))->map->count()->sortDesc()->take(5);
+            $moodVals = $monthViolations->pluck('mood')->filter(fn ($m) => $m !== null)->values();
+            $byHour = array_fill(0, 24, 0);
+            foreach ($monthViolations as $v) {
+                if ($v->occurred_at) {
+                    $byHour[(int) $v->occurred_at->format('G')]++;
+                }
+            }
+            $peakHour = array_search(max($byHour), $byHour);
             $avoid = [
                 'slip_total' => (int) $routine->violations()->sum('quantity'),
                 'slip_days' => count($routine->violatedDateKeys($today->copy()->subYear(), $today)),
@@ -412,6 +436,14 @@ class RoutineController extends Controller
                 'recent_notes' => $routine->routineNotes()->orderByDesc('occurred_at')->limit(10)->get(),
                 'today_violations' => $routine->violations()->whereDate('occurred_date', today()->toDateString())->orderByDesc('occurred_at')->get(),
                 'today_notes' => $routine->routineNotes()->whereDate('occurred_at', today()->toDateString())->orderByDesc('occurred_at')->get(),
+                'per_day' => $perDay,
+                'per_day_max' => max(1, max($perDay)),
+                'top_triggers' => $topTriggers,
+                'top_locations' => $topLocations,
+                'mood_avg' => $moodVals->isNotEmpty() ? round($moodVals->avg(), 1) : null,
+                'mood_count' => $moodVals->count(),
+                'by_hour' => $byHour,
+                'peak_hour' => $peakHour,
             ];
             $tracker = null;
             $valueStats = null;

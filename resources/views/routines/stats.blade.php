@@ -193,6 +193,65 @@
         </div>
     </div>
 
+    {{-- Avoid analytics: slips/day + triggers/locations/mood/peak hour (Phase 4) --}}
+    @if(!empty($avoid))
+        <div class="rs-card" style="margin-top:14px;">
+            <div class="rs-card-head">
+                <i class="bi bi-bar-chart" style="color:#b91c1c;"></i>
+                <span class="rs-card-title">{{ __('Slips per day') }}</span>
+                <span class="rs-legend">{{ __('last 30 days') }}</span>
+            </div>
+            <div class="rs-card-body">
+                @if(array_sum($avoid['per_day']))
+                    <div class="tr-chart" style="height:90px;">
+                        @foreach($avoid['per_day'] as $d => $n)
+                            <div class="tr-bar-wrap" title="{{ $d }} — {{ $n }} {{ __('slips') }}">
+                                <div class="tr-bar {{ $n === $avoid['per_day_max'] ? 'is-peak' : '' }}" style="height:{{ $n ? max(8, round($n / $avoid['per_day_max'] * 100)) : 2 }}%;{{ $n ? 'background:#ef4444;' : '' }}"></div>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="tr-axis">
+                        @foreach($avoid['per_day'] as $d => $n)
+                            <span>{{ substr($d, 8, 2) === '01' || substr($d, 8, 2) === '15' ? substr($d, 5, 5) : '' }}</span>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="tr-empty">🛡️ {{ __('Zero slips — perfectly clean.') }}</div>
+                @endif
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:14px;">
+            <div class="rs-card">
+                <div class="rs-card-head"><i class="bi bi-lightning-charge" style="color:#b91c1c;"></i><span class="rs-card-title">{{ __('Top triggers') }}</span></div>
+                <div class="rs-card-body" style="padding-top:8px;padding-bottom:8px;">
+                    @forelse($avoid['top_triggers'] as $t => $n)
+                        <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid #f0f1f3;"><span style="color:#1a1d23;font-weight:600;">{{ $t }}</span><span style="background:#fee2e2;color:#b91c1c;padding:1px 8px;border-radius:12px;font-weight:700;">×{{ $n }}</span></div>
+                    @empty
+                        <div class="tr-empty">{{ __('No triggers logged yet.') }}</div>
+                    @endforelse
+                </div>
+            </div>
+            <div class="rs-card">
+                <div class="rs-card-head"><i class="bi bi-geo-alt" style="color:#0369a1;"></i><span class="rs-card-title">{{ __('Top locations') }}</span></div>
+                <div class="rs-card-body" style="padding-top:8px;padding-bottom:8px;">
+                    @forelse($avoid['top_locations'] as $t => $n)
+                        <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid #f0f1f3;"><span style="color:#1a1d23;font-weight:600;">{{ $t }}</span><span style="background:#e0f2fe;color:#0369a1;padding:1px 8px;border-radius:12px;font-weight:700;">×{{ $n }}</span></div>
+                    @empty
+                        <div class="tr-empty">{{ __('Nothing logged yet.') }}</div>
+                    @endforelse
+                </div>
+            </div>
+            <div class="rs-card">
+                <div class="rs-card-head"><i class="bi bi-emoji-smile" style="color:#7c3aed;"></i><span class="rs-card-title">{{ __('Mood & peak hour') }}</span></div>
+                <div class="rs-card-body" style="padding-top:8px;padding-bottom:8px;font-size:12px;color:#3d4149;">
+                    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f1f3;"><span>{{ __('Avg mood') }}</span><b>{{ $avoid['mood_avg'] !== null ? $avoid['mood_avg'] . ' / 10 (' . $avoid['mood_count'] . ')' : '—' }}</b></div>
+                    <div style="display:flex;justify-content:space-between;padding:5px 0;"><span>{{ __('Peak hour') }}</span><b>{{ sprintf('%02d:00', $avoid['peak_hour']) }}</b></div>
+                    <div style="font-size:11px;color:#8a8f98;">{{ __('Exact timestamps power this analysis.') }}</div>
+                </div>
+            </div>
+        </div>
+    @endif
+
         {{-- Logged values (tracked routines) --}}
     @if(!empty($valueStats))
         <div class="rs-card" style="margin-top:14px;">
@@ -262,11 +321,13 @@
             </div>
             <div class="rs-card-body" style="padding-top:8px;padding-bottom:8px;" id="todayViolationsList">
                 @foreach($avoid['today_violations'] as $v)
-                    <div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #f0f1f3;font-size:12px;align-items:center;">
+                    <div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #f0f1f3;font-size:12px;align-items:center;flex-wrap:wrap;">
                         <span style="font-weight:700;color:#b91c1c;white-space:nowrap;">{{ __('Slip') }} @if($routine->count_violations)×{{ $v->quantity }}@endif</span>
                         <span style="color:#8a8f98;white-space:nowrap;">{{ $v->occurred_at ? $v->occurred_at->format('H:i') : '' }}</span>
                         @if($v->trigger)<span style="color:#b91c1c;font-weight:600;">{{ $v->trigger }}</span>@endif
-                        <span style="color:#1a1d23;flex:1;">{{ $v->note ?: '—' }}</span>
+                        @if($v->location)<span style="color:#0369a1;">📍 {{ $v->location }}</span>@endif
+                        @if($v->mood)<span style="background:#f5f3ff;color:#7c3aed;padding:1px 8px;border-radius:12px;font-weight:700;">{{ $v->mood }}/10</span>@endif
+                        <span style="color:#1a1d23;flex:1;min-width:120px;">{{ $v->note ?: '—' }}</span>
                     </div>
                 @endforeach
             </div>
@@ -283,10 +344,13 @@
             </div>
             <div class="rs-card-body" style="padding-top:8px;padding-bottom:8px;">
                 @forelse($avoid['recent_notes'] as $n)
-                    <div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #f0f1f3;font-size:12px;align-items:center;">
+                    <div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #f0f1f3;font-size:12px;align-items:center;flex-wrap:wrap;">
                         <span style="font-weight:700;color:{{ $n->kind === 'craving' ? '#b91c1c' : '#6b7280' }};white-space:nowrap;">{{ $n->kind === 'craving' ? 'وسوسه' : 'یادداشت' }}</span>
                         <span style="color:#8a8f98;white-space:nowrap;">{{ $n->occurred_at ? $n->occurred_at->format('M d · H:i') : '' }}</span>
-                        <span style="color:#1a1d23;flex:1;">{{ $n->note ?: '—' }}</span>
+                        @if($n->trigger)<span style="color:#b91c1c;font-weight:600;">{{ $n->trigger }}</span>@endif
+                        @if($n->location)<span style="color:#0369a1;">📍 {{ $n->location }}</span>@endif
+                        @if($n->mood)<span style="background:#f5f3ff;color:#7c3aed;padding:1px 8px;border-radius:12px;font-weight:700;">{{ $n->mood }}/10</span>@endif
+                        <span style="color:#1a1d23;flex:1;min-width:120px;">{{ $n->note ?: '—' }}</span>
                     </div>
                 @empty
                     <div class="tr-empty">{{ __('No cravings or notes logged yet.') }}</div>

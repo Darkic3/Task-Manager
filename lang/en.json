@@ -248,5 +248,17 @@
     "Mood (1-10)": "Mood (1-10)",
     "Craving intensity 1-10": "Craving intensity 1-10",
     "Location": "Location",
-    "Mood": "Mood"
+    "Mood": "Mood",
+    "Cravings": "Cravings",
+    "entries": "entries",
+    "Load more": "Load more",
+    "Last entry": "Last entry",
+    "last 30 days": "last 30 days",
+    "Zero slips — perfectly clean.": "Zero slips — perfectly clean.",
+    "Top locations": "Top locations",
+    "Mood & peak hour": "Mood & peak hour",
+    "Avg mood": "Avg mood",
+    "Exact timestamps power this analysis.": "Exact timestamps power this analysis.",
+    "Slips by hour": "Slips by hour",
+    "History": "History"
 }

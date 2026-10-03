@@ -1092,6 +1092,31 @@
     .pl-avoid-confirm-actions .cancel{padding:8px 16px;border-radius:8px;border:1px solid #d3d5db;background:#fff;color:#6b7385;font-weight:700;cursor:pointer;}
     .pl-avoid-confirm-actions .confirm{padding:8px 18px;border-radius:8px;border:1px solid #b91c1c;background:#b91c1c;color:#fff;font-weight:800;cursor:pointer;}
     .pl-avoid-confirm-actions .confirm.note{background:#0369a1;border-color:#0369a1;}
+    /* ── Phase 3: avoid history modal ── */
+    .pl-history-dialog{max-width:560px;}
+    .pl-history-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #eef0f3;}
+    .pl-history-chips,.pl-history-ranges{display:flex;gap:6px;flex-wrap:wrap;}
+    .pl-history-chips button,.pl-history-ranges button{padding:5px 12px;border-radius:20px;border:1px solid #e5e7eb;background:#fafbfc;color:#6b7385;font-size:12px;font-weight:700;cursor:pointer;}
+    .pl-history-chips button.active,.pl-history-ranges button.active{background:#1f2328;border-color:#1f2328;color:#fff;}
+    .pl-history-list{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto;padding:4px 2px;}
+    .pl-history-item{padding:10px 12px;border:1px solid #eef0f3;border-radius:10px;background:#fff;}
+    .pl-history-item.slip{border-inline-start:3px solid #ef4444;}
+    .pl-history-item.craving{border-inline-start:3px solid #f59e0b;}
+    .pl-history-item.note{border-inline-start:3px solid #0ea5e9;}
+    .pl-history-top{display:flex;align-items:center;gap:8px;font-size:12px;color:#8a8f98;margin-bottom:4px;}
+    .pl-history-kind{font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:2px 8px;border-radius:12px;}
+    .pl-history-kind.slip{background:#fee2e2;color:#b91c1c;}
+    .pl-history-kind.craving{background:#fef3c7;color:#b45309;}
+    .pl-history-kind.note{background:#e0f2fe;color:#0369a1;}
+    .pl-history-time{margin-inline-start:auto;font-variant-numeric:tabular-nums;}
+    .pl-history-main{font-size:13px;color:#1f2328;font-weight:600;}
+    .pl-history-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:11.5px;color:#6b7385;}
+    .pl-history-meta span{background:#f8fafc;border:1px solid #eef0f3;border-radius:12px;padding:2px 8px;}
+    .pl-history-more{width:100%;margin-top:10px;padding:8px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-weight:700;cursor:pointer;}
+    .pl-history-loading,.pl-history-empty{text-align:center;color:#8a8f98;padding:18px;font-size:13px;}
+    .pl-avoid-history-btn{padding:4px 10px;border-radius:16px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:11px;font-weight:700;cursor:pointer;}
+    .pl-avoid-history-btn:hover{border-color:#c4b5fd;color:#7c3aed;}
+    .pl-avoid-last{font-size:11px;color:#8a8f98;}
 </style>
 @endpush
 
@@ -1484,6 +1509,7 @@
     @include('planner._ai-schedule-modal')
     @include('planner._next-up-modal')
     @include('planner._floating-focus-bar')
+    @include('planner._avoid-history-modal')
 @endsection
 
 @push('scripts')
@@ -2942,6 +2968,115 @@
     const deleteNote = undoNote;
     function submitEditViolation() { return false; }
     function submitEditNote() { return false; }
+
+    /* ── Phase 3: avoid history modal ── */
+    const plHistoryState = { routineId: null, routineTitle: '', type: 'all', range: 30, page: 1, hasMore: false, loading: false };
+    function openAvoidHistory(routineId, routineTitle) {
+        plHistoryState.routineId = routineId;
+        plHistoryState.routineTitle = routineTitle || '';
+        plHistoryState.page = 1;
+        const m = document.getElementById('plAvoidHistoryModal');
+        m.querySelector('[data-history-title]').textContent = routineTitle || @json(__('History'));
+        m.hidden = false;
+        document.body.classList.add('pl-modal-open');
+        loadAvoidHistory(true);
+    }
+    function closeAvoidHistory() {
+        document.getElementById('plAvoidHistoryModal').hidden = true;
+        document.body.classList.remove('pl-modal-open');
+    }
+    document.addEventListener('click', e => {
+        if (e.target.closest('[data-history-close]')) closeAvoidHistory();
+        const hBtn = e.target.closest('[data-avoid-history]');
+        if (hBtn) { openAvoidHistory(hBtn.dataset.avoidHistory, hBtn.dataset.routineTitle || ''); return; }
+        const tBtn = e.target.closest('[data-history-type]');
+        if (tBtn) {
+            document.querySelectorAll('[data-history-type]').forEach(b => b.classList.toggle('active', b === tBtn));
+            plHistoryState.type = tBtn.dataset.historyType;
+            plHistoryState.page = 1;
+            loadAvoidHistory(true);
+            return;
+        }
+        const rBtn = e.target.closest('[data-history-range]');
+        if (rBtn) {
+            document.querySelectorAll('[data-history-range]').forEach(b => b.classList.toggle('active', b === rBtn));
+            plHistoryState.range = parseInt(rBtn.dataset.historyRange, 10) || 30;
+            plHistoryState.page = 1;
+            loadAvoidHistory(true);
+            return;
+        }
+        if (e.target.closest('[data-history-more]')) {
+            plHistoryState.page += 1;
+            loadAvoidHistory(false);
+        }
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !document.getElementById('plAvoidHistoryModal')?.hidden) closeAvoidHistory();
+    });
+    async function loadAvoidHistory(reset) {
+        const { routineId, type, range, page } = plHistoryState;
+        if (!routineId || plHistoryState.loading) return;
+        plHistoryState.loading = true;
+        const list = document.querySelector('[data-history-list]');
+        const emptyEl = document.querySelector('[data-history-empty]');
+        const loadEl = document.querySelector('[data-history-loading]');
+        const moreBtn = document.querySelector('[data-history-more]');
+        const sub = document.querySelector('[data-history-sub]');
+        if (reset) { list.replaceChildren(); emptyEl.hidden = true; }
+        loadEl.hidden = false;
+        moreBtn.hidden = true;
+        try {
+            const to = new Date().toISOString().slice(0, 10);
+            const fromD = new Date(Date.now() - (range - 1) * 864e5).toISOString().slice(0, 10);
+            const url = '{{ url('planner/routines') }}/' + routineId + '/history?type=' + encodeURIComponent(type) + '&from=' + fromD + '&to=' + to + '&page=' + page + '&per_page=20';
+            const res = await plFetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            if (sub) sub.textContent = json.total + ' ' + @json(__('entries')) + ' · ' + fromD + ' → ' + to;
+            (json.items || []).forEach(it => list.appendChild(renderHistoryItem(it)));
+            plHistoryState.hasMore = !!json.has_more;
+            moreBtn.hidden = !json.has_more;
+            emptyEl.hidden = list.childElementCount > 0;
+        } catch (err) {
+            console.error('[Planner] history failed', err);
+            emptyEl.hidden = list.childElementCount > 0;
+        } finally {
+            loadEl.hidden = true;
+            plHistoryState.loading = false;
+        }
+    }
+    function renderHistoryItem(it) {
+        const div = document.createElement('div');
+        div.className = 'pl-history-item ' + (it.entry_type || 'note');
+        const kindLabel = it.entry_type === 'slip' ? @json(__('Slip')) : (it.entry_type === 'craving' ? @json(__('Craving')) : @json(__('Note')));
+        const top = document.createElement('div');
+        top.className = 'pl-history-top';
+        const k = document.createElement('span');
+        k.className = 'pl-history-kind ' + (it.entry_type || 'note');
+        k.textContent = kindLabel + (it.quantity && it.quantity > 1 ? ' ×' + it.quantity : '');
+        const t = document.createElement('span');
+        t.className = 'pl-history-time';
+        t.textContent = it.occurred_label || '';
+        top.append(k, t);
+        div.appendChild(top);
+        if (it.note) {
+            const main = document.createElement('div');
+            main.className = 'pl-history-main';
+            main.textContent = it.note;
+            div.appendChild(main);
+        }
+        const meta = document.createElement('div');
+        meta.className = 'pl-history-meta';
+        [['trigger', it.trigger], ['location', it.location], ['mood', it.mood ? it.mood + '/10' : null], ['step', it.step]].forEach(([label, val]) => {
+            if (!val) return;
+            const s = document.createElement('span');
+            s.textContent = val;
+            s.title = label;
+            meta.appendChild(s);
+        });
+        if (meta.childElementCount) div.appendChild(meta);
+        return div;
+    }
 
     async function plUndoDelete(type, id) {
         const url = type === 'task'

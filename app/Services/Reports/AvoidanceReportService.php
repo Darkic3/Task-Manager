@@ -90,6 +90,25 @@ final class AvoidanceReportService
 
         $cravingCount = $notes->where('kind', 'craving')->count();
 
+        // Top locations (violations + notes).
+        $topLocations = $violations->filter(fn ($v) => $v->location)
+            ->merge($notes->filter(fn ($n) => $n->location))
+            ->groupBy(fn ($v) => mb_strtolower(trim((string) $v->location)))
+            ->map->count()
+            ->sortDesc()
+            ->take(6)
+            ->all();
+
+        // Avg mood + peak hour from exact timestamps.
+        $moodVals = $violations->pluck('mood')->merge($notes->pluck('mood'))->filter(fn ($m) => $m !== null)->values();
+        $perHour = array_fill(0, 24, 0);
+        foreach ($violations as $v) {
+            if ($v->occurred_at) {
+                $perHour[(int) $v->occurred_at->format('G')]++;
+            }
+        }
+        $peakHour = array_search(max($perHour), $perHour);
+
         return [
             'routines' => $routines->count(),
             'slip_total' => $slipTotal,
@@ -101,6 +120,11 @@ final class AvoidanceReportService
             'cravings' => $cravingCount,
             'notes' => $notes->count() - $cravingCount,
             'triggers' => $triggers,
+            'top_locations' => $topLocations,
+            'mood_avg' => $moodVals->isNotEmpty() ? round($moodVals->avg(), 1) : null,
+            'mood_count' => $moodVals->count(),
+            'peak_hour' => $peakHour,
+            'per_hour' => $perHour,
             'by_slot' => $bySlot,
             'per_day' => $perDay,
             'per_day_max' => max(1, max($perDay)),
@@ -114,8 +138,9 @@ final class AvoidanceReportService
         return [
             'routines' => 0, 'slip_total' => 0, 'slip_days' => 0, 'clean_days' => 0,
             'occurrences' => 0, 'clean_rate' => 0, 'best_clean_streak' => 0,
-            'cravings' => 0, 'notes' => 0, 'triggers' => [], 'by_slot' => [],
-            'per_day' => [], 'per_day_max' => 1, 'recent_notes' => collect(), 'periods' => [],
+            'cravings' => 0, 'notes' => 0, 'triggers' => [], 'top_locations' => [],
+            'mood_avg' => null, 'mood_count' => 0, 'peak_hour' => 0, 'per_hour' => array_fill(0, 24, 0),
+            'by_slot' => [], 'per_day' => [], 'per_day_max' => 1, 'recent_notes' => collect(), 'periods' => [],
         ];
     }
 

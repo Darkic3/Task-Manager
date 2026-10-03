@@ -1501,5 +1501,16 @@
     "Undo is available in My Day for 10 minutes": "بازگردانی تا ۱۰ دقیقه در برنامه روز ممکن است",
     "Location (optional)": "مکان (اختیاری)",
     "Mood (1-10)": "حال (۱ تا ۱۰)",
-    "Craving intensity 1-10": "شدت وسوسه ۱ تا ۱۰"
+    "Craving intensity 1-10": "شدت وسوسه ۱ تا ۱۰",
+    "Cravings": "وسوسه‌ها",
+    "entries": "مورد",
+    "Load more": "موارد بیشتر",
+    "Last entry": "آخرین ثبت",
+    "last 30 days": "۳۰ روز اخیر",
+    "Zero slips — perfectly clean.": "بدون لغزش — کاملاً پاک. 🛡️",
+    "Top locations": "پر تکرارترین مکان‌ها",
+    "Mood & peak hour": "حال و ساعت اوج",
+    "Avg mood": "میانگین حال",
+    "Exact timestamps power this analysis.": "ساعت دقیق ثبت، پایه این تحلیل است.",
+    "Slips by hour": "لغزش‌ها بر اساس ساعت"
 }
