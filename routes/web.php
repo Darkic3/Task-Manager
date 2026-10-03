@@ -149,6 +149,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/planner/routines/{routine}/slip', [PlannerController::class, 'logViolation'])->name('planner.routines.slip');
     Route::post('/planner/check-items/{item}/slip', [PlannerController::class, 'logStepViolation'])->name('planner.check-items.slip');
     Route::post('/planner/routines/{routine}/note', [PlannerController::class, 'logRoutineNote'])->name('planner.routines.note');
+    Route::delete('/planner/violations/{violation}', [PlannerController::class, 'destroyViolation'])->name('planner.violations.destroy');
+    Route::patch('/planner/violations/{violation}', [PlannerController::class, 'updateViolation'])->name('planner.violations.update');
+    Route::delete('/planner/notes/{note}', [PlannerController::class, 'destroyNote'])->name('planner.notes.destroy');
+    Route::patch('/planner/notes/{note}', [PlannerController::class, 'updateNote'])->name('planner.notes.update');
     Route::post('/planner/task-items/{item}/toggle', [PlannerController::class, 'toggleTaskCheckItem'])->name('planner.task-items.toggle');
     Route::post('/planner/quick-add/task', [PlannerController::class, 'quickAddTask'])->name('planner.quick-add.task');
     Route::post('/planner/quick-add/routine', [PlannerController::class, 'quickAddRoutine'])->name('planner.quick-add.routine');

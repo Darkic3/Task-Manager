@@ -410,6 +410,8 @@ class RoutineController extends Controller
                 'slip_days' => count($routine->violatedDateKeys($today->copy()->subYear(), $today)),
                 'cravings' => $routine->routineNotes()->where('kind', 'craving')->count(),
                 'recent_notes' => $routine->routineNotes()->orderByDesc('occurred_at')->limit(10)->get(),
+                'today_violations' => $routine->violations()->whereDate('occurred_date', today()->toDateString())->orderByDesc('occurred_at')->get(),
+                'today_notes' => $routine->routineNotes()->whereDate('occurred_at', today()->toDateString())->orderByDesc('occurred_at')->get(),
             ];
             $tracker = null;
             $valueStats = null;

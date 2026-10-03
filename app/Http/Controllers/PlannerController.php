@@ -57,6 +57,7 @@ class PlannerController extends Controller
         $stepMap = $this->preloadStepCompletions($routines, $selected, $selected);
         $this->preloadRoutineLogs($user->id, $routines, $selected, $selected);
         $violationMap = $this->preloadRoutineViolations($user->id, $routines, $rangeStart, $selected);
+        $this->preloadRoutineNotes($user->id, $routines, $selected, $selected);
 
         $routinesData = $this->splitRoutines($routines, $selected);
         $this->decorateHabitMetricsBulk($routinesData['today'], $selected, $stepMap, $violationMap);
@@ -185,6 +186,7 @@ class PlannerController extends Controller
         $stepMap = $this->preloadStepCompletions($routines, $start, $end);
         $this->preloadRoutineLogs($user->id, $routines, $start, $end);
         $violationMap = $this->preloadRoutineViolations($user->id, $routines, $rangeStart, $end);
+        $this->preloadRoutineNotes($user->id, $routines, $start, $end);
 
         $days = [];
         for ($i = 0; $i < 7; $i++) {
@@ -945,6 +947,139 @@ class PlannerController extends Controller
     }
 
     /**
+     * Undo a slip (violation) - only within 10 minutes of creation (mistaken entry).
+     * No permanent delete: this is strictly a short undo window.
+     */
+    public function destroyViolation(Request $request, \App\Models\RoutineViolation $violation)
+    {
+        abort_if($violation->user_id !== Auth::id(), 403);
+        // Only today's violation can be undone
+        $today = today()->toDateString();
+        $violDate = $violation->occurred_date instanceof Carbon ? $violation->occurred_date->toDateString() : substr((string) $violation->occurred_date, 0, 10);
+        abort_if($violDate !== $today, 410, __('Undo window expired.'));
+        // Strict 10-minute undo window based on creation time
+        $createdAt = $violation->created_at instanceof Carbon ? $violation->created_at : Carbon::parse($violation->created_at);
+        abort_if($createdAt->diffInSeconds(now()) > 600, 410, __('Undo window expired.'));
+
+        $routineId = $violation->routine_id;
+        $itemId = $violation->checklist_item_id;
+        $dateKey = $violDate;
+        $violation->delete();
+
+        // Recalculate day quantities
+        $routine = Routine::where('id', $routineId)->where('user_id', Auth::id())->first();
+        $dayQty = $routine ? $routine->fresh()->violationQtyOn(Carbon::parse($dateKey)) : 0;
+        $stepQty = null;
+        if ($itemId && $routine) {
+            $stepQty = (int) $routine->violations()->where('checklist_item_id', $itemId)->where('occurred_date', $dateKey)->sum('quantity');
+        }
+
+        return response()->json([
+            'ok' => true,
+            'routine_id' => $routineId,
+            'item_id' => $itemId,
+            'date' => $dateKey,
+            'day_qty' => $dayQty,
+            'step_qty' => $stepQty,
+            'violated' => $dayQty > 0,
+        ]);
+    }
+
+    /**
+     * Update a slip (violation) - only today's slips can be edited.
+     */
+    public function updateViolation(Request $request, \App\Models\RoutineViolation $violation)
+    {
+        abort_if($violation->user_id !== Auth::id(), 403);
+        $today = today()->toDateString();
+        $violDate = $violation->occurred_date instanceof Carbon ? $violation->occurred_date->toDateString() : substr((string) $violation->occurred_date, 0, 10);
+        abort_if($violDate !== $today, 422, __('Only today\'s slips can be edited.'));
+
+        $data = $request->validate([
+            'quantity' => 'nullable|integer|min:1|max:100000',
+            'trigger' => 'nullable|string|max:100',
+            'note' => 'nullable|string|max:2000',
+            'occurred_at' => 'nullable|date',
+        ]);
+
+        if (array_key_exists('quantity', $data) && $data['quantity'] !== null) {
+            $violation->quantity = (int) $data['quantity'];
+        }
+        if (array_key_exists('trigger', $data)) {
+            $violation->trigger = $data['trigger'];
+        }
+        if (array_key_exists('note', $data)) {
+            $violation->note = $data['note'];
+        }
+        if (!empty($data['occurred_at'])) {
+            $violation->occurred_at = Carbon::parse($data['occurred_at']);
+        }
+        $violation->save();
+
+        $routine = $violation->routine;
+        $dateKey = $violDate;
+        $dayQty = $routine->fresh()->violationQtyOn(Carbon::parse($dateKey));
+        $stepQty = null;
+        if ($violation->checklist_item_id) {
+            $stepQty = (int) $routine->violations()->where('checklist_item_id', $violation->checklist_item_id)->where('occurred_date', $dateKey)->sum('quantity');
+        }
+
+        return response()->json([
+            'ok' => true,
+            'violation_id' => $violation->id,
+            'routine_id' => $violation->routine_id,
+            'item_id' => $violation->checklist_item_id,
+            'date' => $dateKey,
+            'day_qty' => $dayQty,
+            'step_qty' => $stepQty,
+            'violation' => $violation->fresh(),
+        ]);
+    }
+
+    /**
+     * Undo a craving/note - only within 10 minutes of creation.
+     */
+    public function destroyNote(Request $request, \App\Models\RoutineNote $note)
+    {
+        abort_if($note->user_id !== Auth::id(), 403);
+        $today = today()->toDateString();
+        $noteDate = $note->occurred_at instanceof Carbon ? $note->occurred_at->toDateString() : Carbon::parse($note->occurred_at)->toDateString();
+        abort_if($noteDate !== $today, 410, __('Undo window expired.'));
+        $createdAt = $note->created_at instanceof Carbon ? $note->created_at : Carbon::parse($note->created_at);
+        abort_if($createdAt->diffInSeconds(now()) > 600, 410, __('Undo window expired.'));
+        $note->delete();
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Update a craving/note - only today's notes can be edited.
+     */
+    public function updateNote(Request $request, \App\Models\RoutineNote $note)
+    {
+        abort_if($note->user_id !== Auth::id(), 403);
+        $today = today()->toDateString();
+        $noteDate = $note->occurred_at instanceof Carbon ? $note->occurred_at->toDateString() : Carbon::parse($note->occurred_at)->toDateString();
+        abort_if($noteDate !== $today, 422, __('Only today\'s notes can be edited.'));
+
+        $data = $request->validate([
+            'kind' => 'nullable|in:craving,note',
+            'note' => 'nullable|string|max:2000',
+            'occurred_at' => 'nullable|date',
+        ]);
+        if (array_key_exists('kind', $data) && $data['kind'] !== null) {
+            $note->kind = $data['kind'];
+        }
+        if (array_key_exists('note', $data)) {
+            $note->note = $data['note'];
+        }
+        if (!empty($data['occurred_at'])) {
+            $note->occurred_at = Carbon::parse($data['occurred_at']);
+        }
+        $note->save();
+        return response()->json(['ok' => true, 'note' => $note->fresh()]);
+    }
+
+    /**
      * Log a craving or free note for a routine (optionally one step), with an
      * exact timestamp so reports can use it later.
      */
@@ -1086,6 +1221,7 @@ class PlannerController extends Controller
         $stepMap = $this->preloadStepCompletions($routines, $date, $date);
         $this->preloadRoutineLogs($user->id, $routines, $date, $date);
         $violationMap = $this->preloadRoutineViolations($user->id, $routines, $date, $date);
+        $this->preloadRoutineNotes($user->id, $routines, $date, $date);
         $today = $routines
             ->filter(fn ($r) => $r->occursOn($date))
             ->values();
@@ -1395,6 +1531,22 @@ class PlannerController extends Controller
         }
 
         return $map;
+    }
+
+    private function preloadRoutineNotes(int $userId, $routines, Carbon $from, Carbon $to): void
+    {
+        if ($routines->isEmpty()) {
+            return;
+        }
+        $rows = \App\Models\RoutineNote::where('user_id', $userId)
+            ->whereIn('routine_id', $routines->pluck('id'))
+            ->whereBetween('occurred_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
+            ->get()
+            ->groupBy('routine_id');
+        foreach ($routines as $routine) {
+            $list = $rows->get($routine->id, collect());
+            $routine->setRelation('routineNotes', $list);
+        }
     }
 
     /**

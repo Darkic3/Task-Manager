@@ -1036,6 +1036,49 @@
     .pl-day .pl-task{padding:7px 9px;}
     .pl-day .pl-task-title{font-size:12px;}
     .pl-day-empty{padding:14px 8px;text-align:center;color:#c4c9d4;font-size:11px;}
+    /* ── Avoid slip/notes today list + delete/edit ── */
+    .pl-violations-today{margin:6px 0 8px;padding:6px 8px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;}
+    .pl-violations-today.routine-level{margin-top:8px;}
+    .pl-notes-today{margin:6px 0 8px;padding:6px 8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;}
+    .pl-violations-title{font-size:11px;font-weight:700;color:#8a8f98;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
+    .pl-slip-row{display:flex;align-items:center;gap:6px;padding:4px 6px;background:white;border:1px solid #e3e4e8;border-radius:6px;margin-bottom:4px;font-size:12px;}
+    .pl-slip-row:last-child{margin-bottom:0;}
+    .pl-slip-info{flex:1;display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap;color:#3d4149;}
+    .pl-slip-trigger{color:#b91c1c;font-weight:600;}
+    .pl-slip-note{color:#6b7385;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;}
+    .pl-slip-time{color:#adb0b8;font-size:11px;margin-left:auto;}
+    .pl-note-kind{font-weight:700;color:#0369a1;font-size:11px;text-transform:uppercase;}
+    .pl-slip-edit,.pl-slip-del{width:26px;height:26px;border-radius:6px;border:1px solid transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;flex-shrink:0;}
+    .pl-slip-edit{background:#f1f5f9;color:#64748b;border-color:#e2e8f0;}
+    .pl-slip-edit:hover{background:#e0f2fe;color:#0369a1;border-color:#bae6fd;}
+    .pl-slip-del{background:#fef2f2;color:#dc2626;border-color:#fecaca;}
+    .pl-slip-del:hover{background:#fee2e2;border-color:#fca5a5;}
+    .pl-violation-edit-panel{margin:4px 0 6px;padding:8px;background:#fafbfc;border:1px solid #e3e4e8;border-radius:8px;}
+    .pl-violation-edit-panel form{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+    .pl-violation-edit-panel input,.pl-violation-edit-panel select{padding:5px 8px;border:1px solid #d3d5db;border-radius:6px;font-size:12px;flex:1;min-width:80px;}
+    .pl-violation-edit-panel button{padding:5px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;}
+    .pl-violation-edit-panel button[type=submit]{background:#7c3aed;color:white;border:1px solid #7c3aed;}
+    .pl-violation-edit-panel button[type=button]{background:white;color:#6b7385;border:1px solid #d3d5db;}
+    /* ── Phase 0: avoid confirm modal + persistent undo stack ── */
+    #plAvoidUndoStack{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:1075;display:flex;flex-direction:column;gap:8px;align-items:center;}
+    .pl-undo-bar{background:#1f2328;color:#fff;font-size:13px;padding:9px 14px;border-radius:10px;display:flex;align-items:center;gap:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);white-space:nowrap;}
+    .pl-undo-bar .pl-undo-count{color:#fca5a5;font-weight:800;font-variant-numeric:tabular-nums;}
+    .pl-undo-bar button{background:none;border:none;color:#a78bfa;font-size:12.5px;font-weight:800;cursor:pointer;padding:2px 4px;}
+    .pl-undo-bar button:hover{color:#fff;}
+    .pl-avoid-confirm{position:fixed;inset:0;z-index:1090;display:flex;align-items:center;justify-content:center;padding:16px;}
+    .pl-avoid-confirm[hidden]{display:none;}
+    .pl-avoid-confirm-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(2px);}
+    .pl-avoid-confirm-dialog{position:relative;background:#fff;border-radius:14px;max-width:420px;width:100%;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.3);}
+    .pl-avoid-confirm-title{font-weight:800;font-size:15px;color:#1f2328;margin-bottom:4px;}
+    .pl-avoid-confirm-sub{font-size:12px;color:#8a8f98;margin-bottom:12px;}
+    .pl-avoid-confirm-rows{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;font-size:13px;color:#3d4149;}
+    .pl-avoid-confirm-rows .r{display:flex;justify-content:space-between;gap:10px;padding:6px 10px;background:#fafbfc;border:1px solid #eef0f3;border-radius:8px;}
+    .pl-avoid-confirm-rows .k{color:#8a8f98;font-weight:600;}
+    .pl-avoid-confirm-rows .v{font-weight:700;color:#1f2328;text-align:end;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+    .pl-avoid-confirm-actions{display:flex;gap:8px;justify-content:flex-end;}
+    .pl-avoid-confirm-actions .cancel{padding:8px 16px;border-radius:8px;border:1px solid #d3d5db;background:#fff;color:#6b7385;font-weight:700;cursor:pointer;}
+    .pl-avoid-confirm-actions .confirm{padding:8px 18px;border-radius:8px;border:1px solid #b91c1c;background:#b91c1c;color:#fff;font-weight:800;cursor:pointer;}
+    .pl-avoid-confirm-actions .confirm.note{background:#0369a1;border-color:#0369a1;}
 </style>
 @endpush
 
@@ -1265,6 +1308,20 @@
 
     <div id="plConfetti" aria-hidden="true"></div>
     <div id="plToast" role="status"></div>
+    <div id="plAvoidUndoStack" aria-live="polite"></div>
+    {{-- Avoid confirm-before-save modal (Phase 0) --}}
+    <div class="pl-avoid-confirm" id="plAvoidConfirm" hidden>
+        <div class="pl-avoid-confirm-backdrop" data-avoid-confirm-cancel></div>
+        <div class="pl-avoid-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="plAvoidConfirmTitle">
+            <div class="pl-avoid-confirm-title" id="plAvoidConfirmTitle"></div>
+            <div class="pl-avoid-confirm-sub" data-avoid-confirm-sub></div>
+            <div class="pl-avoid-confirm-rows" data-avoid-confirm-rows></div>
+            <div class="pl-avoid-confirm-actions">
+                <button type="button" class="cancel" data-avoid-confirm-cancel>{{ __('Cancel') }}</button>
+                <button type="button" class="confirm" data-avoid-confirm-ok></button>
+            </div>
+        </div>
+    </div>
 
     {{-- Routine detail modal: opened for big or tracked routines --}}
     <div class="pl-modal" id="plRoutineModal" hidden>
@@ -2229,23 +2286,191 @@
         return data;
     }
 
+    /* ── Phase 0: confirm-before-save + persistent 10-min undo, no reload ── */
+    const PL_UNDO_KEY = 'pl_avoid_undo_v1';
+    const PL_UNDO_MS = 600000;
+    let plUndoTimers = {};
+
+    function plGetUndos() {
+        try { return JSON.parse(localStorage.getItem(PL_UNDO_KEY) || '[]'); }
+        catch (e) { return []; }
+    }
+    function plSaveUndos(list) {
+        try { localStorage.setItem(PL_UNDO_KEY, JSON.stringify(list)); } catch (e) {}
+    }
+    function plAddUndo(entry) {
+        const list = plGetUndos().filter(u => u.expiresAt > Date.now());
+        list.push(entry);
+        plSaveUndos(list);
+        plRenderUndoStack();
+    }
+    function plRemoveUndo(id, type) {
+        plSaveUndos(plGetUndos().filter(u => !(String(u.id) === String(id) && u.type === type)));
+        plRenderUndoStack();
+    }
+    function plFormatCountdown(ms) {
+        const s = Math.max(0, Math.ceil(ms / 1000));
+        return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    }
+    function plRenderUndoStack() {
+        const stack = document.getElementById('plAvoidUndoStack');
+        if (!stack) return;
+        stack.replaceChildren();
+        clearTimeout(plUndoTimers.tick);
+        const now = Date.now();
+        const actives = plGetUndos().filter(u => u.expiresAt > now);
+        if (!actives.length) { plSaveUndos([]); return; }
+        plSaveUndos(actives);
+        actives.forEach(u => {
+            const bar = document.createElement('div');
+            bar.className = 'pl-undo-bar';
+            bar.dataset.undoId = u.id;
+            bar.dataset.undoType = u.type;
+            const label = document.createElement('span');
+            label.textContent = (u.type === 'note' ? @json(__('Saved')) + ' ✓' : @json(__('Slip logged'))) + ' — ' + (u.routineTitle || '');
+            const count = document.createElement('span');
+            count.className = 'pl-undo-count';
+            count.dataset.countdown = u.expiresAt;
+            count.textContent = plFormatCountdown(u.expiresAt - now);
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = @json(__('Undo'));
+            btn.onclick = () => { u.type === 'note' ? undoNote(u.id) : undoViolation(u.id); };
+            bar.append(label, count, btn);
+            stack.appendChild(bar);
+        });
+        plUndoTimers.tick = setTimeout(plRenderUndoStack, 1000);
+        // auto-prune expired
+        const minExp = Math.min(...actives.map(u => u.expiresAt));
+        clearTimeout(plUndoTimers.prune);
+        plUndoTimers.prune = setTimeout(plRenderUndoStack, Math.max(1000, minExp - Date.now() + 500));
+    }
+    document.addEventListener('DOMContentLoaded', plRenderUndoStack);
+
+    function plRoutineTitleFromForm(form) {
+        const row = form.closest('[data-routine-item]');
+        if (!row) return '';
+        const t = row.querySelector('.pl-task-title');
+        return t ? t.textContent.trim().split('\n')[0].trim().slice(0, 40) : '';
+    }
+
+    /* Confirm modal */
+    let plConfirmResolve = null;
+    function plOpenAvoidConfirm({ title, sub, rows, okLabel, okClass }) {
+        return new Promise(resolve => {
+            plConfirmResolve = resolve;
+            const m = document.getElementById('plAvoidConfirm');
+            m.querySelector('#plAvoidConfirmTitle').textContent = title;
+            m.querySelector('[data-avoid-confirm-sub]').textContent = sub || '';
+            const box = m.querySelector('[data-avoid-confirm-rows]');
+            box.replaceChildren();
+            (rows || []).forEach(([k, v]) => {
+                if (!v) return;
+                const r = document.createElement('div');
+                r.className = 'r';
+                const kk = document.createElement('span'); kk.className = 'k'; kk.textContent = k;
+                const vv = document.createElement('span'); vv.className = 'v'; vv.textContent = v;
+                r.append(kk, vv);
+                box.appendChild(r);
+            });
+            const ok = m.querySelector('[data-avoid-confirm-ok]');
+            ok.textContent = okLabel;
+            ok.className = 'confirm' + (okClass === 'note' ? ' note' : '');
+            m.hidden = false;
+        });
+    }
+    function plCloseAvoidConfirm(val) {
+        document.getElementById('plAvoidConfirm').hidden = true;
+        if (plConfirmResolve) { plConfirmResolve(val); plConfirmResolve = null; }
+    }
+    document.addEventListener('click', e => {
+        if (e.target.closest('[data-avoid-confirm-cancel]')) plCloseAvoidConfirm(false);
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !document.getElementById('plAvoidConfirm').hidden) plCloseAvoidConfirm(false);
+    });
+    document.querySelector('[data-avoid-confirm-ok]')?.addEventListener('click', () => plCloseAvoidConfirm(true));
+
+    function plConfirmSlip(form, isNote) {
+        const d = avoidPayload(form);
+        const rows = [
+            [@json(__('Routine')), plRoutineTitleFromForm(form)],
+            d.quantity ? [@json(__('Quantity')), String(d.quantity)] : null,
+            d.trigger ? [@json(__('Trigger')), d.trigger] : null,
+            d.occurred_at ? [@json(__('Time')), String(d.occurred_at).slice(0, 16).replace('T', ' ')] : null,
+            d.note ? [@json(__('Note')), String(d.note).slice(0, 80)] : null,
+            isNote && d.kind ? [@json(__('Kind')), d.kind === 'craving' ? @json(__('Craving')) : @json(__('Note'))] : null,
+        ].filter(Boolean);
+        return plOpenAvoidConfirm({
+            title: isNote ? @json(__('Save this note?')) : @json(__('Log this slip?')),
+            sub: @json(__('Please review before saving — you have 10 minutes to undo.')),
+            rows,
+            okLabel: isNote ? @json(__('Save')) : @json(__('Log Slip')),
+            okClass: isNote ? 'note' : 'slip',
+        });
+    }
+
+    /* In-place row update after slip (no reload) */
+    function plMarkRowViolated(form, dayQty) {
+        const row = form.closest('[data-routine-item]');
+        if (!row) return;
+        const shield = row.querySelector('.pl-avoid-shield');
+        if (shield) {
+            shield.classList.remove('ok'); shield.classList.add('bad');
+            shield.querySelector('i')?.classList.replace('bi-shield-fill-check', 'bi-shield-fill-exclamation');
+        }
+        const meta = row.querySelector('.pl-task-meta .pl-priority');
+        if (meta && typeof dayQty !== 'undefined') {
+            meta.style.color = '#b91c1c'; meta.style.background = '#fee2e2';
+            meta.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + @json(__('Slip logged')) + (dayQty > 1 ? ' · ×' + dayQty : '');
+        }
+        const panel = form.closest('[data-slip-panel], [data-step-slip-panel]');
+        if (panel) panel.hidden = true;
+        form.reset?.();
+    }
+    function plUnmarkRowIfClean(routineId, date, dayQty) {
+        if (dayQty > 0) return;
+        document.querySelectorAll('[data-routine-item][data-id="' + routineId + '"][data-date="' + date + '"]').forEach(row => {
+            const shield = row.querySelector('.pl-avoid-shield');
+            if (shield) {
+                shield.classList.remove('bad'); shield.classList.add('ok');
+                shield.querySelector('i')?.classList.replace('bi-shield-fill-exclamation', 'bi-shield-fill-check');
+            }
+            const meta = row.querySelector('.pl-task-meta .pl-priority');
+            if (meta) {
+                meta.style.color = '#15803d'; meta.style.background = '#dcfce7';
+                meta.innerHTML = '<i class="bi bi-shield-check"></i> ' + @json(__('Clean so far'));
+            }
+        });
+    }
+
+    async function doPostSlip(url, payload) {
+        const res = await plFetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+    }
+
     async function submitRoutineSlip(form) {
         const btn = form.querySelector('button[type=submit]');
+        const ok = await plConfirmSlip(form, false);
+        if (!ok) return false;
         btn.disabled = true;
         try {
-            const res = await plFetch(form.dataset.slipUrl + '?date=' + encodeURIComponent(form.dataset.date), {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                body: JSON.stringify(avoidPayload(form)),
-            });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            await res.json();
-            plShowToast('Slip logged');
-            /* Slips move the card to another slot — reload for correct order. */
-            location.reload();
+            const json = await doPostSlip(form.dataset.slipUrl + '?date=' + encodeURIComponent(form.dataset.date), avoidPayload(form));
+            if (json.violation_id) {
+                plAddUndo({ id: json.violation_id, type: 'violation', routineId: json.routine_id, date: json.date, routineTitle: plRoutineTitleFromForm(form), expiresAt: Date.now() + PL_UNDO_MS });
+                plMarkRowViolated(form, json.day_qty);
+                refreshNextUp?.();
+            } else {
+                plShowToast(json.already_violated ? @json(__('Already logged today')) : @json(__('Slip logged')));
+            }
         } catch (e) {
             console.error('[Planner] slip failed', e);
-            plShowToast('Could not log the slip');
+            plShowToast(@json(__('Could not log the slip')));
         } finally {
             btn.disabled = false;
         }
@@ -2254,20 +2479,21 @@
 
     async function submitStepSlip(form) {
         const btn = form.querySelector('button[type=submit]');
+        const ok = await plConfirmSlip(form, false);
+        if (!ok) return false;
         btn.disabled = true;
         try {
-            const res = await plFetch(form.dataset.slipUrl + '?date=' + encodeURIComponent(form.dataset.date), {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                body: JSON.stringify(avoidPayload(form)),
-            });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            await res.json();
-            plShowToast('Slip logged');
-            location.reload();
+            const json = await doPostSlip(form.dataset.slipUrl + '?date=' + encodeURIComponent(form.dataset.date), avoidPayload(form));
+            if (json.violation_id) {
+                plAddUndo({ id: json.violation_id, type: 'violation', routineId: json.routine_id, date: json.date, routineTitle: plRoutineTitleFromForm(form), expiresAt: Date.now() + PL_UNDO_MS });
+                plMarkRowViolated(form, json.day_qty);
+                refreshNextUp?.();
+            } else {
+                plShowToast(json.already_violated ? @json(__('Already logged today')) : @json(__('Slip logged')));
+            }
         } catch (e) {
             console.error('[Planner] step slip failed', e);
-            plShowToast('Could not log the slip');
+            plShowToast(@json(__('Could not log the slip')));
         } finally {
             btn.disabled = false;
         }
@@ -2276,22 +2502,22 @@
 
     async function submitRoutineNote(form) {
         const btn = form.querySelector('button[type=submit]');
+        const ok = await plConfirmSlip(form, true);
+        if (!ok) return false;
         btn.disabled = true;
         try {
-            const res = await plFetch(form.dataset.noteUrl + '?date=' + encodeURIComponent(form.dataset.date), {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                body: JSON.stringify(avoidPayload(form)),
-            });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            await res.json();
-            plShowToast('Saved ✓');
+            const json = await doPostSlip(form.dataset.noteUrl + '?date=' + encodeURIComponent(form.dataset.date), avoidPayload(form));
+            if (json.note_id) {
+                plAddUndo({ id: json.note_id, type: 'note', routineId: json.routine_id, date: json.date, routineTitle: plRoutineTitleFromForm(form), expiresAt: Date.now() + PL_UNDO_MS });
+            } else {
+                plShowToast(@json(__('Saved')) + ' ✓');
+            }
             const panel = form.closest('[data-note-panel]');
             if (panel) panel.hidden = true;
             form.querySelector('input[name=note]').value = '';
         } catch (e) {
             console.error('[Planner] note failed', e);
-            plShowToast('Could not save');
+            plShowToast(@json(__('Could not save')));
         } finally {
             btn.disabled = false;
         }
@@ -2306,6 +2532,14 @@
         const stepBox = card.querySelector('[data-next-step]');
         const url = (stepBox && stepBox.dataset.slipUrl) || card.dataset.slipUrl;
         if (!url) return;
+        const ok = await plOpenAvoidConfirm({
+            title: @json(__('Log this slip?')),
+            sub: @json(__('Please review before saving — you have 10 minutes to undo.')),
+            rows: [[@json(__('Routine')), card.dataset.routineTitle || '']],
+            okLabel: @json(__('Log Slip')),
+            okClass: 'slip',
+        });
+        if (!ok) return;
         try {
             const res = await plFetch(url + '?date=' + encodeURIComponent(wrap.dataset.nextDate), {
                 method: 'POST',
@@ -2313,11 +2547,15 @@
                 body: JSON.stringify({}),
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
-            plShowToast('Slip logged');
-            location.reload();
+            const json = await res.json();
+            if (json.violation_id) {
+                plAddUndo({ id: json.violation_id, type: 'violation', routineId: json.routine_id, date: json.date, routineTitle: card.dataset.routineTitle || '', expiresAt: Date.now() + PL_UNDO_MS });
+                refreshNextUp?.();
+            }
+            plShowToast(@json(__('Slip logged')));
         } catch (e) {
             console.error('[Planner] next-up slip failed', e);
-            plShowToast('Could not log the slip');
+            plShowToast(@json(__('Could not log the slip')));
         }
     }
 
@@ -2572,6 +2810,68 @@
         clearTimeout(plToastTimer);
         plToastTimer = setTimeout(hideRoutineToast, 4500);
     }
+
+    function plShowToastWithUndo(message, undoFn, durationMs) {
+        const toast = document.getElementById('plToast');
+        if (!toast) return;
+        toast.replaceChildren();
+        const span = document.createElement('span');
+        span.textContent = message;
+        toast.appendChild(span);
+        if (undoFn) {
+            const undo = document.createElement('button');
+            undo.type = 'button';
+            undo.textContent = '{{ __('Undo') }}';
+            undo.onclick = () => { hideRoutineToast(); undoFn(); };
+            toast.appendChild(undo);
+        }
+        toast.classList.add('show');
+        clearTimeout(plToastTimer);
+        plToastTimer = setTimeout(hideRoutineToast, durationMs || 600000);
+    }
+
+    /* Undo-only (10 min): no permanent delete/edit UI in Phase 0 */
+    async function undoViolation(violationId) {
+        const entry = plGetUndos().find(u => String(u.id) === String(violationId) && u.type === 'violation');
+        try {
+            const res = await plFetch('{{ url('planner/violations') }}/' + violationId, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
+            });
+            if (res.status === 410) throw new Error('HTTP 410');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json().catch(() => ({}));
+            plRemoveUndo(violationId, 'violation');
+            if (entry) plUnmarkRowIfClean(entry.routineId, entry.date, json.day_qty ?? 0);
+            plShowToast(@json(__('Undone — back to clean')));
+            refreshNextUp?.();
+        } catch (e) {
+            console.error('[Planner] undo violation failed', e);
+            plRemoveUndo(violationId, 'violation');
+            plShowToast(e.message.includes('410') ? @json(__('Undo window expired.')) : @json(__('Could not undo')));
+        }
+    }
+    async function undoNote(noteId) {
+        try {
+            const res = await plFetch('{{ url('planner/notes') }}/' + noteId, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
+            });
+            if (res.status === 410) throw new Error('HTTP 410');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            plRemoveUndo(noteId, 'note');
+            plShowToast(@json(__('Undone')));
+        } catch (e) {
+            console.error('[Planner] undo note failed', e);
+            plRemoveUndo(noteId, 'note');
+            plShowToast(e.message.includes('410') ? @json(__('Undo window expired.')) : @json(__('Could not undo')));
+        }
+    }
+    /* Back-compat aliases (old toast handlers) */
+    const deleteViolation = undoViolation;
+    const deleteNote = undoNote;
+    function submitEditViolation() { return false; }
+    function submitEditNote() { return false; }
 
     async function plUndoDelete(type, id) {
         const url = type === 'task'

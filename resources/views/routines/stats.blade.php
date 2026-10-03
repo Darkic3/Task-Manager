@@ -252,7 +252,28 @@
         </div>
     @endif
 
-    {{-- Cravings & notes (avoid habits) — timestamped, report-ready --}}
+    {{-- Today's slips - read-only history (undo lives in My Day toast, 10 min) --}}
+    @if(!empty($avoid) && !empty($avoid['today_violations']) && $avoid['today_violations']->isNotEmpty())
+        <div class="rs-card" style="margin-top:14px;">
+            <div class="rs-card-head">
+                <i class="bi bi-exclamation-triangle" style="color:#b91c1c;"></i>
+                <span class="rs-card-title">{{ __('Today\'s slips') }}</span>
+                <span class="rs-legend">{{ __('Undo is available in My Day for 10 minutes') }}</span>
+            </div>
+            <div class="rs-card-body" style="padding-top:8px;padding-bottom:8px;" id="todayViolationsList">
+                @foreach($avoid['today_violations'] as $v)
+                    <div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #f0f1f3;font-size:12px;align-items:center;">
+                        <span style="font-weight:700;color:#b91c1c;white-space:nowrap;">{{ __('Slip') }} @if($routine->count_violations)×{{ $v->quantity }}@endif</span>
+                        <span style="color:#8a8f98;white-space:nowrap;">{{ $v->occurred_at ? $v->occurred_at->format('H:i') : '' }}</span>
+                        @if($v->trigger)<span style="color:#b91c1c;font-weight:600;">{{ $v->trigger }}</span>@endif
+                        <span style="color:#1a1d23;flex:1;">{{ $v->note ?: '—' }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    {{-- Cravings & notes (avoid habits) — read-only history --}}
     @if(!empty($avoid))
         <div class="rs-card" style="margin-top:14px;">
             <div class="rs-card-head">
@@ -262,10 +283,10 @@
             </div>
             <div class="rs-card-body" style="padding-top:8px;padding-bottom:8px;">
                 @forelse($avoid['recent_notes'] as $n)
-                    <div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #f0f1f3;font-size:12px;align-items:baseline;">
+                    <div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #f0f1f3;font-size:12px;align-items:center;">
                         <span style="font-weight:700;color:{{ $n->kind === 'craving' ? '#b91c1c' : '#6b7280' }};white-space:nowrap;">{{ $n->kind === 'craving' ? 'وسوسه' : 'یادداشت' }}</span>
                         <span style="color:#8a8f98;white-space:nowrap;">{{ $n->occurred_at ? $n->occurred_at->format('M d · H:i') : '' }}</span>
-                        <span style="color:#1a1d23;">{{ $n->note ?: '—' }}</span>
+                        <span style="color:#1a1d23;flex:1;">{{ $n->note ?: '—' }}</span>
                     </div>
                 @empty
                     <div class="tr-empty">{{ __('No cravings or notes logged yet.') }}</div>
