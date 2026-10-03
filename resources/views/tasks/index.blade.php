@@ -754,7 +754,7 @@
                         <div class="col-md-4">
                             <div class="cu-field">
                                 <label class="cu-label">{{ __('Due Date') }}</label>
-                                <input type="date" name="due_date" class="cu-input">
+                                <x-jalali-date name="due_date" class="cu-input" />
                             </div>
                         </div>
                         <div class="col-md-4">

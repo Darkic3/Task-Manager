@@ -216,9 +216,9 @@
         <div class="te-grid">
             <div class="te-field">
                 <label for="due_date">{{ __('Due Date') }}</label>
-                <input type="date" name="due_date" id="due_date"
-                       class="te-input {{ $errors->has('due_date') ? 'is-invalid' : '' }}"
-                       value="{{ old('due_date', $task->due_date ? $task->due_date->format('Y-m-d') : '') }}">
+                <x-jalali-date name="due_date" id="due_date"
+                       :value="old('due_date', $task->due_date ? $task->due_date->format('Y-m-d') : '')"
+                       class="te-input {{ $errors->has('due_date') ? 'is-invalid' : '' }}" />
                 @error('due_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="te-field">

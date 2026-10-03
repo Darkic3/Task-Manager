@@ -61,6 +61,10 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    @if(app()->getLocale() === 'fa')
+        {{-- Jalali date picker (assets copied from shopora) — fa locale only --}}
+        <link rel="stylesheet" href="{{ asset('assets/jalali/jalalidatepicker.min.css') }}">
+    @endif
 
     @stack('styles')
 
@@ -1228,6 +1232,78 @@
     @include('time._widget')
     @include('tasks._drawer')
     @stack('scripts')
+    @if(app()->getLocale() === 'fa')
+        {{-- Jalali date picker (assets copied from shopora) — fa locale only.
+             startWatch uses focusin delegation, so AJAX-added inputs work too.
+             zIndex sits above bootstrap/pl modals. --}}
+        <script src="{{ asset('assets/jalali/jalaali.js') }}"></script>
+        <script src="{{ asset('assets/jalali/jalalidatepicker.min.js') }}"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof jalaliDatepicker !== 'undefined') {
+                    jalaliDatepicker.startWatch({ minDate: 'attr', maxDate: 'attr', time: true, zIndex: 3000 });
+                }
+                if (typeof window.jalaali === 'undefined') return;
+
+                var toEnDigits = function (s) {
+                    return String(s == null ? '' : s).replace(/[۰-۹]/g, function (d) {
+                        return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);
+                    }).replace(/[٠-٩]/g, function (d) {
+                        return '٠١٢٣٤٥٦٧٨٩'.indexOf(d);
+                    });
+                };
+                // 'YYYY/MM/DD [HH:mm]' (Jalali) → 'YYYY-MM-DD [HH:mm]' (Gregorian). '' when invalid/empty.
+                window.jalaliToGregorian = function (jalaliStr, withTime) {
+                    var m = toEnDigits(jalaliStr || '').match(/(\d+)\/(\d+)\/(\d+)(?:\s+(\d+):(\d+))?/);
+                    if (!m) return '';
+                    var jy = +m[1], jm = +m[2], jd = +m[3];
+                    if (!window.jalaali.isValidJalaaliDate(jy, jm, jd)) return '';
+                    var g = window.jalaali.toGregorian(jy, jm, jd);
+                    var pad = function (n) { return String(n).padStart(2, '0'); };
+                    var out = g.gy + '-' + pad(g.gm) + '-' + pad(g.gd);
+                    if (withTime) out += ' ' + pad(m[4] == null ? 0 : m[4]) + ':' + pad(m[5] == null ? 0 : m[5]);
+                    return out;
+                };
+                // Gregorian → Jalali display string for a visible picker input.
+                window.gregorianToJalali = function (gregStr, withTime) {
+                    var m = toEnDigits(gregStr || '').match(/(\d+)-(\d+)-(\d+)(?:[T\s](\d+):(\d+))?/);
+                    if (!m) return '';
+                    var j = window.jalaali.toJalaali(+m[1], +m[2], +m[3]);
+                    var pad = function (n) { return String(n).padStart(2, '0'); };
+                    var out = j.jy + '/' + pad(j.jm) + '/' + pad(j.jd);
+                    if (withTime) out += ' ' + pad(m[4] == null ? 0 : m[4]) + ':' + pad(m[5] == null ? 0 : m[5]);
+                    return out;
+                };
+                var syncHidden = function (vis) {
+                    var hidden = document.getElementById(vis.getAttribute('data-target'));
+                    if (!hidden) return;
+                    var box = vis.closest('[data-jdp-scope]') || document;
+                    var withTime = !vis.hasAttribute('data-jdp-only-date');
+                    var next = window.jalaliToGregorian(vis.value, withTime);
+                    if (hidden.value !== next) {
+                        hidden.value = next;
+                        hidden.dispatchEvent(new Event('input', { bubbles: true }));
+                        hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                };
+                document.querySelectorAll('[data-jdp][data-target]').forEach(function (el) {
+                    el.addEventListener('change', function () { syncHidden(el); });
+                    el.addEventListener('input', function () { syncHidden(el); });
+                    syncHidden(el);
+                });
+                // Refresh a visible picker from its hidden Gregorian value
+                // (used after JS sets hidden values programmatically).
+                window.jalaliSyncVisible = function (hiddenId) {
+                    var hidden = document.getElementById(hiddenId);
+                    if (!hidden) return;
+                    var vis = document.getElementById(hiddenId + '-jalali');
+                    if (!vis) return;
+                    var withTime = !vis.hasAttribute('data-jdp-only-date');
+                    vis.value = hidden.value ? window.gregorianToJalali(hidden.value, withTime) : '';
+                };
+            });
+        </script>
+    @endif
 </body>
 
 </html>

@@ -93,8 +93,8 @@
 
                     <div class="nt-form-row">
                         <label class="nt-form-label" for="ntOccurred">{{ __('When did it happen?') }}</label>
-                        <input type="datetime-local" class="form-control" id="ntOccurred" name="occurred_at"
-                               value="{{ old('occurred_at', $note->occurred_at ? $note->occurred_at->format('Y-m-d\TH:i') : '') }}">
+                        <x-jalali-date name="occurred_at" id="ntOccurred" type="datetime" class="form-control"
+                               :value="old('occurred_at', $note->occurred_at ? $note->occurred_at->format('Y-m-d H:i') : '')" />
                         <div class="nt-form-help">{{ __('Leave empty for today') }}</div>
                     </div>
 

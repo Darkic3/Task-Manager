@@ -178,11 +178,13 @@
                 <div class="tm-form-row">
                     <div class="tm-field">
                         <label>{{ __('Started at') }}</label>
-                        <input type="datetime-local" name="started_at" class="tm-input" required value="{{ now()->subHour()->format('Y-m-d\TH:i') }}">
+                        <x-jalali-date name="started_at" type="datetime" class="tm-input" required
+                            :value="now()->subHour()->format('Y-m-d H:i')" />
                     </div>
                     <div class="tm-field">
                         <label>{{ __('Ended at') }}</label>
-                        <input type="datetime-local" name="ended_at" class="tm-input" required value="{{ now()->format('Y-m-d\TH:i') }}">
+                        <x-jalali-date name="ended_at" type="datetime" class="tm-input" required
+                            :value="now()->format('Y-m-d H:i')" />
                     </div>
                 </div>
                 <div class="tm-field">

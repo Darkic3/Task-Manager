@@ -251,7 +251,7 @@
                                 @if($countMode)
                                     <input type="number" name="quantity" min="1" value="1" title="Count" aria-label="Count">
                                 @endif
-                                <input type="datetime-local" name="occurred_at" value="{{ $nowLocal }}" title="Exact time" aria-label="Exact time">
+                                <x-jalali-date name="occurred_at" type="datetime" :value="$nowLocal" title="Exact time" aria-label="Exact time" />
                                 <input type="text" name="note" maxlength="2000" placeholder="Note (optional)" aria-label="Note">
                                 <button type="submit">ثبت</button>
                             </form>
@@ -326,7 +326,7 @@
                     @if($countMode)
                         <input type="number" name="quantity" min="1" value="1" title="Count" aria-label="Count">
                     @endif
-                    <input type="datetime-local" name="occurred_at" value="{{ $nowLocal }}" title="Exact time" aria-label="Exact time">
+                    <x-jalali-date name="occurred_at" type="datetime" :value="$nowLocal" title="Exact time" aria-label="Exact time" />
                     <input type="text" name="trigger" maxlength="100" placeholder="Trigger (optional)" aria-label="Trigger">
                     <input type="text" name="note" maxlength="2000" placeholder="{{ __('Note (optional)') }}" aria-label="{{ __('Note') }}">
                     <button type="submit">{{ __('Log Slip') }}</button>
@@ -341,7 +341,7 @@
                         <option value="craving">{{ __('Craving') }}</option>
                         <option value="note">{{ __('Note') }}</option>
                     </select>
-                    <input type="datetime-local" name="occurred_at" value="{{ $nowLocal }}" title="{{ __('Exact time') }}" aria-label="{{ __('Exact time') }}">
+                    <x-jalali-date name="occurred_at" type="datetime" :value="$nowLocal" title="{{ __('Exact time') }}" aria-label="{{ __('Exact time') }}" />
                     <input type="text" name="note" maxlength="2000" placeholder="{{ __('Details…') }}" aria-label="{{ __('Details') }}">
                     <button type="submit">{{ __('Log') }}</button>
                 </form>

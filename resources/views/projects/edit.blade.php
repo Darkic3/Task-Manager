@@ -186,16 +186,16 @@
             </div>
             <div class="pe-field">
                 <label for="start_date">{{ __('Start date') }}</label>
-                <input type="date" name="start_date" id="start_date"
-                       class="pe-input {{ $errors->has('start_date') ? 'is-invalid' : '' }}"
-                       value="{{ old('start_date', $project->start_date ? \Carbon\Carbon::parse($project->start_date)->format('Y-m-d') : '') }}">
+                <x-jalali-date name="start_date" id="start_date"
+                       :value="old('start_date', $project->start_date ? \Carbon\Carbon::parse($project->start_date)->format('Y-m-d') : '')"
+                       class="pe-input {{ $errors->has('start_date') ? 'is-invalid' : '' }}" />
                 @error('start_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="pe-field">
                 <label for="end_date">{{ __('End date') }}</label>
-                <input type="date" name="end_date" id="end_date"
-                       class="pe-input {{ $errors->has('end_date') ? 'is-invalid' : '' }}"
-                       value="{{ old('end_date', $project->end_date ? \Carbon\Carbon::parse($project->end_date)->format('Y-m-d') : '') }}">
+                <x-jalali-date name="end_date" id="end_date"
+                       :value="old('end_date', $project->end_date ? \Carbon\Carbon::parse($project->end_date)->format('Y-m-d') : '')"
+                       class="pe-input {{ $errors->has('end_date') ? 'is-invalid' : '' }}" />
                 @error('end_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
             <div class="pe-field">

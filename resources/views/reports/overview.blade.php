@@ -552,9 +552,9 @@
         </div>
         <form method="GET" action="{{ route('reports.overview') }}" class="rp-date-form">
             <input type="hidden" name="range" value="custom">
-            <input type="date" name="from" value="{{ $q['from'] }}" class="rp-date-input" aria-label="{{ __('From') }}">
+            <x-jalali-date name="from" :value="$q['from']" class="rp-date-input" aria-label="{{ __('From') }}" />
             <span style="color:#94a3b8;font-size:12px;">→</span>
-            <input type="date" name="to" value="{{ $q['to'] }}" class="rp-date-input" aria-label="{{ __('To') }}">
+            <x-jalali-date name="to" :value="$q['to']" class="rp-date-input" aria-label="{{ __('To') }}" />
             <button type="submit" class="rp-apply-btn">{{ __('Apply') }}</button>
         </form>
     </div>

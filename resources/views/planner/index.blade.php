@@ -1237,8 +1237,8 @@
                 <div class="pl-day {{ $isDayToday ? 'is-today' : '' }}">
                     <div class="pl-day-head">
                         <div>
-                            <div class="pl-day-name">{{ $dayDate->format('D') }}</div>
-                            <div class="pl-day-date">{{ $dayDate->format('M j') }}</div>
+                            <div class="pl-day-name">{{ $isFa ? \Morilog\Jalali\Jalalian::fromCarbon($dayDate)->format('l') : $dayDate->format('D') }}</div>
+                            <div class="pl-day-date">{{ $isFa ? app_date($dayDate, 'j F') : $dayDate->format('M j') }}</div>
                         </div>
                         <span class="pl-day-count" title="Routines done">{{ $day['routineDone'] }}/{{ $day['routineTotal'] }}</span>
                     </div>
@@ -1314,7 +1314,7 @@
                     <button type="button" data-fail-day="+7">{{ __('Next week') }}</button>
                 </div>
                 <div class="pl-qa-row">
-                    <input type="date" name="reschedule_date" data-fail-date aria-label="{{ __('Reschedule to') }}">
+                    <x-jalali-date name="reschedule_date" data-fail-date aria-label="{{ __('Reschedule to') }}" />
                 </div>
                 <div class="pl-qa-actions">
                     <button type="button" class="pl-fail-cancel" data-fail-close>{{ __('Cancel') }}</button>
@@ -1771,6 +1771,7 @@
         };
         plFailModal.querySelector('[data-fail-taskname]').textContent = title;
         plFailModal.querySelector('[data-fail-form]').reset();
+        if (typeof window.jalaliSyncVisible === 'function') window.jalaliSyncVisible('reschedule_date');
         plFailModal.querySelectorAll('[data-fail-chips] button').forEach(b => b.classList.remove('picked', 'active'));
         const noRes = plFailModal.querySelector('[data-fail-day=""]');
         if (noRes) noRes.classList.add('picked');
@@ -1793,6 +1794,7 @@
         const d = new Date();
         d.setDate(d.getDate() + parseInt(off, 10));
         if (dateInput) dateInput.value = d.toISOString().slice(0, 10);
+        if (typeof window.jalaliSyncVisible === 'function') window.jalaliSyncVisible('reschedule_date');
     });
 
     async function submitFailModal(form) {

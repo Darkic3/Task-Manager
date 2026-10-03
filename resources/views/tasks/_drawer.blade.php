@@ -73,7 +73,8 @@
 
                     <div class="col-sm-6">
                         <label class="drawer-meta-label">{{ __('Due Date') }}</label>
-                        <input type="date" id="drawerTaskDueDate" name="due_date" class="form-control form-control-sm" onchange="saveTaskDrawerField('due_date')">
+                        <x-jalali-date name="due_date" id="drawerTaskDueDate" class="form-control form-control-sm"
+                            onchange="saveTaskDrawerField('due_date')" />
                     </div>
 
                     <div class="col-sm-6">
@@ -312,6 +313,7 @@
         document.getElementById('drawerTaskPriority').value = task.priority || 'medium';
         document.getElementById('drawerTaskProject').value = task.project_id || '';
         document.getElementById('drawerTaskDueDate').value = task.due_date || '';
+        if (typeof window.jalaliSyncVisible === 'function') window.jalaliSyncVisible('drawerTaskDueDate');
         document.getElementById('drawerTaskEstHours').value = task.est_hours || '';
         document.getElementById('drawerTaskEstMins').value = task.est_minutes || '';
         document.getElementById('drawerTaskDescription').value = task.description || '';

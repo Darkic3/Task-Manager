@@ -75,11 +75,8 @@
                             <label for="due_date" class="form-label">{{ __('Due Date') }}</label>
                             <div class="input-icon">
                                 <i class="bi bi-calendar-event"></i>
-                                <input type="date"
-                                       name="due_date"
-                                       id="due_date"
-                                       class="form-control {{ $errors->has('due_date') ? 'is-invalid' : '' }}"
-                                       value="{{ old('due_date') }}">
+                                <x-jalali-date name="due_date" id="due_date" :value="old('due_date')"
+                                    class="form-control {{ $errors->has('due_date') ? 'is-invalid' : '' }}" />
                             </div>
                             @error('due_date')
                                 <div class="invalid-feedback">{{ $message }}</div>

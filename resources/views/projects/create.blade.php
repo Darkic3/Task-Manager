@@ -544,11 +544,9 @@
                                 <label for="start_date" class="cu-label">{{ __('Start Date') }}</label>
                                 <div class="cu-input-wrap">
                                     <i class="bi bi-calendar-event"></i>
-                                    <input type="date"
-                                           name="start_date"
-                                           id="start_date"
-                                           class="cu-input {{ $errors->has('start_date') ? 'is-invalid' : '' }}"
-                                           value="{{ old('start_date', date('Y-m-d')) }}">
+                                    <x-jalali-date name="start_date" id="start_date"
+                                        :value="old('start_date', date('Y-m-d'))"
+                                        class="cu-input {{ $errors->has('start_date') ? 'is-invalid' : '' }}" />
                                 </div>
                                 @error('start_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
@@ -556,11 +554,9 @@
                                 <label for="end_date" class="cu-label">{{ __('End Date') }}</label>
                                 <div class="cu-input-wrap">
                                     <i class="bi bi-calendar-x"></i>
-                                    <input type="date"
-                                           name="end_date"
-                                           id="end_date"
-                                           class="cu-input {{ $errors->has('end_date') ? 'is-invalid' : '' }}"
-                                           value="{{ old('end_date') }}">
+                                    <x-jalali-date name="end_date" id="end_date"
+                                        :value="old('end_date')"
+                                        class="cu-input {{ $errors->has('end_date') ? 'is-invalid' : '' }}" />
                                 </div>
                                 @error('end_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>

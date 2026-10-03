@@ -269,9 +269,8 @@
                         <div class="cu-field-row">
                             <div class="cu-field" style="margin-bottom:0;">
                                 <label for="date" class="cu-label">{{ __('Date') }}</label>
-                                <input type="date" id="date" name="date"
-                                       class="cu-input @error('date') is-invalid @enderror"
-                                       value="{{ old('date') }}">
+                                <x-jalali-date name="date" id="date" :value="old('date')"
+                                       class="cu-input @error('date') is-invalid @enderror" />
                                 @error('date')<p class="cu-err">{{ $message }}</p>@enderror
                             </div>
                             <div class="cu-field" style="margin-bottom:0;">
