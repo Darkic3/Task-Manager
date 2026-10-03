@@ -1075,6 +1075,19 @@
     .pl-avoid-confirm-rows .r{display:flex;justify-content:space-between;gap:10px;padding:6px 10px;background:#fafbfc;border:1px solid #eef0f3;border-radius:8px;}
     .pl-avoid-confirm-rows .k{color:#8a8f98;font-weight:600;}
     .pl-avoid-confirm-rows .v{font-weight:700;color:#1f2328;text-align:end;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+    /* ── Phase 1+2: clean avoid form grid ── */
+    .pl-avoid-panel form{display:flex;flex-direction:column;gap:8px;padding:10px;background:#fafbfc;border:1px solid #eef0f3;border-radius:10px;}
+    .pl-avoid-grid{display:flex;gap:6px;flex-wrap:wrap;}
+    .pl-avoid-grid input,.pl-avoid-grid select{flex:1;min-width:110px;padding:7px 9px;border:1px solid #d3d5db;border-radius:8px;font-size:12.5px;background:#fff;color:#1f2328;outline:none;}
+    .pl-avoid-grid input:focus,.pl-avoid-grid select:focus{border-color:#7c3aed;box-shadow:0 0 0 2px rgba(124,58,237,.12);}
+    .pl-avoid-grid input[name=quantity]{flex:0 0 76px;min-width:76px;}
+    .pl-avoid-grid select[name=mood]{flex:0 0 112px;min-width:112px;}
+    .pl-avoid-now{flex:0 0 auto;padding:7px 12px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+    .pl-avoid-now:hover{border-color:#c4b5fd;color:#7c3aed;background:#faf5ff;}
+    .pl-avoid-submit{padding:8px 16px;border-radius:8px;border:1px solid #b91c1c;background:#b91c1c;color:#fff;font-weight:800;font-size:13px;cursor:pointer;}
+    .pl-avoid-submit:hover{background:#991b1b;}
+    [data-note-panel] .pl-avoid-submit{background:#0369a1;border-color:#0369a1;}
+    [data-note-panel] .pl-avoid-submit:hover{background:#075985;}
     .pl-avoid-confirm-actions{display:flex;gap:8px;justify-content:flex-end;}
     .pl-avoid-confirm-actions .cancel{padding:8px 16px;border-radius:8px;border:1px solid #d3d5db;background:#fff;color:#6b7385;font-weight:700;cursor:pointer;}
     .pl-avoid-confirm-actions .confirm{padding:8px 18px;border-radius:8px;border:1px solid #b91c1c;background:#b91c1c;color:#fff;font-weight:800;cursor:pointer;}
@@ -2391,12 +2404,69 @@
     });
     document.querySelector('[data-avoid-confirm-ok]')?.addEventListener('click', () => plCloseAvoidConfirm(true));
 
+    /* "Now" button: reset occurred_at to current minute */
+    document.addEventListener('click', function (e) {
+        const nowBtn = e.target.closest('[data-avoid-now]');
+        if (!nowBtn) return;
+        const form = nowBtn.closest('form');
+        if (!form) return;
+        const dt = form.querySelector('input[name="occurred_at"], input[type="datetime-local"]');
+        if (dt) {
+            const n = new Date();
+            const pad = v => String(v).padStart(2, '0');
+            dt.value = n.getFullYear() + '-' + pad(n.getMonth() + 1) + '-' + pad(n.getDate()) + 'T' + pad(n.getHours()) + ':' + pad(n.getMinutes());
+            dt.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+
+    /* Trigger/location suggestions (Phase 2): lazy-load per routine */
+    const plSuggestCache = {};
+    async function plLoadSuggestions(form) {
+        const url = form.dataset.suggestUrl;
+        if (!url) return;
+        const routineId = form.dataset.routineId;
+        if (plSuggestCache[routineId]) { plFillDatalists(form, plSuggestCache[routineId]); return; }
+        try {
+            const res = await plFetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) return;
+            const json = await res.json();
+            plSuggestCache[routineId] = json;
+            plFillDatalists(form, json);
+        } catch (e) { /* silent */ }
+    }
+    function plFillDatalists(form, data) {
+        const row = form.closest('[data-routine-item]');
+        const scope = row || document;
+        (data.triggers || []).forEach(t => {
+            scope.querySelectorAll('datalist[id^="trig-list-"]').forEach(dl => {
+                if (![...dl.options].some(o => o.value === t)) {
+                    const o = document.createElement('option'); o.value = t; dl.appendChild(o);
+                }
+            });
+        });
+        (data.locations || []).forEach(t => {
+            scope.querySelectorAll('datalist[id^="loc-list-"]').forEach(dl => {
+                if (![...dl.options].some(o => o.value === t)) {
+                    const o = document.createElement('option'); o.value = t; dl.appendChild(o);
+                }
+            });
+        });
+    }
+    document.addEventListener('focusin', function (e) {
+        if (e.target.matches('input[name="trigger"], input[name="location"]')) {
+            const form = e.target.closest('form[data-suggest-url]');
+            if (form) plLoadSuggestions(form);
+        }
+    });
+
     function plConfirmSlip(form, isNote) {
         const d = avoidPayload(form);
         const rows = [
             [@json(__('Routine')), plRoutineTitleFromForm(form)],
             d.quantity ? [@json(__('Quantity')), String(d.quantity)] : null,
             d.trigger ? [@json(__('Trigger')), d.trigger] : null,
+            d.location ? [@json(__('Location')), d.location] : null,
+            d.mood ? [@json(__('Mood')), String(d.mood) + ' / 10'] : null,
             d.occurred_at ? [@json(__('Time')), String(d.occurred_at).slice(0, 16).replace('T', ' ')] : null,
             d.note ? [@json(__('Note')), String(d.note).slice(0, 80)] : null,
             isNote && d.kind ? [@json(__('Kind')), d.kind === 'craving' ? @json(__('Craving')) : @json(__('Note'))] : null,

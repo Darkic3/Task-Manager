@@ -247,13 +247,30 @@
                             <form data-step-slip-form
                                   data-slip-url="{{ route('planner.check-items.slip', $step['id']) }}"
                                   data-date="{{ $routineDate->toDateString() }}"
+                                  data-routine-id="{{ $routine->id }}"
+                                  data-suggest-url="{{ route('planner.routines.suggestions', $routine) }}"
                                   onsubmit="return submitStepSlip(this)">
-                                @if($countMode)
-                                    <input type="number" name="quantity" min="1" value="1" title="Count" aria-label="Count">
-                                @endif
-                                <x-jalali-date name="occurred_at" type="datetime" :value="$nowLocal" title="Exact time" aria-label="Exact time" />
-                                <input type="text" name="note" maxlength="2000" placeholder="Note (optional)" aria-label="Note">
-                                <button type="submit">ثبت</button>
+                                <div class="pl-avoid-grid">
+                                    @if($countMode)
+                                        <input type="number" name="quantity" min="1" value="1" title="{{ __('Quantity') }}" aria-label="{{ __('Quantity') }}" class="pl-avoid-qty">
+                                    @endif
+                                    <x-jalali-date name="occurred_at" type="datetime" :value="$nowLocal" title="{{ __('Exact time') }}" aria-label="{{ __('Exact time') }}" />
+                                    <button type="button" class="pl-avoid-now" data-avoid-now title="{{ __('Now') }}">{{ __('Now') }}</button>
+                                </div>
+                                <div class="pl-avoid-grid">
+                                    <input type="text" name="trigger" maxlength="100" list="{{ 'trig-list-r' . $routine->id }}" placeholder="{{ __('Trigger (optional)') }}" aria-label="{{ __('Trigger') }}" autocomplete="off">
+                                    <input type="text" name="location" maxlength="100" list="{{ 'loc-list-r' . $routine->id }}" placeholder="{{ __('Location (optional)') }}" aria-label="{{ __('Location') }}" autocomplete="off">
+                                </div>
+                                <div class="pl-avoid-grid">
+                                    <select name="mood" aria-label="{{ __('Mood') }}" title="{{ __('Craving intensity 1-10') }}">
+                                        <option value="">{{ __('Mood (1-10)') }}</option>
+                                        @for($m = 1; $m <= 10; $m++)
+                                            <option value="{{ $m }}">{{ $m }}</option>
+                                        @endfor
+                                    </select>
+                                    <input type="text" name="note" maxlength="2000" placeholder="{{ __('Note (optional)') }}" aria-label="{{ __('Note') }}">
+                                </div>
+                                <button type="submit" class="pl-avoid-submit">ثبت</button>
                             </form>
                         </div>
                     @endforeach
@@ -314,6 +331,10 @@
         @endif
 
         @if($isAvoid && $toggleable)
+            @php
+                $trigListId = 'trig-list-r' . $routine->id;
+                $locListId = 'loc-list-r' . $routine->id;
+            @endphp
             <div class="pl-avoid-actions">
                 <button type="button" class="pl-avoid-btn slip" data-avoid-slip>ثبت لغزش</button>
                 <button type="button" class="pl-avoid-btn note" data-avoid-note>وسوسه / یادداشت</button>
@@ -322,28 +343,63 @@
                 <form data-slip-form
                       data-slip-url="{{ route('planner.routines.slip', $routine) }}"
                       data-date="{{ $routineDate->toDateString() }}"
+                      data-routine-id="{{ $routine->id }}"
+                      data-suggest-url="{{ route('planner.routines.suggestions', $routine) }}"
                       onsubmit="return submitRoutineSlip(this)">
-                    @if($countMode)
-                        <input type="number" name="quantity" min="1" value="1" title="Count" aria-label="Count">
-                    @endif
-                    <x-jalali-date name="occurred_at" type="datetime" :value="$nowLocal" title="Exact time" aria-label="Exact time" />
-                    <input type="text" name="trigger" maxlength="100" placeholder="Trigger (optional)" aria-label="Trigger">
-                    <input type="text" name="note" maxlength="2000" placeholder="{{ __('Note (optional)') }}" aria-label="{{ __('Note') }}">
-                    <button type="submit">{{ __('Log Slip') }}</button>
+                    <div class="pl-avoid-grid">
+                        @if($countMode)
+                            <input type="number" name="quantity" min="1" value="1" title="{{ __('Quantity') }}" aria-label="{{ __('Quantity') }}" class="pl-avoid-qty">
+                        @endif
+                        <x-jalali-date name="occurred_at" type="datetime" :value="$nowLocal" title="{{ __('Exact time') }}" aria-label="{{ __('Exact time') }}" />
+                        <button type="button" class="pl-avoid-now" data-avoid-now title="{{ __('Now') }}">{{ __('Now') }}</button>
+                    </div>
+                    <div class="pl-avoid-grid">
+                        <input type="text" name="trigger" maxlength="100" list="{{ $trigListId }}" placeholder="{{ __('Trigger (optional)') }}" aria-label="{{ __('Trigger') }}" autocomplete="off">
+                        <input type="text" name="location" maxlength="100" list="{{ $locListId }}" placeholder="{{ __('Location (optional)') }}" aria-label="{{ __('Location') }}" autocomplete="off">
+                    </div>
+                    <div class="pl-avoid-grid">
+                        <select name="mood" aria-label="{{ __('Mood') }}" title="{{ __('Craving intensity 1-10') }}">
+                            <option value="">{{ __('Mood (1-10)') }}</option>
+                            @for($m = 1; $m <= 10; $m++)
+                                <option value="{{ $m }}">{{ $m }}</option>
+                            @endfor
+                        </select>
+                        <input type="text" name="note" maxlength="2000" placeholder="{{ __('Note (optional)') }}" aria-label="{{ __('Note') }}">
+                    </div>
+                    <datalist id="{{ $trigListId }}"></datalist>
+                    <datalist id="{{ $locListId }}"></datalist>
+                    <button type="submit" class="pl-avoid-submit">{{ __('Log Slip') }}</button>
                 </form>
             </div>
             <div class="pl-avoid-panel" data-note-panel hidden>
                 <form data-note-form
                       data-note-url="{{ route('planner.routines.note', $routine) }}"
                       data-date="{{ $routineDate->toDateString() }}"
+                      data-routine-id="{{ $routine->id }}"
+                      data-suggest-url="{{ route('planner.routines.suggestions', $routine) }}"
                       onsubmit="return submitRoutineNote(this)">
-                    <select name="kind" aria-label="{{ __('Kind') }}">
-                        <option value="craving">{{ __('Craving') }}</option>
-                        <option value="note">{{ __('Note') }}</option>
-                    </select>
-                    <x-jalali-date name="occurred_at" type="datetime" :value="$nowLocal" title="{{ __('Exact time') }}" aria-label="{{ __('Exact time') }}" />
-                    <input type="text" name="note" maxlength="2000" placeholder="{{ __('Details…') }}" aria-label="{{ __('Details') }}">
-                    <button type="submit">{{ __('Log') }}</button>
+                    <div class="pl-avoid-grid">
+                        <select name="kind" aria-label="{{ __('Kind') }}">
+                            <option value="craving">{{ __('Craving') }}</option>
+                            <option value="note">{{ __('Note') }}</option>
+                        </select>
+                        <x-jalali-date name="occurred_at" type="datetime" :value="$nowLocal" title="{{ __('Exact time') }}" aria-label="{{ __('Exact time') }}" />
+                        <button type="button" class="pl-avoid-now" data-avoid-now title="{{ __('Now') }}">{{ __('Now') }}</button>
+                    </div>
+                    <div class="pl-avoid-grid">
+                        <input type="text" name="trigger" maxlength="100" list="{{ $trigListId }}" placeholder="{{ __('Trigger (optional)') }}" aria-label="{{ __('Trigger') }}" autocomplete="off">
+                        <input type="text" name="location" maxlength="100" list="{{ $locListId }}" placeholder="{{ __('Location (optional)') }}" aria-label="{{ __('Location') }}" autocomplete="off">
+                    </div>
+                    <div class="pl-avoid-grid">
+                        <select name="mood" aria-label="{{ __('Mood') }}" title="{{ __('Craving intensity 1-10') }}">
+                            <option value="">{{ __('Mood (1-10)') }}</option>
+                            @for($m = 1; $m <= 10; $m++)
+                                <option value="{{ $m }}">{{ $m }}</option>
+                            @endfor
+                        </select>
+                        <input type="text" name="note" maxlength="2000" placeholder="{{ __('Details…') }}" aria-label="{{ __('Details') }}">
+                    </div>
+                    <button type="submit" class="pl-avoid-submit">{{ __('Log') }}</button>
                 </form>
             </div>
         @endif

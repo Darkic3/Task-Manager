@@ -829,12 +829,18 @@ class PlannerController extends Controller
         $date = $this->parseDate($request->input('date'));
         $data = $request->validate([
             'quantity' => 'nullable|integer|min:1|max:100000',
-            'occurred_at' => 'nullable|date',
+            'occurred_at' => 'nullable|date|before_or_equal:' . now()->addMinutes(5)->toDateTimeString(),
             'trigger' => 'nullable|string|max:100',
             'note' => 'nullable|string|max:2000',
+            'mood' => 'nullable|integer|min:1|max:10',
+            'location' => 'nullable|string|max:100',
         ]);
 
         $at = ! empty($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : now();
+        // Precise time: clamp future drift to now
+        if ($at->gt(now()->addMinutes(5))) {
+            $at = now();
+        }
         // Plain mode (count_violations = false): one slip per day is enough — dedupe.
         if (! $routine->count_violations) {
             $existing = $routine->violations()
@@ -860,7 +866,9 @@ class PlannerController extends Controller
             'occurred_at' => $at,
             'occurred_date' => $date->toDateString(),
             'quantity' => $routine->count_violations ? max(1, (int) ($data['quantity'] ?? 1)) : 1,
-            'trigger' => $data['trigger'] ?? null,
+            'mood' => isset($data['mood']) ? max(1, min(10, (int) $data['mood'])) : null,
+            'location' => isset($data['location']) ? trim((string) $data['location']) ?: null : null,
+            'trigger' => isset($data['trigger']) ? trim((string) $data['trigger']) ?: null : null,
             'note' => $data['note'] ?? null,
         ]);
 
@@ -887,12 +895,17 @@ class PlannerController extends Controller
         $date = $this->parseDate($request->input('date'));
         $data = $request->validate([
             'quantity' => 'nullable|integer|min:1|max:100000',
-            'occurred_at' => 'nullable|date',
+            'occurred_at' => 'nullable|date|before_or_equal:' . now()->addMinutes(5)->toDateTimeString(),
             'trigger' => 'nullable|string|max:100',
             'note' => 'nullable|string|max:2000',
+            'mood' => 'nullable|integer|min:1|max:10',
+            'location' => 'nullable|string|max:100',
         ]);
 
         $at = ! empty($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : now();
+        if ($at->gt(now()->addMinutes(5))) {
+            $at = now();
+        }
         // Plain mode: one slip per step per day is enough — dedupe.
         if (! $routine->count_violations) {
             $existing = $routine->violations()
@@ -925,7 +938,9 @@ class PlannerController extends Controller
             'occurred_at' => $at,
             'occurred_date' => $date->toDateString(),
             'quantity' => $routine->count_violations ? max(1, (int) ($data['quantity'] ?? 1)) : 1,
-            'trigger' => $data['trigger'] ?? null,
+            'mood' => isset($data['mood']) ? max(1, min(10, (int) $data['mood'])) : null,
+            'location' => isset($data['location']) ? trim((string) $data['location']) ?: null : null,
+            'trigger' => isset($data['trigger']) ? trim((string) $data['trigger']) ?: null : null,
             'note' => $data['note'] ?? null,
         ]);
 
@@ -1080,6 +1095,84 @@ class PlannerController extends Controller
     }
 
     /**
+     * Trigger + location suggestions for avoid forms: top values used by this
+     * user for this routine (violations + notes), plus generic defaults.
+     * Cached per user+routine for 5 minutes to keep the form instant.
+     */
+    public function avoidSuggestions(Request $request, Routine $routine)
+    {
+        abort_if($routine->user_id !== Auth::id(), 403);
+
+        $q = trim((string) $request->input('q', ''));
+
+        $cacheKey = 'avoid_suggest_' . Auth::id() . '_' . $routine->id . '_' . md5(mb_strtolower($q));
+        $result = \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function () use ($routine, $q) {
+            $userId = Auth::id();
+
+            $trigQuery = \App\Models\RoutineViolation::where('user_id', $userId)
+                ->where('routine_id', $routine->id)
+                ->whereNotNull('trigger')
+                ->selectRaw('`trigger`, COUNT(*) as c')
+                ->groupBy('trigger')
+                ->orderByDesc('c')
+                ->limit(15)
+                ->pluck('trigger')
+                ->filter(fn ($t) => trim((string) $t) !== '')
+                ->values();
+
+            $noteTriggers = \App\Models\RoutineNote::where('user_id', $userId)
+                ->where('routine_id', $routine->id)
+                ->whereNotNull('trigger')
+                ->selectRaw('`trigger`, COUNT(*) as c')
+                ->groupBy('trigger')
+                ->orderByDesc('c')
+                ->limit(15)
+                ->pluck('trigger')
+                ->filter(fn ($t) => trim((string) $t) !== '')
+                ->values();
+
+            $triggers = $trigQuery->merge($noteTriggers)->unique()->take(10)->values();
+
+            $locQuery = \App\Models\RoutineViolation::where('user_id', $userId)
+                ->where('routine_id', $routine->id)
+                ->whereNotNull('location')
+                ->selectRaw('`location`, COUNT(*) as c')
+                ->groupBy('location')
+                ->orderByDesc('c')
+                ->limit(10)
+                ->pluck('location')
+                ->filter(fn ($t) => trim((string) $t) !== '')
+                ->values();
+
+            $noteLocs = \App\Models\RoutineNote::where('user_id', $userId)
+                ->where('routine_id', $routine->id)
+                ->whereNotNull('location')
+                ->selectRaw('`location`, COUNT(*) as c')
+                ->groupBy('location')
+                ->orderByDesc('c')
+                ->limit(10)
+                ->pluck('location')
+                ->filter(fn ($t) => trim((string) $t) !== '')
+                ->values();
+
+            $locations = $locQuery->merge($noteLocs)->unique()->take(8)->values();
+
+            if ($q !== '') {
+                $low = mb_strtolower($q);
+                $triggers = $triggers->filter(fn ($t) => str_contains(mb_strtolower($t), $low))->values();
+                $locations = $locations->filter(fn ($t) => str_contains(mb_strtolower($t), $low))->values();
+            }
+
+            return [
+                'triggers' => $triggers,
+                'locations' => $locations,
+            ];
+        });
+
+        return response()->json(['ok' => true] + $result);
+    }
+
+    /**
      * Log a craving or free note for a routine (optionally one step), with an
      * exact timestamp so reports can use it later.
      */
@@ -1091,8 +1184,11 @@ class PlannerController extends Controller
         $data = $request->validate([
             'kind' => 'nullable|in:craving,note',
             'checklist_item_id' => 'nullable|integer|exists:routine_checklist_items,id',
-            'occurred_at' => 'nullable|date',
+            'occurred_at' => 'nullable|date|before_or_equal:' . now()->addMinutes(5)->toDateTimeString(),
             'note' => 'nullable|string|max:2000',
+            'mood' => 'nullable|integer|min:1|max:10',
+            'location' => 'nullable|string|max:100',
+            'trigger' => 'nullable|string|max:100',
         ]);
 
         $itemId = null;
@@ -1105,10 +1201,16 @@ class PlannerController extends Controller
         }
 
         $at = ! empty($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : now();
+        if ($at->gt(now()->addMinutes(5))) {
+            $at = now();
+        }
         $note = $routine->routineNotes()->create([
             'checklist_item_id' => $itemId,
             'user_id' => Auth::id(),
             'kind' => $data['kind'] ?? \App\Models\RoutineNote::KIND_NOTE,
+            'mood' => isset($data['mood']) ? max(1, min(10, (int) $data['mood'])) : null,
+            'location' => isset($data['location']) ? trim((string) $data['location']) ?: null : null,
+            'trigger' => isset($data['trigger']) ? trim((string) $data['trigger']) ?: null : null,
             'occurred_at' => $at,
             'note' => $data['note'] ?? null,
         ]);

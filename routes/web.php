@@ -153,6 +153,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/planner/violations/{violation}', [PlannerController::class, 'updateViolation'])->name('planner.violations.update');
     Route::delete('/planner/notes/{note}', [PlannerController::class, 'destroyNote'])->name('planner.notes.destroy');
     Route::patch('/planner/notes/{note}', [PlannerController::class, 'updateNote'])->name('planner.notes.update');
+    Route::get('/planner/routines/{routine}/suggestions', [PlannerController::class, 'avoidSuggestions'])->name('planner.routines.suggestions');
     Route::post('/planner/task-items/{item}/toggle', [PlannerController::class, 'toggleTaskCheckItem'])->name('planner.task-items.toggle');
     Route::post('/planner/quick-add/task', [PlannerController::class, 'quickAddTask'])->name('planner.quick-add.task');
     Route::post('/planner/quick-add/routine', [PlannerController::class, 'quickAddRoutine'])->name('planner.quick-add.routine');

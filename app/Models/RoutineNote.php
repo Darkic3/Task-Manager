@@ -21,9 +21,15 @@ class RoutineNote extends Model
         'checklist_item_id',
         'user_id',
         'kind',
+        'mood',
+        'location',
+        'trigger',
         'occurred_at',
         'note',
     ];
+
+    public const MOOD_MIN = 1;
+    public const MOOD_MAX = 10;
 
     protected $casts = [
         'occurred_at' => 'datetime',

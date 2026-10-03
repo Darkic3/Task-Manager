@@ -18,6 +18,8 @@ class RoutineViolation extends Model
         'occurred_at',
         'occurred_date',
         'quantity',
+        'mood',
+        'location',
         'trigger',
         'note',
     ];
@@ -26,6 +28,7 @@ class RoutineViolation extends Model
         'occurred_at' => 'datetime',
         'occurred_date' => 'date',
         'quantity' => 'integer',
+        'mood' => 'integer',
     ];
 
     public static function dateKey($date): string

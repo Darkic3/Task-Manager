@@ -243,5 +243,10 @@
     "Undone": "Undone",
     "Undo window expired.": "Undo window expired.",
     "Clean so far": "Clean so far",
-    "Undo is available in My Day for 10 minutes": "Undo is available in My Day for 10 minutes"
+    "Undo is available in My Day for 10 minutes": "Undo is available in My Day for 10 minutes",
+    "Location (optional)": "Location (optional)",
+    "Mood (1-10)": "Mood (1-10)",
+    "Craving intensity 1-10": "Craving intensity 1-10",
+    "Location": "Location",
+    "Mood": "Mood"
 }
