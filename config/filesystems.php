@@ -39,9 +39,10 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            // Relative URL: Storage::url() works on any host (APP_URL here
+            // is http://localhost while the site runs on task-manager.test).
+            'url' => '/storage',
             'visibility' => 'public',
-            'throw' => false,
         ],
 
         's3' => [

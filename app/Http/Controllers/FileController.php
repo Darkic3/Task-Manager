@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\File;
+use App\Services\ImageUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -27,7 +28,10 @@ class FileController extends Controller
             'type' => 'required|string|in:project,docs,txt,code,image',
         ]);
 
-        $path = $request->file('file')->store('uploads', 'public');
+        $path = ImageUploadService::storeFile($request->file('file'), 'uploads');
+        if (! $path) {
+            return back()->withErrors(['file' => __('File upload failed. Please try again.')])->withInput();
+        }
 
         Auth::user()->files()->create([
             'name' => $request->name,
@@ -59,8 +63,12 @@ class FileController extends Controller
         $data = $request->only(['name', 'type']);
 
         if ($request->hasFile('file')) {
+            $stored = ImageUploadService::storeFile($request->file('file'), 'uploads');
+            if (! $stored) {
+                return back()->withErrors(['file' => __('File upload failed. Please try again.')])->withInput();
+            }
             Storage::disk('public')->delete($file->path);
-            $data['path'] = $request->file('file')->store('uploads', 'public');
+            $data['path'] = $stored;
         }
 
         $file->update($data);

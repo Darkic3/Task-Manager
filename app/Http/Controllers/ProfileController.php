@@ -6,10 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use App\Models\Routine;
+use App\Services\ImageUploadService;
 
 class ProfileController extends Controller
 {
@@ -56,7 +56,7 @@ class ProfileController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
-            'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
+            'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'bio' => ['nullable', 'string', 'max:500'],
             'phone' => ['nullable', 'string', 'max:20'],
             'location' => ['nullable', 'string', 'max:255'],
@@ -105,15 +105,18 @@ class ProfileController extends Controller
             App::setLocale($request->locale);
         }
 
-        // Handle avatar upload
+        // Handle avatar upload (shopora-style pipeline: safe name, webp +
+        // square crop when GD is available, old file cleanup).
         if ($request->hasFile('avatar')) {
-            // Delete old avatar if exists
-            if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
-                Storage::disk('public')->delete($user->avatar);
+            $stored = ImageUploadService::upload($request->file('avatar'), 'avatars', [512, 512]);
+            if (! $stored) {
+                return back()->withErrors([
+                    'avatar' => __('Image upload failed. Please try again.'),
+                ])->withInput();
             }
 
-            $avatarPath = $request->file('avatar')->store('avatars', 'public');
-            $updateData['avatar'] = $avatarPath;
+            ImageUploadService::delete($user->avatar);
+            $updateData['avatar'] = $stored;
         }
 
         // Update user information
@@ -155,9 +158,7 @@ class ProfileController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
-            Storage::disk('public')->delete($user->avatar);
-        }
+        ImageUploadService::delete($user->avatar);
 
         $user->update(['avatar' => null]);
 
