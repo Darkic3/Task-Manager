@@ -540,19 +540,101 @@
     .nt-scale-btn:hover { border-color: var(--primary-500); transform: translateY(-1px); }
     .nt-scale-btn.is-on { border-color: var(--primary-600); background: var(--primary-50); box-shadow: inset 0 0 0 1px var(--primary-500); }
 
-    /* EasyMDE tuning */
-    .EasyMDEContainer .CodeMirror { border-radius: var(--radius-md); border-color: var(--gray-300); font-family: inherit; }
+    /* ── EasyMDE / Markdown editor ───────────────────────────── */
+    .EasyMDEContainer { display: block; }
+
+    .EasyMDEContainer .editor-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 2px;
+        padding: 6px 8px;
+        background: var(--gray-50);
+        border: 1px solid var(--gray-300);
+        border-bottom: none;
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+        opacity: 1;
+    }
+
+    .EasyMDEContainer .editor-toolbar::before,
+    .EasyMDEContainer .editor-toolbar::after { display: none; }
+
+    .EasyMDEContainer .editor-toolbar button {
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background-color: transparent;
+        transition: background-color .14s, border-color .14s, opacity .14s;
+    }
+
+    .EasyMDEContainer .editor-toolbar button:hover {
+        background-color: var(--primary-100);
+        border-color: var(--primary-500);
+    }
+
+    .EasyMDEContainer .editor-toolbar button.active {
+        background-color: var(--primary-100);
+        border-color: var(--primary-500);
+    }
+
+    .EasyMDEContainer .editor-toolbar i.separator {
+        width: 1px;
+        height: 20px;
+        margin: 0 5px;
+        border-left: 1px solid var(--gray-200);
+    }
+
+    .EasyMDEContainer .CodeMirror {
+        min-height: 400px;
+        padding: 16px 20px;
+        border: 1px solid var(--gray-300);
+        border-radius: 0 0 var(--radius-md) var(--radius-md);
+        font-family: inherit;
+        font-size: .92rem;
+        line-height: 2;
+        color: var(--gray-800);
+        background: #fff;
+    }
+
+    .EasyMDEContainer .CodeMirror-scroll { min-height: 400px; }
+    .EasyMDEContainer .CodeMirror-lines { padding: 0; }
+    .EasyMDEContainer .CodeMirror pre.CodeMirror-line,
+    .EasyMDEContainer .CodeMirror pre.CodeMirror-line-like { padding: 0 6px; }
     .EasyMDEContainer .CodeMirror-focused { border-color: var(--primary-500); box-shadow: 0 0 0 3px rgb(99 102 241 / .12); }
-    .EasyMDEContainer .editor-toolbar { border-radius: var(--radius-md) var(--radius-md) 0 0; background: var(--gray-50); border-color: var(--gray-300); }
-    .EasyMDEContainer .editor-toolbar button.active, .EasyMDEContainer .editor-toolbar button:hover { background: var(--primary-100); border-color: var(--primary-500); }
-    .EasyMDEContainer .CodeMirror-fullscreen, .EasyMDEContainer .CodeMirror-fullscreen.CodeMirror { background: var(--gray-25); }
-    [dir="rtl"] .EasyMDEContainer .CodeMirror { direction: rtl; text-align: right; }
-    [dir="rtl"] .EasyMDEContainer .CodeMirror-scroll { direction: rtl; }
-    [dir="rtl"] .EasyMDEContainer .CodeMirror-line { text-align: right; }
+    .EasyMDEContainer .CodeMirror-cursor { border-left: 2px solid var(--primary-600); }
+    .EasyMDEContainer .CodeMirror-placeholder { color: var(--gray-400); }
+
+    .EasyMDEContainer .editor-statusbar {
+        padding: 5px 10px;
+        font-size: .68rem;
+        font-weight: 600;
+        color: var(--gray-400);
+        background: var(--gray-25);
+        border: 1px solid var(--gray-300);
+        border-top: none;
+        border-radius: 0 0 var(--radius-md) var(--radius-md);
+    }
+
+    .EasyMDEContainer .editor-preview,
+    .EasyMDEContainer .editor-preview-side {
+        padding: 14px 16px;
+        background: #fff;
+        color: var(--gray-700);
+        font-size: .92rem;
+        line-height: 1.8;
+    }
+
+    .EasyMDEContainer .CodeMirror-fullscreen { min-height: 0; }
+    .EasyMDEContainer .CodeMirror-fullscreen.CodeMirror { background: #fff; }
+    .EasyMDEContainer .CodeMirror-fullscreen,
+    .EasyMDEContainer .editor-toolbar.fullscreen,
+    .EasyMDEContainer .editor-preview-side { z-index: 1050; }
+
     [dir="rtl"] .EasyMDEContainer .editor-toolbar { direction: rtl; }
-    [dir="rtl"] .EasyMDEContainer .editor-toolbar button { float: right; }
-    [dir="rtl"] .EasyMDEContainer .editor-toolbar i.separator { float: right; height: 1.4em; margin: .4em 2px; }
-    [dir="rtl"] .EasyMDEContainer .editor-preview { direction: rtl; text-align: right; }
+    [dir="rtl"] .EasyMDEContainer .editor-preview,
+    [dir="rtl"] .EasyMDEContainer .editor-preview-side { direction: rtl; text-align: right; }
 
     /* ── Pagination ──────────────────────────────────────────── */
     .nt-pager { display: flex; justify-content: center; margin-top: 14px; }

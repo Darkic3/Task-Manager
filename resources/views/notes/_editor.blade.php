@@ -211,10 +211,19 @@ document.addEventListener('DOMContentLoaded', function () {
             autoDownloadFontAwesome: false,
             status: ['words', 'characters'],
             forceSync: true,
+            lineWrapping: true,
+            minHeight: '400px',
             placeholder: body.getAttribute('placeholder') || '',
             toolbar: ['bold', 'italic', 'heading', '|', 'quote', 'unordered-list', 'ordered-list', '|',
                       'link', 'image', 'code', '|', 'preview', 'side-by-side', 'fullscreen', 'guide', 'undo', 'redo']
         });
+
+        // Let CodeMirror handle RTL natively (avoids the cursor jumping to the
+        // wrong side that happens when direction is only forced with CSS).
+        if (document.documentElement.getAttribute('dir') === 'rtl') {
+            mde.codemirror.setOption('direction', 'rtl');
+            mde.codemirror.refresh();
+        }
     }
 
     /* ── Live @/# chips preview (resolved on save) ── */
