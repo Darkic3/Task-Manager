@@ -48,7 +48,7 @@
                     <i class="bi bi-files"></i>
                 </button>
                 <form action="{{ route('notes.destroy', $note->id) }}" method="POST"
-                      onsubmit="return confirm('{{ __('Delete this note?') }}');" style="display:inline;">
+                      onsubmit="return confirmSwal(this, '{{ __('Delete this note?') }}', { isDelete: true });" style="display:inline;">
                     @csrf @method('DELETE')
                     <button type="submit" class="cu-note-btn del" onclick="event.stopPropagation()">
                         <i class="bi bi-trash"></i>

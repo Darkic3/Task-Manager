@@ -165,7 +165,7 @@ class WorkoutSessionController extends Controller
 
         return redirect()
             ->route('workouts.sessions.show', $workoutSession)
-            ->with('success', 'Workout session saved.');
+            ->with('success', __('Workout session saved.'));
     }
 
     private function authorizeDay(WorkoutDay $day): void

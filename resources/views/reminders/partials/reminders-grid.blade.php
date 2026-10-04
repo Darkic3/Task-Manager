@@ -112,7 +112,7 @@
                     <i class="bi bi-pencil"></i>
                 </a>
                 <form action="{{ route('reminders.destroy', $reminder) }}" method="POST"
-                      style="display:inline;" onsubmit="return confirm('{{ __('Delete this reminder?') }}')">
+                      style="display:inline;" onsubmit="return confirmSwal(this, '{{ __('Delete this reminder?') }}', { isDelete: true })">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="cu-act cu-act-danger" title="{{ __('Delete') }}">

@@ -882,7 +882,7 @@
             if (json.items && json.items.length) syncStepButtons(id, date, !!json.completed);
             if (json.completed) {
                 setStreak(id, json.streak ?? null);
-                plShowToast('Done ✓');
+                plShowToast(@json(__('Done ✓')));
                 maybeCelebrate();
             } else {
                 setStreak(id, json.streak ?? 0, true);
@@ -972,7 +972,7 @@
                 if (json.routine_completed && json.streak != null) setStreak(json.routine_id, json.streak);
                 refreshRoutineCounters();
                 if (json.routine_completed) {
-                    plShowToast('Routine Completed ✓');
+                    plShowToast(@json(__('Routine Completed ✓')));
                     maybeCelebrate();
                 }
             }
@@ -1038,7 +1038,7 @@
             if (box.closest('#plRoutineModal')) {
                 closeRoutineModal();
             }
-            plShowToast('Logged ✓');
+            plShowToast(@json(__('Logged ✓')));
         } catch (e) {
             console.error('[Dashboard] log value failed', e);
         } finally {
@@ -1084,7 +1084,7 @@
             if (box.closest('#plRoutineModal')) {
                 closeRoutineModal();
             }
-            plShowToast('Logged ✓');
+            plShowToast(@json(__('Logged ✓')));
         } catch (e) {
             console.error('[Dashboard] log sets failed', e);
         } finally {
@@ -1140,11 +1140,11 @@
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
             await res.json();
-            plShowToast('Slip logged');
+            plShowToast(@json(__('Slip logged')));
             window.location.reload();
         } catch (e) {
             console.error('[Dashboard] slip failed', e);
-            plShowToast('Could not log slip');
+            plShowToast(@json(__('Could not log slip')));
         } finally {
             btn.disabled = false;
         }
@@ -1162,11 +1162,11 @@
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
             await res.json();
-            plShowToast('Slip logged');
+            plShowToast(@json(__('Slip logged')));
             window.location.reload();
         } catch (e) {
             console.error('[Dashboard] step slip failed', e);
-            plShowToast('Could not log step slip');
+            plShowToast(@json(__('Could not log step slip')));
         } finally {
             btn.disabled = false;
         }
@@ -1184,13 +1184,13 @@
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
             await res.json();
-            plShowToast('Saved ✓');
+            plShowToast(@json(__('Saved ✓')));
             const panel = form.closest('[data-note-panel]');
             if (panel) panel.hidden = true;
             form.reset();
         } catch (e) {
             console.error('[Dashboard] note failed', e);
-            plShowToast('Could not save');
+            plShowToast(@json(__('Could not save')));
         } finally {
             btn.disabled = false;
         }

@@ -105,7 +105,7 @@
             @endif
         </p>
         <form method="POST" action="{{ route('routines.new-cycle', $routine) }}" style="margin-top:8px;position:relative;z-index:1;"
-              onsubmit="return confirm(@json(__('Start a new cycle? The current one will be archived with its history.')));">
+              onsubmit="return confirmSwal(this, @json(__('Start a new cycle? The current one will be archived with its history.')), { isDelete: false });">
             @csrf
             <button type="submit" style="background:white;border:1px solid #e3e4e8;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#7c3aed;cursor:pointer;">
                 <i class="bi bi-arrow-repeat"></i> {{ __('Start new cycle') }}

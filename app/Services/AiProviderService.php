@@ -269,8 +269,8 @@ class AiProviderService
         $key = $provider->api_key;
         $model = $provider->model;
 
-        if (!$key)   return ['ok' => false, 'message' => 'No API key set for this provider.'];
-        if (!$model) return ['ok' => false, 'message' => 'Set a model before testing.'];
+        if (!$key)   return ['ok' => false, 'message' => __('No API key set for this provider.')];
+        if (!$model) return ['ok' => false, 'message' => __('Set a model before testing.')];
 
         try {
             if ($provider->type === 'gemini') {
@@ -282,7 +282,7 @@ class AiProviderService
                 if ($res->failed()) {
                     return ['ok' => false, 'message' => $this->formatErrorResponse($res)];
                 }
-                return ['ok' => true, 'message' => 'Connection OK (' . $model . ').'];
+                return ['ok' => true, 'message' => __('Connection OK (:model).', ['model' => $model])];
             }
 
             if ($provider->type === 'anthropic') {
@@ -297,7 +297,7 @@ class AiProviderService
                 if ($res->failed()) {
                     return ['ok' => false, 'message' => $this->formatErrorResponse($res)];
                 }
-                return ['ok' => true, 'message' => 'Connection OK (' . $model . ').'];
+                return ['ok' => true, 'message' => __('Connection OK (:model).', ['model' => $model])];
             }
 
             // Default: OpenAI-compatible
@@ -313,7 +313,7 @@ class AiProviderService
             if ($res->failed()) {
                 return ['ok' => false, 'message' => $this->formatErrorResponse($res)];
             }
-            return ['ok' => true, 'message' => 'Connection OK (' . $model . ').'];
+            return ['ok' => true, 'message' => __('Connection OK (:model).', ['model' => $model])];
         } catch (\Exception $e) {
             return ['ok' => false, 'message' => $e->getMessage()];
         }

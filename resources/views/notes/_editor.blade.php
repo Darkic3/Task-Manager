@@ -292,7 +292,12 @@ document.addEventListener('DOMContentLoaded', function () {
         tplBtn.addEventListener('click', function () {
             const k = kind ? kind.value : 'general';
             if (!templates[k]) return;
-            if (currentText().trim() !== '' && !confirm('{{ __('Replace the current text with the template?') }}')) return;
+            if (currentText().trim() !== '') {
+                confirmSwal('{{ __('Replace the current text with the template?') }}').then(ok => {
+                    if (ok) setText(templates[k].body);
+                });
+                return;
+            }
             setText(templates[k].body);
         });
     }
@@ -301,9 +306,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const del = document.getElementById('ntDelete');
     if (del) {
         del.addEventListener('click', function () {
-            if (confirm('{{ __('Delete this note permanently?') }}')) {
-                document.getElementById('ntDeleteForm').submit();
-            }
+            confirmSwal(document.getElementById('ntDeleteForm'), '{{ __('Delete this note permanently?') }}', { isDelete: true });
         });
     }
 

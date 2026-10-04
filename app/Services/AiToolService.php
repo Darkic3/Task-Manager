@@ -498,10 +498,10 @@ class AiToolService
                 'routine_delete' => $this->execRoutineDelete($resolved, $user),
                 'routine_log' => $this->execRoutineLog($resolved, $user),
                 // Plans never execute as a single action; they run phase by phase.
-                'plan_propose' => ['ok' => false, 'message' => 'Plans run phase by phase after structure approval.', 'id' => null],
+                'plan_propose' => ['ok' => false, 'message' => __('Plans run phase by phase after structure approval.'), 'id' => null],
                 // Workout plans are created via the WorkoutImport preview/confirm flow, not as a single action.
-                'workout_plan_propose' => ['ok' => false, 'message' => 'Workout plans are created via the import preview after confirmation.', 'id' => null],
-                default => ['ok' => false, 'message' => 'Unsupported tool', 'id' => null],
+                'workout_plan_propose' => ['ok' => false, 'message' => __('Workout plans are created via the import preview after confirmation.'), 'id' => null],
+                default => ['ok' => false, 'message' => __('Unsupported tool'), 'id' => null],
             };
         });
     }
@@ -1784,7 +1784,7 @@ class AiToolService
             $phases = $plan->phases;
             $phase = $phases[$idx] ?? null;
             if (! $phase || ($phase['status'] ?? null) === 'done') {
-                return ['ok' => false, 'message' => 'No pending phase.', 'phase' => $phase];
+                return ['ok' => false, 'message' => __('No pending phase.'), 'phase' => $phase];
             }
 
             $structure = $plan->structure;
@@ -1798,7 +1798,7 @@ class AiToolService
                     $ids[] = $result['id'];
                 }
                 $phase['result'] = ['routine_ids' => $ids];
-                $message = count($ids) . ' routine(s) created.';
+                $message = __(':count routine(s) created.', ['count' => count($ids)]);
             } elseif ($key === 'project' || $key === 'projects') {
                 // Legacy stored plans have a single root via project/subprojects.
                 $created = [];
@@ -1824,7 +1824,7 @@ class AiToolService
                     }
                 }
                 if (empty($created)) {
-                    return ['ok' => false, 'message' => 'Plan has no projects. Cancel and start over.', 'phase' => $phase];
+                    return ['ok' => false, 'message' => __('Plan has no projects. Cancel and start over.'), 'phase' => $phase];
                 }
                 $phase['result'] = [
                     'projects' => $created,
@@ -1834,13 +1834,13 @@ class AiToolService
                     'project_name' => $created[0]['name'],
                 ];
                 $message = count($created) === 1
-                    ? "Project '{$created[0]['name']}' created."
-                    : count($created) . ' projects created.';
+                    ? __("Project ':name' created.", ['name' => $created[0]['name']])
+                    : __(':count projects created.', ['count' => count($created)]);
                 if ($membersAdded > 0) {
-                    $message .= " {$membersAdded} member(s) added.";
+                    $message .= __(' :count member(s) added.', ['count' => $membersAdded]);
                 }
                 if (! empty($membersSkipped)) {
-                    $message .= ' Skipped unknown users: ' . implode(', ', $membersSkipped) . '.';
+                    $message .= __(' Skipped unknown users: ') . implode(', ', $membersSkipped) . '.';
                 }
             } elseif ($key === 'subprojects') {
                 $projectEntries = $phases[0]['result']['projects'] ?? null;
@@ -1848,7 +1848,7 @@ class AiToolService
                     $projectEntries = [['id' => $phases[0]['result']['project_id'], 'name' => $phases[0]['result']['project_name'] ?? '']];
                 }
                 if (! $projectEntries) {
-                    return ['ok' => false, 'message' => 'Plan project is missing. Cancel and start over.', 'phase' => $phase];
+                    return ['ok' => false, 'message' => __('Plan project is missing. Cancel and start over.'), 'phase' => $phase];
                 }
                 $subsByRoot = [];
                 $flatIds = [];
@@ -1856,7 +1856,7 @@ class AiToolService
                     $parentId = $projectEntries[$pi]['id'] ?? $projectEntries[0]['id'];
                     $parent = Project::where('id', $parentId)->where('user_id', $user->id)->first();
                     if (! $parent) {
-                        return ['ok' => false, 'message' => 'Plan project is missing. Cancel and start over.', 'phase' => $phase];
+                        return ['ok' => false, 'message' => __('Plan project is missing. Cancel and start over.'), 'phase' => $phase];
                     }
                     foreach (($root['subprojects'] ?? []) as $sub) {
                         $created = $user->projects()->create([
@@ -1872,14 +1872,14 @@ class AiToolService
                     }
                 }
                 $phase['result'] = ['subs' => $subsByRoot, 'sub_ids' => $flatIds];
-                $message = count($flatIds) . ' sub-project(s) created.';
+                $message = __(':count sub-project(s) created.', ['count' => count($flatIds)]);
             } elseif ($key === 'tasks') {
                 $projectEntries = $phases[0]['result']['projects'] ?? null;
                 if (! $projectEntries && isset($phases[0]['result']['project_id'])) {
                     $projectEntries = [['id' => $phases[0]['result']['project_id'], 'name' => '']];
                 }
                 if (! $projectEntries) {
-                    return ['ok' => false, 'message' => 'Plan project is missing. Cancel and start over.', 'phase' => $phase];
+                    return ['ok' => false, 'message' => __('Plan project is missing. Cancel and start over.'), 'phase' => $phase];
                 }
                 $subsByRoot = $phases[1]['result']['subs'] ?? null;
                 if ($subsByRoot === null && isset($phases[1]['result']['sub_ids'])) {
@@ -1900,7 +1900,7 @@ class AiToolService
                     }
                 }
                 $phase['result'] = ['task_ids' => $taskIds];
-                $message = $phase['total'] . ' task(s) created.';
+                $message = __(':count task(s) created.', ['count' => $phase['total']]);
             } elseif ($key === 'subtasks') {
                 $projectEntries = $phases[0]['result']['projects'] ?? null;
                 if (! $projectEntries && isset($phases[0]['result']['project_id'])) {
@@ -1914,7 +1914,7 @@ class AiToolService
                     }
                 }
                 if (! $projectEntries || ! $taskIds) {
-                    return ['ok' => false, 'message' => 'Plan tasks are missing. Cancel and start over.', 'phase' => $phase];
+                    return ['ok' => false, 'message' => __('Plan tasks are missing. Cancel and start over.'), 'phase' => $phase];
                 }
                 $n = 0;
                 if (empty($structure['projects'])) {
@@ -1974,7 +1974,7 @@ class AiToolService
                     }
                 }
                 $phase['result'] = ['created' => $n];
-                $message = $n . ' subtask(s) added.';
+                $message = __(':count subtask(s) added.', ['count' => $n]);
             } elseif ($key === 'reminders') {
                 $ids = [];
                 foreach (($structure['reminders'] ?? []) as $r) {
@@ -1991,7 +1991,7 @@ class AiToolService
                     $ids[] = $rem->id;
                 }
                 $phase['result'] = ['reminder_ids' => $ids];
-                $message = count($ids) . ' reminder(s) created.';
+                $message = __(':count reminder(s) created.', ['count' => count($ids)]);
             } elseif ($key === 'notes') {
                 $ids = [];
                 foreach (($structure['notes'] ?? []) as $n) {
@@ -2003,9 +2003,9 @@ class AiToolService
                     $ids[] = $note->id;
                 }
                 $phase['result'] = ['note_ids' => $ids];
-                $message = count($ids) . ' note(s) created.';
+                $message = __(':count note(s) created.', ['count' => count($ids)]);
             } else {
-                return ['ok' => false, 'message' => 'Unknown plan phase.', 'phase' => $phase];
+                return ['ok' => false, 'message' => __('Unknown plan phase.'), 'phase' => $phase];
             }
 
             $phase['done'] = $phase['total'];
@@ -2027,7 +2027,7 @@ class AiToolService
             if ($finished) {
                 $plan->status = \App\Models\AiPlan::STATUS_DONE;
                 $plan->executed_at = now();
-                $message .= ' Plan complete ✅';
+                $message .= __(' Plan complete ✅');
             }
             $plan->touchExpiry();
             $plan->save();
@@ -2063,7 +2063,7 @@ class AiToolService
             'title' => 'Delete task',
             'danger' => true,
             'rows' => [['k' => 'Task', 'v' => $resolved['title'] ?? "#{$resolved['id']}"]],
-            'impact' => $subs > 0 ? "{$subs} subtask(s) will also be deleted." : null,
+            'impact' => $subs > 0 ? __(':count subtask(s) will also be deleted.', ['count' => $subs]) : null,
         ];
     }
 
@@ -2076,7 +2076,7 @@ class AiToolService
             'title' => 'Delete routine',
             'danger' => true,
             'rows' => [['k' => 'Routine', 'v' => $resolved['title'] ?? "#{$resolved['id']}"]],
-            'impact' => $count > 0 ? "Hides the routine; {$count} recorded completion(s) are kept as history." : 'Hides the routine.',
+            'impact' => $count > 0 ? __('Hides the routine; :count recorded completion(s) are kept as history.', ['count' => $count]) : __('Hides the routine.'),
         ];
     }
 
@@ -2153,8 +2153,8 @@ class AiToolService
         ]);
 
         $msg = isset($r['parent_id'])
-            ? "Subtask '{$task->title}' created under '{$r['parent_title']}'."
-            : "Task '{$task->title}' created.";
+            ? __("Subtask ':title' created under ':parent'.", ['title' => $task->title, 'parent' => $r['parent_title']])
+            : __("Task ':title' created.", ['title' => $task->title]);
 
         return ['ok' => true, 'message' => $msg, 'id' => $task->id];
     }
@@ -2168,7 +2168,7 @@ class AiToolService
         }
         $task->update($data);
 
-        return ['ok' => true, 'message' => "Task '{$task->title}' updated.", 'id' => $task->id];
+        return ['ok' => true, 'message' => __("Task ':title' updated.", ['title' => $task->title]), 'id' => $task->id];
     }
 
     private function execTaskComplete(array $r, $user): array
@@ -2176,7 +2176,7 @@ class AiToolService
         $task = Task::where('id', $r['id'])->where('user_id', $user->id)->firstOrFail();
         $task->update(['status' => 'completed', 'completed_at' => $task->completed_at ?? now()]);
 
-        return ['ok' => true, 'message' => "Task '{$task->title}' completed.", 'id' => $task->id];
+        return ['ok' => true, 'message' => __("Task ':title' completed.", ['title' => $task->title]), 'id' => $task->id];
     }
 
     private function execTaskDelete(array $r, $user): array
@@ -2185,7 +2185,7 @@ class AiToolService
         $title = $task->title;
         $task->delete();
 
-        return ['ok' => true, 'message' => "Task '{$title}' deleted.", 'id' => null];
+        return ['ok' => true, 'message' => __("Task ':title' deleted.", ['title' => $title]), 'id' => null];
     }
 
     private function execReminderCreate(array $r, $user): array
@@ -2196,7 +2196,7 @@ class AiToolService
             'recurrence_type' => Reminder::RECURRENCE_NONE, 'recurrence_interval' => 1,
         ]));
 
-        return ['ok' => true, 'message' => "Reminder '{$rem->title}' created.", 'id' => $rem->id];
+        return ['ok' => true, 'message' => __("Reminder ':title' created.", ['title' => $rem->title]), 'id' => $rem->id];
     }
 
     private function execReminderComplete(array $r, $user): array
@@ -2204,7 +2204,7 @@ class AiToolService
         $rem = Reminder::where('id', $r['id'])->where('user_id', $user->id)->firstOrFail();
         $rem->markAsCompleted();
 
-        return ['ok' => true, 'message' => "Reminder '{$rem->title}' completed.", 'id' => $rem->id];
+        return ['ok' => true, 'message' => __("Reminder ':title' completed.", ['title' => $rem->title]), 'id' => $rem->id];
     }
 
     private function execDelete(array $r, $user, string $model, string $label): array
@@ -2213,14 +2213,14 @@ class AiToolService
         $title = $row->title ?? $row->name ?? "#{$row->id}";
         $row->delete();
 
-        return ['ok' => true, 'message' => "{$label} '{$title}' deleted.", 'id' => null];
+        return ['ok' => true, 'message' => __(":label ':title' deleted.", ['label' => $label, 'title' => $title]), 'id' => null];
     }
 
     private function execNoteCreate(array $r, $user): array
     {
         $note = $user->notes()->create($r);
 
-        return ['ok' => true, 'message' => "Note '{$note->title}' created.", 'id' => $note->id];
+        return ['ok' => true, 'message' => __("Note ':title' created.", ['title' => $note->title]), 'id' => $note->id];
     }
 
     private function execNoteUpdate(array $r, $user): array
@@ -2228,7 +2228,7 @@ class AiToolService
         $note = Note::where('id', $r['id'])->where('user_id', $user->id)->firstOrFail();
         $note->update(array_intersect_key($r, array_flip(['title', 'content', 'category'])));
 
-        return ['ok' => true, 'message' => "Note '{$note->title}' updated.", 'id' => $note->id];
+        return ['ok' => true, 'message' => __("Note ':title' updated.", ['title' => $note->title]), 'id' => $note->id];
     }
 
     private function execProjectCreate(array $r, $user): array
@@ -2243,8 +2243,8 @@ class AiToolService
         ]);
 
         $msg = isset($r['parent_id'])
-            ? "Sub-project '{$project->name}' created under '{$r['parent_name']}'."
-            : "Project '{$project->name}' created.";
+            ? __("Sub-project ':name' created under ':parent'.", ['name' => $project->name, 'parent' => $r['parent_name']])
+            : __("Project ':name' created.", ['name' => $project->name]);
 
         return ['ok' => true, 'message' => $msg, 'id' => $project->id];
     }
@@ -2259,8 +2259,8 @@ class AiToolService
         $project->users()->syncWithoutDetaching([$member->id => ['role' => $r['role'] ?? 'member']]);
 
         $msg = $already
-            ? "'{$member->name}' is already on '{$project->name}' (role updated to '{$r['role']}')."
-            : "'{$member->name}' added to '{$project->name}' as '{$r['role']}'.";
+            ? __("':name' is already on ':project' (role updated to ':role').", ['name' => $member->name, 'project' => $project->name, 'role' => $r['role']])
+            : __("':name' added to ':project' as ':role'.", ['name' => $member->name, 'project' => $project->name, 'role' => $r['role']]);
 
         return ['ok' => true, 'message' => $msg, 'id' => $project->id];
     }
@@ -2270,10 +2270,10 @@ class AiToolService
         $note = Note::where('id', $r['note_id'])->where('user_id', $user->id)->firstOrFail();
         $link = app(NoteLinkService::class)->attach($note, $r['target_type'], (int) $r['target_id']);
         if (! $link) {
-            return ['ok' => false, 'message' => 'Could not create the link (target missing or not yours).', 'id' => null];
+            return ['ok' => false, 'message' => __('Could not create the link (target missing or not yours).'), 'id' => null];
         }
 
-        return ['ok' => true, 'message' => "Note '{$r['note_title']}' linked to {$r['target_kind']} '{$r['target_title']}'.", 'id' => $link->id];
+        return ['ok' => true, 'message' => __("Note ':note' linked to :kind ':title'.", ['note' => $r['note_title'], 'kind' => $r['target_kind'], 'title' => $r['target_title']]), 'id' => $link->id];
     }
 
     /**
@@ -2340,7 +2340,7 @@ class AiToolService
         $task = Task::where('id', $r['task_id'])->where('user_id', $user->id)->firstOrFail();
         $item = $task->checklistItems()->create(['name' => $r['name']]);
 
-        return ['ok' => true, 'message' => "Checklist '{$item->name}' added.", 'id' => $item->id];
+        return ['ok' => true, 'message' => __("Checklist ':name' added.", ['name' => $item->name]), 'id' => $item->id];
     }
 
     private function execChecklistToggle(array $r, $user): array
@@ -2348,7 +2348,7 @@ class AiToolService
         $item = ChecklistItem::where('id', $r['id'])->whereHas('task', fn ($q) => $q->where('user_id', $user->id))->firstOrFail();
         $item->update(['completed' => ! $item->completed]);
 
-        return ['ok' => true, 'message' => "Checklist '{$item->name}' " . ($item->completed ? 'done.' : 'reopened.'), 'id' => $item->id];
+        return ['ok' => true, 'message' => ($item->completed ? __("Checklist ':name' done.", ['name' => $item->name]) : __("Checklist ':name' reopened.", ['name' => $item->name])), 'id' => $item->id];
     }
 
     private function execRoutineCreate(array $r, $user): array
@@ -2384,12 +2384,12 @@ class AiToolService
             $n++;
         }
 
-        $msg = "Routine '{$routine->title}' created ({$routine->recurrenceLabel()})";
+        $msg = __("Routine ':title' created (:freq)", ['title' => $routine->title, 'freq' => $routine->recurrenceLabel()]);
         if ($n > 0) {
-            $msg .= " with {$n} step(s)";
+            $msg .= __(' with :count step(s)', ['count' => $n]);
         }
         if (($r['tracking_mode'] ?? 'none') !== 'none') {
-            $msg .= " [tracking: {$r['tracking_mode']}]";
+            $msg .= __(' [tracking: :mode]', ['mode' => $r['tracking_mode']]);
         }
 
         return ['ok' => true, 'message' => $msg . '.', 'id' => $routine->id];
@@ -2399,10 +2399,10 @@ class AiToolService
     {
         $routine = Routine::where('id', $r['id'])->where('user_id', $user->id)->firstOrFail();
         if ($routine->isAvoid()) {
-            return ['ok' => false, 'message' => "Routine '{$routine->title}' is an avoid habit and cannot be checked off — staying clean is the goal.", 'id' => $routine->id];
+            return ['ok' => false, 'message' => __("Routine ':title' is an avoid habit and cannot be checked off — staying clean is the goal.", ['title' => $routine->title]), 'id' => $routine->id];
         }
         if ($routine->completedOn($r['date'])) {
-            return ['ok' => true, 'message' => "Routine '{$routine->title}' is already done for {$r['date']}.", 'id' => $routine->id];
+            return ['ok' => true, 'message' => __("Routine ':title' is already done for :date.", ['title' => $routine->title, 'date' => $r['date']]), 'id' => $routine->id];
         }
         RoutineCompletion::create([
             'user_id' => $user->id,
@@ -2411,7 +2411,7 @@ class AiToolService
             'completed_at' => now(),
         ]);
 
-        return ['ok' => true, 'message' => "Routine '{$routine->title}' marked done for {$r['date']}.", 'id' => $routine->id];
+        return ['ok' => true, 'message' => __("Routine ':title' marked done for :date.", ['title' => $routine->title, 'date' => $r['date']]), 'id' => $routine->id];
     }
 
     private function execRoutineDelete(array $r, $user): array
@@ -2420,7 +2420,7 @@ class AiToolService
         $title = $routine->title;
         $routine->delete();
 
-        return ['ok' => true, 'message' => "Routine '{$title}' deleted.", 'id' => null];
+        return ['ok' => true, 'message' => __("Routine ':title' deleted.", ['title' => $title]), 'id' => null];
     }
 
     private function previewRoutineLog(array $resolved): array
@@ -2442,14 +2442,14 @@ class AiToolService
         $routine = Routine::where('id', $r['routine_id'])->where('user_id', $user->id)->firstOrFail();
         \App\Models\RoutineLog::logValue($user->id, $routine->id, $r['date'], $r['value'], $r['item_id'], $r['set_no']);
 
-        $what = $r['item_name'] ? "'{$r['item_name']}' set {$r['set_no']}" : "'{$routine->title}'";
+        $what = $r['item_name'] ? __("':name' set :set", ['name' => $r['item_name'], 'set' => $r['set_no']]) : "'{$routine->title}'";
         $shown = $r['value_display'] ?? (string) $r['value'];
-        $msg = "Logged {$shown}" . (($r['unit'] ?? null) && ! ($r['is_time'] ?? false) ? " {$r['unit']}" : '') . " for {$what} on {$r['date']}.";
+        $msg = __('Logged :value for :what on :date.', ['value' => $shown . (($r['unit'] ?? null) && !($r['is_time'] ?? false) ? ' ' . $r['unit'] : ''), 'what' => $what, 'date' => $r['date']]);
 
         // Value mode has one input per day: logging it completes the routine.
         if ($r['tracking_mode'] === Routine::TRACKING_VALUE && ! $routine->completedOn($r['date'])) {
             $routine->toggleOn($r['date']);
-            $msg .= " Routine completed ✅";
+            $msg .= __(" Routine completed ✅");
         }
 
         // Sets mode auto-completes the routine when every target set is logged.
@@ -2473,7 +2473,7 @@ class AiToolService
             }
             if ($allDone) {
                 $routine->toggleOn($r['date']);
-                $msg .= " All sets done — routine completed ✅";
+                $msg .= __(" All sets done — routine completed ✅");
             }
         }
 

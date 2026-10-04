@@ -89,9 +89,9 @@ class TaskController extends Controller
 
         // Redirect based on context
         if ($project) {
-            return redirect()->route('projects.tasks.index', $project)->with('success', 'Task created successfully.');
+            return redirect()->route('projects.tasks.index', $project)->with('success', __('Task created successfully.'));
         } else {
-            return redirect()->route('tasks.index')->with('success', 'Task created successfully.');
+            return redirect()->route('tasks.index')->with('success', __('Task created successfully.'));
         }
     }
 
@@ -178,12 +178,12 @@ class TaskController extends Controller
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'ok' => true,
-                'message' => 'Task updated successfully',
+                'message' => __('Task updated successfully'),
                 'task' => $task->fresh(['project:id,name,slug', 'checklistItems'])
             ]);
         }
 
-        return redirect()->route('tasks.show', $task->id)->with('success', 'Task updated successfully.');
+        return redirect()->route('tasks.show', $task->id)->with('success', __('Task updated successfully.'));
     }
 
     public function destroy(Request $request, Task $task)
@@ -191,10 +191,10 @@ class TaskController extends Controller
         $task->delete();
 
         if ($request->expectsJson()) {
-            return response()->json(['ok' => true, 'message' => 'Task deleted successfully.']);
+            return response()->json(['ok' => true, 'message' => __('Task deleted successfully.')]);
         }
 
-        return redirect()->route('tasks.index')->with('success', 'Task deleted successfully.');
+        return redirect()->route('tasks.index')->with('success', __('Task deleted successfully.'));
     }
 
     public function reorder(Request $request)
@@ -331,7 +331,7 @@ class TaskController extends Controller
         $task->completed_at = $status === 'completed' ? ($task->completed_at ?? now()) : null;
         $task->save();
 
-        return response()->json(['message' => 'Task status updated successfully.']);
+        return response()->json(['message' => __('Task status updated successfully.')]);
     }
 
     /**
@@ -359,14 +359,16 @@ class TaskController extends Controller
 
         $period = $data['time_period'] ?? null;
 
+        $periodLabel = $period ? config("routines.periods.{$period}.label") : null;
+
         return response()->json([
             'ok' => true,
             'task_id' => $task->id,
             'due_date' => $task->due_date->toDateString(),
             'time_period' => $period,
             'period_label' => $period
-                ? (config("routines.periods.{$period}.label") ?? ucfirst($period))
-                : 'Anytime',
+                ? ($periodLabel ? __($periodLabel) : ucfirst($period))
+                : __('Anytime'),
         ]);
     }
 }

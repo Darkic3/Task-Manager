@@ -58,7 +58,7 @@ class AiActionController extends Controller
             } elseif (($result['code'] ?? null) === 'expired') {
                 $expired++;
             } else {
-                $failed[] = '#' . $action->id . ' ' . ($result['error'] ?? 'failed');
+                $failed[] = '#' . $action->id . ' ' . ($result['error'] ?? __('failed'));
             }
         }
 
@@ -66,16 +66,16 @@ class AiActionController extends Controller
 
         $parts = [];
         if ($done) {
-            $parts[] = count($done) . ' action(s) executed.';
+            $parts[] = __(':count action(s) executed.', ['count' => count($done)]);
         }
         if ($failed) {
-            $parts[] = count($failed) . ' failed: ' . implode('; ', $failed);
+            $parts[] = __(':count failed: :details', ['count' => count($failed), 'details' => implode('; ', $failed)]);
         }
         if ($expired) {
-            $parts[] = $expired . ' expired — ask Lina again for those.';
+            $parts[] = __(':count expired — ask Lina again for those.', ['count' => $expired]);
         }
         if (! $done && ! $failed && ! $expired) {
-            $parts[] = 'Nothing pending.';
+            $parts[] = __('Nothing pending.');
         }
 
         return response()->json(['ok' => empty($failed), 'message' => implode(' ', $parts), 'details' => $done]);
@@ -105,7 +105,7 @@ class AiActionController extends Controller
 
         AiLogger::log('action.reject_all', ['user_id' => $user->id, 'cancelled' => $count]);
 
-        return response()->json(['ok' => true, 'message' => $count > 0 ? $count . ' pending action(s) cancelled — nothing changed.' : 'Nothing pending.']);
+        return response()->json(['ok' => true, 'message' => $count > 0 ? __(':count pending action(s) cancelled — nothing changed.', ['count' => $count]) : __('Nothing pending.')]);
     }
 
     /**
@@ -115,7 +115,7 @@ class AiActionController extends Controller
     private function runAction(AiPendingAction $action, $user): array
     {
         if ($action->status === AiPendingAction::STATUS_EXECUTED) {
-            return ['ok' => true, 'deduped' => true, 'message' => 'Already executed.'];
+            return ['ok' => true, 'deduped' => true, 'message' => __('Already executed.')];
         }
 
         if (! $action->isActionable()) {
@@ -124,7 +124,7 @@ class AiActionController extends Controller
             }
             AiLogger::log('action.confirm_expired', ['user_id' => $user->id, 'action_id' => $action->id, 'tool' => $action->tool, 'status' => $action->status]);
 
-            return ['ok' => false, 'code' => 'expired', 'error' => 'This confirmation has expired. Ask Lina again.'];
+            return ['ok' => false, 'code' => 'expired', 'error' => __('This confirmation has expired. Ask Lina again.')];
         }
 
         // Re-validate at execution time (ownership may have changed).
@@ -132,7 +132,7 @@ class AiActionController extends Controller
         if (! ($check['ok'] ?? false)) {
             AiLogger::log('action.confirm_invalid', ['user_id' => $user->id, 'action_id' => $action->id, 'tool' => $action->tool, 'error' => $check['error'] ?? 'No longer valid.']);
 
-            return ['ok' => false, 'code' => 'invalid', 'error' => $check['error'] ?? 'No longer valid.'];
+            return ['ok' => false, 'code' => 'invalid', 'error' => $check['error'] ?? __('No longer valid.')];
         }
 
         $action->status = AiPendingAction::STATUS_CONFIRMED;
@@ -143,7 +143,7 @@ class AiActionController extends Controller
         if (! ($result['ok'] ?? false)) {
             AiLogger::error('action.execute_failed', ['user_id' => $user->id, 'action_id' => $action->id, 'tool' => $action->tool, 'error' => $result['message'] ?? 'Execution failed.']);
 
-            return ['ok' => false, 'code' => 'execute_failed', 'error' => $result['message'] ?? 'Execution failed.'];
+            return ['ok' => false, 'code' => 'execute_failed', 'error' => $result['message'] ?? __('Execution failed.')];
         }
 
         $action->status = AiPendingAction::STATUS_EXECUTED;
@@ -182,6 +182,6 @@ class AiActionController extends Controller
         ]);
         AiLogger::log('action.rejected', ['user_id' => Auth::id(), 'action_id' => $action->id, 'tool' => $action->tool]);
 
-        return response()->json(['ok' => true, 'message' => 'Cancelled — nothing changed.']);
+        return response()->json(['ok' => true, 'message' => __('Cancelled — nothing changed.')]);
     }
 }

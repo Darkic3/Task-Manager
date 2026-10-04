@@ -61,7 +61,7 @@ class ProjectController extends Controller
 
         Auth::user()->projects()->create($data);
 
-        return redirect()->route('projects.index')->with('success', 'Project created successfully.');
+        return redirect()->route('projects.index')->with('success', __('Project created successfully.'));
     }
 
     public function show(Project $project)
@@ -108,14 +108,14 @@ class ProjectController extends Controller
 
         $project->update($data);
 
-        return redirect()->route('projects.index')->with('success', 'Project updated successfully.');
+        return redirect()->route('projects.index')->with('success', __('Project updated successfully.'));
     }
 
     public function destroy(Project $project)
     {
         $project->delete();
 
-        return redirect()->route('projects.index')->with('success', 'Project deleted successfully.');
+        return redirect()->route('projects.index')->with('success', __('Project deleted successfully.'));
     }
 
     public function reorder(Request $request)
@@ -205,6 +205,6 @@ class ProjectController extends Controller
         $project = Project::find($request->project_id);
         $project->teamProjects()->attach($request->user_id);
 
-        return redirect()->back()->with('success', 'User added successfully.');
+        return redirect()->back()->with('success', __('User added successfully.'));
     }
 }

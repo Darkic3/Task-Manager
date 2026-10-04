@@ -47,12 +47,12 @@ class ExerciseController extends Controller
             ->first();
 
         if ($duplicate) {
-            return back()->withInput()->withErrors(['name' => "This exercise already exists: {$duplicate->name}."]);
+            return back()->withInput()->withErrors(['name' => __('This exercise already exists: :name.', ['name' => $duplicate->name])]);
         }
 
         $request->user()->exercises()->create($payload);
 
-        return redirect()->route('workouts.exercises.index')->with('success', 'Exercise added to your library.');
+        return redirect()->route('workouts.exercises.index')->with('success', __('Exercise added to your library.'));
     }
 
     public function edit(Exercise $exercise)
@@ -72,12 +72,12 @@ class ExerciseController extends Controller
             ->first();
 
         if ($duplicate) {
-            return back()->withInput()->withErrors(['name' => "This exercise already exists: {$duplicate->name}."]);
+            return back()->withInput()->withErrors(['name' => __('This exercise already exists: :name.', ['name' => $duplicate->name])]);
         }
 
         $exercise->update($payload);
 
-        return redirect()->route('workouts.exercises.index')->with('success', 'Exercise updated.');
+        return redirect()->route('workouts.exercises.index')->with('success', __('Exercise updated.'));
     }
 
     public function destroy(Exercise $exercise): RedirectResponse
@@ -85,7 +85,7 @@ class ExerciseController extends Controller
         $this->authorizeExercise($exercise);
         $exercise->delete();
 
-        return redirect()->route('workouts.exercises.index')->with('success', 'Exercise archived. Its future history remains safe.');
+        return redirect()->route('workouts.exercises.index')->with('success', __('Exercise archived. Its future history remains safe.'));
     }
 
     private function authorizeExercise(Exercise $exercise): void

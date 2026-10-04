@@ -216,7 +216,7 @@
                                     <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $entry->description ?? '—' }}</td>
                                     <td style="font-weight:700; white-space:nowrap;">{{ \App\Models\TimeEntry::formatDuration((int) $entry->duration_seconds) }}</td>
                                     <td>
-                                        <form action="{{ route('time.entries.destroy', $entry) }}" method="POST" onsubmit="return confirm(@json(__('Delete this entry?')));">
+                                        <form action="{{ route('time.entries.destroy', $entry) }}" method="POST" onsubmit="return confirmSwal(this, @json(__('Delete this entry?')), { isDelete: true });">
                                             @csrf @method('DELETE')
                                             <button type="submit" class="tm-del" title="{{ __('Delete') }}"><i class="bi bi-trash"></i></button>
                                         </form>

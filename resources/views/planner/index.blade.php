@@ -1573,7 +1573,7 @@
             });
             refreshCounters();
             if (!silent) {
-                plShowToast(json.completed ? 'Done ✓' : 'Reopened', () => {
+                plShowToast(json.completed ? @json(__('Done ✓')) : @json(__('Reopened')), () => {
                     document.querySelectorAll('[data-task-item][data-id="' + id + '"] .pl-check input')
                         .forEach(c => toggleTask(c, true));
                 });
@@ -1629,8 +1629,8 @@
                    surface the reason instead of failing silently. */
                 if (e.status === 422 && e.response) {
                     e.response.json().then(
-                        j => plShowToast(j.message || 'Log the numbers first.'),
-                        () => plShowToast('Log the numbers first.')
+                        j => plShowToast(j.message || @json(__('Log the numbers first.'))),
+                        () => plShowToast(@json(__('Log the numbers first.')))
                     );
                 } else {
                     console.error('[Planner] routine toggle failed', e);
@@ -2198,7 +2198,7 @@
             /* Saving from the routine modal closes it automatically. */
             if (box.closest('#plRoutineModal')) {
                 closeRoutineModal();
-                plShowToast('Saved ✓');
+                plShowToast(@json(__('Saved ✓')));
             }
         } catch (e) {
             if (e.message !== 'GONE') console.error('[Planner] log value failed', e);
@@ -2245,7 +2245,7 @@
             /* Saving from the routine modal closes it automatically. */
             if (box.closest('#plRoutineModal')) {
                 closeRoutineModal();
-                plShowToast('Saved ✓');
+                plShowToast(@json(__('Saved ✓')));
             }
         } catch (e) {
             if (e.message !== 'GONE') console.error('[Planner] log sets failed', e);
@@ -2800,11 +2800,11 @@
         const title = row ? (row.querySelector('.pl-task-title')?.textContent || '').trim() : 'Routine';
         toast.replaceChildren();
         const span = document.createElement('span');
-        span.textContent = title + ' done ✓';
+        span.textContent = title + ' ' + @json(__('done ✓'));
         toast.appendChild(span);
         const undo = document.createElement('button');
         undo.type = 'button';
-        undo.textContent = 'Undo';
+        undo.textContent = @json(__('Undo'));
         undo.onclick = () => {
             hideRoutineToast();
             try {
@@ -2878,7 +2878,7 @@
         if (undoFn) {
             const undo = document.createElement('button');
             undo.type = 'button';
-            undo.textContent = 'Undo';
+        undo.textContent = @json(__('Undo'));
             undo.onclick = () => { hideRoutineToast(); undoFn(); };
             toast.appendChild(undo);
         }
@@ -3128,7 +3128,7 @@
             closeQuickAdd();
             form.reset();
             plQa.querySelectorAll('[data-qa-minutes] button').forEach(x => x.classList.remove('active'));
-            plShowToast('Task added', () => plUndoDelete('task', json.task.id));
+            plShowToast(@json(__('Task added')), () => plUndoDelete('task', json.task.id));
             refreshNextUp();
         } catch (e) {
             console.error('[Planner] quick add task failed', e);
@@ -3161,7 +3161,7 @@
             refreshRoutineCounters();
             closeQuickAdd();
             form.reset();
-            plShowToast('Routine added', () => plUndoDelete('routine', json.routine.id));
+            plShowToast(@json(__('Routine added')), () => plUndoDelete('routine', json.routine.id));
             refreshNextUp();
         } catch (e) {
             console.error('[Planner] quick add routine failed', e);
@@ -3884,7 +3884,7 @@
                     const json = await res.json();
                     document.querySelectorAll(`[data-task-item][data-id="${row.dataset.id}"] .pl-task-title`)
                         .forEach(t => { t.textContent = json.title; });
-                    plShowToast('Title updated');
+                    plShowToast(@json(__('Title updated')));
                     return;
                 } catch (err) {
                     console.error('[Planner] rename failed', err);
@@ -4035,7 +4035,7 @@
                 }
             }, 1000);
 
-            plShowToast('{{ __("Timer started") }}: ' + (title || 'Task'));
+            plShowToast('{{ __("Timer started") }}: ' + (title || @json(__('Task'))));
         } catch (err) {
             console.error('[Planner] start timer failed', err);
             plShowToast('{{ __("Error starting timer") }}');

@@ -28,7 +28,7 @@ class AiProviderController extends Controller
 
         AiProvider::create($data);
 
-        return redirect()->route('ai.settings')->with('success', 'Custom provider added.');
+        return redirect()->route('ai.settings')->with('success', __('Custom provider added.'));
     }
 
     public function update(Request $request, AiProvider $provider)
@@ -45,7 +45,7 @@ class AiProviderController extends Controller
 
         $provider->update($data);
 
-        return redirect()->route('ai.settings')->with('success', 'Custom provider updated.');
+        return redirect()->route('ai.settings')->with('success', __('Custom provider updated.'));
     }
 
     public function destroy(AiProvider $provider)
@@ -61,7 +61,7 @@ class AiProviderController extends Controller
 
         $provider->delete();
 
-        return redirect()->route('ai.settings')->with('success', 'Custom provider removed.');
+        return redirect()->route('ai.settings')->with('success', __('Custom provider removed.'));
     }
 
     public function test(AiProvider $provider)

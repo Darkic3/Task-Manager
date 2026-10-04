@@ -362,14 +362,12 @@ function fallbackCopy(text, callback) {
     document.body.appendChild(ta);
     ta.focus();
     ta.select();
-    try { document.execCommand('copy'); callback(); } catch(e) { alert('{{ __('Copy not supported in this browser.') }}'); }
+    try { document.execCommand('copy'); callback(); } catch(e) { alertSwal('{{ __('Copy not supported in this browser.') }}', null, 'error'); }
     document.body.removeChild(ta);
 }
 
 function confirmDelete() {
-    if (confirm('{{ __('Delete this note? This cannot be undone.') }}')) {
-        document.getElementById('deleteForm').submit();
-    }
+    confirmSwal(document.getElementById('deleteForm'), '{{ __('Delete this note? This cannot be undone.') }}', { isDelete: true });
 }
 
 /* ── AI extraction ── */

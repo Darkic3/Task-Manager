@@ -738,7 +738,7 @@
                             <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
                             <a href="{{ route('projects.edit', $project) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
                             <form action="{{ route('projects.destroy', $project) }}" method="POST" class="d-inline"
-                                  onsubmit="return confirm(@json(__('Delete this project? This cannot be undone.')))">
+                                  onsubmit="return confirmSwal(this, @json(__('Delete this project? This cannot be undone.')), { isDelete: true })">
                                 @csrf @method('DELETE')
                             <button type="submit" class="cu-action-btn danger" title="{{ __('Delete') }}"><i class="bi bi-trash"></i></button>
                             </form>
@@ -798,7 +798,7 @@
                         <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
                         <a href="{{ route('projects.edit', $project) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
                         <form action="{{ route('projects.destroy', $project) }}" method="POST" class="d-inline"
-                              onsubmit="return confirm(@json(__('Delete this project?')))">
+                              onsubmit="return confirmSwal(this, @json(__('Delete this project?')), { isDelete: true })">
                             @csrf @method('DELETE')
                             <button type="submit" class="cu-action-btn danger" title="{{ __('Delete') }}"><i class="bi bi-trash"></i></button>
                         </form>

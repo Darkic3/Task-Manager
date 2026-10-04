@@ -165,7 +165,7 @@ class ReminderController extends Controller
 
         Auth::user()->reminders()->create($data);
 
-        return redirect()->route('reminders.index')->with('success', 'Reminder created successfully.');
+        return redirect()->route('reminders.index')->with('success', __('Reminder created successfully.'));
     }
 
     public function show(Reminder $reminder)
@@ -235,7 +235,7 @@ class ReminderController extends Controller
 
         $reminder->update($data);
 
-        return redirect()->route('reminders.index')->with('success', 'Reminder updated successfully.');
+        return redirect()->route('reminders.index')->with('success', __('Reminder updated successfully.'));
     }
 
     public function destroy(Reminder $reminder)
@@ -245,7 +245,7 @@ class ReminderController extends Controller
         }
 
         $reminder->delete();
-        return redirect()->route('reminders.index')->with('success', 'Reminder deleted successfully.');
+        return redirect()->route('reminders.index')->with('success', __('Reminder deleted successfully.'));
     }
 
     public function toggleComplete(Reminder $reminder): \Illuminate\Http\JsonResponse
@@ -307,7 +307,7 @@ class ReminderController extends Controller
         $newReminder->snooze_until = null;
         $newReminder->save();
 
-        return redirect()->route('reminders.index')->with('success', 'Reminder duplicated successfully.');
+        return redirect()->route('reminders.index')->with('success', __('Reminder duplicated successfully.'));
     }
 
     public function calendar()

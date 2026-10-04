@@ -288,7 +288,7 @@ class RoutineController extends Controller
         $routine = Auth::user()->routines()->create($data);
         $this->syncItems($routine, $items);
 
-        return redirect()->route('routines.index')->with('success', 'Routine created successfully.');
+        return redirect()->route('routines.index')->with('success', __('Routine created successfully.'));
     }
 
     public function edit(Routine $routine)
@@ -307,7 +307,7 @@ class RoutineController extends Controller
         $routine->update($data);
         $this->syncItems($routine, $request->input('items', []));
 
-        return redirect()->route('routines.index')->with('success', 'Routine updated successfully.');
+        return redirect()->route('routines.index')->with('success', __('Routine updated successfully.'));
     }
 
     public function destroy(Routine $routine)
@@ -316,7 +316,7 @@ class RoutineController extends Controller
 
         $routine->delete();
 
-        return redirect()->route('routines.index')->with('success', 'Routine deleted successfully.');
+        return redirect()->route('routines.index')->with('success', __('Routine deleted successfully.'));
     }
 
     /**
@@ -348,7 +348,7 @@ class RoutineController extends Controller
         $routine->delete();
 
         return redirect()->route('routines.edit', $copy)
-            ->with('success', "Cycle {$copy->cycle_no} started — adjust moves and sets, then save. Previous cycle is archived with its history.");
+            ->with('success', __('Cycle :num started — adjust moves and sets, then save. Previous cycle is archived with its history.', ['num' => $copy->cycle_no]));
     }
 
     public function stats(Routine $routine)

@@ -736,7 +736,7 @@ footer, .topnav { display: none !important; }
             item.dataset.id = conv.id;
             item.innerHTML = `
                 <i class="bi bi-chat-left-text"></i>
-                <span class="lina-conv-label">${escHtml(conv.label || 'New Chat')}</span>
+                <span class="lina-conv-label">${escHtml(conv.label || @json(__('New Chat')))}</span>
                 <button class="lina-conv-del" onclick="deleteConv(${conv.id}, event)" title="Delete"><i class="bi bi-x"></i></button>
             `;
             item.addEventListener('click', () => switchConversation(conv.id));
@@ -751,7 +751,7 @@ footer, .topnav { display: none !important; }
             return;
         }
         try {
-            const conv = await api('POST', CONV_URL, { label: 'New Chat' });
+            const conv = await api('POST', CONV_URL, { label: @json(__('New Chat')) });
             conversations.unshift(conv);
             renderConvList();
             await switchConversation(conv.id);
@@ -775,7 +775,8 @@ footer, .topnav { display: none !important; }
 
     window.deleteConv = async function (id, e) {
         e.stopPropagation();
-        if (!confirm('Delete this conversation?')) return;
+        const msg = '{{ app()->getLocale() === "fa" ? "آیا از حذف این گفتگو مطمئن هستید؟" : "Delete this conversation?" }}';
+        if (!await confirmSwal(msg, { isDelete: true })) return;
         try {
             await api('DELETE', CONV_URL + '/' + id);
             conversations = conversations.filter(c => c.id !== id);
@@ -876,9 +877,9 @@ footer, .topnav { display: none !important; }
         // Phase 1 guard: agent mode without a capable provider builds nothing.
         if (chatMode === 'agent' && agentReady === false) {
             const reason = agentBlockReason === 'no_provider'
-                ? 'هیچ پروایدر فعالی تنظیم نشده — اول در AI Settings کلید اضافه کن.'
-                : 'پروایدر فعلی function-calling ندارد — یک پروایدر OpenAI-compatible انتخاب کن.';
-            appendError('ایجنت آماده نیست و چیزی ساخته نمی‌شود: ' + reason);
+                ? @json(__('No active provider is configured — add a key in AI Settings first.'))
+                : @json(__('The current provider does not support function-calling — choose an OpenAI-compatible provider.'));
+            appendError(@json(__('The agent is not ready and nothing will be created: :reason')).replace(':reason', reason));
             return;
         }
 
@@ -940,7 +941,7 @@ footer, .topnav { display: none !important; }
                         || Object.values(errJson.errors || {}).flat().join(' ')
                         || (typeof errJson.error === 'string' ? errJson.error : '');
                 } catch { /* non-JSON error body */ }
-                appendError('Server error ' + res.status + (detail ? ': ' + detail : '') + '. Please try again.');
+                appendError(@json(__('Server error :status: :details. Please try again.')).replace(':status', res.status).replace(':details', detail ? ': ' + detail : ''));
                 activeMessages.pop();
                 return;
             }
@@ -951,9 +952,9 @@ footer, .topnav { display: none !important; }
             const responseType = res.headers.get('content-type') || '';
             if (!responseType.includes('text/event-stream')) {
                 const where = res.redirected && res.url ? ' Final URL: ' + res.url : '';
-                appendError('AI stream failed: expected SSE but received "' + (responseType || 'unknown content type') + '".'
-                    + ' This usually means the session expired or the request was redirected.' + where
-                    + ' Please reload the page and log in again if needed.');
+                appendError(@json(__('AI stream failed: expected SSE but received ":type".')).replace(':type', responseType || @json(__('unknown content type')))
+                    + ' ' + @json(__('This usually means the session expired or the request was redirected.')) + where
+                    + ' ' + @json(__('Please reload the page and log in again if needed.')));
                 activeMessages.pop();
                 return;
             }
@@ -1031,7 +1032,7 @@ footer, .topnav { display: none !important; }
                         } else if (json.error) {
                             errorShown = true;
                             streamBubbleEl.classList.remove('lina-streaming');
-                            const errMsg = typeof json.error === 'string' ? json.error : (json.error?.message || 'Something went wrong. Please try again.');
+                            const errMsg = typeof json.error === 'string' ? json.error : (json.error?.message || @json(__('Something went wrong. Please try again.')));
                             streamBubbleEl.textContent = '⚠ ' + errMsg;
                         } else {
                             const delta = json.choices?.[0]?.delta;
@@ -1080,7 +1081,7 @@ footer, .topnav { display: none !important; }
                     // drop the empty streaming bubble instead of a misleading message.
                     if (streamWrap && streamWrap.parentNode) streamWrap.parentNode.removeChild(streamWrap);
                 } else {
-                    streamBubbleEl.textContent = 'No response received.';
+                    streamBubbleEl.textContent = @json(__('No response received.'));
                     activeMessages.pop();
                 }
             }
@@ -1092,7 +1093,7 @@ footer, .topnav { display: none !important; }
         } catch (e) {
             if (typingEl.parentNode) typingEl.remove();
             if (streamWrap && streamWrap.parentNode) streamWrap.remove();
-            appendError('Network error. Check your connection.');
+            appendError(@json(__('Network error. Check your connection.')));
             activeMessages.pop();
             console.error('[Lina]', e);
         } finally {
@@ -1153,9 +1154,9 @@ footer, .topnav { display: none !important; }
         dockOk.textContent = 'در حال اجرا…';
         try {
             const res = await api('POST', '/ai/actions/confirm-all');
-            dockLabel.textContent = res.message || 'Done.';
+            dockLabel.textContent = res.message || @json(__('Done'));
         } catch {
-            dockLabel.textContent = 'خطا — لطفاً تکی تأیید کن.';
+            dockLabel.textContent = @json(__('Could not confirm. Please confirm items one by one.'));
         }
         dockOk.disabled = false; dockNo.disabled = false;
         await refreshPendingDock();
@@ -1165,9 +1166,9 @@ footer, .topnav { display: none !important; }
         dockOk.disabled = true; dockNo.disabled = true;
         try {
             const res = await api('POST', '/ai/actions/reject-all');
-            dockLabel.textContent = res.message || 'Cancelled.';
+            dockLabel.textContent = res.message || @json(__('Cancelled — nothing changed.'));
         } catch {
-            dockLabel.textContent = 'خطا در لغو.';
+            dockLabel.textContent = @json(__('Could not cancel. Please confirm items one by one.'));
         }
         dockOk.disabled = false; dockNo.disabled = false;
         await refreshPendingDock();
@@ -1182,12 +1183,13 @@ footer, .topnav { display: none !important; }
     /* ── Toolbar actions ── */
     window.clearConversation = async function () {
         if (!activeConvId || !activeMessages.length) return;
-        if (!confirm('Clear this conversation?')) return;
+        const msg = '{{ app()->getLocale() === "fa" ? "آیا از پاک کردن این گفتگو مطمئن هستید؟" : "Clear this conversation?" }}';
+        if (!await confirmSwal(msg, { isDelete: true })) return;
         try {
             await api('POST', CONV_URL + '/' + activeConvId + '/clear');
             activeMessages = [];
             const conv = conversations.find(c => c.id === activeConvId);
-            if (conv) conv.label = 'New Chat';
+            if (conv) conv.label = @json(__('New Chat'));
             renderConvList(); renderMessages();
         } catch (e) { console.error('[Lina] clear', e); }
     };
@@ -1255,7 +1257,7 @@ footer, .topnav { display: none !important; }
                 card.appendChild(done);
             } catch {
                 allOk.disabled = false; allNo.disabled = false; allOk.textContent = 'تأیید همه ✅';
-                appendError('Bulk confirm failed — try confirming items one by one.');
+                appendError(@json(__('Bulk confirm failed — try confirming items one by one.')));
             }
             scrollBottom();
         };
@@ -1315,16 +1317,16 @@ footer, .topnav { display: none !important; }
                 const done = document.createElement('div');
                 done.style.cssText = 'font-size:12.5px;color:#16a34a;font-weight:600;margin-top:8px;white-space:pre-wrap;';
                 if (p.tool === 'report_generate' && typeof marked !== 'undefined') {
-                    done.innerHTML = marked.parse(res.message || 'Done.');
+                    done.innerHTML = marked.parse(res.message || @json(__('Done')));
                 } else {
-                    done.textContent = '✅ ' + (res.message || 'Done.');
+                    done.textContent = '✅ ' + (res.message || @json(__('Done')));
                 }
                 card.appendChild(done);
                 scrollBottom();
                 refreshPendingDock();
             } catch (e) {
                 okBtn.disabled = false; noBtn.disabled = false; okBtn.textContent = 'Confirm & run';
-                appendError('Action failed or expired.');
+                appendError(@json(__('Action failed or expired.')));
             }
         };
         noBtn.onclick = async () => {
@@ -1333,7 +1335,7 @@ footer, .topnav { display: none !important; }
             card.querySelector('.lina-tool-actions')?.remove();
             const done = document.createElement('div');
             done.style.cssText = 'font-size:12.5px;color:var(--gray-500);margin-top:8px;';
-            done.textContent = 'Cancelled — nothing changed.';
+            done.textContent = @json(__('Cancelled — nothing changed.'));
             card.appendChild(done);
             refreshPendingDock();
         };
@@ -1359,7 +1361,7 @@ footer, .topnav { display: none !important; }
         card.style.cssText = 'border-color:#c4b5fd;background:#faf5ff;';
         
         const title = document.createElement('h4');
-        title.innerHTML = '🏋️ <strong>' + escPlan(imp.title || 'Workout Training Plan') + '</strong>'
+        title.innerHTML = '🏋️ <strong>' + escPlan(imp.title || @json(__('Workout Training Plan'))) + '</strong>'
             + (imp.week_number ? ' <span class="badge bg-primary-subtle text-primary" style="font-size:11px;">Week ' + imp.week_number + '</span>' : '')
             + (imp.start_date ? ' <span class="badge bg-light text-dark border" style="font-size:11px;">Starts: ' + imp.start_date + '</span>' : '');
         card.appendChild(title);
@@ -1418,7 +1420,7 @@ footer, .topnav { display: none !important; }
                 hint.remove();
                 const done = document.createElement('div');
                 done.style.cssText = 'font-size:13px;color:#16a34a;font-weight:700;margin-top:10px;background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;';
-                done.innerHTML = `✅ ${res.message || 'برنامه تمرینی با موفقیت ساخته شد.'} <div class="mt-2"><a href="${res.plan?.url || '/workouts/plans'}" class="btn btn-sm btn-success px-3 rounded-pill fw-bold" style="font-size:12px;"><i class="bi bi-calendar-check me-1"></i> مشاهده برنامه در Workouts</a></div>`;
+                done.innerHTML = `✅ ${res.message || @json(__('Workout imported. New movements were added to your exercise library.'))} <div class="mt-2"><a href="${res.plan?.url || '/workouts/plans'}" class="btn btn-sm btn-success px-3 rounded-pill fw-bold" style="font-size:12px;"><i class="bi bi-calendar-check me-1"></i> ${@json(__('View plan in Workouts'))}</a></div>`;
                 card.appendChild(done);
             } catch (e) {
                 confirmBtn.disabled = false;
@@ -1688,7 +1690,7 @@ footer, .topnav { display: none !important; }
             const res = await api('POST', '/ai/plans/' + planId + '/confirm-phase', { phase: phaseIdx, run_all: !!runAll });
             paintPlan(card, res.plan);
         } catch {
-            appendError('Phase failed — plan stopped. Already-created items stay.');
+            appendError(@json(__('Phase failed — plan stopped. Already-created items stay.')));
         }
         scrollBottom();
     }

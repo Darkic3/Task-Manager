@@ -53,7 +53,7 @@ class ChecklistItemController extends Controller
             ]);
         }
 
-        return back()->with('success', 'Checklist item updated successfully.');
+        return back()->with('success', __('Checklist item updated successfully.'));
     }
 
     public function destroy(ChecklistItem $checklistItem)

@@ -82,7 +82,7 @@ class AiChatController extends Controller
     {
         $conv = AiConversation::create([
             'user_id' => Auth::id(),
-            'label' => $request->input('label', 'New Chat'),
+            'label' => $request->input('label', __('New Chat')),
         ]);
 
         return response()->json($conv);
@@ -117,7 +117,7 @@ class AiChatController extends Controller
     {
         abort_if($conversation->user_id !== Auth::id(), 403);
         $conversation->messages()->delete();
-        $conversation->update(['label' => 'New Chat']);
+        $conversation->update(['label' => __('New Chat')]);
 
         return response()->json(['ok' => true]);
     }
@@ -149,7 +149,7 @@ class AiChatController extends Controller
         if (! $resolved) {
             AiLogger::log('request.no_provider', ['rid' => $rid, 'user_id' => $user->id, 'mode' => $agentMode ? 'agent' : 'chat']);
 
-            return response()->json(['reply' => 'No AI provider is configured. Go to AI Settings and add an API key for OpenAI, Gemini, Claude, DeepSeek or Meta.'], 200);
+            return response()->json(['reply' => __('No AI provider is configured. Go to AI Settings and add an API key for OpenAI, Gemini, Claude, DeepSeek or Meta.')], 200);
         }
         AiLogger::log('request.resolved', ['rid' => $rid, 'user_id' => $user->id, 'mode' => $agentMode ? 'agent' : 'chat', 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? 'openai']);
 
@@ -184,7 +184,7 @@ class AiChatController extends Controller
             \Log::error('AI chat failed', ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'error' => $e->getMessage()]);
             AiLogger::error('request.failed', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'error' => $e->getMessage()]);
 
-            return response()->json(['reply' => 'AI error: '.$e->getMessage()], 200);
+            return response()->json(['reply' => __('AI error: :details', ['details' => $e->getMessage()])], 200);
         }
     }
 
@@ -206,7 +206,7 @@ class AiChatController extends Controller
             AiLogger::log('request.invalid', ['endpoint' => 'stream', 'user_id' => Auth::id(), 'errors' => $validator->errors()->toArray()]);
 
             return response()->json([
-                'message' => 'Invalid request: '.$validator->errors()->first(),
+                'message' => __('Invalid request: :details', ['details' => $validator->errors()->first()]),
                 'errors' => $validator->errors(),
             ], 422);
         }
@@ -231,7 +231,7 @@ class AiChatController extends Controller
             $conversation = AiConversation::where('id', $convId)->where('user_id', $user->id)->first();
         }
         if (empty($conversation)) {
-            $conversation = AiConversation::create(['user_id' => $user->id, 'label' => 'New Chat']);
+            $conversation = AiConversation::create(['user_id' => $user->id, 'label' => __('New Chat')]);
         }
 
         // Save user message
@@ -281,7 +281,7 @@ class AiChatController extends Controller
         // Agent mode needs function-calling: only OpenAI-compatible providers.
         if ($agentMode && ($resolved['type'] ?? 'openai') !== 'openai') {
             AiLogger::log('agent.blocked_non_openai', ['rid' => $rid, 'user_id' => $user->id, 'conversation_id' => $conversation->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? null]);
-            $msg = 'Agent mode needs an OpenAI-compatible provider (e.g. OpenRouter custom provider). Switch to chat mode, or pick an OpenAI-compatible model in AI Settings — nothing was changed.';
+            $msg = __('Agent mode needs an OpenAI-compatible provider (e.g. OpenRouter custom provider). Switch to chat mode, or pick an OpenAI-compatible model in AI Settings — nothing was changed.');
             $conversationId = $conversation->id;
             $model = $resolved['model'];
             $provider = $resolved['provider'];
@@ -315,7 +315,7 @@ class AiChatController extends Controller
             $fullText = $this->callProviderSync($resolved, $messages);
         } catch (\Exception $e) {
             \Log::error('AI stream sync failed', ['provider' => $resolved['provider'], 'error' => $e->getMessage()]);
-            $fullText = 'AI error: '.$e->getMessage();
+            $fullText = __('AI error: :details', ['details' => $e->getMessage()]);
         }
 
         $conversationId = $conversation->id;
@@ -499,7 +499,7 @@ class AiChatController extends Controller
             AiLogger::log('tool.proposal_capped', ['user_id' => $user->id, 'tool' => $tool, 'reason' => 'too_many_pending']);
 
             return [
-                'error' => 'Too many pending confirmations. Confirm or cancel one first.',
+                'error' => __('Too many pending confirmations. Confirm or cancel one first.'),
                 'code' => 'too_many_pending',
                 'limit' => AiPendingAction::MAX_OPEN,
                 'pending' => $openActions->map(fn ($a) => [
@@ -514,7 +514,7 @@ class AiChatController extends Controller
         if (! ($check['ok'] ?? false)) {
             AiLogger::log('tool.proposal_invalid', ['user_id' => $user->id, 'tool' => $tool, 'error' => $check['error'] ?? 'Invalid action.', 'args' => $args]);
 
-            return ['error' => $check['error'] ?? 'Invalid action.'];
+            return ['error' => $check['error'] ?? __('Invalid action.')];
         }
 
         $action = AiPendingAction::create([
@@ -568,14 +568,14 @@ class AiChatController extends Controller
         if ($open >= 3) {
             AiLogger::log('plan.proposal_capped', ['user_id' => $user->id, 'reason' => 'too_many_open_plans']);
 
-            return ['error' => 'Too many open plans. Finish or cancel one first.'];
+            return ['error' => __('Too many open plans. Finish or cancel one first.')];
         }
 
         $check = $service->validateCall('plan_propose', $args, $user);
         if (! ($check['ok'] ?? false)) {
             AiLogger::log('plan.proposal_invalid', ['user_id' => $user->id, 'error' => $check['error'] ?? 'Invalid plan.']);
 
-            return ['error' => $check['error'] ?? 'Invalid plan.'];
+            return ['error' => $check['error'] ?? __('Invalid plan.')];
         }
 
         $plan = AiPlan::create([
@@ -613,12 +613,12 @@ class AiChatController extends Controller
             ->where('expires_at', '>', now())
             ->count();
         if ($open >= 3) {
-            return ['error' => 'Too many open workout imports. Confirm or discard one first.'];
+            return ['error' => __('Too many open workout imports. Confirm or discard one first.')];
         }
 
         $check = $service->validateCall('workout_plan_propose', $args, $user);
         if (! ($check['ok'] ?? false)) {
-            return ['error' => $check['error'] ?? 'Invalid workout plan.'];
+            return ['error' => $check['error'] ?? __('Invalid workout plan.')];
         }
 
         $structure = app(\App\Services\WorkoutImportService::class)
@@ -888,10 +888,10 @@ class AiChatController extends Controller
             $controller = $this;
             try {
                 $raw = $this->callOpenAiSyncRaw($key, $cfg['base_url'], $messages, $model, $tools);
-                $fullText = $raw['text'] !== '' ? $raw['text'] : 'AI error: Empty response from provider';
+                $fullText = $raw['text'] !== '' ? $raw['text'] : __('AI error: :details', ['details' => __('Empty response from provider')]);
                 $fallbackTools = $raw['tool_calls'];
             } catch (\Exception $e2) {
-                $fullText = 'AI error: '.$e2->getMessage();
+                $fullText = __('AI error: :details', ['details' => $e2->getMessage()]);
                 $fallbackTools = [];
             }
 
@@ -1049,7 +1049,7 @@ class AiChatController extends Controller
                 }
             } catch (\Exception $e) {
                 \Log::error('AI stream read error', ['model' => $model, 'provider' => $provider, 'user_id' => $userId, 'error' => $e->getMessage()]);
-                echo 'data: '.json_encode(['error' => 'Stream interrupted.'])."\n\n";
+                echo 'data: '.json_encode(['error' => __('Stream interrupted.')])."\n\n";
                 $sseFlush();
             }
             // Persist if we exited without [DONE]
@@ -1309,7 +1309,7 @@ PROMPT;
             'now' => now()->toIso8601String(),
             'resolved' => $safeResolved,
             'enabled' => $enabled,
-            'note' => $safeResolved ? null : 'No provider configured — Lina runs in offline read-only mode and can never create anything.',
+            'note' => $safeResolved ? null : __('No provider configured — Lina runs in offline read-only mode and can never create anything.'),
             'agent_ready' => (bool) $safeResolved && ($safeResolved['type'] ?? 'openai') === 'openai',
             'agent_block_reason' => ! $safeResolved ? 'no_provider' : ((($safeResolved['type'] ?? 'openai') !== 'openai') ? 'non_openai_provider_needs_openrouter_custom' : null),
             'recent_pending_actions' => $pending,

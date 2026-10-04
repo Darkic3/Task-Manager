@@ -473,7 +473,7 @@
     // Delete task from drawer
     async function deleteDrawerTask() {
         if (!currentDrawerTask) return;
-        if (!confirm('Are you sure you want to delete this task?')) return;
+        if (!await confirmSwal('{{ __('Are you sure you want to delete this task?') }}', { isDelete: true })) return;
 
         try {
             const res = await fetch(`/tasks/${currentDrawerTask.id}`, {

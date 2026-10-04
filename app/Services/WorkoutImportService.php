@@ -28,7 +28,7 @@ class WorkoutImportService
     {
         $resolved = $this->providers->resolve($user);
         if (! $resolved) {
-            throw new RuntimeException('Configure an AI provider before importing a workout.');
+            throw new RuntimeException(__('Configure an AI provider before importing a workout.'));
         }
         $anchor = $this->safeDate($anchorStartDate);
         if ($anchor) {
@@ -238,7 +238,7 @@ PROMPT;
             $decoded = $start !== false && $end !== false ? json_decode(substr($clean, $start, $end - $start + 1), true) : null;
         }
         if (! is_array($decoded)) {
-            throw new RuntimeException('The AI returned an invalid workout structure.');
+            throw new RuntimeException(__('The AI returned an invalid workout structure.'));
         }
 
         return $decoded;

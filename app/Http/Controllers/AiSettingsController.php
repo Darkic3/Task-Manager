@@ -118,7 +118,7 @@ class AiSettingsController extends Controller
 
         $setting->save();
 
-        return redirect()->route('ai.settings')->with('success', 'AI settings saved.');
+        return redirect()->route('ai.settings')->with('success', __('AI settings saved.'));
     }
 
     /** AJAX: save just default provider/model (quick switch) */

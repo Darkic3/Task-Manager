@@ -134,7 +134,7 @@ class PlannerController extends Controller
         if ($tasks->isEmpty()) {
             return response()->json([
                 'ok' => true,
-                'message' => 'No open tasks found for today to optimize. Add some tasks first!',
+                'message' => __('No open tasks found for today to optimize. Add some tasks first!'),
                 'count' => 0,
                 'tasks' => []
             ]);
@@ -162,8 +162,8 @@ class PlannerController extends Controller
 
         return response()->json([
             'ok' => true,
-            'message' => 'Lina successfully organized your tasks for peak focus!',
-            'briefing' => 'Prioritized ' . count($updates) . ' tasks: High-impact deep work assigned to Morning, execution to Afternoon, and light admin tasks to Evening.',
+            'message' => __('Lina successfully organized your tasks for peak focus!'),
+            'briefing' => __('Prioritized :count tasks: High-impact deep work assigned to Morning, execution to Afternoon, and light admin tasks to Evening.', ['count' => count($updates)]),
             'count' => count($updates),
             'tasks' => $updates
         ]);
@@ -254,7 +254,7 @@ class PlannerController extends Controller
     public function failTask(Request $request, Task $task)
     {
         abort_if($task->user_id !== Auth::id(), 403);
-        abort_if($task->status === 'completed', 422, 'Completed tasks cannot be marked as failed.');
+        abort_if($task->status === 'completed', 422, __('Completed tasks cannot be marked as failed.'));
 
         $data = $request->validate([
             'note' => 'nullable|string|max:2000',

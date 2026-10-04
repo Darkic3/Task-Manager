@@ -688,13 +688,13 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', function(e) {
         if (!nameInput.value.trim()) {
             e.preventDefault();
-            alert(@json(__('Please enter a project name.')));
+            alertSwal(@json(__('Please enter a project name.')), null, 'warning');
             return;
         }
         if (startDateInput.value && endDateInput.value) {
             if (new Date(endDateInput.value) < new Date(startDateInput.value)) {
                 e.preventDefault();
-                alert(@json(__('End date cannot be before start date.')));
+                alertSwal(@json(__('End date cannot be before start date.')), null, 'warning');
                 return;
             }
         }

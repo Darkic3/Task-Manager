@@ -260,14 +260,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (!name) {
             e.preventDefault();
-            alert(@json(__('Please enter a project name.')));
+            alertSwal(@json(__('Please enter a project name.')), null, 'warning');
             return;
         }
 
         if (startDateInput.value && endDateInput.value) {
             if (new Date(endDateInput.value) < new Date(startDateInput.value)) {
                 e.preventDefault();
-                alert(@json(__('End date cannot be before start date.')));
+                alertSwal(@json(__('End date cannot be before start date.')), null, 'warning');
                 return;
             }
         }
@@ -304,11 +304,14 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function confirmDelete() {
-    if (confirm(@json(__('Are you sure you want to delete this project? This action cannot be undone and will remove all associated tasks, files, and data.')))) {
-        if (confirm(@json(__('This is your final warning. Are you absolutely sure you want to permanently delete this project?')))) {
-            document.getElementById('deleteForm').submit();
+    const msg1 = @json(__('Are you sure you want to delete this project? This action cannot be undone and will remove all associated tasks, files, and data.'));
+    const msg2 = @json(__('This is your final warning. Are you absolutely sure you want to permanently delete this project?'));
+    
+    confirmSwal(msg1, { isDelete: true }).then(ok1 => {
+        if (ok1) {
+            confirmSwal(document.getElementById('deleteForm'), msg2, { isDelete: true });
         }
-    }
+    });
 }
 </script>
 @endpush

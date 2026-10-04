@@ -332,9 +332,7 @@
 @push('scripts')
 <script>
 function confirmDelete() {
-    if (confirm(@json(__('Delete ":name"? All tasks, files and data will be permanently removed. This cannot be undone.', ['name' => $project->name])))) {
-        document.getElementById('deleteForm').submit();
-    }
+    confirmSwal(document.getElementById('deleteForm'), @json(__('Delete ":name"? All tasks, files and data will be permanently removed. This cannot be undone.', ['name' => $project->name])), { isDelete: true });
 }
 </script>
 @endpush

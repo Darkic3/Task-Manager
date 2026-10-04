@@ -223,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (!title) {
             e.preventDefault();
-            alert('Please enter a task title.');
+            alertSwal('{{ __('Please enter a task title.') }}', null, 'warning');
             return;
         }
 
@@ -235,7 +235,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (dueDate < today) {
                 e.preventDefault();
-                alert('Due date cannot be in the past.');
+                alertSwal('{{ __('Due date cannot be in the past.') }}', null, 'warning');
                 return;
             }
         }

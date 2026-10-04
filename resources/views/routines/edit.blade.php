@@ -658,9 +658,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function confirmDelete() {
-    if (confirm(@json(__('Delete this routine? This cannot be undone.')))) {
-        document.getElementById('deleteForm').submit();
-    }
+    confirmSwal(document.getElementById('deleteForm'), @json(__('Delete this routine? This cannot be undone.')), { isDelete: true });
 }
 </script>
 @endpush

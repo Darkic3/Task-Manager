@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const csrf    = document.querySelector('meta[name="csrf-token"]').content;
     const url     = input.dataset.mentionsUrl;
     const kindMeta = @json($kindMeta);
+    const captureErrorText = @json(__('Could not save the note.'));
 
     let forcedKind = '';
     let results    = [];
@@ -211,13 +212,13 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(data => {
             submit.disabled = false;
             status.textContent = '';
-            if (!data.success) { status.textContent = data.message || 'error'; return; }
+            if (!data.success) { status.textContent = data.message || captureErrorText; return; }
 
             input.value = '';
             closeMenu();
             refreshResults(data.note);
         })
-        .catch(() => { submit.disabled = false; status.textContent = 'error'; });
+        .catch(() => { submit.disabled = false; status.textContent = captureErrorText; });
     });
 
     /* ── Prepend the new card without a full reload ── */

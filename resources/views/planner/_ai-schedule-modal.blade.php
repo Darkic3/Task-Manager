@@ -89,7 +89,7 @@
                     window.location.reload();
                 }, 1200);
             } else {
-                alert(data.message || 'Optimization failed');
+                alertSwal(data.message || '{{ __('Optimization failed') }}', null, 'error');
             }
         } catch (e) {
             console.error('Lina optimize error', e);

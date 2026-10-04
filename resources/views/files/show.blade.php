@@ -204,7 +204,7 @@
                     <i class="bi bi-pencil"></i> {{ __('Edit') }}
                 </a>
                 <form action="{{ route('files.destroy', $file->id) }}" method="POST"
-                      onsubmit="return confirm('{{ __('Delete this file permanently?') }}')" style="width:100%;">
+                      onsubmit="return confirmSwal(this, '{{ __('Delete this file permanently?') }}', { isDelete: true })" style="width:100%;">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="cu-action-btn del">

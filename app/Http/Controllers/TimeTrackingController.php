@@ -137,7 +137,7 @@ class TimeTrackingController extends Controller
             'duration_seconds' => (int) max(0, $end->diffInSeconds($start, true)),
         ]);
 
-        return redirect()->route('time.reports')->with('success', 'Time entry added.');
+        return redirect()->route('time.reports')->with('success', __('Time entry added.'));
     }
 
     public function destroy(TimeEntry $entry)
@@ -145,7 +145,7 @@ class TimeTrackingController extends Controller
         $this->authorizeEntry($entry);
         $entry->delete();
 
-        return redirect()->route('time.reports')->with('success', 'Time entry deleted.');
+        return redirect()->route('time.reports')->with('success', __('Time entry deleted.'));
     }
 
     public function reports(Request $request)

@@ -295,7 +295,7 @@
                 </a>
 
                 <form action="{{ route('reminders.duplicate', $reminder) }}" method="POST"
-                      onsubmit="return confirm('{{ __('Duplicate this reminder?') }}')">
+                      onsubmit="return confirmSwal(this, '{{ __('Duplicate this reminder?') }}', { isDelete: false })">
                     @csrf
                     <button type="submit" class="cu-pact cu-pact-info">
                         <i class="bi bi-files"></i> {{ __('Duplicate') }}
@@ -303,7 +303,7 @@
                 </form>
 
                 <form action="{{ route('reminders.destroy', $reminder) }}" method="POST"
-                      onsubmit="return confirm('{{ __('Delete this reminder? This cannot be undone.') }}')">
+                      onsubmit="return confirmSwal(this, '{{ __('Delete this reminder? This cannot be undone.') }}', { isDelete: true })">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="cu-pact cu-pact-danger">
@@ -408,9 +408,25 @@ function toggleComplete(reminderId) {
     .catch(function (err) { console.error('Toggle failed:', err); });
 }
 
-function snoozePrompt(reminderId) {
-    var minutes = prompt('{{ __('Snooze for how many minutes?') }}', '15');
-    if (!minutes || isNaN(minutes) || parseInt(minutes) <= 0) return;
+async function snoozePrompt(reminderId) {
+    const value = typeof window.promptSwal === 'function'
+        ? await window.promptSwal(@json(__('Snooze for how many minutes?')), '15', {
+            input: 'number',
+            inputAttributes: { min: '1', max: '1440', step: '1', inputmode: 'numeric' },
+            inputValidator: (inputValue) => {
+                const minutes = Number(inputValue);
+                if (!Number.isFinite(minutes) || minutes <= 0) {
+                    return @json(__('Please enter a valid number of minutes.'));
+                }
+                return undefined;
+            },
+            confirmButtonText: @json(__('Snooze')),
+            cancelButtonText: @json(__('Cancel')),
+        })
+        : prompt(@json(__('Snooze for how many minutes?')), '15');
+    if (value === null || value === '') return;
+    const minutes = parseInt(value, 10);
+    if (!Number.isFinite(minutes) || minutes <= 0) return;
     fetch('/reminders/' + reminderId + '/snooze', {
         method: 'POST',
         headers: {

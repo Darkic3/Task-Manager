@@ -39,7 +39,7 @@ class WorkoutPlanController extends Controller
     {
         $plan = $this->plans->save($request->payload(), $request->user()->id);
 
-        return redirect()->route('workouts.plans.edit', $plan)->with('success', 'Workout plan created.');
+        return redirect()->route('workouts.plans.edit', $plan)->with('success', __('Workout plan created.'));
     }
 
     public function edit(WorkoutPlan $workoutPlan)
@@ -59,7 +59,7 @@ class WorkoutPlanController extends Controller
         $this->authorizePlan($workoutPlan);
         $this->plans->save($request->payload(), $request->user()->id, $workoutPlan);
 
-        return redirect()->route('workouts.plans.edit', $workoutPlan)->with('success', 'Workout plan updated.');
+        return redirect()->route('workouts.plans.edit', $workoutPlan)->with('success', __('Workout plan updated.'));
     }
 
     public function newCycle(WorkoutPlan $workoutPlan): RedirectResponse
@@ -68,7 +68,7 @@ class WorkoutPlanController extends Controller
         $copy = $this->plans->cloneCycle($workoutPlan);
 
         return redirect()->route('workouts.plans.edit', $copy)
-            ->with('success', "Cycle {$copy->cycle_no} created. The previous plan and its history were left unchanged.");
+            ->with('success', __('Cycle :num created. The previous plan and its history were left unchanged.', ['num' => $copy->cycle_no]));
     }
 
     public function destroy(WorkoutPlan $workoutPlan): RedirectResponse
@@ -76,7 +76,7 @@ class WorkoutPlanController extends Controller
         $this->authorizePlan($workoutPlan);
         $workoutPlan->delete();
 
-        return redirect()->route('workouts.plans.index')->with('success', 'Workout plan archived.');
+        return redirect()->route('workouts.plans.index')->with('success', __('Workout plan archived.'));
     }
 
     private function authorizePlan(WorkoutPlan $plan): void

@@ -388,14 +388,12 @@ function saveStatus() {
     })
     .then(r => r.json())
     .then(() => { location.reload(); })
-    .catch(() => showToast('Failed to update status', false));
+    .catch(() => showToast(@json(__('Failed to update status')), false));
 }
 
 /* ── Delete ── */
 function confirmDelete() {
-    if (confirm('Delete this task? This action cannot be undone.')) {
-        document.getElementById('deleteForm').submit();
-    }
+    confirmSwal(document.getElementById('deleteForm'), '{{ __('Delete this task? This action cannot be undone.') }}', { isDelete: true });
 }
 
 /* ── Toast ── */
@@ -432,7 +430,7 @@ function toggleChecklistItem(id) {
                 ? '<i class="bi bi-check" style="font-size:11px;"></i>' : '';
         }
     })
-    .catch(() => showToast('Failed to update item', false));
+    .catch(() => showToast(@json(__('Failed to update item')), false));
 }
 
 function addChecklistItem(e) {
@@ -465,14 +463,14 @@ function addChecklistItem(e) {
             container.appendChild(div);
             input.value = '';
             updateChecklistUI();
-            showToast('Item added');
+            showToast(@json(__('Item added')));
         }
     })
-    .catch(() => showToast('Failed to add item', false));
+    .catch(() => showToast(@json(__('Failed to add item')), false));
 }
 
-function deleteChecklistItem(id) {
-    if (!confirm('Delete this checklist item?')) return;
+async function deleteChecklistItem(id) {
+    if (!await confirmSwal('{{ __('Delete this checklist item?') }}', { isDelete: true })) return;
     fetch(`/checklist-items/${id}`, {
         method: 'DELETE',
         headers: { 'X-CSRF-TOKEN': CSRF }
@@ -482,10 +480,10 @@ function deleteChecklistItem(id) {
         if (d.success) {
             document.querySelector(`#cl-items [data-id="${id}"]`).remove();
             updateChecklistUI();
-            showToast('Item removed');
+            showToast(@json(__('Item removed')));
         }
     })
-    .catch(() => showToast('Failed to delete item', false));
+    .catch(() => showToast(@json(__('Failed to delete item')), false));
 }
 
 /* Inline edit — click the text to rename */
@@ -537,13 +535,13 @@ function saveChecklistItem(id, name, original, el) {
     .then(d => {
         if (d.success) {
             el.textContent = d.data.name;
-            showToast('Item updated');
+            showToast(@json(__('Item updated')));
         } else {
             el.textContent = original;
-            showToast('Failed to update item', false);
+            showToast(@json(__('Failed to update item')), false);
         }
     })
-    .catch(() => { el.textContent = original; showToast('Failed to update item', false); });
+    .catch(() => { el.textContent = original; showToast(@json(__('Failed to update item')), false); });
 }
 
 document.addEventListener('DOMContentLoaded', updateChecklistUI);

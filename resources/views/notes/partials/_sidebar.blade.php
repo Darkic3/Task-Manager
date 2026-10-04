@@ -126,7 +126,7 @@
                     <span class="nt-flink-n">{{ app_num($col->note_count) }}</span>
                 </a>
                 <form method="POST" action="{{ route('notes.collections.destroy', $col) }}" class="d-inline"
-                      onsubmit="return confirm('{{ __('Delete this collection?') }}')">
+                      onsubmit="return confirmSwal(this, '{{ __('Delete this collection?') }}', { isDelete: true })">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="btn btn-sm btn-link text-danger p-1" title="{{ __('Delete') }}">

@@ -456,7 +456,7 @@
                     <div class="cu-section-body">
                         <p class="cu-danger-desc">{{ __('Permanently delete this reminder. This action cannot be undone.') }}</p>
                         <form action="{{ route('reminders.destroy', $reminder) }}" method="POST"
-                              onsubmit="return confirm('{{ __('Delete this reminder permanently?') }}')">
+                              onsubmit="return confirmSwal(this, '{{ __('Delete this reminder permanently?') }}', { isDelete: true })">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="cu-btn-delete">

@@ -614,13 +614,13 @@
                                 <a class="wp-icon-btn" href="{{ route('workouts.plans.edit', $plan) }}" title="Edit Plan">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <form method="POST" action="{{ route('workouts.plans.new-cycle', $plan) }}" onsubmit="return confirm('Create a new cycle from this plan?')" class="d-inline">
+                                <form method="POST" action="{{ route('workouts.plans.new-cycle', $plan) }}" onsubmit="return confirmSwal(this, '{{ __('Create a new cycle from this plan?') }}', { isDelete: false })" class="d-inline">
                                     @csrf
                                     <button class="wp-icon-btn" type="submit" title="Duplicate as New Cycle">
                                         <i class="bi bi-files"></i>
                                     </button>
                                 </form>
-                                <form method="POST" action="{{ route('workouts.plans.destroy', $plan) }}" onsubmit="return confirm('Archive this workout plan?')" class="d-inline">
+                                <form method="POST" action="{{ route('workouts.plans.destroy', $plan) }}" onsubmit="return confirmSwal(this, '{{ __('Archive this workout plan?') }}', { isDelete: true })" class="d-inline">
                                     @csrf
                                     @method('DELETE')
                                     <button class="wp-icon-btn text-danger" type="submit" title="Archive Plan">

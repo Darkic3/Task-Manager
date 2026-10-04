@@ -39,7 +39,7 @@ class FileController extends Controller
             'type' => $request->type,
         ]);
 
-        return redirect()->route('files.index')->with('success', 'File uploaded successfully.');
+        return redirect()->route('files.index')->with('success', __('File uploaded successfully.'));
     }
 
     public function show(File $file)
@@ -73,13 +73,13 @@ class FileController extends Controller
 
         $file->update($data);
 
-        return redirect()->route('files.index')->with('success', 'File updated successfully.');
+        return redirect()->route('files.index')->with('success', __('File updated successfully.'));
     }
 
     public function destroy(File $file)
     {
         Storage::disk('public')->delete($file->path);
         $file->delete();
-        return redirect()->route('files.index')->with('success', 'File deleted successfully.');
+        return redirect()->route('files.index')->with('success', __('File deleted successfully.'));
     }
 }

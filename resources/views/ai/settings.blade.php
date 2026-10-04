@@ -206,7 +206,7 @@
                     </details>
                 </div>
 
-                <form method="POST" action="{{ route('ai.providers.destroy', $cp) }}" onsubmit="return confirm('{{ __('Delete this provider?') }}');">
+                <form method="POST" action="{{ route('ai.providers.destroy', $cp) }}" onsubmit="return confirmSwal(this, '{{ __('Delete this provider?') }}', { isDelete: true });">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="btn btn-outline btn-sm" title="{{ __('Delete') }}"><i class="bi bi-trash"></i></button>
@@ -305,7 +305,7 @@
     document.querySelectorAll('[data-test-url]').forEach(btn=>{
         btn.addEventListener('click', async function(){
             const out = this.parentElement.querySelector('.ai-test-result');
-            out.textContent = 'Testing…'; out.style.color = 'var(--gray-500)';
+            out.textContent = @json(__('Testing…')); out.style.color = 'var(--gray-500)';
             this.disabled = true;
             try {
                 const res = await fetch(this.dataset.testUrl, {
@@ -316,7 +316,7 @@
                 out.textContent = (json.ok ? '✓ ' : '✗ ') + (json.message || '');
                 out.style.color = json.ok ? '#16a34a' : '#dc2626';
             } catch(e) {
-                out.textContent = '✗ Network error'; out.style.color = '#dc2626';
+                out.textContent = '✗ ' + @json(__('Network error')); out.style.color = '#dc2626';
             } finally { this.disabled = false; }
         });
     });

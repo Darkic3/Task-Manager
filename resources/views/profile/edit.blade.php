@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!this.files.length) return;
             var file = this.files[0];
             if (file.size > 2 * 1024 * 1024) {
-                alert(I18N.tooLarge);
+                alertSwal(I18N.tooLarge, null, 'warning');
                 this.value = '';
                 return;
             }
@@ -311,8 +311,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (delBtn) {
-        delBtn.addEventListener('click', function () {
-            if (!confirm(I18N.removeAvatar)) return;
+        delBtn.addEventListener('click', async function () {
+            if (!await confirmSwal(I18N.removeAvatar, { isDelete: true })) return;
             fetch(@json(route('profile.avatar.delete')), {
                 method: 'DELETE',
                 headers: { 'X-CSRF-TOKEN': @json(csrf_token()), 'Accept': 'application/json' }

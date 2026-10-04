@@ -61,6 +61,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     @if(app()->getLocale() === 'fa')
         {{-- Jalali date picker (assets copied from shopora) — fa locale only --}}
         <link rel="stylesheet" href="{{ asset('assets/jalali/jalalidatepicker.min.css') }}">
@@ -104,6 +105,90 @@
             --radius-md: 0.5rem;
             --radius-lg: 0.75rem;
             --radius-xl: 1rem;
+        }
+
+        /* ── Custom SweetAlert2 Theme ── */
+        .tm-swal-popup {
+            border-radius: 16px !important;
+            padding: 1.5rem !important;
+            font-family: inherit !important;
+            background: #ffffff !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+            border: 1px solid var(--gray-200, #e2e8f0) !important;
+        }
+        .tm-swal-title {
+            font-size: 1.15rem !important;
+            font-weight: 700 !important;
+            color: var(--gray-900, #0f172a) !important;
+            margin-bottom: 0.5rem !important;
+        }
+        .tm-swal-html {
+            font-size: 0.925rem !important;
+            color: var(--gray-600, #475569) !important;
+            margin-top: 0.5rem !important;
+        }
+        .tm-swal-actions {
+            gap: 0.75rem !important;
+            margin-top: 1.25rem !important;
+        }
+        .tm-swal-btn {
+            border-radius: 10px !important;
+            padding: 0.5rem 1.25rem !important;
+            font-size: 0.875rem !important;
+            font-weight: 600 !important;
+            transition: all 0.2s ease !important;
+            cursor: pointer !important;
+            outline: none !important;
+            border: none !important;
+        }
+        .tm-swal-confirm-btn {
+            background-color: var(--primary-600, #4f46e5) !important;
+            color: #ffffff !important;
+        }
+        .tm-swal-confirm-btn:hover {
+            background-color: var(--primary-700, #4338ca) !important;
+            transform: translateY(-1px);
+        }
+        .tm-swal-confirm-btn.danger {
+            background-color: var(--error-600, #dc2626) !important;
+        }
+        .tm-swal-confirm-btn.danger:hover {
+            background-color: #b91c1c !important;
+        }
+        .tm-swal-cancel-btn {
+            background-color: var(--gray-100, #f1f5f9) !important;
+            color: var(--gray-700, #334155) !important;
+        }
+        .tm-swal-cancel-btn:hover {
+            background-color: var(--gray-200, #e2e8f0) !important;
+            color: var(--gray-900, #0f172a) !important;
+        }
+        .tm-swal-input {
+            border-radius: 10px !important;
+            border: 1px solid var(--gray-200, #e2e8f0) !important;
+            padding: 0.5rem 0.75rem !important;
+            font-size: 0.9rem !important;
+            color: var(--gray-900, #0f172a) !important;
+        }
+        .tm-swal-input:focus {
+            border-color: var(--primary-500, #6366f1) !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18) !important;
+        }
+        .tm-swal-popup .swal2-icon.swal2-warning {
+            border-color: #f59e0b !important;
+            color: #f59e0b !important;
+        }
+        .tm-swal-popup .swal2-icon.swal2-error {
+            border-color: #ef4444 !important;
+            color: #ef4444 !important;
+        }
+        .tm-swal-popup .swal2-icon.swal2-success {
+            border-color: #10b981 !important;
+            color: #10b981 !important;
+        }
+        .tm-swal-popup .swal2-icon.swal2-info {
+            border-color: #6366f1 !important;
+            color: #6366f1 !important;
         }
 
         * {
@@ -1304,6 +1389,170 @@
             });
         </script>
     @endif
+    <!-- SweetAlert2 Helpers & Locale Integration -->
+    <script>
+        (function() {
+            const isFa = document.documentElement.lang === 'fa' || '{{ app()->getLocale() }}' === 'fa';
+            
+            const CustomSwal = typeof Swal !== 'undefined' ? Swal.mixin({
+                customClass: {
+                    popup: 'tm-swal-popup',
+                    title: 'tm-swal-title',
+                    htmlContainer: 'tm-swal-html',
+                    confirmButton: 'tm-swal-btn tm-swal-confirm-btn',
+                    cancelButton: 'tm-swal-btn tm-swal-cancel-btn',
+                    actions: 'tm-swal-actions'
+                },
+                buttonsStyling: false
+            }) : null;
+
+            window.tmSwal = CustomSwal;
+
+            window.confirmSwal = function(arg1, arg2, arg3) {
+                if (!CustomSwal) {
+                    if (arg1 instanceof HTMLElement || typeof arg1 === 'function') {
+                        if (confirm(arg2 || '')) {
+                            if (arg1 instanceof HTMLFormElement) arg1.submit();
+                            else if (arg1 instanceof HTMLElement) arg1.closest('form')?.submit();
+                            else if (typeof arg1 === 'function') arg1();
+                        }
+                        return false;
+                    }
+                    return Promise.resolve(confirm(arg1 || ''));
+                }
+
+                let formOrCb = null;
+                let message = '';
+                let options = {};
+
+                if (arg1 instanceof HTMLElement || typeof arg1 === 'function') {
+                    formOrCb = arg1;
+                    message = arg2 || '';
+                    options = arg3 || {};
+                } else {
+                    message = arg1 || '';
+                    options = arg2 || {};
+                    if (typeof arg3 === 'object') Object.assign(options, arg3);
+                }
+
+                const isDelete = options.isDelete || (message && (
+                    message.toLowerCase().includes('delete') || 
+                    message.toLowerCase().includes('archive') || 
+                    message.toLowerCase().includes('remove') ||
+                    message.includes('حذف') || 
+                    message.includes('آرشیو') ||
+                    message.includes('بایگانی') ||
+                    message.includes('محو')
+                ));
+
+                const defaultTitle = options.title || (
+                    isFa 
+                        ? (isDelete ? 'آیا از انجام این کار مطمئن هستید؟' : 'تایید عملیات')
+                        : (isDelete ? 'Are you sure?' : 'Confirm Action')
+                );
+
+                const defaultConfirmText = options.confirmButtonText || (
+                    isFa 
+                        ? (isDelete ? 'بله، انجام شود' : 'تایید') 
+                        : (isDelete ? 'Yes, delete it' : 'Confirm')
+                );
+
+                const defaultCancelText = options.cancelButtonText || (isFa ? 'انصراف' : 'Cancel');
+
+                const confirmBtnClass = isDelete 
+                    ? 'tm-swal-btn tm-swal-confirm-btn danger' 
+                    : 'tm-swal-btn tm-swal-confirm-btn';
+
+                const swalOpts = {
+                    title: defaultTitle,
+                    text: message,
+                    icon: options.icon || (isDelete ? 'warning' : 'question'),
+                    showCancelButton: true,
+                    confirmButtonText: defaultConfirmText,
+                    cancelButtonText: defaultCancelText,
+                    reverseButtons: true,
+                    customClass: {
+                        popup: 'tm-swal-popup',
+                        title: 'tm-swal-title',
+                        htmlContainer: 'tm-swal-html',
+                        confirmButton: confirmBtnClass,
+                        cancelButton: 'tm-swal-btn tm-swal-cancel-btn',
+                        actions: 'tm-swal-actions'
+                    },
+                    ...options
+                };
+
+                if (formOrCb) {
+                    CustomSwal.fire(swalOpts).then((result) => {
+                        if (result.isConfirmed) {
+                            if (formOrCb instanceof HTMLFormElement) {
+                                formOrCb.submit();
+                            } else if (formOrCb instanceof HTMLElement) {
+                                const form = formOrCb.closest('form');
+                                if (form) form.submit();
+                            } else if (typeof formOrCb === 'function') {
+                                formOrCb();
+                            }
+                        }
+                    });
+                    return false;
+                } else {
+                    return CustomSwal.fire(swalOpts).then((result) => result.isConfirmed);
+                }
+            };
+
+            window.alertSwal = function(message, title, icon = 'info') {
+                if (!CustomSwal) {
+                    alert(message);
+                    return Promise.resolve();
+                }
+
+                const defaultTitle = title || (
+                    icon === 'error' ? (isFa ? 'خطا' : 'Error') :
+                    icon === 'success' ? (isFa ? 'موفقیت‌آمیز' : 'Success') :
+                    icon === 'warning' ? (isFa ? 'هشدار' : 'Warning') :
+                    (isFa ? 'اطلاع‌رسانی' : 'Notice')
+                );
+
+                return CustomSwal.fire({
+                    title: defaultTitle,
+                    text: message,
+                    icon: icon,
+                    confirmButtonText: isFa ? 'متوجه شدم' : 'OK'
+                });
+            };
+
+            window.promptSwal = function(message, defaultValue = '', options = {}) {
+                if (!CustomSwal) {
+                    return Promise.resolve(prompt(message, defaultValue));
+                }
+
+                return CustomSwal.fire({
+                    title: options.title || message,
+                    text: options.text || '',
+                    icon: options.icon || 'question',
+                    input: options.input || 'text',
+                    inputValue: defaultValue,
+                    inputAttributes: options.inputAttributes || {},
+                    inputValidator: options.validator || undefined,
+                    showCancelButton: true,
+                    confirmButtonText: options.confirmButtonText || (isFa ? 'تایید' : 'Confirm'),
+                    cancelButtonText: options.cancelButtonText || (isFa ? 'انصراف' : 'Cancel'),
+                    reverseButtons: true,
+                    customClass: {
+                        popup: 'tm-swal-popup',
+                        title: 'tm-swal-title',
+                        htmlContainer: 'tm-swal-html',
+                        input: 'tm-swal-input',
+                        confirmButton: 'tm-swal-btn tm-swal-confirm-btn',
+                        cancelButton: 'tm-swal-btn tm-swal-cancel-btn',
+                        actions: 'tm-swal-actions'
+                    },
+                    buttonsStyling: false
+                }).then((result) => (result.isConfirmed ? result.value : null));
+            };
+        })();
+    </script>
 </body>
 
 </html>

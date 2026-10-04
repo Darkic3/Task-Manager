@@ -198,7 +198,7 @@
             description: document.getElementById('tt-desc').value || null,
             category: document.getElementById('tt-category').value || null,
         }).then(j => { active = j.active; baseElapsed = active.elapsed; baseAt = Date.now(); render(); })
-          .catch(() => alert(@json(__('Could not start the timer.'))));
+          .catch(() => alertSwal(@json(__('Could not start the timer.')), null, 'error'));
     });
 
     pauseBtn.addEventListener('click', () => {

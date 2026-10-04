@@ -128,14 +128,14 @@
             const nextUpEl = document.querySelector('.pl-next-card, [data-task-item][data-completed="0"]');
             if (nextUpEl && nextUpEl.dataset.id) {
                 taskId = nextUpEl.dataset.id;
-                taskTitle = nextUpEl.querySelector('.pl-task-title, .pl-next-title')?.textContent?.trim() || 'Active Task';
-                projectName = nextUpEl.querySelector('.pl-tag-project')?.textContent?.trim() || 'My Day';
+                taskTitle = nextUpEl.querySelector('.pl-task-title, .pl-next-title')?.textContent?.trim() || @json(__('Active Task'));
+                projectName = nextUpEl.querySelector('.pl-tag-project')?.textContent?.trim() || @json(__('My Day'));
             }
         }
 
         currentFocusTaskId = taskId;
-        document.getElementById('focusTaskTitle').textContent = taskTitle || 'Focused Execution';
-        document.getElementById('focusProjectName').textContent = projectName || 'My Day Priority';
+        document.getElementById('focusTaskTitle').textContent = taskTitle || @json(__('Focused Execution'));
+        document.getElementById('focusProjectName').textContent = projectName || @json(__('My Day Priority'));
 
         loadFocusSubtasks(taskId);
         modal.style.display = 'flex';
@@ -177,7 +177,7 @@
                 } else {
                     clearInterval(focusTimerInterval);
                     focusTimerRunning = false;
-                    alert('🎉 Focus Session Completed! Take a 5-minute break.');
+                    alertSwal('{{ __('🎉 Focus Session Completed! Take a 5-minute break.') }}', null, 'success');
                     if (btn) btn.innerHTML = '<i class="bi bi-play-fill fs-5"></i> Start Focus';
                 }
             }, 1000);

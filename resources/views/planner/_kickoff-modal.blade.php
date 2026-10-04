@@ -167,7 +167,7 @@
             bootstrap.Modal.getInstance(modalEl)?.hide();
         }
         if (typeof plShowToast === 'function') {
-            plShowToast('🌅 Morning Kickoff Completed! Have a productive day!');
+            plShowToast(@json(__('🌅 Morning Kickoff Completed! Have a productive day!')));
         }
     }
 
@@ -178,8 +178,7 @@
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
             });
             if (res.ok) {
-                alert('All remaining tasks moved to tomorrow!');
-                window.location.reload();
+                alertSwal('{{ __('All remaining tasks moved to tomorrow!') }}', null, 'success').then(() => window.location.reload());
             }
         } catch (e) {
             console.error(e);
@@ -191,6 +190,6 @@
         if (modalEl && typeof bootstrap !== 'undefined') {
             bootstrap.Modal.getInstance(modalEl)?.hide();
         }
-        alert('🌙 Great job today! Have a restful evening.');
+        alertSwal('{{ __('🌙 Great job today! Have a restful evening.') }}', null, 'success');
     }
 </script>

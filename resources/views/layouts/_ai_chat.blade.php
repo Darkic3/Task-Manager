@@ -389,7 +389,7 @@ html[dir="rtl"] #aiDrawer.open {
             typingEl.remove();
 
             if (!res.ok) {
-                appendError('Server error ' + res.status + '. Please try again.');
+                appendError(@json(__('Server error :status. Please try again.')).replace(':status', res.status));
                 history.pop(); saveHistory();
                 return;
             }
@@ -445,7 +445,7 @@ html[dir="rtl"] #aiDrawer.open {
                             updateModelPill(selectedModel);
                         } else if (json.error) {
                             streamBubbleEl.classList.remove('ai-streaming');
-                            const errMsg = typeof json.error === 'string' ? json.error : (json.error?.message || 'Something went wrong. Please try again.');
+                            const errMsg = typeof json.error === 'string' ? json.error : (json.error?.message || @json(__('Something went wrong. Please try again.')));
                             streamBubbleEl.textContent = '⚠ ' + errMsg;
                         } else {
                             const token = json.choices?.[0]?.delta?.content || '';
@@ -481,7 +481,7 @@ html[dir="rtl"] #aiDrawer.open {
                 saveHistory();
                 updateMsgCount();
             } else if (!streamBubbleEl.textContent.includes('⚠')) {
-                streamBubbleEl.textContent = 'No response received.';
+                streamBubbleEl.textContent = @json(__('No response received.'));
                 history.pop(); saveHistory();
             }
 
@@ -490,7 +490,7 @@ html[dir="rtl"] #aiDrawer.open {
         } catch (e) {
             if (typingEl.parentNode) typingEl.remove();
             if (streamWrap && streamWrap.parentNode) streamWrap.remove();
-            appendError('Network error. Check your connection.');
+            appendError(@json(__('Network error. Check your connection.')));
             history.pop(); saveHistory();
             console.error('[AI]', e);
         } finally {
@@ -571,8 +571,10 @@ html[dir="rtl"] #aiDrawer.open {
     }
 
     /* Clear */
-    window.clearAiChat = function () {
-        if (!history.length || !confirm('Clear the entire conversation?')) return;
+    window.clearAiChat = async function () {
+        if (!history.length) return;
+        const msg = '{{ app()->getLocale() === "fa" ? "آیا از پاک کردن کامل گفتگو مطمئن هستید؟" : "Clear the entire conversation?" }}';
+        if (!await confirmSwal(msg, { isDelete: true })) return;
         history = []; saveHistory();
         messages.innerHTML = '';
         messages.appendChild(emptyState);

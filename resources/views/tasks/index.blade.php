@@ -884,6 +884,16 @@ document.addEventListener('DOMContentLoaded', function () {
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
     }
+    const TASK_STATUS_TOAST = {
+        completed: @json(__('Task completed ✓')),
+        reopened: @json(__('Task moved to To Do'))
+    };
+    const TASK_BULK_TOAST = {
+        updated: @json(__(':count task(s) updated ✓')),
+        deleted: @json(__(':count task(s) deleted'))
+    };
+    const ADD_TO_DAY_ERROR = @json(__('Could not add to day'));
+    const NETWORK_ERROR = @json(__('network error'));
 
     /* View switcher */
     const chapters = document.getElementById('cuChapters');
@@ -1227,7 +1237,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 updateCounts(); /* hide empty placeholder immediately, no server round-trip wait */
                 updateStatus(taskId, status, () => {
                     syncTaskDoneUI(taskId, status, false);
-                    if (from !== status) toast('Task moved ✓');
+                    if (from !== status) toast(@json(__('Task moved ✓')));
                     updateCounts();
                     applyFilters();
                     persistColumnOrder(col);
@@ -1248,7 +1258,7 @@ document.addEventListener('DOMContentLoaded', function () {
             method: 'POST',
             headers: {'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
             body: JSON.stringify({ items })
-        }).catch(() => toast('Order not saved'));
+        }).catch(() => toast(@json(__('Order not saved'))));
     }
 
     /* Quick check toggle — delegation (works for board cards AND chapter rows) */
@@ -1265,7 +1275,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 syncTaskDoneUI(id, newStatus);
                 updateCounts();
                 applyFilters();
-                toast(newStatus === 'completed' ? 'Task completed ✓' : 'Task moved to To Do');
+                toast(newStatus === 'completed' ? TASK_STATUS_TOAST.completed : TASK_STATUS_TOAST.reopened);
             });
             return;
         }
@@ -1274,18 +1284,16 @@ document.addEventListener('DOMContentLoaded', function () {
         if (del) {
             e.preventDefault();
             const id = del.dataset.id;
-            if (!confirm('Delete this task? This cannot be undone.')) return;
-            fetch(`/tasks/${id}`, {
-                method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
-            }).then(r => {
-                if (!r.ok) throw new Error();
-                /* Stay on this page and refresh it in place. Never submit a
-                   form to /tasks/{id} — the task no longer exists there and
-                   that lands the user on a 404 "detail" page. */
-                window.location.reload();
-            }).catch(() => {
-                window.location.reload();
+            confirmSwal('{{ __('Delete this task? This cannot be undone.') }}', { isDelete: true }).then(ok => {
+                if (!ok) return;
+                fetch(`/tasks/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
+                }).then(r => {
+                    window.location.reload();
+                }).catch(() => {
+                    window.location.reload();
+                });
             });
         }
     });
@@ -1353,15 +1361,16 @@ document.addEventListener('DOMContentLoaded', function () {
             updateCounts();
             applyFilters();
             exitSelectMode();
-            toast(`${j.updated} task${j.updated != 1 ? 's' : ''} updated ✓`);
-        }).catch(() => toast('Bulk update failed'));
+            toast(TASK_BULK_TOAST.updated.replace(':count', j.updated));
+        }).catch(() => toast(@json(__('Bulk update failed'))));
     }
     document.getElementById('cuBulkApply')?.addEventListener('click', () => bulkMove(bulkStatus.value));
     document.getElementById('cuBulkDone')?.addEventListener('click', () => bulkMove('completed'));
-    document.getElementById('cuBulkDelete')?.addEventListener('click', () => {
+    document.getElementById('cuBulkDelete')?.addEventListener('click', async () => {
         const ids = selectedIds();
         if (!ids.length) return;
-        if (!confirm(`Delete ${ids.length} task${ids.length != 1 ? 's' : ''}? This cannot be undone.`)) return;
+        const msg = '{{ app()->getLocale() === "fa" ? "آیا از حذف کارهای انتخاب‌شده مطمئن هستید؟" : "Delete selected tasks? This cannot be undone." }}';
+        if (!await confirmSwal(msg, { isDelete: true })) return;
         fetch(`{{ route('tasks.bulk-destroy') }}`, {
             method: 'DELETE',
             headers: {'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
@@ -1372,8 +1381,8 @@ document.addEventListener('DOMContentLoaded', function () {
             updateCounts();
             applyFilters();
             exitSelectMode();
-            toast(`${j.deleted} task${j.deleted != 1 ? 's' : ''} deleted`);
-        }).catch(() => toast('Bulk delete failed'));
+            toast(TASK_BULK_TOAST.deleted.replace(':count', j.deleted));
+        }).catch(() => toast(@json(__('Bulk delete failed'))));
     });
 
     /* Unified done-state sync across board card, chapter row and section progress */
@@ -1566,7 +1575,7 @@ document.addEventListener('DOMContentLoaded', function () {
             /* Immediate feedback on the trigger: set-state + icon swap */
             const src = state.source;
             src.classList.add('set');
-            src.title = "Change today's slot";
+            src.title = @json(__("Change today's slot"));
             const icon = src.querySelector('i');
             if (icon) icon.className = 'bi ' + (chip.dataset.period ? 'bi-calendar2-check' : 'bi-calendar-check');
             document.querySelectorAll(`[data-add-day][data-id="${state.id}"]`).forEach(b => {
@@ -1574,10 +1583,10 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             closeAddDay();
-            toast(`Today · ${json.period_label} ✓`);
+            toast(`${@json(__('Today'))} · ${json.period_label} ✓`);
         } catch (err) {
             console.error('[Tasks] add-to-day failed', err);
-            toast(`Could not add to day (${err.message || 'network'})`);
+            toast(`${ADD_TO_DAY_ERROR} (${err.message || NETWORK_ERROR})`);
         } finally {
             chip.classList.remove('busy');
             addDayState = null;

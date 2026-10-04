@@ -369,9 +369,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function confirmDelete() {
-    if (confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
-        document.getElementById('deleteForm').submit();
-    }
+    confirmSwal(document.getElementById('deleteForm'), '{{ __('Are you sure you want to delete this task? This action cannot be undone.') }}', { isDelete: true });
 }
 </script>
 @endpush

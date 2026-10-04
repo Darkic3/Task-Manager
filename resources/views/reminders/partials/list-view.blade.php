@@ -122,7 +122,7 @@
                     <span>{{ __('Edit') }}</span>
                 </a>
 
-                <form action="{{ route('reminders.destroy', $reminder) }}" method="POST" style="display: inline;" onsubmit="return confirm('{{ __('Are you sure you want to delete this reminder?') }}')">
+                <form action="{{ route('reminders.destroy', $reminder) }}" method="POST" style="display: inline;" onsubmit="return confirmSwal(this, '{{ __('Are you sure you want to delete this reminder?') }}', { isDelete: true })">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="action-btn danger" title="{{ __('Delete') }}">

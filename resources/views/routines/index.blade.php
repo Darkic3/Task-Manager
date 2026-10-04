@@ -345,9 +345,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.archiveRoutine = function(hmac) { };
     @forelse($routines as $routine)
     window['archiveRoutine{{ md5($routine->id) }}'] = function() {
-        if (confirm(@json(__('Archive ":title"? Its history stays saved but it disappears from your lists.', ['title' => $routine->title])))) {
-            document.getElementById('archiveForm{{ md5($routine->id) }}').submit();
-        }
+        confirmSwal(document.getElementById('archiveForm{{ md5($routine->id) }}'), @json(__('Archive ":title"? Its history stays saved but it disappears from your lists.', ['title' => $routine->title])), { isDelete: true });
     };
     @empty
     @endforelse

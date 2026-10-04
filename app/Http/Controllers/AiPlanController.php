@@ -30,7 +30,7 @@ class AiPlanController extends Controller
             $this->expire($plan);
             AiLogger::log('plan.structure_expired', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'status' => $plan->status]);
 
-            return response()->json(['ok' => false, 'error' => 'This plan has expired. Ask Lina to propose it again.'], 422);
+            return response()->json(['ok' => false, 'error' => __('This plan has expired. Ask Lina to propose it again.')], 422);
         }
 
         $plan->status = AiPlan::STATUS_CONFIRMED;
@@ -41,7 +41,7 @@ class AiPlanController extends Controller
 
         Log::info('ai.plan.structure_confirmed', ['user_id' => Auth::id(), 'plan_id' => $plan->id]);
         AiLogger::log('plan.structure_confirmed', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'title' => $plan->title, 'note' => 'structure approved only — nothing created yet until confirm-phase']);
-        $this->note($plan, '📋 Structure approved (nothing created yet — run the phases below to build): ' . $plan->title);
+        $this->note($plan, __('📋 Structure approved (nothing created yet — run the phases below to build): :title', ['title' => $plan->title]));
 
         return response()->json(['ok' => true, 'plan' => $this->serialize($plan->fresh())]);
     }
@@ -61,7 +61,7 @@ class AiPlanController extends Controller
             }
             $this->expire($plan);
 
-            return response()->json(['ok' => false, 'error' => 'This plan has expired. Ask Lina to propose it again.'], 422);
+            return response()->json(['ok' => false, 'error' => __('This plan has expired. Ask Lina to propose it again.')], 422);
         }
 
         // Phase index must match the server pointer: stale double-clicks
@@ -79,7 +79,7 @@ class AiPlanController extends Controller
                 Log::warning('ai.plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'error' => $result['message'] ?? null]);
                 AiLogger::error('plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'phase' => $plan->fresh()->current_phase, 'error' => $result['message'] ?? null]);
 
-                return response()->json(['ok' => false, 'error' => $result['message'] ?? 'Phase failed.', 'plan' => $this->serialize($plan->fresh())], 422);
+                return response()->json(['ok' => false, 'error' => $result['message'] ?? __('Phase failed.'), 'plan' => $this->serialize($plan->fresh())], 422);
             }
             $messages[] = $result['message'];
             $phasesRun++;
@@ -108,7 +108,7 @@ class AiPlanController extends Controller
             AiLogger::log('plan.cancelled', ['user_id' => Auth::id(), 'plan_id' => $plan->id]);
         }
 
-        return response()->json(['ok' => true, 'message' => 'Plan cancelled — already-created items stay.']);
+        return response()->json(['ok' => true, 'message' => __('Plan cancelled — already-created items stay.')]);
     }
 
     private function advancePastDone(AiPlan $plan): void

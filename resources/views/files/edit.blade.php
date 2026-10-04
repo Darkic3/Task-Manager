@@ -391,7 +391,7 @@
                     <div class="cu-section-body">
                         <p class="cu-danger-desc">{{ __('Permanently delete this file. This action cannot be undone.') }}</p>
                         <form action="{{ route('files.destroy', $file->id) }}" method="POST"
-                              onsubmit="return confirm('{{ __('Delete this file permanently?') }}')">
+                              onsubmit="return confirmSwal(this, '{{ __('Delete this file permanently?') }}', { isDelete: true })">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="cu-btn-delete">
