@@ -23,14 +23,19 @@
         }
     }
 
-    /* Planned for today with a day-period chip */
-    $plannedToday = $task->time_period && $task->due_date
-        && \Carbon\Carbon::parse($task->due_date)->isToday()
+    /* Scheduled (today or future) with a day-period chip */
+    $cardDue = $task->due_date ? \Carbon\Carbon::parse($task->due_date)->startOfDay() : null;
+    $scheduled = $task->time_period && $cardDue
+        && $cardDue->gte(now()->startOfDay())
         && $task->status !== 'completed';
-    $plannedPeriod = $plannedToday
+    $plannedToday = $scheduled && $cardDue->isToday();
+    $plannedPeriod = $scheduled
         ? (config("routines.periods.{$task->time_period}.label") ? __(config("routines.periods.{$task->time_period}.label")) : __(ucfirst($task->time_period)))
         : null;
     $plannedIcon = config("routines.periods.{$task->time_period}.icon") ?? 'bi-calendar-day';
+    $schedChip = $scheduled
+        ? ($plannedToday ? $plannedPeriod : trim(($dueRel ?? '') . ' · ' . $plannedPeriod, ' ·'))
+        : null;
 @endphp
 <div class="cu-task-card {{ $task->status === 'completed' ? 'is-done' : '' }}"
      data-id="{{ $task->id }}"
@@ -63,9 +68,9 @@
             </span>
         @endif
 
-        @if($plannedToday)
-            <span class="cu-mini" style="color:#7c3aed;background:#f3effe;" title="{{ __('Planned today') }} · {{ $plannedPeriod }}">
-                <i class="bi {{ $plannedIcon }}"></i> {{ $plannedPeriod }}
+        @if($scheduled)
+            <span class="cu-mini" style="color:#7c3aed;background:#f3effe;" title="{{ __('Scheduled') }} · {{ $schedChip }}">
+                <i class="bi {{ $plannedIcon }}"></i> {{ $schedChip }}
             </span>
         @endif
 
@@ -80,11 +85,12 @@
         </span>
 
         @if($task->status !== 'completed')
-            <button type="button" class="cu-add-day {{ $plannedToday ? 'set' : '' }}"
+            <button type="button" class="cu-add-day {{ $scheduled ? 'set' : '' }}"
                     data-add-day data-id="{{ $task->id }}" data-title="{{ $task->title }}"
                     data-period="{{ $task->time_period }}"
-                    title="{{ $plannedToday ? __('Change today\'s slot') : __('Add to today\'s plan') }}">
-                <i class="bi {{ $plannedToday ? 'bi-calendar2-check' : 'bi-calendar-plus' }}"></i>
+                    data-date="{{ $task->due_date ? \Carbon\Carbon::parse($task->due_date)->toDateString() : '' }}"
+                    title="{{ $scheduled ? __('Change day\'s slot') . ' · ' . $schedChip : __('Schedule task') }} (T)">
+                <i class="bi {{ $scheduled ? 'bi-calendar2-check' : 'bi-calendar-plus' }}"></i>
             </button>
         @endif
 

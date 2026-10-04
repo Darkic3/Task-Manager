@@ -29,7 +29,9 @@
         <div class="cu-ttree-actions">
             @if($task->status !== 'completed')
                 <button type="button" class="cu-task-btn" data-add-day data-id="{{ $task->id }}" data-title="{{ $task->title }}"
-                        data-period="{{ $task->time_period }}" title="{{ __('Add to today\'s plan') }}"><i class="bi bi-calendar-plus"></i></button>
+                        data-period="{{ $task->time_period }}"
+                        data-date="{{ $task->due_date ? \Carbon\Carbon::parse($task->due_date)->toDateString() : '' }}"
+                        title="{{ __('Schedule task') }} (T)"><i class="bi bi-calendar-plus"></i></button>
             @endif
             <a href="{{ route('tasks.show', $task->id) }}" class="cu-task-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
             <a href="{{ route('tasks.edit', $task->id) }}" class="cu-task-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>

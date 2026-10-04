@@ -387,11 +387,49 @@
     .cu-add-day:hover{background:#ede9fe;color:var(--cud-purple);}
     .cu-add-day.set{background:#e8f7ef;color:#30a46c;}
 
+    /* ── Day shortcut (Projects / Chapters rows) — beautiful quick action ── */
+    .cu-day-shortcut{
+        position:relative;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;
+        height:26px;padding:0 9px 0 8px;margin-left:auto;border-radius:999px;cursor:pointer;
+        border:1px solid #e7e2fb;background:linear-gradient(180deg,#faf8ff,#f3efff);
+        color:#6d28d9;font-size:11px;font-weight:700;white-space:nowrap;
+        opacity:0;transform:translateY(1px);transition:opacity .15s, transform .15s, box-shadow .15s, background .15s;
+    }
+    .cu-day-shortcut i.bi{font-size:12px;line-height:1;}
+    .cu-day-shortcut .cu-day-kbd{
+        font-size:9px;font-weight:800;line-height:1;min-width:16px;height:16px;padding:0 4px;
+        display:inline-flex;align-items:center;justify-content:center;
+        background:#fff;border:1px solid #ddd6fe;border-bottom-width:2px;border-radius:5px;color:#7c3aed;
+    }
+    .cu-ch-row:hover .cu-day-shortcut,
+    .cu-day-shortcut:focus-visible{opacity:1;transform:none;}
+    .cu-day-shortcut:hover{
+        background:linear-gradient(135deg,#7c3aed,#a855f7);border-color:#7c3aed;color:#fff;
+        box-shadow:0 4px 12px rgba(124,58,237,.35);transform:translateY(-1px);
+    }
+    .cu-day-shortcut:hover .cu-day-kbd{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.45);color:#fff;}
+    .cu-day-shortcut:active{transform:translateY(0) scale(.97);}
+    .cu-day-shortcut.is-set{
+        opacity:1;transform:none;
+        background:linear-gradient(180deg,#eefbf3,#e2f6ea);border-color:#bfe6cd;color:#1d7a44;
+    }
+    .cu-day-shortcut.is-set .cu-day-kbd{background:#fff;border-color:#bfe6cd;color:#1d7a44;}
+    .cu-day-shortcut.is-set:hover{background:linear-gradient(135deg,#16a34a,#22c55e);border-color:#16a34a;color:#fff;box-shadow:0 4px 12px rgba(22,163,74,.3);}
+    .cu-day-shortcut.is-set:hover .cu-day-kbd{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.45);color:#fff;}
+    .cu-today-chip{
+        display:inline-flex;align-items:center;gap:4px;flex-shrink:0;
+        font-size:10px;font-weight:700;color:#6d28d9;background:#f3efff;
+        border:1px solid #e2d9fd;border-radius:999px;padding:2px 8px;white-space:nowrap;
+    }
+    .cu-today-chip i{font-size:10px;}
+    @media (hover:none), (max-width:768px){ .cu-day-shortcut{opacity:1;transform:none;} }
+    [dir="rtl"] .cu-day-shortcut{margin-left:0;margin-right:auto;}
+
     .cud-modal{position:fixed;inset:0;z-index:1100;display:flex;align-items:center;justify-content:center;padding:16px;}
     .cud-modal[hidden]{display:none;}
-    .cud-backdrop{position:absolute;inset:0;background:rgba(17,20,26,.45);}
+    .cud-backdrop{position:absolute;inset:0;background:rgba(17,20,26,.45);backdrop-filter:blur(2px);}
     .cud-box{
-        position:relative;background:#fff;border-radius:12px;width:min(380px,94vw);
+        position:relative;background:#fff;border-radius:16px;width:min(440px,94vw);
         box-shadow:0 20px 60px rgba(0,0,0,.28);overflow:hidden;
         animation:cudIn .16s ease-out;
     }
@@ -412,11 +450,49 @@
     .cud-chip:hover{border-color:#c4b5fd;color:var(--cud-purple);background:#faf5ff;}
     .cud-chip.active{background:#ede9fe;border-color:#c4b5fd;color:var(--cud-purple);}
     .cud-chip.busy{opacity:.55;pointer-events:none;}
-    .cud-foot{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 14px;border-top:1px solid #f2f3f5;}
-    .cud-hint{font-size:11px;color:#8a8f98;}
-    .cud-link{font-size:11.5px;font-weight:700;color:var(--cud-purple);text-decoration:none;}
+    .cud-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px 14px;border-top:1px solid #f2f3f5;}
+    .cud-hint{font-size:11px;color:#8a8f98;display:flex;align-items:center;gap:6px;min-width:0;}
+    .cud-hint .dot{width:7px;height:7px;border-radius:50%;background:#7c3aed;flex-shrink:0;animation:cudPulse 1.6s infinite;}
+    @keyframes cudPulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+    .cud-link{font-size:11.5px;font-weight:700;color:var(--cud-purple);text-decoration:none;white-space:nowrap;}
     .cud-link:hover{text-decoration:underline;}
     @media(max-width:480px){ .cud-chips{grid-template-columns:repeat(2,1fr);} }
+
+    /* ── Schedule modal: day strip ── */
+    .cud-sec-label{font-size:11px;font-weight:800;color:#6b7385;text-transform:uppercase;letter-spacing:.5px;padding:2px 16px 8px;display:flex;align-items:center;gap:6px;}
+    .cud-days{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 16px 6px;}
+    .cud-day{
+        display:flex;flex-direction:column;align-items:center;gap:1px;
+        border:1.5px solid #e9e7f0;background:#fafbfc;border-radius:12px;padding:8px 4px 7px;cursor:pointer;
+        transition:all .13s;position:relative;min-width:0;
+    }
+    .cud-day:hover{border-color:#c4b5fd;background:#faf5ff;transform:translateY(-1px);}
+    .cud-day .d-top{font-size:10px;font-weight:800;color:#6b7385;white-space:nowrap;}
+    .cud-day .d-num{font-size:16px;font-weight:800;color:#1a1d23;line-height:1.25;}
+    .cud-day .d-mon{font-size:9.5px;font-weight:600;color:#9aa0ab;white-space:nowrap;}
+    .cud-day .d-kbd{
+        position:absolute;top:4px;inset-inline-end:5px;font-size:8.5px;font-weight:800;color:#a5aab4;
+        border:1px solid #e5e7eb;border-radius:4px;padding:0 3px;line-height:1.4;background:#fff;
+    }
+    .cud-day.active{
+        background:linear-gradient(135deg,#7c3aed,#a855f7);border-color:#7c3aed;color:#fff;
+        box-shadow:0 6px 16px rgba(124,58,237,.35);
+    }
+    .cud-day.active .d-top,.cud-day.active .d-num,.cud-day.active .d-mon{color:#fff;}
+    .cud-day.active .d-kbd{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.4);color:#fff;}
+    .cud-day.is-past{opacity:.45;}
+    .cud-day.busy{opacity:.55;pointer-events:none;}
+    .cud-custom{display:flex;align-items:center;gap:8px;padding:6px 16px 12px;}
+    .cud-custom input[type="date"],
+    .cud-custom input.cud-jalali{
+        flex:1;min-width:0;border:1.5px dashed #d9d4ec;border-radius:10px;padding:7px 10px;font-size:12px;color:#3d4149;
+        background:#fcfbff;outline:none;cursor:pointer;font-family:inherit;text-align:center;letter-spacing:.3px;
+    }
+    .cud-custom input[type="date"]:focus,
+    .cud-custom input.cud-jalali:focus{border-color:#7c3aed;border-style:solid;background:#fff;box-shadow:0 0 0 3px rgba(124,58,237,.1);}
+    .cud-custom input[type="date"].has-value,
+    .cud-custom input.cud-jalali.has-value{border-style:solid;border-color:#7c3aed;background:#f5f0ff;font-weight:700;color:#6d28d9;}
+    .cud-sec-divider{height:1px;background:#f2f3f5;margin:2px 16px 10px;}
 </style>
 @endpush
 
@@ -609,9 +685,11 @@
             </div>
             <div class="cu-list-actions">
                 @if($task->status !== 'completed')
-                    <button type="button" class="cu-task-btn {{ $task->time_period && $task->due_date && \Carbon\Carbon::parse($task->due_date)->isToday() ? 'is-set' : '' }}"
+                    <button type="button" class="cu-task-btn {{ $task->time_period && $task->due_date && \Carbon\Carbon::parse($task->due_date)->startOfDay()->gte(now()->startOfDay()) ? 'is-set' : '' }}"
                             data-add-day data-id="{{ $task->id }}" data-title="{{ $task->title }}"
-                            data-period="{{ $task->time_period }}" title="Add to today's plan">
+                            data-period="{{ $task->time_period }}"
+                            data-date="{{ $task->due_date ? \Carbon\Carbon::parse($task->due_date)->toDateString() : '' }}"
+                            title="{{ __('Schedule task') }} (T)">
                         <i class="bi bi-calendar-plus"></i>
                     </button>
                 @endif
@@ -822,17 +900,34 @@
 
 <div id="cuToast"></div>
 
-{{-- "Add to today" — pick the day period for a task --}}
+{{-- "Schedule task" — pick day (today / tomorrow / future) + time period --}}
 <div class="cud-modal" id="addToDayModal" hidden>
     <div class="cud-backdrop" data-add-day-close></div>
     <div class="cud-box" role="dialog" aria-modal="true" aria-labelledby="addToDayTitle">
         <div class="cud-head">
             <div style="min-width:0;">
-                <div class="cud-eyebrow"><i class="bi bi-calendar-plus"></i> {{ __('Add to today\'s plan') }}</div>
+                <div class="cud-eyebrow"><i class="bi bi-calendar-plus"></i> {{ __('Schedule task') }}</div>
                 <div class="cud-title" data-add-day-title>&nbsp;</div>
             </div>
             <button type="button" class="cud-x" data-add-day-close aria-label="{{ __('Close') }}">&times;</button>
         </div>
+        <div class="cud-sec-label"><i class="bi bi-calendar3"></i> {{ __('Day') }}</div>
+        <div class="cud-days" data-schedule-days></div>
+        <div class="cud-custom">
+            @if(app()->getLocale() === 'fa')
+                {{-- Jalali picker (visible) + hidden Gregorian value — same mechanism as x-jalali-date --}}
+                <input type="hidden" id="schedCustomDate" data-schedule-custom />
+                <input type="text" id="schedCustomDate-jalali" class="cud-jalali"
+                       data-jdp data-jdp-only-date data-jdp-format="YYYY/MM/DD"
+                       data-target="schedCustomDate"
+                       placeholder="۱۴۰۴/۰۷/۱۲" autocomplete="off" dir="ltr"
+                       aria-label="{{ __('Custom date') }}" title="{{ __('Pick any future date') }}" />
+            @else
+                <input type="date" data-schedule-custom aria-label="{{ __('Custom date') }}" title="{{ __('Pick any future date') }}">
+            @endif
+        </div>
+        <div class="cud-sec-divider"></div>
+        <div class="cud-sec-label"><i class="bi bi-clock"></i> {{ __('Time of day') }}</div>
         <div class="cud-chips">
             <button type="button" class="cud-chip" data-period=""><i class="bi bi-infinity"></i> {{ __('Anytime') }}</button>
             @foreach(config('routines.periods', []) as $key => $p)
@@ -842,8 +937,8 @@
             @endforeach
         </div>
         <div class="cud-foot">
-            <span class="cud-hint">{{ __('Moves to today\'s plan') }}</span>
-            <a href="{{ route('planner.index') }}" class="cud-link" target="_blank" rel="noopener">{{ __('Open My Day') }} &rarr;</a>
+            <span class="cud-hint"><span class="dot"></span><span data-schedule-summary>{{ __('Pick a day, then a time') }}</span></span>
+            <a href="{{ route('planner.index') }}" class="cud-link" data-schedule-open target="_blank" rel="noopener">{{ __('Open day') }} &rarr;</a>
         </div>
     </div>
 </div>
@@ -1128,15 +1223,37 @@ document.addEventListener('DOMContentLoaded', function () {
     applyFilters();
 
     /* ─── Keyboard shortcuts ─── */
+    /* Track hovered task so "T" adds THAT row/card to today's plan */
+    let hoveredAddDayBtn = null;
+    document.addEventListener('mouseover', e => {
+        const holder = e.target.closest?.('.cu-ch-row, .cu-task-card, .cu-list-row, .cu-ttree-row');
+        if (!holder) return;
+        const btn = holder.querySelector('[data-add-day]') || (holder.matches?.('[data-add-day]') ? holder : null);
+        hoveredAddDayBtn = btn || null;
+    }, { passive: true });
     document.addEventListener('keydown', e => {
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         const t = e.target;
         if (t.matches?.('input, textarea, select') || t.isContentEditable) return;
-        if (e.key === '/') { e.preventDefault(); searchInput?.focus(); searchInput?.select(); }
+        if (e.key === '/') { e.preventDefault(); searchInput?.focus(); searchInput?.select(); return; }
         if (e.key.toLowerCase() === 'n') {
             e.preventDefault();
             const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('createTaskModal'));
             m.show();
+            return;
+        }
+        /* T = add hovered / focused task to today's plan */
+        if (e.key.toLowerCase() === 't' || e.key.toLowerCase() === 'ف') {
+            const inModal = addDayModal && !addDayModal.hidden;
+            if (inModal) return;
+            let trigger = null;
+            const focused = document.activeElement?.closest?.('.cu-ch-row, .cu-task-card, .cu-list-row, .cu-ttree-row');
+            if (focused) trigger = focused.querySelector('[data-add-day]');
+            if (!trigger) trigger = hoveredAddDayBtn;
+            if (trigger && trigger.isConnected && trigger.offsetParent !== null) {
+                e.preventDefault();
+                openAddDay(trigger);
+            }
         }
     });
 
@@ -1526,23 +1643,164 @@ document.addEventListener('DOMContentLoaded', function () {
         f.submit();
     }
 
-    /* ── Add to day ── */
+    /* ── Schedule task: day (today / tomorrow / future) + time period ── */
     const addDayModal = document.getElementById('addToDayModal');
+    const PLANNER_BASE = @json(route('planner.index'));
+    const APP_LOCALE = @json(app()->getLocale());
+    const SCHED_TXT = {
+        today: @json(__('Today')),
+        tomorrow: @json(__('Tomorrow')),
+        dayAfter: @json(__('Day after tomorrow')),
+        anytime: @json(__('Anytime')),
+        pickHint: @json(__('Pick a day, then a time')),
+        changeSlot: @json(__("Change day's slot")),
+        addToPlan: @json(__('Add to day plan')),
+    };
+    const INTL_LOCALE = APP_LOCALE === 'fa' ? 'fa-IR' : APP_LOCALE;
+    const QUICK_DAYS = 8;
     let addDayState = null;
+    let schedSaving = false;
+
+    function isoOf(d) {
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${d.getFullYear()}-${m}-${day}`;
+    }
+    function parseISO(iso) {
+        const [y, m, d] = iso.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+    function todayISO() { return isoOf(new Date()); }
+    function diffDays(iso) {
+        const t = new Date(); t.setHours(0, 0, 0, 0);
+        return Math.round((parseISO(iso) - t) / 86400000);
+    }
+    function schedDateLabel(iso) {
+        const diff = diffDays(iso);
+        if (diff === 0) return SCHED_TXT.today;
+        if (diff === 1) return SCHED_TXT.tomorrow;
+        if (diff === 2) return SCHED_TXT.dayAfter;
+        try {
+            const d = parseISO(iso);
+            const wd = new Intl.DateTimeFormat(INTL_LOCALE, { weekday: 'short' }).format(d);
+            const dm = new Intl.DateTimeFormat(INTL_LOCALE, { day: 'numeric', month: 'short' }).format(d);
+            return `${wd} ${dm}`;
+        } catch (e) { return iso; }
+    }
+    function schedPeriodLabel(period) {
+        if (!period) return SCHED_TXT.anytime;
+        const chip = addDayModal?.querySelector(`.cud-chip[data-period="${period}"]`);
+        return chip ? chip.textContent.trim() : period;
+    }
+
+    function renderSchedDays() {
+        const wrap = addDayModal.querySelector('[data-schedule-days]');
+        if (!wrap || !addDayState) return;
+        wrap.innerHTML = '';
+        const base = new Date(); base.setHours(0, 0, 0, 0);
+        for (let i = 0; i < QUICK_DAYS; i++) {
+            const d = new Date(base); d.setDate(base.getDate() + i);
+            const iso = isoOf(d);
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'cud-day' + (iso === addDayState.date ? ' active' : '');
+            btn.dataset.date = iso;
+            let top;
+            if (i === 0) top = SCHED_TXT.today;
+            else if (i === 1) top = SCHED_TXT.tomorrow;
+            else if (i === 2) top = SCHED_TXT.dayAfter;
+            else {
+                try { top = new Intl.DateTimeFormat(INTL_LOCALE, { weekday: 'short' }).format(d); }
+                catch (e) { top = ''; }
+            }
+            let num, mon;
+            try {
+                num = new Intl.DateTimeFormat(INTL_LOCALE, { day: 'numeric' }).format(d);
+                mon = new Intl.DateTimeFormat(INTL_LOCALE, { month: 'short' }).format(d);
+            } catch (e) { num = d.getDate(); mon = ''; }
+            btn.innerHTML = `<span class="d-kbd">${i + 1}</span><span class="d-top"></span><span class="d-num"></span><span class="d-mon"></span>`;
+            btn.querySelector('.d-top').textContent = top;
+            btn.querySelector('.d-num').textContent = num;
+            btn.querySelector('.d-mon').textContent = mon;
+            btn.title = iso;
+            wrap.appendChild(btn);
+        }
+        syncSchedCustomUI();
+    }
+
+    function schedCustomEls() {
+        return {
+            hidden: addDayModal.querySelector('[data-schedule-custom]'),
+            vis: document.getElementById('schedCustomDate-jalali'),
+        };
+    }
+    function schedInStrip() {
+        const t = new Date(); t.setHours(0, 0, 0, 0);
+        const dd = Math.round((parseISO(addDayState.date) - t) / 86400000);
+        return dd >= 0 && dd < QUICK_DAYS;
+    }
+    function syncSchedCustomUI() {
+        /* Mirror the Gregorian value into the visible input (Jalali text in fa locale) */
+        const { hidden, vis } = schedCustomEls();
+        if (!hidden || !addDayState) return;
+        if ('min' in hidden) hidden.min = todayISO();
+        const inStrip = schedInStrip();
+        hidden.value = inStrip ? '' : addDayState.date;
+        hidden.classList.toggle('has-value', !inStrip);
+        if (vis) {
+            if (typeof window.jalaliSyncVisible === 'function') window.jalaliSyncVisible('schedCustomDate');
+            else vis.value = hidden.value;
+            vis.classList.toggle('has-value', !inStrip);
+        }
+    }
+    function clearSchedCustom() {
+        const { hidden, vis } = schedCustomEls();
+        if (hidden) { hidden.value = ''; hidden.classList.remove('has-value'); }
+        if (vis) { vis.value = ''; vis.classList.remove('has-value'); }
+    }
+
+    function refreshSchedSummary() {
+        if (!addDayState) return;
+        const el = addDayModal.querySelector('[data-schedule-summary]');
+        if (el) el.textContent = `${schedDateLabel(addDayState.date)} · ${schedPeriodLabel(addDayState.period)}`;
+        const open = addDayModal.querySelector('[data-schedule-open]');
+        if (open) open.href = `${PLANNER_BASE}?date=${addDayState.date}`;
+    }
+
+    function markSchedActive() {
+        if (!addDayState) return;
+        addDayModal.querySelectorAll('.cud-day').forEach(b => {
+            b.classList.toggle('active', b.dataset.date === addDayState.date);
+        });
+        addDayModal.querySelectorAll('.cud-chip').forEach(c => {
+            c.classList.toggle('active', (c.dataset.period || '') === (addDayState.period || ''));
+        });
+        refreshSchedSummary();
+    }
 
     function openAddDay(trigger) {
         if (!addDayModal) return;
+        /* Preselect the task's current due date when it is today or in the future */
+        let initial = todayISO();
+        const rawDue = trigger.dataset.date || trigger.dataset.due
+            || trigger.closest?.('[data-due]')?.dataset.due || '';
+        if (rawDue) {
+            const iso = String(rawDue).slice(0, 10);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(iso) && iso >= todayISO()) initial = iso;
+        }
         addDayState = {
             id: trigger.dataset.id,
             title: trigger.dataset.title || '',
             period: trigger.dataset.period || '',
+            date: initial,
+            hadPeriod: !!(trigger.dataset.period || ''),
             source: trigger,
         };
+        schedSaving = false;
         const titleEl = addDayModal.querySelector('[data-add-day-title]');
         if (titleEl) titleEl.textContent = addDayState.title;
-        addDayModal.querySelectorAll('.cud-chip').forEach(c => {
-            c.classList.toggle('active', c.dataset.period === addDayState.period);
-        });
+        renderSchedDays();
+        markSchedActive();
         addDayModal.hidden = false;
     }
 
@@ -1550,16 +1808,20 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!addDayModal) return;
         addDayModal.hidden = true;
         addDayState = null;
+        schedSaving = false;
     }
 
-    async function applyAddToDay(chip) {
-        if (!addDayState) return;
-        const state = addDayState;
-        chip.classList.add('busy');
+    async function applySchedule(period, chip) {
+        if (!addDayState || schedSaving) return;
+        if (typeof period === 'string') addDayState.period = period;
+        const state = { ...addDayState };
+        schedSaving = true;
+        chip?.classList.add('busy');
+        addDayModal.querySelectorAll('.cud-chip, .cud-day').forEach(b => b.classList.add('busy'));
         const send = () => fetch(`{{ url('tasks') }}/${state.id}/add-to-day`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
-            body: JSON.stringify({ time_period: chip.dataset.period || null }),
+            body: JSON.stringify({ time_period: state.period || null, date: state.date }),
         });
         try {
             let res = await send();
@@ -1571,30 +1833,62 @@ document.addEventListener('DOMContentLoaded', function () {
             if (res.status === 401) { window.location.reload(); return; }
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const json = await res.json();
+            const dueISO = (json.due_date || state.date).slice(0, 10);
 
-            /* Immediate feedback on the trigger: set-state + icon swap */
-            const src = state.source;
-            src.classList.add('set');
-            src.title = @json(__("Change today's slot"));
-            const icon = src.querySelector('i');
-            if (icon) icon.className = 'bi ' + (chip.dataset.period ? 'bi-calendar2-check' : 'bi-calendar-check');
+            /* Immediate feedback on EVERY copy of this task (board + chapters + projects) */
             document.querySelectorAll(`[data-add-day][data-id="${state.id}"]`).forEach(b => {
-                if (b !== src) b.dataset.period = chip.dataset.period || '';
+                b.dataset.period = state.period || '';
+                b.dataset.date = dueISO;
+                b.classList.add('set');
+                b.classList.add('is-set');
+                b.title = `${SCHED_TXT.changeSlot} (T)`;
+                const icon = b.querySelector('i.bi, i');
+                if (icon) {
+                    if (b.classList.contains('cu-day-shortcut')) {
+                        icon.className = 'bi bi-calendar2-check';
+                    } else {
+                        icon.className = 'bi ' + (state.period ? 'bi-calendar2-check' : 'bi-calendar-check');
+                    }
+                }
+                if (b.classList.contains('cu-day-shortcut')) {
+                    const label = b.querySelector('span:not(.cu-day-kbd)');
+                    if (label) label.textContent = `${schedDateLabel(dueISO)} ✓`;
+                }
+                const holder = b.closest?.('[data-due]');
+                if (holder) holder.dataset.due = dueISO;
             });
 
             closeAddDay();
-            toast(`${@json(__('Today'))} · ${json.period_label} ✓`);
+            toast(`${schedDateLabel(dueISO)} · ${json.period_label} ✓`);
         } catch (err) {
-            console.error('[Tasks] add-to-day failed', err);
+            console.error('[Tasks] schedule failed', err);
             toast(`${ADD_TO_DAY_ERROR} (${err.message || NETWORK_ERROR})`);
         } finally {
-            chip.classList.remove('busy');
-            addDayState = null;
+            schedSaving = false;
+            addDayModal.querySelectorAll('.busy').forEach(b => b.classList.remove('busy'));
+            if (addDayModal.hidden) addDayState = null;
         }
     }
 
     document.addEventListener('click', e => {
         if (!addDayModal) return;
+        if (!addDayModal.hidden) {
+            const day = e.target.closest('.cud-day');
+            if (day && addDayModal.contains(day)) {
+                addDayState.date = day.dataset.date;
+                markSchedActive();
+                clearSchedCustom();
+                /* 1-click reschedule when the task already has a time slot */
+                if (addDayState.hadPeriod) { applySchedule(addDayState.period, day); }
+                return;
+            }
+            const chip = e.target.closest('.cud-chip');
+            if (chip && addDayModal.contains(chip)) {
+                addDayState.hadPeriod = true;
+                applySchedule(chip.dataset.period || '', chip);
+                return;
+            }
+        }
         const trigger = e.target.closest('[data-add-day]');
         if (trigger) {
             e.preventDefault();
@@ -1602,12 +1896,35 @@ document.addEventListener('DOMContentLoaded', function () {
             openAddDay(trigger);
             return;
         }
-        const chip = e.target.closest('.cud-chip');
-        if (chip) { applyAddToDay(chip); return; }
         if (e.target.closest('[data-add-day-close]')) closeAddDay();
     });
+    addDayModal?.querySelector('[data-schedule-custom]')?.addEventListener('change', e => {
+        if (!addDayState) return;
+        /* In fa locale this event comes from the hidden Gregorian input,
+           auto-synced from the visible Jalali picker. */
+        const val = String(e.target.value || '').slice(0, 10);
+        if (!val) return;
+        /* Reject past/invalid dates (extra guard next to the picker's own limits) */
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(val) || val < todayISO()) { clearSchedCustom(); return; }
+        addDayState.date = val;
+        e.target.classList.add('has-value');
+        const vis = document.getElementById('schedCustomDate-jalali');
+        if (vis) vis.classList.add('has-value');
+        markSchedActive();
+        if (addDayState.hadPeriod) { applySchedule(addDayState.period, null); }
+    });
     document.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && addDayModal && !addDayModal.hidden) closeAddDay();
+        if (addDayModal && !addDayModal.hidden) {
+            if (e.key === 'Escape') { closeAddDay(); return; }
+            /* 1-8: quick day pick while the modal is open */
+            const n = parseInt(e.key, 10);
+            if (n >= 1 && n <= QUICK_DAYS && !e.metaKey && !e.ctrlKey && !e.altKey) {
+                const t = e.target;
+                if (t.matches?.('input, textarea, select') || t.isContentEditable) return;
+                const days = addDayModal.querySelectorAll('.cud-day');
+                if (days[n - 1]) { days[n - 1].click(); e.preventDefault(); }
+            }
+        }
     });
 });
 </script>

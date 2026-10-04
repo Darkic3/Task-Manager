@@ -23,6 +23,21 @@
     }
     $kids = $grouped->get($task->id, collect());
     $padProp = app()->getLocale() === 'fa' ? 'padding-right' : 'padding-left';
+
+    /* Scheduled (today or future)? — shows a pretty chip + fills the shortcut button */
+    $rowDue = $task->due_date ? \Carbon\Carbon::parse($task->due_date)->startOfDay() : null;
+    $rowScheduled = $task->time_period && $rowDue
+        && $rowDue->gte(now()->startOfDay())
+        && $task->status !== 'completed';
+    $rowIsToday = $rowScheduled && $rowDue->isToday();
+    $rowPlannedPeriod = $rowScheduled
+        ? (config("routines.periods.{$task->time_period}.label") ? __(config("routines.periods.{$task->time_period}.label")) : __(ucfirst($task->time_period)))
+        : null;
+    $rowPlannedIcon = config("routines.periods.{$task->time_period}.icon") ?? 'bi-calendar-day';
+    $rowSchedLabel = $rowScheduled
+        ? ($rowIsToday ? $rowPlannedPeriod : trim(($chDueRel ?? '') . ' · ' . $rowPlannedPeriod, ' ·'))
+        : null;
+    $rowPlannedToday = $rowIsToday;
 @endphp
 <div class="cu-ch-row {{ $isDone ? 'is-done' : '' }}"
      data-id="{{ $task->id }}"
@@ -41,6 +56,11 @@
     <a href="{{ route('tasks.show', $task->id) }}" class="cu-task-title" title="{{ $task->title }}">
         {{ $task->title }}
     </a>
+    @if($rowScheduled)
+        <span class="cu-today-chip" title="{{ __('Scheduled') }} · {{ $rowSchedLabel }}">
+            <i class="bi {{ $rowPlannedIcon }}"></i>{{ $rowSchedLabel }}
+        </span>
+    @endif
     @if($task->due_date)
         <span class="cu-due {{ $chOverdue ? 'overdue' : '' }}" title="{{ app_date($d) }}">
             {{ $chDueRel }}
@@ -51,13 +71,27 @@
             <i class="bi bi-diagram-3"></i>{{ $kids->count() }}
         </span>
     @endif
+    @if(! $isDone)
+        <button type="button"
+                class="cu-day-shortcut {{ $rowScheduled ? 'is-set' : '' }}"
+                data-add-day
+                data-id="{{ $task->id }}"
+                data-title="{{ $task->title }}"
+                data-period="{{ $task->time_period }}"
+                data-date="{{ $task->due_date ? \Carbon\Carbon::parse($task->due_date)->toDateString() : '' }}"
+                title="{{ $rowScheduled ? __('Change day\'s slot') . ' · ' . $rowSchedLabel : __('Schedule task') }} (T)">
+            <i class="bi {{ $rowScheduled ? 'bi-calendar2-check' : 'bi-calendar-plus' }}"></i>
+            <span>{{ $rowScheduled ? $rowSchedLabel . ' ✓' : __('Plan') }}</span>
+            <span class="cu-day-kbd">T</span>
+        </button>
+    @endif
     <div class="dropdown cu-card-menu">
         <button class="cu-task-menu-btn" data-bs-toggle="dropdown" aria-expanded="false">
             <i class="bi bi-three-dots"></i>
         </button>
         <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size:13px;border-radius:8px;">
             @if(! $isDone)
-                <li><button type="button" class="dropdown-item" data-add-day data-id="{{ $task->id }}" data-title="{{ $task->title }}" data-period="{{ $task->time_period }}"><i class="bi bi-calendar-plus me-2"></i>{{ __('Add to today\'s plan') }}</button></li>
+                <li><button type="button" class="dropdown-item" data-add-day data-id="{{ $task->id }}" data-title="{{ $task->title }}" data-period="{{ $task->time_period }}"><i class="bi bi-calendar-plus me-2"></i>{{ __('Schedule task') }}</button></li>
                 <li><hr class="dropdown-divider"></li>
             @endif
             <li><a class="dropdown-item" href="{{ route('tasks.show', $task->id) }}"><i class="bi bi-eye me-2"></i>{{ __('View') }}</a></li>
