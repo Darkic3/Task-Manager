@@ -1,8 +1,9 @@
 {{-- Collapsible chapter section. Vars:
      $sectionId (string), $sectionTitle (string), $sectionUrl (string|null),
      $tasks (top-level tasks of this section), $grouped (tasks grouped by parent_id),
-     $collapsed (bool) --}}
+     $collapsed (bool), $quickProjectId (int|null — shows inline quick-add for that project) --}}
 @php
+    $quickProjectId = $quickProjectId ?? null;
     $secTotal = 0;
     $secDone = 0;
     $stack = $tasks->all();
@@ -30,8 +31,23 @@
             <span class="cu-chapter-count" title="{{ __(':done of :total done', ['done' => $secDone, 'total' => $secTotal]) }}">{{ $secDone }}/{{ $secTotal }}</span>
         </span>
         <span class="cu-col-count cu-chapter-open" title="{{ __('Unfinished') }}">{{ $secOpen }} {{ __('open') }}</span>
+        @if($quickProjectId)
+            <button type="button" class="cu-ch-add"
+                    data-ch-quickadd="{{ $quickProjectId }}" data-section="{{ $sectionId }}"
+                    title="{{ __('Quick add task to this project') }} (A)">
+                <i class="bi bi-plus-lg"></i><span>{{ __('New') }}</span><span class="cu-kbd">A</span>
+            </button>
+        @endif
     </div>
     <div class="cu-chapter-body">
+        @if($quickProjectId)
+            <div class="cu-ch-quickform" data-ch-quickform="{{ $sectionId }}" hidden>
+                <i class="bi bi-plus-lg"></i>
+                <input type="text" data-ch-quickinput maxlength="255" autocomplete="off"
+                       placeholder="{{ __('Task title… Enter to add') }}" aria-label="{{ __('New task title') }}">
+                <span class="cu-ch-quickhint"><kbd>&#8629;</kbd> {{ __('add') }} · <kbd>esc</kbd></span>
+            </div>
+        @endif
         @foreach($tasks as $t)
             @include('tasks._chapter-row', ['task' => $t, 'grouped' => $grouped, 'depth' => 0, 'rootId' => $sectionId])
         @endforeach

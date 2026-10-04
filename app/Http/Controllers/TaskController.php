@@ -95,6 +95,46 @@ class TaskController extends Controller
         }
     }
 
+    /**
+     * Lightning-fast inline task creation (project section quick-add):
+     * title only, sensible defaults, returns rendered row + card HTML
+     * so every view stays in sync without a reload.
+     */
+    public function quickStore(Request $request)
+    {
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+            'project_id' => ['nullable', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
+            'status' => 'nullable|in:to_do,in_progress,on_hold,in_review,completed',
+        ]);
+
+        $task = Task::create([
+            'title' => $data['title'],
+            'project_id' => $data['project_id'] ?? null,
+            'user_id' => Auth::id(),
+            'priority' => 'medium',
+            'status' => $data['status'] ?? 'to_do',
+            'weight' => 1,
+            'auto_weight' => true,
+        ]);
+
+        $task = Task::where('id', $task->id)->with(['user:id,name', 'project:id,name'])->withCount('children')->first();
+        $rootId = 'p-'.($task->project_id ?? 'none');
+
+        return response()->json([
+            'ok' => true,
+            'id' => $task->id,
+            'status' => $task->status,
+            'project_id' => $task->project_id,
+            'rowHtml' => view('tasks._chapter-row', [
+                'task' => $task, 'grouped' => collect(), 'depth' => 0, 'rootId' => $rootId,
+            ])->render(),
+            'cardHtml' => view('tasks._card', ['task' => $task])->render(),
+            'listHtml' => view('tasks._list-row', ['task' => $task])->render(),
+            'treeHtml' => view('tasks._tree-node', ['task' => $task, 'depth' => 0])->render(),
+        ]);
+    }
+
     public function show(Request $request, Task $task)
     {
         $task->load(['user:id,name', 'project:id,name,slug', 'checklistItems', 'parent:id,title', 'childrenRecursive', 'timeEntries']);

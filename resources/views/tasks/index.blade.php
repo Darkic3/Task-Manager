@@ -425,6 +425,51 @@
     @media (hover:none), (max-width:768px){ .cu-day-shortcut{opacity:1;transform:none;} }
     [dir="rtl"] .cu-day-shortcut{margin-left:0;margin-right:auto;}
 
+    /* ── Project quick-add (inline task creation) ── */
+    .cu-kbd{
+        font-size:9px;font-weight:800;line-height:1;min-width:16px;height:16px;padding:0 4px;
+        display:inline-flex;align-items:center;justify-content:center;
+        background:#fff;border:1px solid #bfe6cd;border-bottom-width:2px;border-radius:5px;color:#1d7a44;
+    }
+    .cu-ch-add{
+        display:inline-flex;align-items:center;gap:5px;flex-shrink:0;
+        height:26px;padding:0 9px 0 8px;border-radius:999px;cursor:pointer;white-space:nowrap;
+        border:1px solid #cfe8d6;background:linear-gradient(180deg,#f4fbf6,#e7f6ed);
+        color:#1d7a44;font-size:11px;font-weight:700;
+        opacity:0;transform:translateY(1px);transition:opacity .15s, transform .15s, box-shadow .15s, background .15s;
+    }
+    .cu-ch-add i.bi{font-size:12px;line-height:1;}
+    .cu-chapter-head:hover .cu-ch-add,
+    .cu-ch-add:focus-visible{opacity:1;transform:none;}
+    .cu-ch-add:hover{
+        background:linear-gradient(135deg,#16a34a,#22c55e);border-color:#16a34a;color:#fff;
+        box-shadow:0 4px 12px rgba(22,163,74,.35);transform:translateY(-1px);
+    }
+    .cu-ch-add:hover .cu-kbd{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.45);color:#fff;}
+    .cu-ch-add:active{transform:translateY(0) scale(.97);}
+    @media (hover:none), (max-width:768px){ .cu-ch-add{opacity:1;transform:none;} }
+    .cu-ch-quickform{
+        display:flex;align-items:center;gap:8px;margin:4px;padding:8px 10px;
+        background:#f6fef9;border:1.5px dashed #bfe6cd;border-radius:10px;
+        animation:cudIn .15s ease-out;
+    }
+    .cu-ch-quickform[hidden]{display:none;}
+    .cu-ch-quickform > i{color:#16a34a;font-size:13px;flex-shrink:0;}
+    .cu-ch-quickform input{
+        flex:1;min-width:0;border:none;background:transparent;outline:none;
+        font-size:13px;color:#1f2328;padding:2px 0;font-family:inherit;
+    }
+    .cu-ch-quickform input::placeholder{color:#a8b3a9;}
+    .cu-ch-quickform:focus-within{border-style:solid;border-color:#16a34a;background:#fff;box-shadow:0 0 0 3px rgba(22,163,74,.1);}
+    .cu-ch-quickhint{font-size:10px;color:#8a8f98;white-space:nowrap;flex-shrink:0;}
+    .cu-ch-quickhint kbd{
+        font-family:inherit;font-size:9px;font-weight:700;background:#fff;
+        border:1px solid #d5dbe0;border-bottom-width:2px;border-radius:4px;padding:1px 5px;color:#6b7385;
+    }
+    @keyframes cuFlash{0%{background:#ddf3e5;}100%{background:transparent;}}
+    .cu-ch-row.row-flash,.cu-task-card.row-flash,.cu-list-row.row-flash{animation:cuFlash 1.8s ease-out;}
+    .cu-ttree-node.row-flash{animation:cuFlash 1.8s ease-out;border-radius:8px;}
+
     .cud-modal{position:fixed;inset:0;z-index:1100;display:flex;align-items:center;justify-content:center;padding:16px;}
     .cud-modal[hidden]{display:none;}
     .cud-backdrop{position:absolute;inset:0;background:rgba(17,20,26,.45);backdrop-filter:blur(2px);}
@@ -646,57 +691,7 @@
             <div>{{ __('Assignee') }}</div><div>{{ __('Due Date') }}</div><div></div>
         </div>
         @foreach(collect($tasks)->flatten() as $task)
-        <div class="cu-list-row" data-title="{{ strtolower($task->title) }}" data-priority="{{ $task->priority }}" data-project="{{ $task->project_id }}" data-status="{{ $task->status }}" data-due="{{ $task->due_date ?? '' }}">
-            <div>
-                <div class="cu-list-title">{{ $task->title }}</div>
-                <div class="cu-list-sub">
-                    <span class="cu-status-chip {{ $task->status }}">
-                        <i class="bi bi-circle-fill" style="font-size:5px;"></i>
-                        {{ ucwords(str_replace('_',' ',$task->status)) }}
-                    </span>
-                </div>
-            </div>
-            <div class="cu-list-project">
-                @if($task->project)
-                    <i class="bi bi-folder" style="color:#8b8d98;font-size:11px;"></i>
-                    {{ $task->project->name }}
-                @else
-                    <span style="color:#c4c9d4;">—</span>
-                @endif
-            </div>
-            <div><span class="cu-priority {{ $task->priority }}">{{ ucfirst($task->priority) }}</span></div>
-            <div style="font-size:12px;color:#3d4149;">
-                @if($task->user)
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <div class="cu-assignee" style="width:24px;height:24px;font-size:10px;">{{ name_initials($task->user->name) }}</div>
-                        <span>{{ $task->user->name }}</span>
-                    </div>
-                @else
-                    <span style="color:#c4c9d4;">{{ __('Unassigned') }}</span>
-                @endif
-            </div>
-            <div class="cu-due {{ $task->due_date && \Carbon\Carbon::parse($task->due_date)->startOfDay()->lt(now()->startOfDay()) && $task->status !== 'completed' ? 'overdue' : '' }}" style="font-size:12px;">
-                @if($task->due_date)
-                    <i class="bi bi-calendar-event" style="font-size:11px;"></i>
-                    {{ \Carbon\Carbon::parse($task->due_date)->format('M d, Y') }}
-                @else
-                    <span style="color:#c4c9d4;">—</span>
-                @endif
-            </div>
-            <div class="cu-list-actions">
-                @if($task->status !== 'completed')
-                    <button type="button" class="cu-task-btn {{ $task->time_period && $task->due_date && \Carbon\Carbon::parse($task->due_date)->startOfDay()->gte(now()->startOfDay()) ? 'is-set' : '' }}"
-                            data-add-day data-id="{{ $task->id }}" data-title="{{ $task->title }}"
-                            data-period="{{ $task->time_period }}"
-                            data-date="{{ $task->due_date ? \Carbon\Carbon::parse($task->due_date)->toDateString() : '' }}"
-                            title="{{ __('Schedule task') }} (T)">
-                        <i class="bi bi-calendar-plus"></i>
-                    </button>
-                @endif
-                <a href="{{ route('tasks.show', $task->id) }}" class="cu-task-btn" title="View"><i class="bi bi-eye"></i></a>
-                <a href="{{ route('tasks.edit', $task->id) }}" class="cu-task-btn" title="Edit"><i class="bi bi-pencil"></i></a>
-            </div>
-        </div>
+            @include('tasks._list-row', ['task' => $task])
         @endforeach
     </div>
 
@@ -775,6 +770,7 @@
                     'tasks'        => $pRoots,
                     'grouped'      => $pGrouped,
                     'collapsed'    => true,
+                    'quickProjectId' => $proj->id,
                 ])
             @endforeach
         </div>
@@ -989,6 +985,8 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     const ADD_TO_DAY_ERROR = @json(__('Could not add to day'));
     const NETWORK_ERROR = @json(__('network error'));
+    const QUICK_CREATED = @json(__('Task added ✓'));
+    const QUICK_ERROR = @json(__('Could not create task'));
 
     /* View switcher */
     const chapters = document.getElementById('cuChapters');
@@ -1034,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     document.querySelectorAll('[data-chapter-toggle]').forEach(head => {
         head.addEventListener('click', e => {
-            if (e.target.closest('a,button.dropdown-toggle,.dropdown-menu')) return;
+            if (e.target.closest('a,button.dropdown-toggle,.dropdown-menu,[data-ch-quickadd],.cu-ch-quickform')) return;
             const ch = head.closest('.cu-chapter');
             setChapter(ch, !ch.classList.contains('collapsed'));
         });
@@ -1225,11 +1223,16 @@ document.addEventListener('DOMContentLoaded', function () {
     /* ─── Keyboard shortcuts ─── */
     /* Track hovered task so "T" adds THAT row/card to today's plan */
     let hoveredAddDayBtn = null;
+    let hoveredChapter = null;
     document.addEventListener('mouseover', e => {
         const holder = e.target.closest?.('.cu-ch-row, .cu-task-card, .cu-list-row, .cu-ttree-row');
-        if (!holder) return;
-        const btn = holder.querySelector('[data-add-day]') || (holder.matches?.('[data-add-day]') ? holder : null);
-        hoveredAddDayBtn = btn || null;
+        if (holder) {
+            const btn = holder.querySelector('[data-add-day]') || (holder.matches?.('[data-add-day]') ? holder : null);
+            hoveredAddDayBtn = btn || null;
+        }
+        /* Track hovered project section so "A" quick-adds THERE */
+        const ch = e.target.closest?.('.cu-chapter');
+        hoveredChapter = (ch && ch.querySelector('[data-ch-quickadd]')) ? ch : null;
     }, { passive: true });
     document.addEventListener('keydown', e => {
         if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1253,6 +1256,18 @@ document.addEventListener('DOMContentLoaded', function () {
             if (trigger && trigger.isConnected && trigger.offsetParent !== null) {
                 e.preventDefault();
                 openAddDay(trigger);
+            }
+            return;
+        }
+        /* A = quick-add a task to the hovered / focused project section */
+        if (e.key.toLowerCase() === 'a' || e.key === 'ش') {
+            const inModal = addDayModal && !addDayModal.hidden;
+            if (inModal) return;
+            let ch = document.activeElement?.closest?.('.cu-chapter');
+            if (!ch || !ch.querySelector('[data-ch-quickadd]')) ch = hoveredChapter;
+            if (ch && ch.isConnected) {
+                e.preventDefault();
+                openChQuick(ch.dataset.chapter);
             }
         }
     });
@@ -1912,6 +1927,117 @@ document.addEventListener('DOMContentLoaded', function () {
         if (vis) vis.classList.add('has-value');
         markSchedActive();
         if (addDayState.hadPeriod) { applySchedule(addDayState.period, null); }
+    });
+
+    /* ── Project quick-add: inline task creation (Enter = save, Esc = close) ── */
+    function openChQuick(sectionId) {
+        const ch = document.querySelector(`[data-chapter="${sectionId}"]`);
+        if (!ch) return;
+        if (ch.classList.contains('collapsed')) {
+            ch.classList.remove('collapsed');
+            savePrefs();
+        }
+        const form = ch.querySelector('[data-ch-quickform]');
+        if (!form) return;
+        form.hidden = false;
+        setTimeout(() => form.querySelector('[data-ch-quickinput]')?.focus(), 30);
+    }
+
+    function insertHtml(html) {
+        const tmp = document.createElement('template');
+        tmp.innerHTML = html.trim();
+        return tmp.content.firstElementChild;
+    }
+
+    async function submitChQuick(form) {
+        const input = form.querySelector('[data-ch-quickinput]');
+        const title = input.value.trim();
+        if (!title || form.dataset.busy) return;
+        const ch = form.closest('.cu-chapter');
+        const projectId = ch?.querySelector('[data-ch-quickadd]')?.dataset.chQuickadd || null;
+        form.dataset.busy = '1';
+        const send = () => fetch(`{{ route('tasks.quick-store') }}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+            body: JSON.stringify({ title, project_id: projectId }),
+        });
+        try {
+            let res = await send();
+            /* Session may have rotated the token since this page loaded */
+            if (res.status === 419) {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) { csrf = meta.content; res = await send(); }
+            }
+            if (res.status === 401) { window.location.reload(); return; }
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            if (!json.ok) throw new Error('bad response');
+
+            /* 1. chapter row → top of this project section */
+            if (json.rowHtml && ch) {
+                const row = insertHtml(json.rowHtml);
+                if (row) {
+                    row.classList.add('row-flash');
+                    const body = ch.querySelector('.cu-chapter-body');
+                    body.insertBefore(row, body.querySelector('.cu-ch-row'));
+                    refreshChapter(ch);
+                }
+            }
+            /* 2. kanban card → its status column */
+            if (json.cardHtml) {
+                const col = document.getElementById(`col-${json.status}`);
+                if (col) {
+                    const card = insertHtml(json.cardHtml);
+                    if (card) {
+                        card.draggable = true;
+                        card.classList.add('row-flash');
+                        col.insertBefore(card, col.querySelector('.cu-quickadd'));
+                        const colEl = col.closest('.cu-col');
+                        if (colEl && colEl.classList.contains('collapsed')) {
+                            colEl.classList.remove('collapsed');
+                            colEl.dataset.collapsed = '0';
+                        }
+                    }
+                }
+            }
+            /* 3. list view + 4. tree view — stay in sync without reload */
+            if (json.listHtml && list) list.insertAdjacentHTML('beforeend', json.listHtml);
+            if (json.treeHtml && tree) {
+                const node = insertHtml(json.treeHtml);
+                if (node) { node.classList.add('row-flash'); tree.appendChild(node); }
+            }
+            updateCounts();
+            applyFilters();
+            input.value = '';
+            input.focus();
+            toast(QUICK_CREATED);
+        } catch (err) {
+            console.error('[Tasks] quick-store failed', err);
+            toast(`${QUICK_ERROR} (${err.message || NETWORK_ERROR})`);
+        } finally {
+            delete form.dataset.busy;
+        }
+    }
+
+    document.addEventListener('click', e => {
+        const q = e.target.closest('[data-ch-quickadd]');
+        if (q) {
+            e.preventDefault();
+            e.stopPropagation();
+            openChQuick(q.dataset.section);
+        }
+    });
+    document.addEventListener('keydown', e => {
+        const inp = e.target.closest?.('[data-ch-quickinput]');
+        if (!inp) return;
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submitChQuick(inp.closest('[data-ch-quickform]'));
+        } else if (e.key === 'Escape') {
+            inp.value = '';
+            inp.closest('[data-ch-quickform]').hidden = true;
+            inp.blur();
+        }
     });
     document.addEventListener('keydown', e => {
         if (addDayModal && !addDayModal.hidden) {

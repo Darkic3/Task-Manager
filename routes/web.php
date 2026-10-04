@@ -57,6 +57,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('projects.tasks.store');
 
     Route::post('tasks/reorder', [TaskController::class, 'reorder'])->name('tasks.reorder');
+    Route::post('tasks/quick-store', [TaskController::class, 'quickStore'])->name('tasks.quick-store');
     Route::post('tasks/bulk-update', [TaskController::class, 'bulkUpdate'])->name('tasks.bulk-update');
     Route::delete('tasks/bulk-destroy', [TaskController::class, 'bulkDestroy'])->name('tasks.bulk-destroy');
     Route::get('tasks', [TaskController::class, 'index'])->name('tasks.index');
