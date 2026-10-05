@@ -17,15 +17,26 @@
     $secOpen = $secTotal - $secDone;
     $secPct = $secTotal > 0 ? round($secDone / $secTotal * 100) : 0;
 @endphp
+@php $bodyId = 'cu-ch-body-' . $sectionId; @endphp
 <div class="cu-chapter {{ $collapsed ? 'collapsed' : '' }}" data-chapter="{{ $sectionId }}"
      data-total="{{ $secTotal }}" data-done="{{ $secDone }}">
     <div class="cu-chapter-head" data-chapter-toggle="{{ $sectionId }}">
-        <button class="cu-col-chevron" tabindex="-1"><i class="bi bi-chevron-down"></i></button>
-        @if($sectionUrl)
-            <a href="{{ $sectionUrl }}" class="cu-chapter-title">{{ $sectionTitle }}</a>
-        @else
-            <span class="cu-chapter-title">{{ $sectionTitle }}</span>
-        @endif
+        <button type="button" class="cu-ch-chevron"
+                aria-expanded="{{ $collapsed ? 'false' : 'true' }}" aria-controls="{{ $bodyId }}"
+                title="{{ __('Collapse / expand') }}">
+            <i class="bi bi-chevron-down"></i>
+        </button>
+        <span class="cu-ch-heading">
+            @if($sectionUrl)
+                <a href="{{ $sectionUrl }}" class="cu-chapter-title cu-ch-nav" title="{{ $sectionTitle }}">{{ $sectionTitle }}</a>
+                <a href="{{ $sectionUrl }}" class="cu-ch-open" title="{{ __('View Details') }}"
+                   aria-label="{{ __('View Details') }}">
+                    <i class="bi bi-box-arrow-up-left"></i>
+                </a>
+            @else
+                <span class="cu-chapter-title" title="{{ $sectionTitle }}">{{ $sectionTitle }}</span>
+            @endif
+        </span>
         <span class="cu-chapter-progress">
             <span class="cu-chapter-pb"><span class="cu-chapter-pb-fill" style="width:{{ $secPct }}%;"></span></span>
             <span class="cu-chapter-count" title="{{ __(':done of :total done', ['done' => $secDone, 'total' => $secTotal]) }}">{{ $secDone }}/{{ $secTotal }}</span>
@@ -39,7 +50,7 @@
             </button>
         @endif
     </div>
-    <div class="cu-chapter-body">
+    <div class="cu-chapter-body" id="{{ $bodyId }}">
         @if($quickProjectId)
             <div class="cu-ch-quickform" data-ch-quickform="{{ $sectionId }}" hidden>
                 <i class="bi bi-plus-lg"></i>

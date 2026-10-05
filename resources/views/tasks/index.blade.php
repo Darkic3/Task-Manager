@@ -277,11 +277,31 @@
         display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none;
     }
     .cu-chapter-head:hover{background:#fafbfc;}
-    .cu-chapter.collapsed .cu-col-chevron{transform:rotate(-90deg);}
     .cu-chapter.collapsed .cu-chapter-body{display:none;}
-    .cu-chapter-title{font-size:13.5px;font-weight:600;color:#1f2328;text-decoration:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    a.cu-chapter-title:hover{color:#7c3aed;}
-    span.cu-chapter-title{cursor:default;}
+    .cu-chapter-head:hover .cu-chapter-title{color:#7c3aed;}
+    .cu-ch-heading{display:flex;align-items:center;gap:4px;flex:1;min-width:0;}
+    .cu-chapter-title{font-size:13.5px;font-weight:600;color:#1f2328;text-decoration:none;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .12s;}
+    .cu-ch-chevron{
+        width:28px;height:28px;flex-shrink:0;padding:0;border:1px solid #e5e7eb;border-radius:7px;
+        background:white;color:#6b6f78;font-size:13px;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;
+        transition:border-color .12s, background .12s, color .12s, transform .08s;
+    }
+    .cu-chapter-head:hover .cu-ch-chevron{border-color:#d3d7de;}
+    .cu-ch-chevron:hover{border-color:#7c3aed;background:#f7f5ff;color:#7c3aed;}
+    .cu-ch-chevron:active{transform:scale(.9);}
+    .cu-ch-chevron:focus-visible{outline:2px solid #7c3aed;outline-offset:1px;}
+    .cu-ch-chevron i{transition:transform .15s;}
+    .cu-chapter.collapsed .cu-ch-chevron i{transform:rotate(-90deg);}
+    .cu-ch-open{
+        width:24px;height:24px;flex-shrink:0;padding:0;border:0;border-radius:6px;
+        background:transparent;color:#9ca0aa;font-size:12.5px;
+        display:inline-flex;align-items:center;justify-content:center;text-decoration:none;
+        transition:background .12s, color .12s, transform .08s;
+    }
+    .cu-chapter-head:hover .cu-ch-open{color:#6b7280;}
+    .cu-ch-open:hover{background:#f7f5ff;color:#7c3aed;}
+    .cu-ch-open:active{transform:scale(.88);}
     .cu-chapter-progress{display:flex;align-items:center;gap:8px;min-width:150px;}
     .cu-chapter-pb{flex:1;height:5px;background:#eef0f2;border-radius:4px;overflow:hidden;}
     .cu-chapter-pb-fill{display:block;height:100%;background:#30a46c;border-radius:4px;transition:width .2s;}
@@ -1028,6 +1048,7 @@ document.addEventListener('DOMContentLoaded', function () {
     /* Chapter collapse / expand */
     function setChapter(ch, collapsed) {
         ch.classList.toggle('collapsed', collapsed);
+        ch.querySelector('.cu-ch-chevron')?.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
         savePrefs();
     }
     document.querySelectorAll('[data-chapter-toggle]').forEach(head => {
@@ -1037,13 +1058,25 @@ document.addEventListener('DOMContentLoaded', function () {
             setChapter(ch, !ch.classList.contains('collapsed'));
         });
     });
+    /* Title click = collapse/expand (no accidental navigation).
+       Ctrl/Cmd/Shift/Alt-click, middle-click, keyboard Enter, or a double-click still open the target. */
+    document.querySelectorAll('a.cu-ch-nav').forEach(a => {
+        a.addEventListener('click', e => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0 || e.detail === 0) return;
+            e.preventDefault();
+            const ch = a.closest('.cu-chapter');
+            setChapter(ch, !ch.classList.contains('collapsed'));
+        });
+        a.addEventListener('dblclick', e => {
+            e.preventDefault();
+            window.location.href = a.href;
+        });
+    });
     document.getElementById('cuExpandAll')?.addEventListener('click', () => {
-        document.querySelectorAll('.cu-chapter').forEach(ch => ch.classList.remove('collapsed'));
-        savePrefs();
+        document.querySelectorAll('.cu-chapter').forEach(ch => setChapter(ch, false));
     });
     document.getElementById('cuCollapseAll')?.addEventListener('click', () => {
-        document.querySelectorAll('.cu-chapter').forEach(ch => ch.classList.add('collapsed'));
-        savePrefs();
+        document.querySelectorAll('.cu-chapter').forEach(ch => setChapter(ch, true));
     });
     /* Column collapse / expand (the "+" modal button is excluded; chevron toggles) */
     document.querySelectorAll('[data-col-toggle]').forEach(head => {
@@ -1172,7 +1205,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (p.chapters) {
                 Object.entries(p.chapters).forEach(([sectionId, isCollapsed]) => {
                     const ch = document.querySelector(`[data-chapter="${sectionId}"]`);
-                    if (ch) ch.classList.toggle('collapsed', !!isCollapsed);
+                    if (ch) setChapter(ch, !!isCollapsed);
                 });
             }
             if (p.collapsed) {
@@ -1934,8 +1967,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const ch = document.querySelector(`[data-chapter="${sectionId}"]`);
         if (!ch) return;
         if (ch.classList.contains('collapsed')) {
-            ch.classList.remove('collapsed');
-            savePrefs();
+            setChapter(ch, false);
         }
         const form = ch.querySelector('[data-ch-quickform]');
         if (!form) return;
