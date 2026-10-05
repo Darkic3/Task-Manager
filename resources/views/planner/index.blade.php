@@ -1018,24 +1018,114 @@
     }
     .pl-qa-actions button[type="submit"]:hover{background:#6d28d9;}
 
-    /* Week grid */
-    .pl-week{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px;}
-    @media(max-width:1100px){ .pl-week{grid-template-columns:repeat(7,minmax(160px,1fr));} }
-    .pl-day{background:white;border:1px solid #e3e4e8;border-radius:10px;overflow:hidden;min-height:140px;}
-    .pl-day.is-today{border-color:#c4b5fd;box-shadow:0 0 0 2px rgba(124,58,237,.12);}
-    .pl-day-head{
-        display:flex;align-items:center;justify-content:space-between;
-        padding:9px 12px;background:#fafbfc;border-bottom:1px solid #e3e4e8;
+    /* ── Week view redesign: clean, readable day columns ── */
+    .pw-grid{display:grid;grid-template-columns:repeat(7,minmax(215px,1fr));gap:12px;align-items:start;}
+    @media(max-width:1500px){ .pw-grid{grid-template-columns:repeat(7,minmax(200px,1fr));} }
+    @media(max-width:1100px){
+        .pw-grid{display:flex;overflow-x:auto;padding-bottom:12px;scroll-snap-type:x proximity;scrollbar-width:thin;}
+        .pw-grid .pw-day{flex:0 0 300px;scroll-snap-align:start;}
     }
-    .pl-day.is-today .pl-day-head{background:#faf5ff;}
-    .pl-day-name{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8a8f98;}
-    .pl-day-date{font-size:14px;font-weight:700;color:#1a1d23;}
-    .pl-day.is-today .pl-day-date{color:#7c3aed;}
-    .pl-day-count{font-size:11px;font-weight:700;color:#adb0b8;background:#f0f1f3;border-radius:20px;padding:1px 8px;}
-    .pl-day-body{padding:7px;display:flex;flex-direction:column;gap:6px;}
-    .pl-day .pl-task{padding:7px 9px;}
-    .pl-day .pl-task-title{font-size:12px;}
-    .pl-day-empty{padding:14px 8px;text-align:center;color:#c4c9d4;font-size:11px;}
+    @media(max-width:640px){ .pw-grid{display:flex;flex-direction:column;overflow:visible;} .pw-grid .pw-day{flex:none;} }
+    .pw-day{position:relative;background:#fff;border:1px solid #e6e8ee;border-radius:16px;display:flex;flex-direction:column;min-height:230px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
+    .pw-day.is-today{border-color:#c4b5fd;box-shadow:0 0 0 2px rgba(124,58,237,.14),0 8px 24px -12px rgba(124,58,237,.35);}
+    .pw-day-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;background:#fafbfc;border-bottom:1px solid #eef0f3;border-radius:16px 16px 0 0;}
+    .pw-day.is-today .pw-day-head{background:linear-gradient(135deg,#faf5ff,#f3edff);}
+    .pw-day-id{display:flex;align-items:center;gap:10px;min-width:0;}
+    .pw-day-num{display:grid;place-items:center;width:38px;height:38px;flex:none;border-radius:12px;background:#eef0f3;color:#3d4149;font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;}
+    .pw-day.is-today .pw-day-num{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;box-shadow:0 4px 12px rgba(124,58,237,.35);}
+    .pw-day-txt{display:flex;flex-direction:column;min-width:0;line-height:1.35;}
+    .pw-day-txt strong{font-size:13.5px;color:#1a1d23;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .pw-day-txt small{font-size:11px;color:#8a8f98;}
+    .pw-day-side{display:flex;align-items:center;gap:6px;flex:none;}
+    .pw-today-pill{font-size:10px;font-weight:800;color:#7c3aed;background:#ede9fe;border-radius:20px;padding:2px 9px;text-transform:uppercase;letter-spacing:.4px;}
+    .pw-day-count{font-size:11px;font-weight:700;color:#8a8f98;background:#eef0f3;border-radius:20px;padding:2px 9px;font-variant-numeric:tabular-nums;}
+    .pw-day-count.has-open{color:#7c3aed;background:#ede9fe;}
+    /* routines strip */
+    .pw-routines{padding:10px 14px 2px;border-bottom:1px dashed #eef0f3;}
+    .pw-routines-head{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#8a8f98;margin-bottom:6px;}
+    .pw-routines-head i{color:#7c3aed;}
+    .pw-routines-count{margin-inline-start:auto;background:#eef0f3;border-radius:12px;padding:1px 8px;font-variant-numeric:tabular-nums;}
+    .pw-routine-list{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+    .pw-rchip{display:flex;align-items:center;gap:7px;min-width:0;font-size:12px;color:#4b5059;background:#fafbfc;border:1px solid #f0f1f3;border-radius:8px;padding:5px 8px;}
+    .pw-rchip i{font-size:12px;flex:none;}
+    .pw-rchip-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .pw-rchip.is-done{color:#9aa0ab;background:transparent;border-color:transparent;}
+    .pw-rchip.is-done .pw-rchip-title{text-decoration:line-through;}
+    /* period sections */
+    .pw-groups{display:flex;flex-direction:column;gap:12px;padding:12px 14px 4px;}
+    .pw-group-head{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#6b7385;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+    .pw-group-head i{font-size:12px;}
+    .pw-group-count{background:#eef0f3;border-radius:12px;font-size:10px;padding:1px 7px;color:#8a8f98;font-variant-numeric:tabular-nums;}
+    .pw-group-add{margin-inline-start:auto;width:22px;height:22px;border-radius:7px;border:1px solid transparent;background:transparent;color:#b6bbc4;display:grid;place-items:center;cursor:pointer;opacity:0;transition:all .13s;font-size:11px;padding:0;}
+    .pw-group:hover .pw-group-add,.pw-group-add:focus-visible{opacity:1;}
+    .pw-group-add:hover{background:#ede9fe;color:#7c3aed;border-color:#ddd0fb;}
+    @media(hover:none){ .pw-group-add{opacity:1;} }
+    .pw-group-body{display:flex;flex-direction:column;gap:6px;min-height:2px;}
+    /* task card */
+    .pw-task{position:relative;display:flex;gap:9px;align-items:flex-start;background:#fff;border:1px solid #e8eaf0;border-inline-start:3px solid var(--pw-p,#94a3b8);border-radius:12px;padding:10px;transition:border-color .13s,box-shadow .13s;}
+    .pw-task:hover{border-color:#d9dce4;box-shadow:0 2px 8px rgba(15,23,42,.06);}
+    .pw-task.is-done .pw-task-title{text-decoration:line-through;color:#9aa0ab;}
+    @keyframes pwFlash{0%{background:#ede9fe;border-color:#c4b5fd;}100%{background:#fff;}}
+    .pw-task.pw-flash{animation:pwFlash 1.6s ease-out;}
+    .pw-check{flex:none;margin-top:1px;cursor:pointer;position:relative;}
+    .pw-check input{position:absolute;opacity:0;width:1px;height:1px;margin:0;}
+    .pw-check-box{display:grid;place-items:center;width:19px;height:19px;border-radius:50%;border:1.5px solid #c9ccd3;color:transparent;font-size:11px;transition:all .13s;background:#fff;}
+    .pw-check:hover .pw-check-box{border-color:#30a46c;}
+    .pw-check input:checked + .pw-check-box{background:#30a46c;border-color:#30a46c;color:#fff;}
+    .pw-check input:focus-visible + .pw-check-box{box-shadow:0 0 0 3px rgba(48,164,108,.25);}
+    .pw-task-main{flex:1;min-width:0;}
+    .pw-task-title{font-size:13.5px;font-weight:600;color:#1f2328;line-height:1.45;overflow-wrap:anywhere;}
+    .pw-task-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px;font-size:10.5px;color:#8a8f98;}
+    .pw-prio{font-weight:800;text-transform:uppercase;letter-spacing:.3px;background:#f2f3f5;border-radius:6px;padding:1px 7px;}
+    .pw-proj{display:inline-flex;align-items:center;gap:4px;min-width:0;}
+    .pw-proj i{font-size:10px;flex:none;}
+    .pw-est{display:inline-flex;align-items:center;gap:4px;}
+    .pw-est i{font-size:10px;}
+    .pw-task-acts{position:absolute;top:6px;inset-inline-end:6px;display:flex;gap:2px;background:rgba(255,255,255,.96);border:1px solid #eef0f3;border-radius:9px;padding:2px;opacity:0;transition:opacity .13s;box-shadow:0 2px 8px rgba(15,23,42,.08);}
+    .pw-task:hover .pw-task-acts,.pw-task-acts:focus-within{opacity:1;}
+    @media(hover:none){ .pw-task-acts{opacity:1;} }
+    .pw-act{width:24px;height:24px;border:none;border-radius:7px;background:transparent;color:#8a8f98;display:grid;place-items:center;cursor:pointer;font-size:12px;text-decoration:none;padding:0;font-family:inherit;}
+    .pw-act:hover{background:#f0f1f3;color:#1f2328;}
+    .pw-act-danger:hover{background:#fdebec;color:#e5484d;}
+    /* empty + footer add */
+    .pw-day-empty{display:flex;align-items:center;justify-content:center;gap:7px;margin:10px 14px 0;padding:16px 8px;border:1.5px dashed #e3e4e8;border-radius:12px;color:#b9bec7;font-size:12px;}
+    .pw-day-empty[hidden]{display:none;}
+    .pw-day-empty i{font-size:14px;}
+    .pw-day-foot{margin-top:auto;padding:10px 14px 14px;}
+    .pw-add{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;border-radius:10px;border:1.5px dashed #d9d4ec;background:#fcfbff;color:#7c3aed;font-size:12.5px;font-weight:700;cursor:pointer;transition:all .13s;font-family:inherit;}
+    .pw-add:hover{background:#f5f0ff;border-color:#7c3aed;border-style:solid;box-shadow:0 0 0 3px rgba(124,58,237,.1);}
+    /* add popover */
+    .pw-pop{position:absolute;z-index:30;inset-inline:8px;bottom:8px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 20px 50px rgba(15,23,42,.22);padding:12px;animation:pwIn .15s ease-out;}
+    .pw-pop[hidden]{display:none;}
+    @keyframes pwIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+    .pw-pop-chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;}
+    .pw-pop-chips button{display:inline-flex;align-items:center;gap:4px;border:1px solid #e5e7eb;background:#fafbfc;color:#6b7385;border-radius:16px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;}
+    .pw-pop-chips button i{font-size:11px;}
+    .pw-pop-chips button.active{background:#ede9fe;border-color:#c4b5fd;color:#7c3aed;}
+    .pw-pop-new{display:flex;gap:6px;}
+    .pw-pop-new input{flex:1;min-width:0;border:1px solid #e3e4e8;border-radius:9px;padding:7px 10px;font-size:12.5px;outline:none;font-family:inherit;color:#1f2328;}
+    .pw-pop-new input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    .pw-pop-new button{flex:none;background:#7c3aed;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
+    .pw-pop-new button:hover{background:#6d28d9;}
+    .pw-pop-div{display:flex;align-items:center;gap:8px;margin:10px 0 8px;color:#b9bec7;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+    .pw-pop-div::before,.pw-pop-div::after{content:'';flex:1;height:1px;background:#eef0f3;}
+    .pw-pop-sec input[data-week-search]{width:100%;border:1px solid #e3e4e8;border-radius:9px;padding:7px 10px;font-size:12.5px;outline:none;font-family:inherit;color:#1f2328;box-sizing:border-box;}
+    .pw-pop-sec input[data-week-search]:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    .pw-pop-list{display:flex;flex-direction:column;gap:4px;margin-top:6px;max-height:180px;overflow-y:auto;}
+    .pw-backlog{display:flex;align-items:center;gap:7px;width:100%;text-align:start;border:1px solid #eef0f3;background:#fff;border-radius:9px;padding:7px 9px;cursor:pointer;font-family:inherit;transition:all .12s;box-sizing:border-box;}
+    .pw-backlog:hover{border-color:#c4b5fd;background:#faf5ff;}
+    .pw-backlog .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+    .pw-backlog .t{flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#1f2328;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .pw-backlog .p{font-size:10px;color:#8a8f98;flex:none;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .pw-pop-hint{font-size:11px;color:#b9bec7;text-align:center;padding:8px 4px 2px;}
+    /* floating move menu */
+    .pw-move{position:fixed;z-index:1200;min-width:200px;background:#fff;border:1px solid #e3e4e8;border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.2);padding:6px;animation:pwIn .13s ease-out;}
+    .pw-move[hidden]{display:none;}
+    .pw-move-title{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#8a8f98;padding:6px 10px 4px;}
+    .pw-move button{display:flex;align-items:center;gap:8px;width:100%;border:none;background:transparent;border-radius:8px;padding:8px 10px;font-size:12.5px;font-weight:600;color:#1f2328;cursor:pointer;font-family:inherit;text-align:start;box-sizing:border-box;}
+    .pw-move button:hover{background:#f5f0ff;color:#7c3aed;}
+    .pw-move button.current{color:#7c3aed;background:#f5f0ff;}
+    .pw-move button .d{margin-inline-start:auto;font-size:11px;color:#8a8f98;font-variant-numeric:tabular-nums;}
     /* ── Avoid confirm modal + persistent undo stack ── */
     #plAvoidUndoStack{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:1075;display:flex;flex-direction:column;gap:8px;align-items:center;}
     .pl-undo-bar{background:#1f2328;color:#fff;font-size:13px;padding:9px 14px;border-radius:10px;display:flex;align-items:center;gap:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);white-space:nowrap;}
@@ -1288,34 +1378,31 @@
             </div>
         @endif
     @else
-        {{-- Week view --}}
-        <div class="pl-week">
+        {{-- Week view: clean day columns with period sections + inline add --}}
+        @php
+            $weekDaysMeta = collect($days)->map(fn ($d) => [
+                'date' => $d['date']->toDateString(),
+                'label' => $isFa
+                    ? \Morilog\Jalali\Jalalian::fromCarbon($d['date'])->format('l')
+                    : $d['date']->format('D'),
+            ])->values();
+            $weekPeriodsMeta = collect(config('routines.periods', []))->map(fn ($p, $k) => [
+                'key' => $k, 'label' => __($p['label']), 'icon' => $p['icon'], 'color' => $p['color'],
+            ])->values();
+        @endphp
+        <div class="pw-grid" id="plWeek" data-week-days='@json($weekDaysMeta)' data-periods='@json($weekPeriodsMeta)'>
             @foreach($days as $day)
-                @php $dayDate = $day['date']; $isDayToday = $dayDate->isToday(); @endphp
-                <div class="pl-day {{ $isDayToday ? 'is-today' : '' }}">
-                    <div class="pl-day-head">
-                        <div>
-                            <div class="pl-day-name">{{ $isFa ? \Morilog\Jalali\Jalalian::fromCarbon($dayDate)->format('l') : $dayDate->format('D') }}</div>
-                            <div class="pl-day-date">{{ $isFa ? app_date($dayDate, 'j F') : $dayDate->format('M j') }}</div>
-                        </div>
-                        <span class="pl-day-count" title="Routines done">{{ $day['routineDone'] }}/{{ $day['routineTotal'] }}</span>
-                    </div>
-                    <div class="pl-day-body">
-                        @if(count($day['routines']))
-                            @foreach($day['routines'] as $routine)
-                                @include('planner._routine-row', ['routine' => $routine, 'routineDate' => $dayDate, 'count' => false])
-                            @endforeach
-                        @endif
-                        @forelse($day['tasks'] as $task)
-                            @include('planner._task-row', ['task' => $task, 'hideDue' => true, 'count' => false])
-                        @empty
-                            @if(!count($day['routines']))
-                                <div class="pl-day-empty">—</div>
-                            @endif
-                        @endforelse
-                    </div>
-                </div>
+                @include('planner._week-day', [
+                    'day' => $day,
+                    'isFa' => $isFa,
+                    'isDayToday' => $day['date']->isToday(),
+                ])
             @endforeach
+        </div>
+        {{-- Floating move-to-day menu (one instance for the whole week) --}}
+        <div class="pw-move" id="pwMoveMenu" hidden>
+            <div class="pw-move-title">{{ __('Move to') }}</div>
+            <div data-move-days></div>
         </div>
     @endif
 
@@ -1572,6 +1659,7 @@
                 row.dataset.completed = json.completed ? '1' : '0';
             });
             refreshCounters();
+            if (window.pwWeekRefresh) { try { window.pwWeekRefresh(id); } catch (e) {} }
             if (!silent) {
                 plShowToast(json.completed ? @json(__('Done ✓')) : @json(__('Reopened')), () => {
                     document.querySelectorAll('[data-task-item][data-id="' + id + '"] .pl-check input')
@@ -4140,6 +4228,359 @@
             /* silent */
         }
     }
+
+    /* ── Week view: clean planning (add / move / remove per day) ── */
+    (function initWeekView() {
+        const grid = document.getElementById('plWeek');
+        if (!grid) return;
+
+        const QUICK_ADD_URL = @json(route('planner.quick-add.task'));
+        const BACKLOG_URL = @json(route('planner.backlog'));
+        const SCHEDULE_URL = id => `{{ route('planner.tasks.schedule', ['task' => '__ID__']) }}`.replace('__ID__', id);
+        let PW_PERIODS = [];
+        try { PW_PERIODS = JSON.parse(grid.dataset.periods || '[]'); } catch (e) { PW_PERIODS = []; }
+        const PW_ANYTIME = { key: 'anytime', label: @json(__('Anytime')), icon: 'bi-inbox', color: '#64748b' };
+        const PW_ORDER = PW_PERIODS.map(p => p.key).concat(['anytime']);
+        const PW_PRIO = { high: '#dc2626', medium: '#d97706', low: '#16a34a' };
+        const PW_TXT = {
+            added: @json(__('Task added ✓')),
+            scheduled: @json(__('Scheduled ✓')),
+            moved: @json(__('Moved ✓')),
+            removed: @json(__('Removed from the week')),
+            errCreate: @json(__('Could not create task')),
+            errMove: @json(__('Could not move task')),
+            errLoad: @json(__('Could not load inbox')),
+            inboxEmpty: @json(__('Inbox is empty — nice!')),
+        };
+        const NUMFMT = new Intl.NumberFormat(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US');
+
+        function dayEl(dateISO) { return grid.querySelector('[data-week-day="' + dateISO + '"]'); }
+        function weekDays() { try { return JSON.parse(grid.dataset.weekDays || '[]'); } catch (e) { return []; } }
+        function pwMeta(key) { return key === 'anytime' ? PW_ANYTIME : (PW_PERIODS.find(p => p.key === key) || PW_ANYTIME); }
+
+        function pwRefreshDay(day) {
+            if (!day) return;
+            const open = day.querySelectorAll('[data-week-task]:not(.is-done)').length;
+            const badge = day.querySelector('[data-day-open]');
+            if (badge) {
+                badge.textContent = NUMFMT.format(open);
+                badge.classList.toggle('has-open', open > 0);
+            }
+            day.querySelectorAll('[data-period-group]').forEach(g => {
+                const n = g.querySelectorAll('[data-week-task]').length;
+                const c = g.querySelector('.pw-group-count');
+                if (c) c.textContent = NUMFMT.format(n);
+                if (n === 0) g.remove();
+            });
+            const empty = day.querySelector('[data-day-empty]');
+            if (empty) empty.hidden = day.querySelector('[data-week-task]') !== null;
+        }
+
+        function buildGroup(key, dateISO) {
+            const m = pwMeta(key);
+            const g = document.createElement('div');
+            g.className = 'pw-group';
+            g.dataset.periodGroup = key;
+            g.innerHTML = '<div class="pw-group-head"><i class="bi ' + m.icon + '" style="color:' + m.color + ';"></i>'
+                + '<span class="pw-group-name"></span><span class="pw-group-count">0</span>'
+                + '<button type="button" class="pw-group-add" data-week-add data-date="' + dateISO + '" data-period="' + key + '"><i class="bi bi-plus-lg"></i></button></div>'
+                + '<div class="pw-group-body" data-period-body="' + key + '"></div>';
+            g.querySelector('.pw-group-name').textContent = m.label;
+            return g;
+        }
+
+        function pwInsertTask(dateISO, groupKey, html) {
+            const day = dayEl(dateISO);
+            if (!day || !html) return null;
+            let group = day.querySelector('[data-period-group="' + groupKey + '"]');
+            if (!group) {
+                group = buildGroup(groupKey, dateISO);
+                const groups = day.querySelector('[data-day-groups]');
+                const idx = PW_ORDER.indexOf(groupKey);
+                let placed = false;
+                groups.querySelectorAll(':scope > [data-period-group]').forEach(ex => {
+                    if (!placed && PW_ORDER.indexOf(ex.dataset.periodGroup) > idx) {
+                        groups.insertBefore(group, ex);
+                        placed = true;
+                    }
+                });
+                if (!placed) groups.appendChild(group);
+            }
+            const tmp = document.createElement('template');
+            tmp.innerHTML = html.trim();
+            const node = tmp.content.firstElementChild;
+            if (!node) return null;
+            node.classList.add('pw-flash');
+            group.querySelector('[data-period-body]').appendChild(node);
+            pwRefreshDay(day);
+            return node;
+        }
+
+        function pwRemoveTaskEverywhere(id, except) {
+            document.querySelectorAll('[data-week-task][data-id="' + id + '"]').forEach(n => {
+                if (n === except) return;
+                const d = n.closest('[data-week-day]');
+                n.remove();
+                if (d) pwRefreshDay(d);
+            });
+        }
+
+        /* ── Add popover ── */
+        function closePops() {
+            grid.querySelectorAll('[data-week-pop]').forEach(p => { p.hidden = true; });
+        }
+        function openPop(dayISO, period) {
+            closePops();
+            closeMove();
+            const day = dayEl(dayISO);
+            if (!day) return;
+            const pop = day.querySelector('[data-week-pop]');
+            if (!pop) return;
+            pop.dataset.date = dayISO;
+            pop.dataset.period = period || '';
+            pop.querySelectorAll('[data-wp-period]').forEach(b => {
+                b.classList.toggle('active', (b.dataset.wpPeriod || '') === (period || ''));
+            });
+            pop.hidden = false;
+            loadBacklog(pop, '');
+            setTimeout(() => pop.querySelector('[data-week-title]')?.focus(), 30);
+        }
+
+        async function loadBacklog(pop, q) {
+            const list = pop.querySelector('[data-week-backlog]');
+            if (!list) return;
+            try {
+                const res = await plFetch(BACKLOG_URL + (q ? '?q=' + encodeURIComponent(q) : ''), {
+                    headers: { 'Accept': 'application/json' },
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const json = await res.json();
+                list.innerHTML = '';
+                if (!json.tasks || !json.tasks.length) {
+                    list.innerHTML = '<div class="pw-pop-hint"></div>';
+                    list.firstElementChild.textContent = PW_TXT.inboxEmpty;
+                    return;
+                }
+                json.tasks.forEach(t => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'pw-backlog';
+                    b.dataset.id = t.id;
+                    b.title = t.title;
+                    b.innerHTML = '<span class="dot"></span><span class="t"></span><span class="p"></span>';
+                    b.querySelector('.dot').style.background = PW_PRIO[t.priority] || '#94a3b8';
+                    b.querySelector('.t').textContent = t.title;
+                    b.querySelector('.p').textContent = t.project || '';
+                    list.appendChild(b);
+                });
+            } catch (e) {
+                console.error('[Week] backlog failed', e);
+                list.innerHTML = '<div class="pw-pop-hint"></div>';
+                list.firstElementChild.textContent = PW_TXT.errLoad;
+            }
+        }
+
+        async function createWeekTask(pop) {
+            const input = pop.querySelector('[data-week-title]');
+            const title = input.value.trim();
+            if (!title || pop.dataset.busy) return;
+            pop.dataset.busy = '1';
+            try {
+                const res = await plFetch(QUICK_ADD_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({
+                        title,
+                        date: pop.dataset.date,
+                        time_period: pop.dataset.period || null,
+                        view: 'week',
+                    }),
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const json = await res.json();
+                pwInsertTask(json.due_date || pop.dataset.date, json.group || 'anytime', json.html);
+                input.value = '';
+                input.focus();
+                plShowToast(PW_TXT.added);
+            } catch (e) {
+                console.error('[Week] quick-add failed', e);
+                plShowToast(PW_TXT.errCreate);
+            } finally {
+                delete pop.dataset.busy;
+            }
+        }
+
+        async function scheduleExisting(btn, dateISO, period) {
+            const id = btn.dataset.id;
+            if (!id || btn.dataset.busy) return;
+            btn.dataset.busy = '1';
+            try {
+                const res = await plFetch(SCHEDULE_URL(id), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ due_date: dateISO, time_period: period || null }),
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const json = await res.json();
+                const node = pwInsertTask(json.due_date, json.group || 'anytime', json.html);
+                pwRemoveTaskEverywhere(id, node);
+                btn.remove();
+                plShowToast(PW_TXT.scheduled);
+            } catch (e) {
+                console.error('[Week] schedule failed', e);
+                plShowToast(PW_TXT.errMove);
+                delete btn.dataset.busy;
+            }
+        }
+
+        /* ── Move menu ── */
+        const moveMenu = document.getElementById('pwMoveMenu');
+        let moveId = null;
+        function closeMove() {
+            if (moveMenu) moveMenu.hidden = true;
+            moveId = null;
+        }
+        function openMove(btn) {
+            if (!moveMenu) return;
+            closePops();
+            moveId = btn.dataset.id;
+            const from = btn.dataset.date;
+            const box = moveMenu.querySelector('[data-move-days]');
+            box.innerHTML = '';
+            weekDays().forEach(d => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                if (d.date === from) b.classList.add('current');
+                b.innerHTML = '<span class="t"></span><span class="d"></span>';
+                b.querySelector('.t').textContent = d.label;
+                b.querySelector('.d').textContent = String(d.date).slice(5);
+                b.addEventListener('click', () => moveTaskTo(d.date));
+                box.appendChild(b);
+            });
+            const r = btn.getBoundingClientRect();
+            moveMenu.hidden = false;
+            const w = 220, h = Math.min(320, 60 + weekDays().length * 38);
+            moveMenu.style.minWidth = w + 'px';
+            moveMenu.style.left = Math.max(12, Math.min(r.left, window.innerWidth - w - 12)) + 'px';
+            moveMenu.style.top = Math.max(12, Math.min(r.bottom + 6, window.innerHeight - h - 12)) + 'px';
+        }
+        async function moveTaskTo(dateISO) {
+            const id = moveId;
+            closeMove();
+            if (!id) return;
+            try {
+                const res = await plFetch(SCHEDULE_URL(id), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ due_date: dateISO }),
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const json = await res.json();
+                const node = pwInsertTask(json.due_date, json.group || 'anytime', json.html);
+                pwRemoveTaskEverywhere(id, node);
+                plShowToast(PW_TXT.moved);
+            } catch (e) {
+                console.error('[Week] move failed', e);
+                plShowToast(PW_TXT.errMove);
+            }
+        }
+
+        async function removeWeekTask(btn) {
+            const id = btn.dataset.id;
+            const node = btn.closest('[data-week-task]');
+            if (!id || !node || btn.dataset.busy) return;
+            btn.dataset.busy = '1';
+            try {
+                const res = await plFetch(POSTPONE_URL(id), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ action: 'clear' }),
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const day = node.closest('[data-week-day]');
+                node.remove();
+                pwRefreshDay(day);
+                plShowToast(PW_TXT.removed);
+            } catch (e) {
+                console.error('[Week] remove failed', e);
+                plShowToast(PW_TXT.errMove);
+                delete btn.dataset.busy;
+            }
+        }
+
+        /* ── Wiring ── */
+        grid.addEventListener('click', e => {
+            const add = e.target.closest('[data-week-add]');
+            if (add) {
+                e.stopPropagation();
+                openPop(add.dataset.date, add.dataset.period || '');
+                return;
+            }
+            const chip = e.target.closest('[data-wp-period]');
+            if (chip) {
+                const pop = chip.closest('[data-week-pop]');
+                pop.dataset.period = chip.dataset.wpPeriod || '';
+                pop.querySelectorAll('[data-wp-period]').forEach(b => b.classList.toggle('active', b === chip));
+                return;
+            }
+            const create = e.target.closest('[data-week-create]');
+            if (create) {
+                createWeekTask(create.closest('[data-week-pop]'));
+                return;
+            }
+            const bl = e.target.closest('[data-week-backlog] .pw-backlog');
+            if (bl) {
+                const pop = bl.closest('[data-week-pop]');
+                scheduleExisting(bl, pop.dataset.date, pop.dataset.period || null);
+                return;
+            }
+            const mv = e.target.closest('[data-week-move]');
+            if (mv) {
+                e.stopPropagation();
+                openMove(mv);
+                return;
+            }
+            const rm = e.target.closest('[data-week-remove]');
+            if (rm) {
+                removeWeekTask(rm);
+                return;
+            }
+        });
+        grid.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && e.target.matches?.('[data-week-title]')) {
+                e.preventDefault();
+                createWeekTask(e.target.closest('[data-week-pop]'));
+            } else if (e.key === 'Escape') {
+                closePops();
+            }
+        });
+        let searchT = null;
+        grid.addEventListener('input', e => {
+            if (!e.target.matches?.('[data-week-search]')) return;
+            const pop = e.target.closest('[data-week-pop]');
+            const q = e.target.value.trim();
+            clearTimeout(searchT);
+            searchT = setTimeout(() => loadBacklog(pop, q), 250);
+        });
+        document.addEventListener('click', e => {
+            if (!e.target.closest?.('[data-week-pop]') && !e.target.closest?.('[data-week-add]')) closePops();
+            if (!e.target.closest?.('#pwMoveMenu') && !e.target.closest?.('[data-week-move]')) closeMove();
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                closePops();
+                closeMove();
+            }
+        });
+
+        grid.querySelectorAll('[data-week-day]').forEach(pwRefreshDay);
+
+        /* Refresh a week day's counters after a task toggle (called from toggleTask). */
+        window.pwWeekRefresh = function (id) {
+            const row = grid.querySelector('[data-week-task][data-id="' + id + '"]');
+            if (row) pwRefreshDay(row.closest('[data-week-day]'));
+        };
+    })();
 
     plInitActiveTimer();
 })();

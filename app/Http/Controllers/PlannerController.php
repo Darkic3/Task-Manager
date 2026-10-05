@@ -188,6 +188,7 @@ class PlannerController extends Controller
         $violationMap = $this->preloadRoutineViolations($user->id, $routines, $rangeStart, $end);
         $this->preloadRoutineNotes($user->id, $routines, $start, $end);
 
+        $periodOrder = array_keys(config('routines.periods', []));
         $days = [];
         for ($i = 0; $i < 7; $i++) {
             $day = $start->copy()->addDays($i);
@@ -205,9 +206,37 @@ class PlannerController extends Controller
             $todayRoutines = $todayRoutines
                 ->sortBy(fn ($r) => $r->sortKey())
                 ->values();
+            // Group tasks by time-of-day section (periods first, Anytime last).
+            $byPeriod = $dayTasks->groupBy(fn ($t) => $t->time_period ?: 'anytime');
+            $groups = [];
+            foreach ($periodOrder as $key) {
+                if (! $byPeriod->has($key)) {
+                    continue;
+                }
+                $p = config("routines.periods.{$key}");
+                $groups[] = [
+                    'key' => $key,
+                    'label' => $p['label'],
+                    'icon' => $p['icon'],
+                    'color' => $p['color'],
+                    'tasks' => $this->sortByPriority($byPeriod->get($key)->values()),
+                ];
+            }
+            if ($byPeriod->has('anytime')) {
+                $groups[] = [
+                    'key' => 'anytime',
+                    'label' => 'Anytime',
+                    'icon' => 'bi-inbox',
+                    'color' => '#64748b',
+                    'tasks' => $this->sortByPriority($byPeriod->get('anytime')->values()),
+                ];
+            }
             $days[] = [
                 'date' => $day,
                 'tasks' => $this->sortByPriority($dayTasks->values()),
+                'groups' => $groups,
+                'openCount' => $dayTasks->where('status', '!=', 'completed')->count(),
+                'doneCount' => $dayTasks->where('status', 'completed')->count(),
                 'routines' => $todayRoutines,
                 'routineDone' => $dayRoutines['done'],
                 'routineTotal' => $dayRoutines['total'],
@@ -339,6 +368,69 @@ class PlannerController extends Controller
             'action' => $action,
             'due_date' => $task->due_date,
             'previous_due_date' => $previous,
+        ]);
+    }
+
+    /**
+     * Schedule an existing task onto any day (+ optional time section).
+     * Powers the week view "add existing / move to day" flows.
+     */
+    public function scheduleTask(Request $request, Task $task)
+    {
+        abort_if($task->user_id !== Auth::id(), 403);
+
+        $periodKeys = array_keys(config('routines.periods', []));
+        $data = $request->validate([
+            'due_date' => 'required|date',
+            'time_period' => 'nullable|in:'.implode(',', $periodKeys),
+        ]);
+
+        $task->due_date = Carbon::parse($data['due_date'])->toDateString();
+        if (array_key_exists('time_period', $data)) {
+            $task->time_period = $data['time_period'];
+        }
+        $task->save();
+        $task->load('project:id,name');
+
+        return response()->json([
+            'ok' => true,
+            'id' => $task->id,
+            'due_date' => $task->due_date->toDateString(),
+            'group' => $task->time_period ?: 'anytime',
+            'html' => view('planner._week-task', [
+                'task' => $task,
+                'currentDate' => $task->due_date->toDateString(),
+            ])->render(),
+        ]);
+    }
+
+    /**
+     * Unscheduled inbox: open tasks with no due date, searchable.
+     * Feeds the week view "add existing task" picker.
+     */
+    public function backlog(Request $request)
+    {
+        $user = Auth::user();
+        $q = trim((string) $request->input('q', ''));
+
+        $query = Task::where('user_id', $user->id)
+            ->where('status', '!=', 'completed')
+            ->whereNull('due_date')
+            ->with('project:id,name');
+        if ($q !== '') {
+            $query->where('title', 'like', "%{$q}%");
+        }
+        $tasks = $query->orderByDesc('id')->limit(30)->get();
+
+        return response()->json([
+            'ok' => true,
+            'tasks' => $tasks->map(fn ($t) => [
+                'id' => $t->id,
+                'title' => $t->title,
+                'project' => $t->project?->name,
+                'priority' => $t->priority,
+                'time_period' => $t->time_period,
+            ])->values(),
         ]);
     }
 
@@ -1478,11 +1570,16 @@ class PlannerController extends Controller
         ]);
         $task->load('project:id,name');
 
+        $weekView = $request->input('view') === 'week';
+
         return response()->json([
             'ok' => true,
             'task' => ['id' => $task->id, 'title' => $task->title],
             'group' => $task->time_period ?: 'anytime',
-            'html' => view('planner._task-row', ['task' => $task, 'count' => true, 'postpone' => 'tomorrow', 'hideDue' => true, 'draggable' => true])->render(),
+            'due_date' => $task->due_date->toDateString(),
+            'html' => $weekView
+                ? view('planner._week-task', ['task' => $task, 'currentDate' => $date->toDateString()])->render()
+                : view('planner._task-row', ['task' => $task, 'count' => true, 'postpone' => 'tomorrow', 'hideDue' => true, 'draggable' => true])->render(),
         ], 201);
     }
 

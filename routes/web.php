@@ -158,6 +158,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/planner/quick-add/task', [PlannerController::class, 'quickAddTask'])->name('planner.quick-add.task');
     Route::post('/planner/quick-add/routine', [PlannerController::class, 'quickAddRoutine'])->name('planner.quick-add.routine');
     Route::post('/planner/tasks/{task}/postpone', [PlannerController::class, 'postponeTask'])->name('planner.tasks.postpone');
+    Route::post('/planner/tasks/{task}/schedule', [PlannerController::class, 'scheduleTask'])->name('planner.tasks.schedule');
+    Route::get('/planner/backlog', [PlannerController::class, 'backlog'])->name('planner.backlog');
     Route::post('/planner/tasks/{task}/fail', [PlannerController::class, 'failTask'])->name('planner.tasks.fail');
     Route::post('/planner/tasks/{task}/unfail', [PlannerController::class, 'unfailTask'])->name('planner.tasks.unfail');
     Route::post('/planner/tasks/{task}/title', [PlannerController::class, 'renameTask'])->name('planner.tasks.title');
