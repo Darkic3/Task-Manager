@@ -85,16 +85,40 @@
             </div>
         </div>
 
-        <div class="pf-meter">
-            <div class="pf-meter-head">
-                <span class="pf-meter-label"><i class="bi bi-speedometer2"></i> {{ __('Profile completeness') }}</span>
-                <span class="pf-meter-value pf-num">{{ app_num($completeness) }}%</span>
+        @if($completeness < 100)
+            @php
+                $missingFields = [];
+                if (!$user->avatar)   $missingFields[] = __('Profile photo');
+                if (!$user->phone)    $missingFields[] = __('Phone');
+                if (!$user->location) $missingFields[] = __('Location');
+                if (!$user->website)  $missingFields[] = __('Website');
+                if (!$user->bio)      $missingFields[] = __('Bio');
+            @endphp
+            <div class="pf-meter">
+                <div class="pf-meter-head">
+                    <span class="pf-meter-label">
+                        <i class="bi bi-stars"></i>
+                        {{ __('Complete your profile') }}
+                        <small>{{ __('Only :count left to reach 100%', ['count' => app_num(count($missingFields))]) }}</small>
+                    </span>
+                    <span class="pf-meter-value pf-num">{{ app_num($completeness) }}%</span>
+                </div>
+                <div class="pf-meter-track" role="progressbar" aria-valuenow="{{ $completeness }}" aria-valuemin="0"
+                     aria-valuemax="100" aria-label="{{ __('Profile completeness') }}">
+                    <div class="pf-meter-fill" data-w="{{ $completeness }}" style="width: {{ $completeness }}%"></div>
+                </div>
+                <div class="pf-meter-foot">
+                    <span class="pf-meter-missing">
+                        <i class="bi bi-list-check"></i>
+                        {{ __('Still missing') }}: {{ implode($isFa ? '، ' : ', ', $missingFields) }}
+                    </span>
+                    <a href="{{ route('profile.edit') }}" class="pf-meter-cta">
+                        {{ __('Complete now') }}
+                        <i class="bi {{ $isFa ? 'bi-arrow-left' : 'bi-arrow-right' }}"></i>
+                    </a>
+                </div>
             </div>
-            <div class="pf-meter-track" role="progressbar" aria-valuenow="{{ $completeness }}" aria-valuemin="0"
-                 aria-valuemax="100" aria-label="{{ __('Profile completeness') }}">
-                <div class="pf-meter-fill" style="width: {{ max($completeness, 4) }}%"></div>
-            </div>
-        </div>
+        @endif
     </section>
 
 @include('profile._tabs')
@@ -364,3 +388,17 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var fill = document.querySelector('.pf-meter-fill');
+    if (!fill || !fill.dataset.w) return;
+    var target = fill.dataset.w + '%';
+    fill.style.width = '0%';
+    requestAnimationFrame(function () {
+        requestAnimationFrame(function () { fill.style.width = target; });
+    });
+});
+</script>
+@endpush
