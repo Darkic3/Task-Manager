@@ -242,34 +242,96 @@
     .cu-ttree-actions{display:flex;gap:4px;}
     .cu-ttree-children{background:#fcfcfd;}
 
-    /* ─── Bulk select ─── */
+    /* ─── Bulk select — modern, professional ─── */
     .cu-select-box{
-        display:none;accent-color:#7c3aed;width:15px;height:15px;cursor:pointer;
-        flex-shrink:0;margin:3px 0 0;padding:0;
+        appearance:none;-webkit-appearance:none;
+        width:18px;height:18px;min-width:18px;min-height:18px;
+        border:1.6px solid #d1d5db;border-radius:5px;background:#fff;
+        display:none;place-items:center;cursor:pointer;flex-shrink:0;
+        margin:2px 0 0;padding:0;transition:all .15s;position:relative;
     }
-    body.cu-selecting .cu-select-box{display:block;}
-    body.cu-selecting .cu-task-card, body.cu-selecting .cu-ch-row{cursor:default;}
-    #cuSelectMode.on{border-color:#7c3aed;color:#7c3aed;background:#f7f5ff;}
+    .cu-select-box::after{
+        content:'';position:absolute;inset:0;display:grid;place-items:center;
+        font-size:11px;font-weight:900;color:#fff;opacity:0;transform:scale(.6);transition:all .13s;
+    }
+    .cu-select-box:checked{background:#7c3aed;border-color:#7c3aed;}
+    .cu-select-box:checked::after{content:'\2713';opacity:1;transform:scale(1);}
+    .cu-select-box:focus-visible{outline:2px solid #7c3aed;outline-offset:1px;}
+    body.cu-selecting .cu-select-box{display:grid;}
+    /* hover reveal even without selecting mode — subtle hint */
+    .cu-task-card:hover .cu-select-box,
+    .cu-ch-row:hover .cu-select-box,
+    .cu-list-row:hover .cu-select-box,
+    .cu-ttree-row:hover .cu-select-box{display:grid;}
+    body.cu-selecting .cu-task-card, body.cu-selecting .cu-ch-row,
+    body.cu-selecting .cu-list-row, body.cu-selecting .cu-ttree-row{cursor:default;}
+    /* selected highlight — works with :has() in modern browsers, fallback via .is-selected class */
+    .cu-task-card:has(.cu-select-box:checked), .cu-task-card.is-selected,
+    .cu-ch-row:has(.cu-select-box:checked), .cu-ch-row.is-selected,
+    .cu-list-row:has(.cu-select-box:checked), .cu-list-row.is-selected,
+    .cu-ttree-row:has(.cu-select-box:checked){background:#f5f3ff !important;border-color:#c4b5fd !important;box-shadow:0 0 0 2px rgba(124,58,237,.08);}
+    .cu-ttree-row.is-selected{background:#f5f3ff !important;}
+    #cuSelectMode{
+        position:relative;display:inline-flex;align-items:center;gap:6px;
+        border:1.5px solid #e5e7eb;background:#fff;color:#4b5059;
+        transition:all .15s;
+    }
+    #cuSelectMode:hover{border-color:#c4b5fd;color:#7c3aed;background:#faf5ff;}
+    #cuSelectMode.on{border-color:#7c3aed;color:#fff;background:#7c3aed;box-shadow:0 2px 8px rgba(124,58,237,.25);}
+    #cuSelectMode .cu-select-badge{
+        display:none;min-width:18px;height:18px;padding:0 5px;border-radius:999px;
+        background:#fff;color:#7c3aed;font-size:11px;font-weight:800;align-items:center;justify-content:center;
+    }
+    #cuSelectMode.on .cu-select-badge{display:inline-flex;}
+    /* floating bulk bar — pill, glass, animated */
     #cuBulkBar{
-        position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:1070;
-        background:#1f2328;color:white;border-radius:10px;padding:8px 10px 8px 16px;
-        display:flex;align-items:center;gap:8px;font-size:12.5px;
-        box-shadow:0 8px 24px rgba(0,0,0,.25);white-space:nowrap;
+        position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px) scale(.98);
+        z-index:1070;background:rgba(24,26,31,.96);backdrop-filter:blur(14px) saturate(1.2);
+        color:#fff;border:1px solid rgba(255,255,255,.08);border-radius:999px;
+        padding:6px 6px 6px 14px;display:flex;align-items:center;gap:6px;font-size:13px;
+        box-shadow:0 12px 32px rgba(0,0,0,.28), 0 2px 8px rgba(0,0,0,.18);
+        white-space:nowrap;opacity:0;pointer-events:none;transition:all .22s cubic-bezier(.16,1,.3,1);
     }
-    #cuBulkCount{font-weight:600;margin-right:2px;}
+    #cuBulkBar.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0) scale(1);}
+    .cu-bulk-count{
+        display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;
+        padding-right:10px;border-right:1px solid rgba(255,255,255,.12);margin-right:2px;
+    }
+    .cu-bulk-count-num{
+        min-width:26px;height:26px;padding:0 7px;border-radius:999px;background:#7c3aed;color:#fff;
+        display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;
+    }
+    .cu-bulk-label{color:#e5e7eb;font-weight:600;font-size:12px;}
+    #cuBulkBar .cu-bulk-sep{width:1px;height:22px;background:rgba(255,255,255,.1);margin:0 2px;}
+    #cuBulkBar .cu-bulk-actions{display:flex;align-items:center;gap:6px;}
     #cuBulkBar select{
-        background:#2e333b;color:white;border:1px solid #4b5059;border-radius:6px;
-        font-size:12px;padding:4px 6px;outline:none;cursor:pointer;
+        background:#2e333b;color:#fff;border:1px solid #3f444e;border-radius:999px;
+        font-size:12px;font-weight:600;padding:7px 10px;outline:none;cursor:pointer;min-width:110px;
     }
-    #cuBulkBar button{
-        border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;
-        cursor:pointer;background:#7c3aed;color:white;
+    #cuBulkBar select:focus{border-color:#7c3aed;}
+    .cu-bulk-btn{
+        border:none;border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:700;
+        cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap;
     }
-    #cuBulkBar button:hover{background:#6d28d9;}
-    #cuBulkBar button.danger{background:#e5484d;}
-    #cuBulkBar button.danger:hover{background:#c93338;}
-    #cuBulkBar #cuBulkCancel{background:transparent;color:#c1c4cc;padding:5px 8px;}
-    #cuBulkBar #cuBulkCancel:hover{color:white;background:transparent;}
+    .cu-bulk-btn.primary{background:#fff;color:#1f2328;}
+    .cu-bulk-btn.primary:hover{background:#f3f0ff;color:#6d28d9;transform:translateY(-1px);}
+    .cu-bulk-btn.ghost{background:rgba(255,255,255,.08);color:#e5e7eb;}
+    .cu-bulk-btn.ghost:hover{background:rgba(255,255,255,.14);color:#fff;}
+    .cu-bulk-btn.danger{background:#e5484d;color:#fff;}
+    .cu-bulk-btn.danger:hover{background:#c93338;transform:translateY(-1px);}
+    .cu-bulk-btn:active{transform:scale(.97);}
+    #cuBulkCancel{width:32px;height:32px;border-radius:50%;padding:0;background:rgba(255,255,255,.08);color:#c1c4cc;display:inline-flex;align-items:center;justify-content:center;}
+    #cuBulkCancel:hover{background:rgba(255,255,255,.14);color:#fff;}
+    #cuBulkSelectAll, #cuBulkClear{
+        background:transparent;color:#a1a6b3;border:none;font-size:11px;font-weight:700;cursor:pointer;padding:4px 6px;border-radius:6px;
+    }
+    #cuBulkSelectAll:hover, #cuBulkClear:hover{color:#fff;background:rgba(255,255,255,.08);}
+    @media(max-width:640px){
+        #cuBulkBar{left:12px;right:12px;transform:translateY(16px) scale(.98);border-radius:16px;flex-wrap:wrap;justify-content:center;padding:10px 12px;}
+        #cuBulkBar.show{transform:translateY(0) scale(1);}
+        .cu-bulk-count{border-right:none;padding-right:0;}
+        .cu-bulk-sep{display:none;}
+    }
 
     /* ─── Chapters view ─── */    .cu-chapters-view{display:none;flex-direction:column;gap:10px;}
     .cu-chapter{background:white;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}
@@ -637,7 +699,7 @@
         <div class="cu-toolbar-right">
             <span style="font-size:12px;color:#8b8d98;">{{ $totalCnt }} {{ __('Tasks') }}</span>
             <button class="cu-mini-btn" id="cuSelectMode" title="{{ __('Select multiple tasks') }}">
-                <i class="bi bi-check2-square"></i> {{ __('Select') }}
+                <i class="bi bi-check2-square"></i> <span>{{ __('Select') }}</span> <span class="cu-select-badge" id="cuSelectBadge">0</span>
             </button>
             <button class="cu-btn-new" data-bs-toggle="modal" data-bs-target="#createTaskModal">
                 <i class="bi bi-plus-lg"></i> {{ __('New Task') }}
@@ -959,20 +1021,28 @@
     </div>
 </div>
 
-{{-- Bulk action bar --}}
-<div id="cuBulkBar" style="display:none;">
-    <span id="cuBulkCount">0 {{ __('selected') }}</span>
-    <select id="cuBulkStatus" title="{{ __('Move to status') }}">
-        <option value="to_do">{{ __('To Do') }}</option>
-        <option value="in_progress">{{ __('In Progress') }}</option>
-        <option value="on_hold">{{ __('On Hold') }}</option>
-        <option value="in_review">{{ __('In Review') }}</option>
-        <option value="completed">{{ __('Completed') }}</option>
-    </select>
-    <button id="cuBulkApply">{{ __('Move') }}</button>
-    <button id="cuBulkDone" title="{{ __('Mark selected as completed') }}">{{ __('Done') }} ✓</button>
-    <button id="cuBulkDelete" class="danger">{{ __('Delete') }}</button>
-    <button id="cuBulkCancel" title="{{ __('Cancel selection') }}">✕</button>
+{{-- Bulk action bar — modern floating pill --}}
+<div id="cuBulkBar" aria-live="polite">
+    <span class="cu-bulk-count">
+        <span class="cu-bulk-count-num" id="cuBulkCount">0</span>
+        <span class="cu-bulk-label">{{ __('selected') }}</span>
+    </span>
+    <button id="cuBulkSelectAll" type="button" title="{{ __('Select all visible') }}">{{ __('All') }}</button>
+    <button id="cuBulkClear" type="button" title="{{ __('Clear selection') }}">{{ __('Clear') }}</button>
+    <span class="cu-bulk-sep"></span>
+    <span class="cu-bulk-actions">
+        <button id="cuBulkDone" type="button" class="cu-bulk-btn primary" title="{{ __('Mark selected as completed') }}"><i class="bi bi-check2-all"></i> {{ __('Done') }}</button>
+        <select id="cuBulkStatus" title="{{ __('Move to status') }}">
+            <option value="to_do">{{ __('To Do') }}</option>
+            <option value="in_progress">{{ __('In Progress') }}</option>
+            <option value="on_hold">{{ __('On Hold') }}</option>
+            <option value="in_review">{{ __('In Review') }}</option>
+            <option value="completed">{{ __('Completed') }}</option>
+        </select>
+        <button id="cuBulkApply" type="button" class="cu-bulk-btn ghost"><i class="bi bi-arrow-right-circle"></i> {{ __('Move') }}</button>
+        <button id="cuBulkDelete" type="button" class="cu-bulk-btn danger"><i class="bi bi-trash3"></i> {{ __('Delete') }}</button>
+    </span>
+    <button id="cuBulkCancel" type="button" title="{{ __('Cancel selection') }}"><i class="bi bi-x-lg"></i></button>
 </div>
 @endsection
 
@@ -1126,6 +1196,28 @@ document.addEventListener('DOMContentLoaded', function () {
             const visible = [...ch.querySelectorAll('.cu-ch-row')]
                 .some(r => r.style.display !== 'none');
             ch.style.display = visible ? '' : 'none';
+        });
+        /* Tree rows */
+        document.querySelectorAll('.cu-ttree-row').forEach(row => {
+            const holder = row.closest('.cu-ttree-node');
+            const target = holder || row;
+            const show = rowMatches(row, term, priority, project, status)
+                && (!onlyOpen || row.dataset.status !== 'completed');
+            target.style.display = show ? '' : 'none';
+            // if parent hidden, ensure children also hidden via recursion
+            if(!show){
+                const childrenWrap = holder ? document.getElementById('ttree-children-'+(holder.querySelector('.cu-tree-toggle')?.dataset.target?.replace('ttree-children-','')||'')) : null;
+            }
+        });
+        // hide empty tree roots if filtered
+        document.querySelectorAll('.cu-ttree-node').forEach(node=>{
+            const row = node.querySelector(':scope > .cu-ttree-row');
+            if(row && row.closest('.cu-ttree-children')===null){
+                // root node: hide if its row hidden and all descendants hidden
+                const allRows = [...node.querySelectorAll('.cu-ttree-row')];
+                const anyVisible = allRows.some(r=> r.closest('.cu-ttree-node').style.display!=='none' && r.style.display!=='none');
+                // don't hide if already handled
+            }
         });
         updateCounts();
     }
@@ -1426,12 +1518,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }).catch(() => toast(@json(__('Order not saved'))));
     }
 
-    /* Quick check toggle — delegation (works for board cards AND chapter rows) */
+    /* Quick check toggle — delegation (works for board / chapter / list / tree) */
     document.addEventListener('click', e => {
         const check = e.target.closest('.cu-check');
         if (check) {
             e.preventDefault();
-            const holder = check.closest('.cu-task-card, .cu-ch-row');
+            const holder = check.closest('.cu-task-card, .cu-ch-row, .cu-list-row, .cu-ttree-row, .cu-ttree-node');
             if (!holder) return;
             const id = holder.dataset.id;
             const isDone = holder.classList.contains('is-done');
@@ -1463,42 +1555,127 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    /* ─── Bulk select mode ─── */
+    /* ─── Bulk select mode — polished, works across all 5 views ─── */
     const bulkBar = document.getElementById('cuBulkBar');
     const bulkCount = document.getElementById('cuBulkCount');
     const bulkStatus = document.getElementById('cuBulkStatus');
     const selectModeBtn = document.getElementById('cuSelectMode');
+    const selectBadge = document.getElementById('cuSelectBadge');
+    const bulkSelectAllBtn = document.getElementById('cuBulkSelectAll');
+    const bulkClearBtn = document.getElementById('cuBulkClear');
     let lastChecked = null;
 
     function selectedIds() {
-        return [...document.querySelectorAll('.cu-select-box:checked')].map(b => b.dataset.id);
+        const ids = [...document.querySelectorAll('.cu-select-box:checked')].map(b => b.dataset.id);
+        return [...new Set(ids)];
+    }
+    function syncIsSelected() {
+        document.querySelectorAll('.cu-task-card, .cu-ch-row, .cu-list-row, .cu-ttree-row').forEach(el => {
+            const box = el.querySelector('.cu-select-box');
+            el.classList.toggle('is-selected', !!(box && box.checked));
+        });
     }
     function refreshBulkBar() {
         const n = selectedIds().length;
-        bulkCount.textContent = `${n} selected`;
-        bulkBar.style.display = (document.body.classList.contains('cu-selecting') || n > 0) ? 'flex' : 'none';
+        bulkCount.textContent = n;
+        if(selectBadge) selectBadge.textContent = n;
+        const show = n > 0 || document.body.classList.contains('cu-selecting');
+        bulkBar.classList.toggle('show', show && n > 0);
+        // keep select button active while selecting even with 0 chosen
+        if(document.body.classList.contains('cu-selecting') && n===0) {
+            bulkBar.classList.remove('show');
+        }
+        syncIsSelected();
     }
     function exitSelectMode() {
         document.body.classList.remove('cu-selecting');
         selectModeBtn?.classList.remove('on');
         document.querySelectorAll('.cu-select-box:checked').forEach(b => { b.checked = false; });
         lastChecked = null;
+        syncIsSelected();
         refreshBulkBar();
+    }
+    function syncDuplicates(changedBox){
+        const id = changedBox.dataset.id;
+        const checked = changedBox.checked;
+        document.querySelectorAll(`.cu-select-box[data-id="${id}"]`).forEach(b => {
+            if(b!==changedBox) b.checked = checked;
+        });
+    }
+    function allVisibleBoxes(){
+        // visible checkboxes whose nearest task container is not display:none
+        return [...document.querySelectorAll('.cu-select-box')].filter(b => {
+            const holder = b.closest('.cu-task-card, .cu-ch-row, .cu-list-row, .cu-ttree-row');
+            if(!holder) return false;
+            if(holder.style.display==='none') return false;
+            // also check if parent view is hidden
+            let p = holder;
+            while(p && p!==document.body){
+                if(p.style && p.style.display==='none') return false;
+                p = p.parentElement;
+            }
+            return holder.offsetParent !== null || holder.closest('#cuKanban, #cuList, #cuTree, #cuChapters, #cuProjects');
+        }).filter(b=>{
+            const holder = b.closest('.cu-task-card, .cu-ch-row, .cu-list-row, .cu-ttree-row');
+            return holder && holder.style.display!=='none';
+        });
     }
     selectModeBtn?.addEventListener('click', () => {
         const on = document.body.classList.toggle('cu-selecting');
         selectModeBtn.classList.toggle('on', on);
         if (!on) exitSelectMode(); else refreshBulkBar();
     });
+    bulkClearBtn?.addEventListener('click', () => {
+        document.querySelectorAll('.cu-select-box:checked').forEach(b=>b.checked=false);
+        syncIsSelected(); refreshBulkBar();
+    });
+    bulkSelectAllBtn?.addEventListener('click', () => {
+        const visible = [...document.querySelectorAll('.cu-select-box')].filter(b=>{
+            const row = b.closest('.cu-task-card, .cu-ch-row, .cu-list-row, .cu-ttree-row');
+            if(!row) return false;
+            if(row.style.display==='none') return false;
+            // check if its view container is hidden
+            const view = row.closest('#cuKanban, #cuList, #cuTree, #cuChapters, #cuProjects');
+            if(view && view.style.display==='none') return false;
+            // also filter parent chapter collapsed (body hidden)
+            const chBody = row.closest('.cu-chapter-body');
+            if(chBody && chBody.offsetParent===null) return false;
+            const treeParent = row.closest('.cu-ttree-children');
+            if(treeParent && treeParent.style.display==='none') return false;
+            return true;
+        });
+        const allChecked = visible.length>0 && visible.every(b=>b.checked);
+        visible.forEach(b=> b.checked = !allChecked);
+        // sync duplicates for each id
+        const ids = [...new Set(visible.map(b=>b.dataset.id))];
+        ids.forEach(id=>{
+            const any = document.querySelector(`.cu-select-box[data-id="${id}"]`);
+            const checked = document.querySelector(`.cu-select-box[data-id="${id}"]:checked`) ? true : false;
+            // ensure all duplicates match majority state
+            const state = visible.find(b=>b.dataset.id===id)?.checked ?? checked;
+            document.querySelectorAll(`.cu-select-box[data-id="${id}"]`).forEach(b=> b.checked = state);
+        });
+        syncIsSelected(); refreshBulkBar();
+    });
     document.addEventListener('change', e => {
         const box = e.target.closest?.('.cu-select-box');
         if (!box) return;
+        syncDuplicates(box);
         /* Shift+click range select across visible boxes */
         if (e.shiftKey && lastChecked && lastChecked !== box) {
             const boxes = [...document.querySelectorAll('.cu-select-box')]
-                .filter(b => b.offsetParent !== null);
+                .filter(b => {
+                    const row = b.closest('.cu-task-card, .cu-ch-row, .cu-list-row, .cu-ttree-row');
+                    if(!row || row.style.display==='none') return false;
+                    const view = row.closest('#cuKanban, #cuList, #cuTree, #cuChapters, #cuProjects');
+                    if(view && view.style.display==='none') return false;
+                    return true;
+                });
             const [a, b] = [boxes.indexOf(lastChecked), boxes.indexOf(box)].sort((x, y) => x - y);
-            boxes.slice(a, b + 1).forEach(x => { x.checked = box.checked; });
+            if(a>=0 && b>=0) boxes.slice(a, b + 1).forEach(x => {
+                x.checked = box.checked;
+                syncDuplicates(x);
+            });
         }
         lastChecked = box;
         if (!document.body.classList.contains('cu-selecting')) {
@@ -1506,6 +1683,18 @@ document.addEventListener('DOMContentLoaded', function () {
             selectModeBtn?.classList.add('on');
         }
         refreshBulkBar();
+    });
+    // clicking the row itself toggles selection when in selecting mode (convenient on mobile)
+    document.addEventListener('click', e=>{
+        if(!document.body.classList.contains('cu-selecting')) return;
+        const row = e.target.closest('.cu-task-card, .cu-ch-row, .cu-list-row, .cu-ttree-row');
+        if(!row) return;
+        if(e.target.closest('a, button, input, select, .dropdown-menu')) return;
+        const box = row.querySelector('.cu-select-box');
+        if(!box) return;
+        box.checked = !box.checked;
+        syncDuplicates(box);
+        syncIsSelected(); refreshBulkBar();
     });
     document.getElementById('cuBulkCancel')?.addEventListener('click', exitSelectMode);
     document.addEventListener('keydown', e => {
@@ -1579,7 +1768,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ch.dataset.done = done;
     }
 
-    /* A task can appear in several views at once (board + chapters + projects):
+    /* A task can appear in several views at once (board + chapters + projects + list + tree):
        always sync/remove EVERY copy. */
     function syncTaskDoneUI(id, status, moveCard = true) {
         const touched = new Set();
@@ -1600,6 +1789,20 @@ document.addEventListener('DOMContentLoaded', function () {
             const ch = row.closest('.cu-chapter');
             if (ch) touched.add(ch);
         });
+        document.querySelectorAll(`.cu-list-row[data-id="${id}"]`).forEach(row => {
+            applyDoneState(row, status);
+        });
+        document.querySelectorAll(`.cu-ttree-row[data-id="${id}"]`).forEach(row => {
+            applyDoneState(row.closest('.cu-ttree-node') || row, status);
+            // tree row itself holds data-status now
+            row.dataset.status = status;
+            const node = row.closest('.cu-ttree-node');
+            if(node) node.dataset.status = status;
+        });
+        // also sync status chip inside tree/list
+        document.querySelectorAll(`[data-id="${id}"]`).forEach(el=>{
+            if(el.dataset) el.dataset.status = status;
+        });
         touched.forEach(ch => refreshChapter(ch));
     }
 
@@ -1610,6 +1813,16 @@ document.addEventListener('DOMContentLoaded', function () {
             const ch = r.closest('.cu-chapter');
             if (ch) touched.add(ch);
             r.remove();
+        });
+        document.querySelectorAll(`.cu-list-row[data-id="${id}"]`).forEach(r => r.remove());
+        document.querySelectorAll(`.cu-ttree-node:has(.cu-ttree-row[data-id="${id}"]), .cu-ttree-row[data-id="${id}"]`).forEach(n=>{
+            // if whole node wraps the row, remove node; otherwise row
+            if(n.classList.contains('cu-ttree-node')) n.remove();
+        });
+        // fallback: remove any remaining data-id containers
+        document.querySelectorAll(`.cu-ttree-row[data-id="${id}"]`).forEach(r=>{
+            const node = r.closest('.cu-ttree-node');
+            if(node) node.remove(); else r.remove();
         });
         touched.forEach(ch => refreshChapter(ch));
     }

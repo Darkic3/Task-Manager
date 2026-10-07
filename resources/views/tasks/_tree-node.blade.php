@@ -5,7 +5,8 @@
     $weight = (float) ($task->weight ?? 1);
 @endphp
 <div class="cu-ttree-node" style="--depth:{{ $depth }};">
-    <div class="cu-ttree-row">
+    <div class="cu-ttree-row" data-id="{{ $task->id }}" data-title="{{ strtolower($task->title) }}" data-priority="{{ $task->priority }}" data-project="{{ $task->project_id }}" data-status="{{ $task->status }}" data-due="{{ $task->due_date ?? '' }}">
+        <input type="checkbox" class="cu-select-box" data-id="{{ $task->id }}" title="{{ __('Select task') }}">
         @if($childCount > 0)
             <button type="button" class="cu-tree-toggle" data-target="ttree-children-{{ $task->id }}" title="{{ __('Expand / Collapse') }}">
                 <i class="bi bi-chevron-down"></i>
