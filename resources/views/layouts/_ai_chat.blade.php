@@ -445,8 +445,15 @@ html[dir="rtl"] #aiDrawer.open {
                             updateModelPill(selectedModel);
                         } else if (json.error) {
                             streamBubbleEl.classList.remove('ai-streaming');
+                            const errType = json.error_type || '';
+                            const prefix = errType === 'provider' ? '🔌 [پرووایدر] ' : errType === 'system' ? '⚠️ [Task Manager] ' : '⚠ ';
                             const errMsg = typeof json.error === 'string' ? json.error : (json.error?.message || @json(__('Something went wrong. Please try again.')));
-                            streamBubbleEl.textContent = '⚠ ' + errMsg;
+                            streamBubbleEl.textContent = prefix + errMsg;
+                            if (errType === 'provider') {
+                                streamBubbleEl.style.cssText = 'background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;';
+                            } else if (errType === 'system') {
+                                streamBubbleEl.style.cssText = 'background:#fef2f2;border:1px solid #fecaca;color:#991b1b;';
+                            }
                         } else {
                             const token = json.choices?.[0]?.delta?.content || '';
                             if (token) {
