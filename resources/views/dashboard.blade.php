@@ -697,6 +697,100 @@
     .pl-logset input:focus { border-color: #c4b5fd; }
     .pl-logset input.has-val { border-color: #a9dfbf; background: #f3fbf6; }
 
+    /* ── Skipped / settled states + ✗ buttons (parity with planner) ── */
+    .pl-routine-skip {
+        width: 21px; height: 21px; flex-shrink: 0; display: inline-grid; place-items: center;
+        border: 1px solid #e5e7eb; background: #fafbfc; color: #c1c4cc; border-radius: 50%;
+        font-size: 9px; line-height: 1; cursor: pointer; padding: 0; transition: all .12s;
+    }
+    .pl-routine-skip:hover { border-color: #fca5a5; background: #fef2f2; color: #dc2626; }
+    .pl-routine-skip.active { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .pl-routine-skip:disabled { opacity: .5; cursor: wait; }
+    .pl-routine-skip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(239,68,68,.25); }
+    .pl-skip-tag {
+        font-size: 10.5px; font-weight: 700; color: #b91c1c; background: #fee2e2;
+        border-radius: 20px; padding: 1px 8px; display: inline-flex; align-items: center; gap: 4px;
+        text-transform: none; white-space: nowrap;
+    }
+    .pl-task.is-skipped .pl-task-title { text-decoration: line-through; color: #94a3b8; }
+    .pl-task.is-skipped .pl-task-meta { opacity: .8; }
+    .pl-task.is-skipped .habit-ring .ring-fg { stroke: #ef4444; }
+    .pl-task.is-skipped .habit-ring .ring-bg { stroke: #fee2e2; }
+    .pl-task.is-skipped .routine-check-box { border-color: #fca5a5; color: #dc2626; }
+    .pl-task.is-settled { background: #fafbfc; }
+    .pl-task.is-settled .pl-task-title { color: #475569; }
+    .pl-settled-tag {
+        font-size: 10.5px; font-weight: 800; color: #15803d; background: #e9f9f0;
+        border: 1px solid #bbf7d0; border-radius: 20px; padding: 1px 9px; margin-inline-start: 6px;
+        display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; vertical-align: 1px;
+    }
+    .pl-habit.is-locked { cursor: not-allowed; }
+    .pl-habit.is-locked input:disabled + .habit-ring,
+    .pl-habit.is-locked input:disabled + .routine-check-box { cursor: not-allowed; }
+    .pl-routine-static {
+        flex-shrink: 0; margin-top: 1px; width: 19px; height: 19px; display: flex;
+        align-items: center; justify-content: center; color: #c4c9d4; font-size: 12px;
+    }
+
+    /* ── Per-step ✗ chip + partial-fail badges ── */
+    .pl-step-wrap { display: inline-flex; align-items: center; }
+    .pl-step-wrap .pl-step-skip {
+        width: 18px; height: 18px; flex-shrink: 0; display: inline-grid; place-items: center;
+        border: 1px solid #e5e7eb; background: #fff; color: #c1c4cc; border-radius: 50%;
+        font-size: 8px; line-height: 1; cursor: pointer; padding: 0; margin-inline-start: -7px;
+        opacity: 0; transition: opacity .12s, all .12s; position: relative; z-index: 1;
+    }
+    .pl-step-wrap:hover .pl-step-skip, .pl-step-wrap:focus-within .pl-step-skip,
+    .pl-step-wrap .pl-step-skip.active { opacity: 1; }
+    .pl-step-wrap .pl-step-skip:hover { border-color: #fca5a5; background: #fef2f2; color: #dc2626; }
+    .pl-step-wrap .pl-step-skip.active { background: #ef4444; border-color: #ef4444; color: #fff; opacity: 1; }
+    .pl-step-wrap .pl-step-skip:disabled { opacity: .5; cursor: wait; }
+    .pl-step-wrap.is-skipped .pl-step, .pl-step.is-skipped { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+    .pl-step-wrap.is-skipped .pl-step i, .pl-step.is-skipped i { color: #dc2626; }
+    .steps-skipped {
+        font-size: 10.5px; font-weight: 800; color: #b91c1c; background: #fee2e2;
+        border-radius: 20px; padding: 1px 7px; margin-inline-start: 6px; vertical-align: 1px; white-space: nowrap;
+    }
+    .pl-skip-rest {
+        display: inline-flex; align-items: center; gap: 5px; margin-top: 7px;
+        padding: 3px 12px; border-radius: 20px; border: 1px dashed #fca5a5;
+        background: transparent; color: #b91c1c; font-size: 11px; font-weight: 700; cursor: pointer;
+        transition: all .12s;
+    }
+    .pl-skip-rest:hover { background: #fef2f2; border-style: solid; }
+    .pl-skip-rest:disabled { opacity: .5; cursor: wait; }
+    .pl-modal-body .pl-step-wrap { width: 100%; display: flex; align-items: stretch; gap: 8px; }
+    .pl-modal-body .pl-step-wrap .pl-step { flex: 1; min-width: 0; }
+    .pl-modal-body .pl-step-wrap .pl-step-skip {
+        opacity: 1; margin-inline-start: 0; width: 32px; height: auto; min-height: 32px;
+        border-radius: 10px; font-size: 11px; align-self: stretch;
+    }
+
+    /* ── Avoid habit form rows (overrides the generic red panel button for "Now") ── */
+    .pl-avoid-grid { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; align-items: center; }
+    .pl-avoid-grid input, .pl-avoid-grid select {
+        flex: 1; min-width: 110px; padding: 7px 9px; border: 1px solid #d3d5db; border-radius: 8px;
+        font-size: 12.5px; background: #fff; color: #1f2328; outline: none;
+    }
+    .pl-avoid-grid input:focus, .pl-avoid-grid select:focus { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,.12); }
+    .pl-avoid-grid input[name=quantity] { flex: 0 0 76px; min-width: 76px; }
+    .pl-avoid-grid select[name=mood] { flex: 0 0 112px; min-width: 112px; }
+    button.pl-avoid-now {
+        flex: 0 0 auto; padding: 7px 12px; border-radius: 8px; border: 1px solid #e2e8f0;
+        background: #fff; color: #475569; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    button.pl-avoid-now:hover { border-color: #c4b5fd; color: #7c3aed; background: #faf5ff; }
+    .pl-avoid-history-btn {
+        padding: 4px 10px; border-radius: 16px; border: 1px solid #e2e8f0; background: #fff;
+        color: #475569; font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    .pl-avoid-history-btn:hover { border-color: #c4b5fd; color: #7c3aed; }
+    .pl-avoid-last { font-size: 11px; color: #8a8f98; }
+    .pl-avoid-submit { padding: 8px 16px; border-radius: 8px; border: 1px solid #b91c1c; background: #b91c1c; color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; }
+    .pl-avoid-submit:hover { background: #991b1b; }
+    [data-note-panel] .pl-avoid-submit { background: #0369a1; border-color: #0369a1; }
+    [data-note-panel] .pl-avoid-submit:hover { background: #075985; }
+
     /* ── Routine detail modal ── */
     .pl-modal { position: fixed; inset: 0; z-index: 1090; display: flex; align-items: center; justify-content: center; padding: 16px; }
     .pl-modal[hidden] { display: none; }
