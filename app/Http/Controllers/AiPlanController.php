@@ -55,46 +55,54 @@ class AiPlanController extends Controller
             'run_all' => 'nullable|boolean',
         ]);
 
-        if (! $plan->isActionable() || ! in_array($plan->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING], true)) {
-            if ($plan->status === AiPlan::STATUS_DONE) {
-                return response()->json(['ok' => true, 'deduped' => true, 'plan' => $this->serialize($plan->fresh())]);
+        // Row lock: the phase-pointer check and the phase execution must be
+        // atomic, otherwise two concurrent run_all calls interleave phases.
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $plan) {
+            /** @var AiPlan $locked */
+            $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->firstOrFail();
+            abort_if($locked->user_id !== Auth::id(), 403);
+
+            if (! $locked->isActionable() || ! in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING], true)) {
+                if ($locked->status === AiPlan::STATUS_DONE) {
+                    return response()->json(['ok' => true, 'deduped' => true, 'plan' => $this->serialize($locked->fresh())]);
+                }
+                $this->expire($locked);
+
+                return response()->json(['ok' => false, 'error' => __('This plan has expired. Ask Lina to propose it again.')], 422);
             }
-            $this->expire($plan);
 
-            return response()->json(['ok' => false, 'error' => __('This plan has expired. Ask Lina to propose it again.')], 422);
-        }
-
-        // Phase index must match the server pointer: stale double-clicks
-        // never execute the NEXT phase by accident.
-        $wanted = $request->input('phase', $plan->current_phase);
-        if ((int) $wanted !== (int) $plan->current_phase) {
-            return response()->json(['ok' => true, 'deduped' => true, 'plan' => $this->serialize($plan->fresh())]);
-        }
-
-        $messages = [];
-        $phasesRun = 0;
-        do {
-            $result = $this->tools->executePlanPhase($plan->fresh(), Auth::user());
-            if (! ($result['ok'] ?? false)) {
-                Log::warning('ai.plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'error' => $result['message'] ?? null]);
-                AiLogger::error('plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'phase' => $plan->fresh()->current_phase, 'error' => $result['message'] ?? null]);
-
-                return response()->json(['ok' => false, 'error' => $result['message'] ?? __('Phase failed.'), 'plan' => $this->serialize($plan->fresh())], 422);
+            // Phase index must match the server pointer: stale double-clicks
+            // never execute the NEXT phase by accident.
+            $wanted = $request->input('phase', $locked->current_phase);
+            if ((int) $wanted !== (int) $locked->current_phase) {
+                return response()->json(['ok' => true, 'deduped' => true, 'plan' => $this->serialize($locked->fresh())]);
             }
-            $messages[] = $result['message'];
-            $phasesRun++;
-            $plan = $plan->fresh();
-            // Auto-skip zero-count phases inside run_all too.
-            $this->advancePastDone($plan);
-            $plan->save();
-            $plan = $plan->fresh();
-        } while ($request->boolean('run_all') && $plan->status !== AiPlan::STATUS_DONE);
 
-        Log::info('ai.plan.phase_executed', ['user_id' => Auth::id(), 'plan_id' => $plan->id]);
-        AiLogger::log('plan.phase_executed', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'phases_run' => $phasesRun, 'run_all' => $request->boolean('run_all'), 'status' => $plan->status, 'messages' => implode(' ', $messages)]);
-        $this->note($plan, '✅ ' . implode(' ', $messages));
+            $messages = [];
+            $phasesRun = 0;
+            do {
+                $result = $this->tools->executePlanPhase($locked->fresh(), Auth::user());
+                if (! ($result['ok'] ?? false)) {
+                    \Illuminate\Support\Facades\Log::warning('ai.plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'error' => $result['message'] ?? null]);
+                    AiLogger::error('plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'phase' => $locked->fresh()->current_phase, 'error' => $result['message'] ?? null]);
 
-        return response()->json(['ok' => true, 'plan' => $this->serialize($plan->fresh())]);
+                    return response()->json(['ok' => false, 'error' => $result['message'] ?? __('Phase failed.'), 'plan' => $this->serialize($locked->fresh())], 422);
+                }
+                $messages[] = $result['message'];
+                $phasesRun++;
+                $locked = $locked->fresh();
+                // Auto-skip zero-count phases inside run_all too.
+                $this->advancePastDone($locked);
+                $locked->save();
+                $locked = $locked->fresh();
+            } while ($request->boolean('run_all') && $locked->status !== AiPlan::STATUS_DONE);
+
+            \Illuminate\Support\Facades\Log::info('ai.plan.phase_executed', ['user_id' => Auth::id(), 'plan_id' => $locked->id]);
+            AiLogger::log('plan.phase_executed', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'phases_run' => $phasesRun, 'run_all' => $request->boolean('run_all'), 'status' => $locked->status, 'messages' => implode(' ', $messages)]);
+            $this->note($locked, '✅ ' . implode(' ', $messages));
+
+            return response()->json(['ok' => true, 'plan' => $this->serialize($locked->fresh())]);
+        });
     }
 
     public function cancel(AiPlan $plan)

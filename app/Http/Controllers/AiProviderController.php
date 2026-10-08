@@ -82,6 +82,14 @@ class AiProviderController extends Controller
             'enabled'  => 'nullable|boolean',
         ]);
 
+        // SSRF guard: the server fetches this URL with the stored API key.
+        $reason = \App\Services\AiSecurity::blockReasonForProviderUrl($data['base_url']);
+        if ($reason !== null) {
+            abort(response()->json([
+                'message' => __('Blocked provider URL (SSRF guard): :reason', ['reason' => $reason]),
+            ], 422));
+        }
+
         // Normalize OpenAI-compatible endpoints so both
         // "https://router.bynara.id/v1" and ".../v1/chat/completions" work.
         $data['base_url'] = $this->ai->endpointFor($data['base_url'], $data['type']);

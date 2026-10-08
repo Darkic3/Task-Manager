@@ -191,8 +191,8 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/ai/providers/{provider}', [AiProviderController::class, 'update'])->name('ai.providers.update');
     Route::delete('/ai/providers/{provider}', [AiProviderController::class, 'destroy'])->name('ai.providers.destroy');
     Route::post('/ai/providers/{provider}/test', [AiProviderController::class, 'test'])->name('ai.providers.test');
-    Route::post('/ai/chat', [AiChatController::class, 'chat'])->name('ai.chat');
-    Route::post('/ai/stream', [AiChatController::class, 'stream'])->name('ai.stream');
+    Route::post('/ai/chat', [AiChatController::class, 'chat'])->middleware('throttle:15,1')->name('ai.chat');
+    Route::post('/ai/stream', [AiChatController::class, 'stream'])->middleware('throttle:15,1')->name('ai.stream');
     Route::get('/ai/debug', [AiChatController::class, 'debug'])->name('ai.debug');
     // AI tool actions (confirm/reject with ownership + expiry checks)
     Route::post('/ai/actions/confirm-all', [AiActionController::class, 'confirmAll'])

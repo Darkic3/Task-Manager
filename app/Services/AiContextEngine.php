@@ -489,14 +489,14 @@ class AiContextEngine
             $notes = Note::where('user_id', $userId)->whereIn('id', $noteIds)->limit(5)->get(['id', 'title', 'content']);
             foreach ($notes as $n) {
                 $snippet = mb_substr(strip_tags((string) $n->content), 0, 500);
-                $lines[] = "- [note#{$n->id}] {$n->title}: {$snippet}";
+                $lines[] = AiSecurity::markUntrusted("- [note#{$n->id}] {$n->title}: {$snippet}");
             }
         }
         $fileIds = collect($options['file_ids'] ?? [])->map(fn ($v) => (int) $v)->filter(fn ($v) => $v > 0)->take(5)->all();
         if (! empty($fileIds)) {
             $files = File::where('user_id', $userId)->whereIn('id', $fileIds)->limit(5)->get(['id', 'name', 'type']);
             foreach ($files as $f) {
-                $lines[] = "- [file#{$f->id}] {$f->name} (type: {$f->type})";
+                $lines[] = AiSecurity::markUntrusted("- [file#{$f->id}] {$f->name} (type: {$f->type})");
             }
         }
 
@@ -582,7 +582,8 @@ class AiContextEngine
             if ($t->relationLoaded('project') && $t->project) {
                 $line .= ", project: {$t->project->name}";
             }
-            return $line.')';
+            // Untrusted user data — never an instruction for the model.
+            return AiSecurity::markUntrusted($line.')');
         })->all();
     }
 
@@ -594,13 +595,13 @@ class AiContextEngine
                 $when = $r->date instanceof \DateTimeInterface ? $r->date->format('Y-m-d') : (string) $r->date;
                 $line .= " at {$when}".($r->time ? " {$r->time}" : '');
             }
-            return $line." (priority: {$r->priority})";
+            return AiSecurity::markUntrusted($line." (priority: {$r->priority})");
         })->all();
     }
 
     private function routineLines(array $routines): array
     {
-        return collect($routines)->map(fn ($r) => "- {$r->title} ({$r->frequency})")->all();
+        return collect($routines)->map(fn ($r) => AiSecurity::markUntrusted("- {$r->title} ({$r->frequency})"))->all();
     }
 
     private function noteLines(array $notes): array
@@ -608,13 +609,13 @@ class AiContextEngine
         return collect($notes)->map(function ($n) {
             $snippet = mb_substr(strip_tags((string) $n->content), 0, 200);
 
-            return "- {$n->title}: {$snippet}";
+            return AiSecurity::markUntrusted("- {$n->title}: {$snippet}");
         })->all();
     }
 
     private function fileLines(array $files): array
     {
-        return collect($files)->map(fn ($f) => "- {$f->name} (type: {$f->type})")->all();
+        return collect($files)->map(fn ($f) => AiSecurity::markUntrusted("- {$f->name} (type: {$f->type})"))->all();
     }
 
     private function summaryLines(array $counts, int $shownTasks, ?array $matched): array

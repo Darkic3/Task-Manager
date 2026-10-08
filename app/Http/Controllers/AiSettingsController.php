@@ -95,8 +95,16 @@ class AiSettingsController extends Controller
             if ($val === null) continue;
             $val = trim($val);
             if ($val === '') continue;
-            // If user submitted masked placeholder, ignore (means no change)
-            if (str_starts_with($val, '••••')) continue;
+            // If user submitted the masked placeholder, ignore (means no change).
+            // Compare against the exact masked value server-side instead of
+            // only sniffing the •••• prefix.
+            $stored = $setting->{$keyField};
+            if (is_string($stored) && $stored !== '') {
+                $maskedValue = '••••••••' . substr($stored, -4);
+                if ($val === $maskedValue || str_starts_with($val, '••••')) continue;
+            } elseif (str_starts_with($val, '••••')) {
+                continue;
+            }
             $setting->{$keyField} = $val;
         }
 

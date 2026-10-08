@@ -43,7 +43,7 @@ class AiActionController extends Controller
         $pending = AiPendingAction::where('user_id', $user->id)
             ->where('status', AiPendingAction::STATUS_PENDING)
             ->orderBy('id')
-            ->limit(20)
+            ->limit(AiPendingAction::MAX_OPEN)
             ->get();
 
         $done = [];
@@ -91,7 +91,7 @@ class AiActionController extends Controller
         AiPendingAction::where('user_id', $user->id)
             ->where('status', AiPendingAction::STATUS_PENDING)
             ->orderBy('id')
-            ->limit(20)
+            ->limit(AiPendingAction::MAX_OPEN)
             ->get()
             ->each(function (AiPendingAction $action) use (&$count) {
                 if ($action->isExpired()) {
@@ -111,59 +111,94 @@ class AiActionController extends Controller
     /**
      * Shared single-action runner: dedupe, expiry, re-validate, execute.
      * Returns ['ok'=>bool,'message'=>?string,'error'=>?string,'code'=>?string,'deduped'=>bool].
+     *
+     * Security Boundary: confirmation is NOT authorization. The pending row
+     * is locked (FOR UPDATE), ownership of the action AND of the linked
+     * conversation is re-checked, then args are re-validated (ownership may
+     * have changed since proposal) before anything executes.
      */
     private function runAction(AiPendingAction $action, $user): array
     {
-        if ($action->status === AiPendingAction::STATUS_EXECUTED) {
-            return ['ok' => true, 'deduped' => true, 'message' => __('Already executed.')];
-        }
-
-        if (! $action->isActionable()) {
-            if ($action->isPending() && $action->isExpired()) {
-                $action->markExpired();
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($action, $user) {
+            /** @var AiPendingAction|null $fresh */
+            $fresh = AiPendingAction::where('id', $action->id)->lockForUpdate()->first();
+            if (! $fresh) {
+                return ['ok' => false, 'code' => 'invalid', 'error' => __('No longer valid.')];
             }
-            AiLogger::log('action.confirm_expired', ['user_id' => $user->id, 'action_id' => $action->id, 'tool' => $action->tool, 'status' => $action->status]);
+            // Ownership of the pending action itself (confirmation ≠ authorization).
+            if ((int) $fresh->user_id !== (int) $user->id) {
+                AiLogger::log('action.confirm_forbidden', ['user_id' => $user->id, 'action_id' => $fresh->id, 'owner' => $fresh->user_id]);
 
-            return ['ok' => false, 'code' => 'expired', 'error' => __('This confirmation has expired. Ask Lina again.')];
-        }
+                return ['ok' => false, 'code' => 'forbidden', 'error' => __('Not allowed.')];
+            }
+            // Ownership of the linked conversation (a pending may not be
+            // moved across conversations/users by tampering with IDs).
+            if ($fresh->conversation_id) {
+                $conv = \App\Models\AiConversation::where('id', $fresh->conversation_id)->first(['id', 'user_id']);
+                if (! $conv || (int) $conv->user_id !== (int) $user->id) {
+                    AiLogger::log('action.confirm_invalid', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'error' => 'conversation ownership mismatch']);
 
-        // Re-validate at execution time (ownership may have changed).
-        $check = $this->tools->validateCall($action->tool, (array) $action->args, $user);
-        if (! ($check['ok'] ?? false)) {
-            AiLogger::log('action.confirm_invalid', ['user_id' => $user->id, 'action_id' => $action->id, 'tool' => $action->tool, 'error' => $check['error'] ?? 'No longer valid.']);
+                    return ['ok' => false, 'code' => 'invalid', 'error' => __('No longer valid.')];
+                }
+            }
 
-            return ['ok' => false, 'code' => 'invalid', 'error' => $check['error'] ?? __('No longer valid.')];
-        }
+            if ($fresh->status === AiPendingAction::STATUS_EXECUTED) {
+                return ['ok' => true, 'deduped' => true, 'message' => __('Already executed.')];
+            }
 
-        $action->status = AiPendingAction::STATUS_CONFIRMED;
-        $action->save();
+            if (! $fresh->isActionable()) {
+                if ($fresh->isPending() && $fresh->isExpired()) {
+                    $fresh->markExpired();
+                }
+                AiLogger::log('action.confirm_expired', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'status' => $fresh->status]);
 
-        $result = $this->tools->execute($action->tool, $check['resolved'], $user);
+                return ['ok' => false, 'code' => 'expired', 'error' => __('This confirmation has expired. Ask Lina again.')];
+            }
 
-        if (! ($result['ok'] ?? false)) {
-            AiLogger::error('action.execute_failed', ['user_id' => $user->id, 'action_id' => $action->id, 'tool' => $action->tool, 'error' => $result['message'] ?? 'Execution failed.']);
+            // Re-validate at execution time (ownership may have changed).
+            $check = $this->tools->validateCall($fresh->tool, (array) $fresh->args, $user);
+            if (! ($check['ok'] ?? false)) {
+                AiLogger::log('action.confirm_invalid', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'error' => $check['error'] ?? 'No longer valid.']);
 
-            return ['ok' => false, 'code' => 'execute_failed', 'error' => $result['message'] ?? __('Execution failed.')];
-        }
+                return ['ok' => false, 'code' => 'invalid', 'error' => $check['error'] ?? __('No longer valid.')];
+            }
 
-        $action->status = AiPendingAction::STATUS_EXECUTED;
-        $action->executed_at = now();
-        $action->save();
+            // Atomic claim: only one concurrent confirmer moves pending → confirmed.
+            $claimed = AiPendingAction::where('id', $fresh->id)
+                ->where('status', AiPendingAction::STATUS_PENDING)
+                ->update(['status' => AiPendingAction::STATUS_CONFIRMED]);
+            if (! $claimed) {
+                return ['ok' => true, 'deduped' => true, 'message' => __('Already executed.')];
+            }
+            $fresh->status = AiPendingAction::STATUS_CONFIRMED;
 
-        Log::info('ai.tool.executed', [
-            'user_id' => $user->id, 'tool' => $action->tool, 'action_id' => $action->id,
-        ]);
-        AiLogger::log('action.executed', ['user_id' => $user->id, 'action_id' => $action->id, 'tool' => $action->tool, 'message' => $result['message'] ?? null, 'created_id' => $result['id'] ?? null]);
+            $result = $this->tools->execute($fresh->tool, $check['resolved'], $user);
 
-        if ($action->conversation_id) {
-            AiMessage::create([
-                'conversation_id' => $action->conversation_id,
-                'role' => 'assistant',
-                'content' => '✅ ' . $result['message'],
+            if (! ($result['ok'] ?? false)) {
+                AiLogger::error('action.execute_failed', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'error' => $result['message'] ?? 'Execution failed.']);
+
+                return ['ok' => false, 'code' => 'execute_failed', 'error' => $result['message'] ?? __('Execution failed.')];
+            }
+
+            $fresh->status = AiPendingAction::STATUS_EXECUTED;
+            $fresh->executed_at = now();
+            $fresh->save();
+
+            \Illuminate\Support\Facades\Log::info('ai.tool.executed', [
+                'user_id' => $user->id, 'tool' => $fresh->tool, 'action_id' => $fresh->id,
             ]);
-        }
+            AiLogger::log('action.executed', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'message' => $result['message'] ?? null, 'created_id' => $result['id'] ?? null]);
 
-        return ['ok' => true, 'message' => $result['message']];
+            if ($fresh->conversation_id) {
+                AiMessage::create([
+                    'conversation_id' => $fresh->conversation_id,
+                    'role' => 'assistant',
+                    'content' => '✅ ' . $result['message'],
+                ]);
+            }
+
+            return ['ok' => true, 'message' => $result['message']];
+        });
     }
 
     public function reject(AiPendingAction $action)

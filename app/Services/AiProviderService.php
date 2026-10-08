@@ -273,6 +273,11 @@ class AiProviderService
         if (!$key)   return ['ok' => false, 'message' => __('No API key set for this provider.')];
         if (!$model) return ['ok' => false, 'message' => __('Set a model before testing.')];
 
+        $reason = AiSecurity::blockReasonForProviderUrl((string) $provider->base_url);
+        if ($reason !== null) {
+            return ['ok' => false, 'message' => __('Blocked provider URL (SSRF guard): :reason', ['reason' => $reason])];
+        }
+
         try {
             if ($provider->type === 'gemini') {
                 $url = rtrim($provider->base_url, '/') . '/' . $model . ':generateContent?key=' . $key;
@@ -325,20 +330,27 @@ class AiProviderService
     /**
      * POST JSON with automatic retry/backoff on 429 and 5xx.
      * Adds OpenRouter-recommended attribution headers (harmless elsewhere).
+     *
+     * TLS verification is MANDATORY (config `ai.tls_verify`, default true).
+     * It may only be disabled for local dev via AI_TLS_VERIFY=false.
      */
     public function postJson(string $url, array $payload, array $headers = [], int $timeout = 60): \Illuminate\Http\Client\Response
     {
+        $this->assertUrlSafe($url);
+
         $headers = array_merge([
             'Content-Type' => 'application/json',
             'HTTP-Referer' => (string) config('app.url'),
             'X-Title'      => (string) config('app.name', 'Task Manager'),
         ], $headers);
 
+        $verify = (bool) config('ai.tls_verify', true);
+
         $maxAttempts = 3;
         for ($attempt = 1; ; $attempt++) {
             try {
                 $response = Http::withHeaders($headers)
-                    ->withOptions(['verify' => false])
+                    ->withOptions(['verify' => $verify])
                     ->timeout($timeout)
                     ->post($url, $payload);
             } catch (\Illuminate\Http\Client\ConnectionException $e) {
@@ -363,6 +375,26 @@ class AiProviderService
                 continue;
             }
             return $response;
+        }
+    }
+
+    /**
+     * SSRF guard: refuse server-side fetches to internal hosts.
+     * Built-in provider URLs are pinned in config; custom base_url values
+     * come from the user and MUST pass AiSecurity.
+     *
+     * @throws \App\Exceptions\AiProviderException when blocked.
+     */
+    public function assertUrlSafe(string $url): void
+    {
+        $reason = AiSecurity::blockReasonForProviderUrl($url);
+        if ($reason !== null) {
+            throw new AiProviderException(
+                'Blocked provider URL (SSRF guard): ' . $reason,
+                parse_url($url, PHP_URL_HOST) ?: 'unknown',
+                $url,
+                null
+            );
         }
     }
 

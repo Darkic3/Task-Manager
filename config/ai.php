@@ -118,4 +118,8 @@ return [
     // Fallback defaults when DB setting absent
     'default_provider' => env('AI_DEFAULT_PROVIDER', env('AI_PROVIDER', 'openai')),
     'default_model'    => env('AI_DEFAULT_MODEL'),
+
+    // Outbound TLS verification for provider traffic. NEVER disable in
+    // production — the payload carries API keys + workspace data.
+    'tls_verify' => env('AI_TLS_VERIFY', true),
 ];

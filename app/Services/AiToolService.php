@@ -40,6 +40,70 @@ class AiToolService
     public const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
     /**
+     * Security classification per tool.
+     *
+     * READ        — no state change (report_generate).
+     * WRITE       — creates/updates scoped to the authenticated user; needs confirmation.
+     * DESTRUCTIVE — deletes or completes (irreversible without Undo); needs confirmation + impact preview.
+     * SENSITIVE   — shares data with other users or reads broadly; needs confirmation + explicit preview.
+     *
+     * The LLM can never change this map: it lives server-side and no tool
+     * accepts a permission/policy argument (see AiSecurity::FORBIDDEN_ARG_KEYS).
+     */
+    public const TOOL_RISK = [
+        'task_create' => ['WRITE'],
+        'task_update' => ['WRITE'],
+        'task_complete' => ['WRITE'],
+        'task_delete' => ['WRITE', 'DESTRUCTIVE'],
+        'reminder_create' => ['WRITE'],
+        'reminder_complete' => ['WRITE'],
+        'reminder_delete' => ['WRITE', 'DESTRUCTIVE'],
+        'note_create' => ['WRITE'],
+        'note_update' => ['WRITE'],
+        'note_delete' => ['WRITE', 'DESTRUCTIVE'],
+        'project_create' => ['WRITE'],
+        'project_add_member' => ['WRITE', 'SENSITIVE'],
+        'note_link' => ['WRITE'],
+        'report_generate' => ['READ'],
+        'checklist_add' => ['WRITE'],
+        'checklist_toggle' => ['WRITE'],
+        'routine_create' => ['WRITE'],
+        'routine_complete' => ['WRITE'],
+        'routine_delete' => ['WRITE', 'DESTRUCTIVE'],
+        'routine_log' => ['WRITE'],
+        'plan_propose' => ['WRITE', 'SENSITIVE'],
+        'workout_plan_propose' => ['WRITE'],
+    ];
+
+    public static function riskOf(string $tool): array
+    {
+        $tool = self::normalizeToolName($tool);
+
+        return self::TOOL_RISK[$tool] ?? ['WRITE'];
+    }
+
+    public static function isReadOnly(string $tool): bool
+    {
+        return self::riskOf($tool) === ['READ'];
+    }
+
+    public static function isDestructive(string $tool): bool
+    {
+        return in_array('DESTRUCTIVE', self::riskOf($tool), true);
+    }
+
+    public static function isSensitive(string $tool): bool
+    {
+        return in_array('SENSITIVE', self::riskOf($tool), true);
+    }
+
+    /** Every non-READ tool needs explicit user confirmation. No exceptions. */
+    public static function requiresConfirmation(string $tool): bool
+    {
+        return ! self::isReadOnly($tool);
+    }
+
+    /**
      * OpenAI-compatible function definitions for OpenRouter/custom providers.
      */
     public function definitions(): array
@@ -409,6 +473,14 @@ class AiToolService
         $tool = self::normalizeToolName($tool);
         if (! in_array($tool, self::TOOLS, true)) {
             return $this->fail("Unknown tool: {$tool}");
+        }
+
+        // Security Boundary: the LLM/client can never smuggle identity,
+        // permission, or confirmation-policy keys through tool args.
+        // `user` is legitimate ONLY for project_add_member (member ref).
+        $forbidden = AiSecurity::findForbiddenKey($args);
+        if ($forbidden !== null && ! ($tool === 'project_add_member' && strtolower($forbidden) === 'user')) {
+            return $this->fail("Argument '{$forbidden}' is not allowed.");
         }
 
         $args = $this->normalize($args);
@@ -2493,6 +2565,10 @@ class AiToolService
 
     private function normalize(array $args): array
     {
+        // Security Boundary: identity/authority keys are never trusted —
+        // strip them even if a future validator forgets to check.
+        $args = AiSecurity::stripIdentityKeys($args);
+
         // Models (esp. smaller ones via OpenRouter) often send camelCase keys
         // despite the schema. Map the common ones before validating.
         $aliases = [
