@@ -203,6 +203,8 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('throttle:30,1')->name('ai.actions.confirm');
     Route::post('/ai/actions/{action}/reject', [AiActionController::class, 'reject'])
         ->middleware('throttle:30,1')->name('ai.actions.reject');
+    Route::post('/ai/actions/{action}/undo', [AiActionController::class, 'undo'])
+        ->middleware('throttle:30,1')->name('ai.actions.undo');
     // AI structured plans (structure approval + phased execution)
     Route::post('/ai/plans/{plan}/confirm-structure', [AiPlanController::class, 'confirmStructure'])
         ->middleware('throttle:30,1')->name('ai.plans.confirm-structure');

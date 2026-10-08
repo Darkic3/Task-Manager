@@ -341,12 +341,16 @@ final class ToolPipeline
         return $args;
     }
 
-    /** Live (non-expired) pending with the same derived key, if any. */
+    /** Live pending with the same derived key, if any (retry/reconnect safe). */
     public static function findDuplicatePending(int $userId, string $key): ?AiPendingAction
     {
         return AiPendingAction::where('user_id', $userId)
             ->where('idempotency_key', $key)
-            ->whereIn('status', [AiPendingAction::STATUS_PENDING, AiPendingAction::STATUS_CONFIRMED])
+            ->whereIn('status', [
+                AiPendingAction::STATUS_PENDING,
+                AiPendingAction::STATUS_EXECUTING,
+                AiPendingAction::STATUS_CONFIRMED, // legacy claim state
+            ])
             ->where('expires_at', '>', now())
             ->orderBy('id')
             ->first();

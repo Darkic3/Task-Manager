@@ -1306,7 +1306,9 @@ footer, .topnav { display: none !important; }
         const actions = document.createElement('div');
         actions.className = 'lina-tool-actions';
         const okBtn = document.createElement('button');
-        okBtn.className = 'lina-tool-confirm'; okBtn.textContent = 'Confirm & run';
+        okBtn.className = 'lina-tool-confirm';
+        const okLabel = prev.danger ? 'Confirm & run ⚠' : 'Confirm & run';
+        okBtn.textContent = okLabel;
         const noBtn = document.createElement('button');
         noBtn.className = 'lina-tool-reject'; noBtn.textContent = 'Cancel';
         okBtn.onclick = async () => {
@@ -1322,10 +1324,27 @@ footer, .topnav { display: none !important; }
                     done.textContent = '✅ ' + (res.message || @json(__('Done')));
                 }
                 card.appendChild(done);
+                if (res.undoable) {
+                    const undoBtn = document.createElement('button');
+                    undoBtn.className = 'lina-tool-reject'; undoBtn.textContent = '↩ Undo';
+                    undoBtn.title = @json(__('Revert this change (limited time)'));
+                    undoBtn.onclick = async () => {
+                        undoBtn.disabled = true; undoBtn.textContent = 'Undoing…';
+                        try {
+                            const ures = await api('POST', '/ai/actions/' + p.action_id + '/undo');
+                            done.textContent = '↩️ ' + (ures.message || @json(__('Undone')));
+                            undoBtn.remove();
+                        } catch (e) {
+                            undoBtn.disabled = false; undoBtn.textContent = '↩ Undo';
+                            appendError(@json(__('Could not undo.')));
+                        }
+                    };
+                    card.appendChild(undoBtn);
+                }
                 scrollBottom();
                 refreshPendingDock();
             } catch (e) {
-                okBtn.disabled = false; noBtn.disabled = false; okBtn.textContent = 'Confirm & run';
+                okBtn.disabled = false; noBtn.disabled = false; okBtn.textContent = okLabel;
                 appendError(@json(__('Action failed or expired.')));
             }
         };

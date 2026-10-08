@@ -28,6 +28,9 @@ final class ToolError
     /** Pending action expired (or already resolved to a terminal state). */
     public const EXPIRED_ACTION = 'expired_action';
 
+    /** Pending action was cancelled by the user. */
+    public const CANCELLED = 'cancelled';
+
     /** Args payload exceeds the size budget. */
     public const PAYLOAD_TOO_LARGE = 'payload_too_large';
 

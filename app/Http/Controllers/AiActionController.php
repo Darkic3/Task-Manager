@@ -28,7 +28,68 @@ class AiActionController extends Controller
             return response()->json(['ok' => false, 'code' => $result['code'] ?? 'invalid', 'error' => $result['error']], 422);
         }
 
-        return response()->json(['ok' => true, 'code' => 'ok', 'deduped' => $result['deduped'] ?? false, 'message' => $result['message'] ?? null]);
+        $payload = ['ok' => true, 'code' => 'ok', 'deduped' => $result['deduped'] ?? false, 'message' => $result['message'] ?? null];
+        if (! empty($result['undoable'])) {
+            $payload['undoable'] = true;
+            $payload['undo_expires_at'] = $result['undo_expires_at'] ?? null;
+        }
+
+        return response()->json($payload);
+    }
+
+    /**
+     * Limited Undo: revert a recently executed reversible action.
+     * Only task_complete / reminder_complete / routine_complete / task_update,
+     * only within UNDO_WINDOW_MINUTES, only once.
+     */
+    public function undo(Request $request, AiPendingAction $action)
+    {
+        abort_if($action->user_id !== Auth::id(), 403);
+        $user = Auth::user();
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($action, $user) {
+            /** @var AiPendingAction|null $fresh */
+            $fresh = AiPendingAction::where('id', $action->id)->lockForUpdate()->first();
+            if (! $fresh || (int) $fresh->user_id !== (int) $user->id) {
+                return response()->json(['ok' => false, 'code' => \App\Services\AiTooling\ToolError::AUTHORIZATION_ERROR, 'error' => __('Not allowed.')], 403);
+            }
+            if ($fresh->status !== AiPendingAction::STATUS_EXECUTED) {
+                return response()->json(['ok' => false, 'code' => \App\Services\AiTooling\ToolError::VALIDATION_ERROR, 'error' => __('Only executed actions can be undone.')], 422);
+            }
+            if ($fresh->isUndone()) {
+                return response()->json(['ok' => true, 'code' => 'ok', 'deduped' => true, 'message' => __('Already undone.')]);
+            }
+            if (! $fresh->isUndoable()) {
+                $expired = $fresh->isUndoExpired();
+
+                return response()->json([
+                    'ok' => false,
+                    'code' => $expired ? \App\Services\AiTooling\ToolError::EXPIRED_ACTION : \App\Services\AiTooling\ToolError::VALIDATION_ERROR,
+                    'error' => $expired ? __('Undo window expired.') : __('This action cannot be undone.'),
+                ], 422);
+            }
+
+            $result = \App\Services\AiUndoService::revert($fresh, $user);
+            if (! ($result['ok'] ?? false)) {
+                return response()->json(['ok' => false, 'code' => $result['code'] ?? 'invalid', 'error' => $result['error']], 422);
+            }
+
+            $fresh->undone_at = now();
+            $fresh->save();
+
+            \Illuminate\Support\Facades\Log::info('ai.tool.undone', ['user_id' => $user->id, 'tool' => $fresh->tool, 'action_id' => $fresh->id]);
+            AiLogger::log('action.undone', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool]);
+
+            if ($fresh->conversation_id) {
+                AiMessage::create([
+                    'conversation_id' => $fresh->conversation_id,
+                    'role' => 'assistant',
+                    'content' => '↩️ ' . ($result['message'] ?? __('Undone.')),
+                ]);
+            }
+
+            return response()->json(['ok' => true, 'code' => 'ok', 'message' => $result['message']]);
+        });
     }
 
     /**
@@ -53,7 +114,7 @@ class AiActionController extends Controller
                 if (! ($result['deduped'] ?? false)) {
                     $done[] = $result['message'] ?? $action->tool;
                 }
-            } elseif (($result['code'] ?? null) === 'expired') {
+            } elseif (($result['code'] ?? null) === \App\Services\AiTooling\ToolError::EXPIRED_ACTION) {
                 $expired++;
             } else {
                 $failed[] = '#' . $action->id . ' ' . ($result['error'] ?? __('failed'));
@@ -144,12 +205,23 @@ class AiActionController extends Controller
             if ($fresh->status === AiPendingAction::STATUS_EXECUTED) {
                 return ['ok' => true, 'code' => \App\Services\AiTooling\ToolError::OK, 'deduped' => true, 'message' => __('Already executed.')];
             }
+            if ($fresh->status === AiPendingAction::STATUS_EXECUTING) {
+                // Another worker holds the claim right now — never double-run.
+                return ['ok' => true, 'code' => \App\Services\AiTooling\ToolError::OK, 'deduped' => true, 'message' => __('Already being processed.')];
+            }
 
             if (! $fresh->isActionable()) {
                 if ($fresh->isPending() && $fresh->isExpired()) {
                     $fresh->markExpired();
                 }
                 AiLogger::log('action.confirm_expired', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'status' => $fresh->status]);
+
+                if ($fresh->status === AiPendingAction::STATUS_REJECTED) {
+                    return ['ok' => false, 'code' => \App\Services\AiTooling\ToolError::CANCELLED, 'error' => __('This confirmation was cancelled — nothing changed.')];
+                }
+                if ($fresh->status === AiPendingAction::STATUS_FAILED) {
+                    return ['ok' => false, 'code' => \App\Services\AiTooling\ToolError::EXECUTION_ERROR, 'error' => __('This action failed: :details', ['details' => $fresh->error ?? __('unknown error')])];
+                }
 
                 return ['ok' => false, 'code' => \App\Services\AiTooling\ToolError::EXPIRED_ACTION, 'error' => __('This confirmation has expired. Ask Lina again.')];
             }
@@ -164,34 +236,53 @@ class AiActionController extends Controller
                 return ['ok' => false, 'code' => $check['code'] ?? 'invalid', 'error' => $check['error'] ?? __('No longer valid.')];
             }
 
-            // Atomic claim: only one concurrent confirmer moves pending → confirmed.
+            // Atomic claim: exactly one concurrent confirmer flips
+            // pending → executing. Everyone else dedupes above/below.
             $claimed = AiPendingAction::where('id', $fresh->id)
                 ->where('status', AiPendingAction::STATUS_PENDING)
-                ->update(['status' => AiPendingAction::STATUS_CONFIRMED]);
+                ->update(['status' => AiPendingAction::STATUS_EXECUTING]);
             if (! $claimed) {
                 return ['ok' => true, 'code' => \App\Services\AiTooling\ToolError::OK, 'deduped' => true, 'message' => __('Already executed.')];
             }
-            $fresh->status = AiPendingAction::STATUS_CONFIRMED;
+            $fresh->status = AiPendingAction::STATUS_EXECUTING;
 
-            $result = \App\Services\AiTooling\ToolPipeline::normalizeResult(
-                $fresh->tool,
-                $this->tools->execute($fresh->tool, $check['resolved'], $user)
-            );
+            // Before-image for limited undo (reversible tools only).
+            $undo = \App\Services\AiUndoService::supports($fresh->tool)
+                ? \App\Services\AiUndoService::capture($fresh->tool, $check['resolved'], $user)
+                : null;
+
+            try {
+                $result = \App\Services\AiTooling\ToolPipeline::normalizeResult(
+                    $fresh->tool,
+                    $this->tools->execute($fresh->tool, $check['resolved'], $user)
+                );
+            } catch (\Throwable $e) {
+                // A throwing execute must never leave a zombie claim behind:
+                // terminal FAILED with the reason stored, never retryable blindly.
+                $fresh->markFailed($e->getMessage());
+                \Illuminate\Support\Facades\Log::error('ai.tool.exception', ['user_id' => $user->id, 'tool' => $fresh->tool, 'action_id' => $fresh->id, 'error' => $e->getMessage()]);
+                AiLogger::error('action.execute_failed', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'code' => \App\Services\AiTooling\ToolError::EXECUTION_ERROR, 'error' => $e->getMessage()]);
+
+                return ['ok' => false, 'code' => \App\Services\AiTooling\ToolError::EXECUTION_ERROR, 'error' => __('Execution failed: :details', ['details' => $e->getMessage()])];
+            }
 
             if (! ($result['ok'] ?? false)) {
+                $fresh->markFailed($result['message'] ?? 'Execution failed.');
                 AiLogger::error('action.execute_failed', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'code' => $result['code'] ?? null, 'error' => $result['message'] ?? 'Execution failed.']);
 
                 return ['ok' => false, 'code' => $result['code'] ?? 'execute_failed', 'error' => $result['message'] ?? __('Execution failed.')];
             }
 
+            $undo = \App\Services\AiUndoService::finalize($fresh->tool, $check['resolved'], $user, $undo);
             $fresh->status = AiPendingAction::STATUS_EXECUTED;
             $fresh->executed_at = now();
+            $fresh->undo_data = $undo;
             $fresh->save();
 
             \Illuminate\Support\Facades\Log::info('ai.tool.executed', [
                 'user_id' => $user->id, 'tool' => $fresh->tool, 'action_id' => $fresh->id,
             ]);
-            AiLogger::log('action.executed', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'message' => $result['message'] ?? null, 'created_id' => $result['id'] ?? null]);
+            AiLogger::log('action.executed', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'message' => $result['message'] ?? null, 'created_id' => $result['id'] ?? null, 'undoable' => $undo !== null]);
 
             if ($fresh->conversation_id) {
                 AiMessage::create([
@@ -201,7 +292,13 @@ class AiActionController extends Controller
                 ]);
             }
 
-            return ['ok' => true, 'message' => $result['message']];
+            $out = ['ok' => true, 'code' => \App\Services\AiTooling\ToolError::OK, 'message' => $result['message']];
+            if ($undo !== null) {
+                $out['undoable'] = true;
+                $out['undo_expires_at'] = now()->addMinutes(AiPendingAction::UNDO_WINDOW_MINUTES)->toIso8601String();
+            }
+
+            return $out;
         });
     }
 

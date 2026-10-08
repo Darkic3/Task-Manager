@@ -84,9 +84,22 @@ class AiPlanController extends Controller
                 $result = $this->tools->executePlanPhase($locked->fresh(), Auth::user());
                 if (! ($result['ok'] ?? false)) {
                     \Illuminate\Support\Facades\Log::warning('ai.plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'error' => $result['message'] ?? null]);
-                    AiLogger::error('plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'phase' => $locked->fresh()->current_phase, 'error' => $result['message'] ?? null]);
+                    AiLogger::error('plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'phase' => $locked->fresh()->current_phase, 'error' => $result['message'] ?? null, 'completed_phases' => $messages]);
+                    // Partial failure is reported, never swallowed: what already
+                    // ran stays (by design, no rollback) and is listed both in
+                    // the response and in the conversation history.
+                    if (! empty($messages)) {
+                        $this->note($locked, '⚠ ' . __('Partial progress before failure: :details', ['details' => implode(' ', $messages)]));
+                    }
 
-                    return response()->json(['ok' => false, 'error' => $result['message'] ?? __('Phase failed.'), 'plan' => $this->serialize($locked->fresh())], 422);
+                    return response()->json([
+                        'ok' => false,
+                        'code' => 'phase_failed',
+                        'error' => $result['message'] ?? __('Phase failed.'),
+                        'completed' => $messages,
+                        'failed_phase' => $locked->fresh()->current_phase,
+                        'plan' => $this->serialize($locked->fresh()),
+                    ], 422);
                 }
                 $messages[] = $result['message'];
                 $phasesRun++;
