@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\AiProviderException;
 use App\Models\AiProvider;
 use App\Models\AiSetting;
 use Illuminate\Support\Facades\Auth;
@@ -335,10 +336,26 @@ class AiProviderService
 
         $maxAttempts = 3;
         for ($attempt = 1; ; $attempt++) {
-            $response = Http::withHeaders($headers)
-                ->withOptions(['verify' => false])
-                ->timeout($timeout)
-                ->post($url, $payload);
+            try {
+                $response = Http::withHeaders($headers)
+                    ->withOptions(['verify' => false])
+                    ->timeout($timeout)
+                    ->post($url, $payload);
+            } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                // cURL 52 Empty reply / timeout / DNS — retry, then surface as provider error
+                if ($attempt < $maxAttempts) {
+                    usleep(1500 * 1000 * $attempt); // 1.5s, 3s
+                    continue;
+                }
+                throw new AiProviderException(
+                    $e->getMessage(),
+                    parse_url($url, PHP_URL_HOST) ?: 'unknown',
+                    $url,
+                    null,
+                    0,
+                    $e
+                );
+            }
 
             $status = $response->status();
             if (($status === 429 || $status >= 500) && $attempt < $maxAttempts) {

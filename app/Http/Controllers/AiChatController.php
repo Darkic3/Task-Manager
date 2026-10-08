@@ -13,6 +13,7 @@ use App\Models\Reminder;
 use App\Models\Routine;
 use App\Models\Task;
 use App\Models\User;
+use App\Exceptions\AiProviderException;
 use App\Services\AiLogger;
 use App\Services\AiProviderService;
 use App\Services\AiToolService;
@@ -180,11 +181,16 @@ class AiChatController extends Controller
             }
 
             return response()->json($payload);
+        } catch (AiProviderException $e) {
+            \Log::warning('AI provider failed', ['provider' => $e->provider, 'endpoint' => $e->endpoint, 'status' => $e->httpStatus, 'error' => $e->getMessage()]);
+            AiLogger::error('request.failed', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'error_type' => 'provider', 'endpoint' => $e->endpoint, 'http_status' => $e->httpStatus, 'error' => $e->getMessage()]);
+
+            return response()->json(['reply' => $this->formatProviderError($e, $resolved), 'error_type' => 'provider', 'provider' => $e->provider, 'endpoint' => $e->endpoint, 'http_status' => $e->httpStatus], 200);
         } catch (\Exception $e) {
             \Log::error('AI chat failed', ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'error' => $e->getMessage()]);
-            AiLogger::error('request.failed', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'error' => $e->getMessage()]);
+            AiLogger::error('request.failed', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'error_type' => 'system', 'error' => $e->getMessage()]);
 
-            return response()->json(['reply' => __('AI error: :details', ['details' => $e->getMessage()])], 200);
+            return response()->json(['reply' => $this->formatSystemError($e), 'error_type' => 'system'], 200);
         }
     }
 
@@ -254,7 +260,7 @@ class AiChatController extends Controller
             return response()->stream(function () use ($sseFlush, $offlineConvId, $fallbackText) {
                 echo 'data: '.json_encode(['model' => 'lina-offline', 'provider' => 'offline', 'conversation_id' => $offlineConvId])."\n\n";
                 $sseFlush();
-                foreach (str_split($fallbackText, 4) as $chunk) {
+                foreach (mb_str_split($fallbackText, 4) as $chunk) {
                     echo 'data: '.json_encode(['choices' => [['delta' => ['content' => $chunk]]]])."\n\n";
                     $sseFlush();
                     usleep(14000);
@@ -313,9 +319,14 @@ class AiChatController extends Controller
         // Non-OpenAI: sync call then simulate streaming
         try {
             $fullText = $this->callProviderSync($resolved, $messages);
+        } catch (AiProviderException $e) {
+            \Log::warning('AI stream provider failed', ['provider' => $e->provider, 'endpoint' => $e->endpoint, 'status' => $e->httpStatus, 'error' => $e->getMessage()]);
+            AiLogger::error('stream.failed', ['rid' => $rid, 'provider' => $e->provider, 'error_type' => 'provider', 'error' => $e->getMessage()]);
+            $fullText = $this->formatProviderError($e, $resolved);
         } catch (\Exception $e) {
             \Log::error('AI stream sync failed', ['provider' => $resolved['provider'], 'error' => $e->getMessage()]);
-            $fullText = __('AI error: :details', ['details' => $e->getMessage()]);
+            AiLogger::error('stream.failed', ['rid' => $rid, 'provider' => $resolved['provider'], 'error_type' => 'system', 'error' => $e->getMessage()]);
+            $fullText = $this->formatSystemError($e);
         }
 
         $conversationId = $conversation->id;
@@ -326,7 +337,7 @@ class AiChatController extends Controller
         return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $model, $provider) {
             echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
             $sseFlush();
-            foreach (str_split($fullText, 5) as $chunk) {
+            foreach (mb_str_split($fullText, 5) as $chunk) {
                 echo 'data: '.json_encode(['choices' => [['delta' => ['content' => $chunk]]]])."\n\n";
                 $sseFlush();
                 usleep(12000);
@@ -366,7 +377,7 @@ class AiChatController extends Controller
     {
         $result = $this->callOpenAiSyncRaw($key, $baseUrl, $messages, $model, null);
         if ($result['text'] === '' && empty($result['tool_calls'])) {
-            throw new \Exception('Empty response from provider');
+            throw new AiProviderException('Empty response from provider', parse_url($baseUrl, PHP_URL_HOST) ?: 'openai', $baseUrl, null);
         }
 
         return $result['text'];
@@ -385,7 +396,8 @@ class AiChatController extends Controller
         ], 60);
 
         if ($response->failed()) {
-            throw new \Exception($this->ai->formatErrorResponse($response));
+            $detail = $this->ai->formatErrorResponse($response);
+            throw new AiProviderException($detail, parse_url($endpoint, PHP_URL_HOST) ?: 'openai', $endpoint, $response->status());
         }
         $msg = $response->json('choices.0.message') ?? [];
         $text = trim($msg['content'] ?? '');
@@ -416,7 +428,7 @@ class AiChatController extends Controller
         if (empty($raw['tool_calls'])) {
             if ($raw['text'] === '') {
                 AiLogger::error('provider.empty_response', ['rid' => $rid, 'user_id' => $user->id ?? null, 'provider' => $resolved['provider'], 'model' => $resolved['model']]);
-                throw new \Exception('Empty response from provider');
+                throw new AiProviderException('Empty response from provider', $resolved['provider'], $resolved['config']['base_url'] ?? null, null);
             }
 
             $out = ['reply' => $raw['text']];
@@ -436,6 +448,21 @@ class AiChatController extends Controller
                     $out['proposal'] = $fallback;
                 } elseif (isset($fallback['error'])) {
                     $out['reply'] .= "\n\n⚠️ ".$fallback['error'];
+                }
+            }
+
+            // Fallback for bulk task creation when proxy drops tool_calls or model hallucinates "✅ created"
+            // e.g. user pastes "1. task ... 2. task ..." + project name, but stream shows no tool_calls.
+            if ($userMessage !== '' && $this->isTaskCreationIntent($userMessage, $raw['text'])) {
+                $taskFallbacks = $this->buildTaskCreationFallbackProposals($user, $userMessage, $raw['text']);
+                if (!empty($taskFallbacks)) {
+                    $out['proposals'] = array_merge($out['proposals'] ?? [], $taskFallbacks);
+                    // Keep first as 'proposal' for backward compat
+                    if (!isset($out['proposal'])) $out['proposal'] = $taskFallbacks[0];
+                    // Override hallucinated reply with honest message
+                    if (mb_stripos($raw['text'], 'created') !== false || mb_stripos($raw['text'], 'ایجاد شد') !== false) {
+                        $out['reply'] = "مدل متنی برگرداند اما tool فراخوانی نشد — تسک‌ها به صورت fallback برای تایید شما آماده شدند. لطفاً کارت‌های زیر را تایید کنید.";
+                    }
                 }
             }
 
@@ -664,6 +691,117 @@ class AiChatController extends Controller
         return $hits >= 2 && mb_strlen($text) > 100;
     }
 
+    private function isTaskCreationIntent(string $userMessage, string $assistantText): bool
+    {
+        // Must have a numbered list with at least 2 items (1. ... 2. ...)
+        $count = preg_match_all('/^\s*\d+[\.\)]\s*.+/m', $userMessage, $m);
+        if ($count < 2) return false;
+        $hasTaskWord = mb_stripos($userMessage, 'تسک') !== false || mb_stripos($userMessage, 'task') !== false || mb_stripos($userMessage, 'پروژه') !== false;
+        if (!$hasTaskWord) return false;
+        if ($this->isWorkoutIntent($userMessage)) return false;
+        // Avoid false positives on very short messages
+        if (mb_strlen($userMessage) < 30) return false;
+        return true;
+    }
+
+    private function extractTaskTitles(string $userMessage): array
+    {
+        $titles = [];
+        if (preg_match_all('/^\s*\d+[\.\)]\s*(.+?)\s*$/m', $userMessage, $matches)) {
+            foreach ($matches[1] as $line) {
+                $t = trim($line);
+                // Remove leading dash/bullet artifacts
+                $t = ltrim($t, "-•\t ");
+                if ($t !== '' && mb_strlen($t) <= 255) {
+                    $titles[] = $t;
+                }
+            }
+        }
+        // Cap to avoid abuse
+        return array_slice($titles, 0, 20);
+    }
+
+    private function resolveProjectForTaskFallback($user, string $userMessage): ?Project
+    {
+        $projects = Project::where('user_id', $user->id)->get(['id','name']);
+        if ($projects->isEmpty()) return null;
+        $best = null;
+        $bestScore = 0;
+        $msgNorm = mb_strtolower($userMessage);
+        foreach ($projects as $p) {
+            $nameNorm = mb_strtolower($p->name);
+            // Direct substring both ways
+            if (mb_stripos($msgNorm, $nameNorm) !== false || mb_stripos($nameNorm, $msgNorm) !== false) {
+                return $p;
+            }
+            // Word overlap score
+            $words = preg_split('/\s+/u', $nameNorm);
+            $score = 0;
+            foreach ($words as $w) {
+                $w = trim($w);
+                if (mb_strlen($w) < 3) continue;
+                // Allow stem match: "فروشگاه" matches "فروشگاهی"
+                $stem = mb_substr($w, 0, 4);
+                if (mb_stripos($msgNorm, $w) !== false || mb_stripos($msgNorm, $stem) !== false) {
+                    $score++;
+                }
+            }
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $best = $p;
+            }
+        }
+        return $bestScore > 0 ? $best : null;
+    }
+
+    private function normalizeTitleForCompare(string $title): string
+    {
+        // Remove ZWNJ, ZWJ, extra spaces for duplicate detection
+        $t = str_replace(["\xE2\x80\x8C", "\xE2\x80\x8D", "\xC2\xAD"], '', $title);
+        $t = preg_replace('/\s+/u', ' ', trim($t));
+        return mb_strtolower($t);
+    }
+
+    private function buildTaskCreationFallbackProposals($user, string $userMessage, string $assistantText): array
+    {
+        $titles = $this->extractTaskTitles($userMessage);
+        if (empty($titles)) return [];
+        $project = $this->resolveProjectForTaskFallback($user, $userMessage);
+        $projectId = $project?->id;
+        // Fetch existing titles normalized for this project
+        $existing = Task::where('user_id', $user->id)
+            ->when($projectId, fn($q) => $q->where('project_id', $projectId))
+            ->pluck('title')->map(fn($t) => $this->normalizeTitleForCompare($t))->toArray();
+        $proposals = [];
+        foreach ($titles as $title) {
+            $norm = $this->normalizeTitleForCompare($title);
+            if (in_array($norm, $existing, true)) {
+                \Log::info('ai.task.fallback_skip_exists', ['user_id'=>$user->id,'title'=>$title,'project_id'=>$projectId]);
+                continue;
+            }
+            $args = ['title' => $title];
+            if ($projectId) $args['project_id'] = $projectId;
+            // Reuse existing pending creation logic (handles cap, validation)
+            $proposal = $this->createPendingFromToolCall($user, null, 'task_create', json_encode($args, JSON_UNESCAPED_UNICODE));
+            // If we hit pending cap, stop
+            if (isset($proposal['code']) && $proposal['code']==='too_many_pending') {
+                break;
+            }
+            if (isset($proposal['error']) && !isset($proposal['action_id'])) {
+                \Log::warning('ai.task.fallback_error', ['user_id'=>$user->id,'title'=>$title,'error'=>$proposal['error']]);
+                continue;
+            }
+            $proposals[] = $proposal;
+            $existing[] = $norm; // prevent dup within same batch
+            if (count($proposals) >= \App\Models\AiPendingAction::MAX_OPEN) break;
+        }
+        if (!empty($proposals)) {
+            \Log::info('ai.task.fallback_created', ['user_id'=>$user->id,'project_id'=>$projectId,'project_name'=>$project?->name,'count'=>count($proposals),'titles'=>$titles]);
+            AiLogger::log('task.fallback_created', ['user_id'=>$user->id,'project_id'=>$projectId,'count'=>count($proposals)]);
+        }
+        return $proposals;
+    }
+
     private function startsTodayCue(string $text): bool
     {
         foreach (['starting today', 'start from today', 'starts today', 'شروع از امروز', 'شروعش از امروز', 'از امروز'] as $needle) {
@@ -797,11 +935,11 @@ class AiChatController extends Controller
         $response = $this->ai->postJson($url, $body, [], 60);
 
         if ($response->failed()) {
-            throw new \Exception($this->ai->formatErrorResponse($response));
+            throw new AiProviderException($this->ai->formatErrorResponse($response), parse_url($url, PHP_URL_HOST) ?: 'gemini', $url, $response->status());
         }
         $text = $response->json('candidates.0.content.parts.0.text');
         if (! $text) {
-            throw new \Exception('Empty response from Gemini');
+            throw new AiProviderException('Empty response from Gemini', 'gemini', $url, $response->status());
         }
 
         return trim($text);
@@ -827,7 +965,7 @@ class AiChatController extends Controller
         ], 60);
 
         if ($response->failed()) {
-            throw new \Exception($this->ai->formatErrorResponse($response));
+            throw new AiProviderException($this->ai->formatErrorResponse($response), parse_url($baseUrl, PHP_URL_HOST) ?: 'anthropic', $baseUrl, $response->status());
         }
         $blocks = $response->json('content');
         $text = '';
@@ -839,10 +977,55 @@ class AiChatController extends Controller
             }
         }
         if (! $text) {
-            throw new \Exception('Empty response from Claude');
+            throw new AiProviderException('Empty response from Claude', 'anthropic', $baseUrl, $response->status());
         }
 
         return trim($text);
+    }
+
+    /* ── helpers: distinguish provider vs system errors for the UI ── */
+    private function formatProviderError(AiProviderException $e, array $resolved): string
+    {
+        $host = $e->endpoint ? parse_url($e->endpoint, PHP_URL_HOST) : ($resolved['config']['base_url'] ?? $e->provider);
+        $status = $e->httpStatus ? " (HTTP {$e->httpStatus})" : '';
+        $raw = trim($e->getMessage());
+
+        // Short technical detail (one line)
+        $detail = $raw;
+        // Keep cURL detail concise — already contains URL
+        if (mb_strlen($detail) > 300) {
+            $detail = mb_substr($detail, 0, 300) . '…';
+        }
+
+        return "🔌 **خطای پرووایدر هوش مصنوعی**{$status}\n\n"
+            . "سرور `{$host}` پاسخ نداد (Empty reply).\n\n"
+            . "این مشکل **از Task Manager نیست** — از سمت سرویس هوش مصنوعی (پرووایدر مدل) است.\n\n"
+            . "**چکار کنید:**\n"
+            . "- چند لحظه بعد دوباره تلاش کنید\n"
+            . "- در **تنظیمات AI** اتصال و کلید API پرووایدر را بررسی کنید\n\n"
+            . "<details><summary>جزئیات فنی</summary>\n\n```\n{$detail}\n```\n</details>";
+    }
+
+    private function formatSystemError(\Exception $e): string
+    {
+        $msg = trim($e->getMessage());
+        if (mb_strlen($msg) > 400) $msg = mb_substr($msg, 0, 400) . '…';
+        return "⚠️ **خطای داخلی Task Manager**\n\n"
+            . "این مشکل از سیستم خود Task Manager است (نه پرووایدر).\n\n"
+            . "```\n{$msg}\n```\n\n"
+            . "لاگ‌ها را بررسی کنید یا با پشتیبانی تماس بگیرید.";
+    }
+
+    private function isProviderConnectionError(\Exception $e): bool
+    {
+        $msg = $e->getMessage() . ' ' . ($e->getPrevious()?->getMessage() ?? '');
+        foreach (['cURL error', 'Empty reply', 'Connection timed out', 'Connection reset', 'Failed to connect', 'Could not resolve host', 'timed out', 'ConnectException'] as $needle) {
+            if (str_contains($msg, $needle)) return true;
+        }
+        // Guzzle ConnectException / CurlException class names
+        if ($e instanceof \GuzzleHttp\Exception\ConnectException) return true;
+        if ($e->getPrevious() instanceof \GuzzleHttp\Exception\ConnectException) return true;
+        return false;
     }
 
     /* ── OpenAI streaming ── */
@@ -877,28 +1060,32 @@ class AiChatController extends Controller
                 $detail = (is_array($json) && isset($json['error']))
                     ? $this->ai->formatErrorArray($json['error'])
                     : trim($body);
-                throw new \Exception("HTTP {$status}: {$detail}");
+                throw new AiProviderException("HTTP {$status}: {$detail}", parse_url($endpoint, PHP_URL_HOST) ?: $provider, $endpoint, $status);
             }
-        } catch (\Exception $e) {
-            // Fall back to sync + chunk (keeps tool calls via the Raw variant).
-            \Log::warning('AI stream openai failed, falling back to sync', ['provider' => $provider, 'error' => $e->getMessage()]);
+        } catch (AiProviderException $e) {
+            \Log::warning('AI stream provider failed, falling back to sync', ['provider' => $e->provider, 'endpoint' => $e->endpoint, 'status' => $e->httpStatus, 'error' => $e->getMessage()]);
+            AiLogger::error('stream.fallback_provider', ['rid' => $rid, 'provider' => $e->provider, 'error_type' => 'provider', 'error' => $e->getMessage()]);
             $conversationId = $conversation->id;
             $userId = Auth::id();
             $sseFlush = $this->sseFlushClosure();
             $controller = $this;
+            $resolvedForError = $resolved;
             try {
                 $raw = $this->callOpenAiSyncRaw($key, $cfg['base_url'], $messages, $model, $tools);
-                $fullText = $raw['text'] !== '' ? $raw['text'] : __('AI error: :details', ['details' => __('Empty response from provider')]);
+                $fullText = $raw['text'] !== '' ? $raw['text'] : $this->formatProviderError(new AiProviderException('Empty response from provider', $provider, $endpoint), $resolvedForError);
                 $fallbackTools = $raw['tool_calls'];
+            } catch (AiProviderException $e2) {
+                $fullText = $this->formatProviderError($e2, $resolvedForError);
+                $fallbackTools = [];
             } catch (\Exception $e2) {
-                $fullText = __('AI error: :details', ['details' => $e2->getMessage()]);
+                $fullText = $this->isProviderConnectionError($e2) ? $this->formatProviderError(new AiProviderException($e2->getMessage(), parse_url($endpoint, PHP_URL_HOST) ?: $provider, $endpoint, null, 0, $e2), $resolvedForError) : $this->formatSystemError($e2);
                 $fallbackTools = [];
             }
 
             return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages) {
                 echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
                 $sseFlush();
-                foreach (str_split($fullText, 5) as $chunk) {
+                foreach (mb_str_split($fullText, 5) as $chunk) {
                     echo 'data: '.json_encode(['choices' => [['delta' => ['content' => $chunk]]]])."\n\n";
                     $sseFlush();
                     usleep(12000);
@@ -921,6 +1108,112 @@ class AiChatController extends Controller
                     }
                     $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
                     $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
+                    $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
+                    $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
+                }
+                echo "data: [DONE]\n\n";
+                $sseFlush();
+            }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
+        } catch (\Exception $e) {
+            if ($this->isProviderConnectionError($e)) {
+                $pe = new AiProviderException($e->getMessage(), parse_url($endpoint, PHP_URL_HOST) ?: $provider, $endpoint, null, 0, $e);
+                \Log::warning('AI stream provider connection failed, falling back to sync', ['provider' => $pe->provider, 'endpoint' => $pe->endpoint, 'error' => $pe->getMessage()]);
+                AiLogger::error('stream.fallback_provider', ['rid' => $rid, 'provider' => $pe->provider, 'error_type' => 'provider', 'error' => $pe->getMessage()]);
+                $conversationId = $conversation->id;
+                $userId = Auth::id();
+                $sseFlush = $this->sseFlushClosure();
+                $controller = $this;
+                $resolvedForError = $resolved;
+                try {
+                    $raw = $this->callOpenAiSyncRaw($key, $cfg['base_url'], $messages, $model, $tools);
+                    $fullText = $raw['text'] !== '' ? $raw['text'] : $this->formatProviderError(new AiProviderException('Empty response from provider', $provider, $endpoint), $resolvedForError);
+                    $fallbackTools = $raw['tool_calls'];
+                } catch (AiProviderException $e2) {
+                    $fullText = $this->formatProviderError($e2, $resolvedForError);
+                    $fallbackTools = [];
+                } catch (\Exception $e2) {
+                    $fullText = $this->isProviderConnectionError($e2) ? $this->formatProviderError(new AiProviderException($e2->getMessage(), parse_url($endpoint, PHP_URL_HOST) ?: $provider, $endpoint, null, 0, $e2), $resolvedForError) : $this->formatSystemError($e2);
+                    $fallbackTools = [];
+                }
+                return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages) {
+                    echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
+                    $sseFlush();
+                    foreach (mb_str_split($fullText, 5) as $chunk) {
+                        echo 'data: '.json_encode(['choices' => [['delta' => ['content' => $chunk]]]])."\n\n";
+                        $sseFlush();
+                        usleep(12000);
+                    }
+                    try {
+                        AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => $fullText, 'model' => $model]);
+                        AiConversation::where('id', $conversationId)->touch();
+                    } catch (\Exception $e) {
+                    }
+                    if ($agentMode) {
+                        $accum = [];
+                        foreach (array_values($fallbackTools) as $i => $tc) {
+                            $accum[$i] = [
+                                'id' => $tc['id'] ?? null,
+                                'name' => $tc['function']['name'] ?? null,
+                                'arguments' => is_string($tc['function']['arguments'] ?? null)
+                                    ? $tc['function']['arguments']
+                                    : json_encode($tc['function']['arguments'] ?? []),
+                            ];
+                        }
+                        $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
+                        $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
+                    $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
+                        $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
+                    }
+                    echo "data: [DONE]\n\n";
+                    $sseFlush();
+                }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
+            }
+            \Log::error('AI stream system failed, falling back to sync', ['provider' => $provider, 'error' => $e->getMessage()]);
+            AiLogger::error('stream.fallback_system', ['rid' => $rid, 'provider' => $provider, 'error_type' => 'system', 'error' => $e->getMessage()]);
+            $conversationId = $conversation->id;
+            $userId = Auth::id();
+            $sseFlush = $this->sseFlushClosure();
+            $controller = $this;
+            $resolvedForError = $resolved;
+            try {
+                $raw = $this->callOpenAiSyncRaw($key, $cfg['base_url'], $messages, $model, $tools);
+                $fullText = $raw['text'] !== '' ? $raw['text'] : $this->formatSystemError(new \Exception('Empty response from provider'));
+                $fallbackTools = $raw['tool_calls'];
+            } catch (AiProviderException $e2) {
+                $fullText = $this->formatProviderError($e2, $resolvedForError);
+                $fallbackTools = [];
+            } catch (\Exception $e2) {
+                $fullText = $this->formatSystemError($e2);
+                $fallbackTools = [];
+            }
+
+            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages) {
+                echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
+                $sseFlush();
+                foreach (mb_str_split($fullText, 5) as $chunk) {
+                    echo 'data: '.json_encode(['choices' => [['delta' => ['content' => $chunk]]]])."\n\n";
+                    $sseFlush();
+                    usleep(12000);
+                }
+                try {
+                    AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => $fullText, 'model' => $model]);
+                    AiConversation::where('id', $conversationId)->touch();
+                } catch (\Exception $e) {
+                }
+                if ($agentMode) {
+                    $accum = [];
+                    foreach (array_values($fallbackTools) as $i => $tc) {
+                        $accum[$i] = [
+                            'id' => $tc['id'] ?? null,
+                            'name' => $tc['function']['name'] ?? null,
+                            'arguments' => is_string($tc['function']['arguments'] ?? null)
+                                ? $tc['function']['arguments']
+                                : json_encode($tc['function']['arguments'] ?? []),
+                        ];
+                    }
+                    $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
+                    $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
+                    $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
                     $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
                 }
                 echo "data: [DONE]\n\n";
@@ -963,6 +1256,7 @@ class AiChatController extends Controller
                             if ($agentMode) {
                                 $controller->emitToolProposals($toolAccum, $userId, $conversationId, $sseFlush);
                                 $controller->emitWorkoutFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
+                $controller->emitTaskCreationFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
                                 $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush);
                             }
                             echo "data: [DONE]\n\n";
@@ -978,19 +1272,23 @@ class AiChatController extends Controller
                             // If nothing was streamed yet, fall back to a sync call which
                             // often still works, instead of showing the raw error.
                             if (trim($accumulatedText) === '' && empty($toolAccum)) {
-                                \Log::warning('AI stream mid-stream provider error, falling back to sync', ['provider' => $provider, 'model' => $model, 'error' => $providerError]);
+                                \Log::warning('AI stream mid-stream provider error, falling back to sync', ['provider' => $provider, 'model' => $model, 'error' => $providerError, 'error_type' => 'provider']);
                                 try {
                                     $raw = $this->callOpenAiSyncRaw($key, $endpoint, $messages, $model, $tools);
                                     $fallbackText = trim($raw['text'] ?? '') !== '' ? $raw['text'] : null;
                                     $fallbackTools = $raw['tool_calls'] ?? [];
+                                } catch (AiProviderException $e2) {
+                                    $fallbackText = null;
+                                    $fallbackTools = [];
+                                    \Log::warning('AI stream sync fallback also failed (provider)', ['provider' => $e2->provider, 'error' => $e2->getMessage(), 'error_type' => 'provider']);
                                 } catch (\Exception $e2) {
                                     $fallbackText = null;
                                     $fallbackTools = [];
-                                    \Log::warning('AI stream sync fallback also failed', ['provider' => $provider, 'error' => $e2->getMessage()]);
+                                    \Log::warning('AI stream sync fallback also failed (system)', ['provider' => $provider, 'error' => $e2->getMessage(), 'error_type' => 'system']);
                                 }
                                 if ($fallbackText !== null && trim($fallbackText) !== '') {
                                     $accumulatedText = $fallbackText;
-                                    foreach (str_split($fallbackText, 5) as $chunk) {
+                                    foreach (mb_str_split($fallbackText, 5) as $chunk) {
                                         echo 'data: '.json_encode(['choices' => [['delta' => ['content' => $chunk]]]])."\n\n";
                                         $sseFlush();
                                         usleep(12000);
@@ -1013,6 +1311,7 @@ class AiChatController extends Controller
                                             }
                                             $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
                                             $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fallbackText, $sseFlush);
+                                            $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fallbackText, $sseFlush);
                                             $controller->emitToolMissedNotice($fallbackText, $accum, $sseFlush);
                                         }
                                     echo "data: [DONE]\n\n";
@@ -1025,7 +1324,7 @@ class AiChatController extends Controller
                                 AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => trim($accumulatedText), 'model' => $model]);
                                 AiConversation::where('id', $conversationId)->touch();
                             }
-                            echo 'data: '.json_encode(['error' => $providerError])."\n\n";
+                            echo 'data: '.json_encode(['error' => $providerError, 'error_type' => 'provider', 'provider' => $provider, 'endpoint' => $endpoint])."\n\n";
                             $sseFlush();
                             echo "data: [DONE]\n\n";
                             $sseFlush();
@@ -1067,6 +1366,7 @@ class AiChatController extends Controller
             $controller->emitToolProposals($agentMode ? $toolAccum : [], $userId, $conversationId, $sseFlush);
             if ($agentMode) {
                 $controller->emitWorkoutFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
+                $controller->emitTaskCreationFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
                 $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush);
             }
             echo "data: [DONE]\n\n";
@@ -1101,6 +1401,31 @@ class AiChatController extends Controller
         $packet = $this->buildWorkoutFallbackProposal($user, $conversationId, $userMessage, $assistantText);
         echo 'data: '.json_encode(['type' => 'workout_import_proposal'] + $packet)."\n\n";
         $sseFlush();
+    }
+
+    public function emitTaskCreationFallbackIfNeeded(array $toolAccum, int $userId, int $conversationId, array $messages, string $assistantText, callable $sseFlush): void
+    {
+        if (!empty($toolAccum)) return;
+        $userMessage = '';
+        foreach (array_reverse($messages) as $message) {
+            if (($message['role'] ?? null) === 'user' && trim((string) ($message['content'] ?? '')) !== '') {
+                $userMessage = (string) $message['content'];
+                break;
+            }
+        }
+        if ($userMessage === '' || !$this->isTaskCreationIntent($userMessage, $assistantText)) return;
+        $user = User::find($userId);
+        if (!$user) return;
+        $proposals = $this->buildTaskCreationFallbackProposals($user, $userMessage, $assistantText);
+        foreach ($proposals as $proposal) {
+            echo 'data: '.json_encode(['type' => 'tool_proposal'] + $proposal)."\n\n";
+            $sseFlush();
+        }
+        if (!empty($proposals)) {
+            $notice = "\n\n✅ تسک‌ها به صورت fallback برای تایید آماده شدند — لطفاً کارت‌های بالا را تایید کنید.";
+            echo 'data: '.json_encode(['choices' => [['delta' => ['content' => $notice]]]])."\n\n";
+            $sseFlush();
+        }
     }
 
     /**
