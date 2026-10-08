@@ -451,6 +451,21 @@ class AiChatController extends Controller
                 }
             }
 
+            // Fallback for bulk task creation when proxy drops tool_calls or model hallucinates "✅ created"
+            // e.g. user pastes "1. task ... 2. task ..." + project name, but stream shows no tool_calls.
+            if ($userMessage !== '' && $this->isTaskCreationIntent($userMessage, $raw['text'])) {
+                $taskFallbacks = $this->buildTaskCreationFallbackProposals($user, $userMessage, $raw['text']);
+                if (!empty($taskFallbacks)) {
+                    $out['proposals'] = array_merge($out['proposals'] ?? [], $taskFallbacks);
+                    // Keep first as 'proposal' for backward compat
+                    if (!isset($out['proposal'])) $out['proposal'] = $taskFallbacks[0];
+                    // Override hallucinated reply with honest message
+                    if (mb_stripos($raw['text'], 'created') !== false || mb_stripos($raw['text'], 'ایجاد شد') !== false) {
+                        $out['reply'] = "مدل متنی برگرداند اما tool فراخوانی نشد — تسک‌ها به صورت fallback برای تایید شما آماده شدند. لطفاً کارت‌های زیر را تایید کنید.";
+                    }
+                }
+            }
+
             return $out;
         }
 
@@ -674,6 +689,117 @@ class AiChatController extends Controller
         }
 
         return $hits >= 2 && mb_strlen($text) > 100;
+    }
+
+    private function isTaskCreationIntent(string $userMessage, string $assistantText): bool
+    {
+        // Must have a numbered list with at least 2 items (1. ... 2. ...)
+        $count = preg_match_all('/^\s*\d+[\.\)]\s*.+/m', $userMessage, $m);
+        if ($count < 2) return false;
+        $hasTaskWord = mb_stripos($userMessage, 'تسک') !== false || mb_stripos($userMessage, 'task') !== false || mb_stripos($userMessage, 'پروژه') !== false;
+        if (!$hasTaskWord) return false;
+        if ($this->isWorkoutIntent($userMessage)) return false;
+        // Avoid false positives on very short messages
+        if (mb_strlen($userMessage) < 30) return false;
+        return true;
+    }
+
+    private function extractTaskTitles(string $userMessage): array
+    {
+        $titles = [];
+        if (preg_match_all('/^\s*\d+[\.\)]\s*(.+?)\s*$/m', $userMessage, $matches)) {
+            foreach ($matches[1] as $line) {
+                $t = trim($line);
+                // Remove leading dash/bullet artifacts
+                $t = ltrim($t, "-•\t ");
+                if ($t !== '' && mb_strlen($t) <= 255) {
+                    $titles[] = $t;
+                }
+            }
+        }
+        // Cap to avoid abuse
+        return array_slice($titles, 0, 20);
+    }
+
+    private function resolveProjectForTaskFallback($user, string $userMessage): ?Project
+    {
+        $projects = Project::where('user_id', $user->id)->get(['id','name']);
+        if ($projects->isEmpty()) return null;
+        $best = null;
+        $bestScore = 0;
+        $msgNorm = mb_strtolower($userMessage);
+        foreach ($projects as $p) {
+            $nameNorm = mb_strtolower($p->name);
+            // Direct substring both ways
+            if (mb_stripos($msgNorm, $nameNorm) !== false || mb_stripos($nameNorm, $msgNorm) !== false) {
+                return $p;
+            }
+            // Word overlap score
+            $words = preg_split('/\s+/u', $nameNorm);
+            $score = 0;
+            foreach ($words as $w) {
+                $w = trim($w);
+                if (mb_strlen($w) < 3) continue;
+                // Allow stem match: "فروشگاه" matches "فروشگاهی"
+                $stem = mb_substr($w, 0, 4);
+                if (mb_stripos($msgNorm, $w) !== false || mb_stripos($msgNorm, $stem) !== false) {
+                    $score++;
+                }
+            }
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $best = $p;
+            }
+        }
+        return $bestScore > 0 ? $best : null;
+    }
+
+    private function normalizeTitleForCompare(string $title): string
+    {
+        // Remove ZWNJ, ZWJ, extra spaces for duplicate detection
+        $t = str_replace(["\xE2\x80\x8C", "\xE2\x80\x8D", "\xC2\xAD"], '', $title);
+        $t = preg_replace('/\s+/u', ' ', trim($t));
+        return mb_strtolower($t);
+    }
+
+    private function buildTaskCreationFallbackProposals($user, string $userMessage, string $assistantText): array
+    {
+        $titles = $this->extractTaskTitles($userMessage);
+        if (empty($titles)) return [];
+        $project = $this->resolveProjectForTaskFallback($user, $userMessage);
+        $projectId = $project?->id;
+        // Fetch existing titles normalized for this project
+        $existing = Task::where('user_id', $user->id)
+            ->when($projectId, fn($q) => $q->where('project_id', $projectId))
+            ->pluck('title')->map(fn($t) => $this->normalizeTitleForCompare($t))->toArray();
+        $proposals = [];
+        foreach ($titles as $title) {
+            $norm = $this->normalizeTitleForCompare($title);
+            if (in_array($norm, $existing, true)) {
+                \Log::info('ai.task.fallback_skip_exists', ['user_id'=>$user->id,'title'=>$title,'project_id'=>$projectId]);
+                continue;
+            }
+            $args = ['title' => $title];
+            if ($projectId) $args['project_id'] = $projectId;
+            // Reuse existing pending creation logic (handles cap, validation)
+            $proposal = $this->createPendingFromToolCall($user, null, 'task_create', json_encode($args, JSON_UNESCAPED_UNICODE));
+            // If we hit pending cap, stop
+            if (isset($proposal['code']) && $proposal['code']==='too_many_pending') {
+                break;
+            }
+            if (isset($proposal['error']) && !isset($proposal['action_id'])) {
+                \Log::warning('ai.task.fallback_error', ['user_id'=>$user->id,'title'=>$title,'error'=>$proposal['error']]);
+                continue;
+            }
+            $proposals[] = $proposal;
+            $existing[] = $norm; // prevent dup within same batch
+            if (count($proposals) >= \App\Models\AiPendingAction::MAX_OPEN) break;
+        }
+        if (!empty($proposals)) {
+            \Log::info('ai.task.fallback_created', ['user_id'=>$user->id,'project_id'=>$projectId,'project_name'=>$project?->name,'count'=>count($proposals),'titles'=>$titles]);
+            AiLogger::log('task.fallback_created', ['user_id'=>$user->id,'project_id'=>$projectId,'count'=>count($proposals)]);
+        }
+        return $proposals;
     }
 
     private function startsTodayCue(string $text): bool
@@ -982,6 +1108,7 @@ class AiChatController extends Controller
                     }
                     $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
                     $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
+                    $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
                     $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
                 }
                 echo "data: [DONE]\n\n";
@@ -1034,6 +1161,7 @@ class AiChatController extends Controller
                         }
                         $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
                         $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
+                    $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
                         $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
                     }
                     echo "data: [DONE]\n\n";
@@ -1085,6 +1213,7 @@ class AiChatController extends Controller
                     }
                     $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
                     $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
+                    $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
                     $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
                 }
                 echo "data: [DONE]\n\n";
@@ -1127,6 +1256,7 @@ class AiChatController extends Controller
                             if ($agentMode) {
                                 $controller->emitToolProposals($toolAccum, $userId, $conversationId, $sseFlush);
                                 $controller->emitWorkoutFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
+                $controller->emitTaskCreationFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
                                 $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush);
                             }
                             echo "data: [DONE]\n\n";
@@ -1181,6 +1311,7 @@ class AiChatController extends Controller
                                             }
                                             $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
                                             $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fallbackText, $sseFlush);
+                                            $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fallbackText, $sseFlush);
                                             $controller->emitToolMissedNotice($fallbackText, $accum, $sseFlush);
                                         }
                                     echo "data: [DONE]\n\n";
@@ -1235,6 +1366,7 @@ class AiChatController extends Controller
             $controller->emitToolProposals($agentMode ? $toolAccum : [], $userId, $conversationId, $sseFlush);
             if ($agentMode) {
                 $controller->emitWorkoutFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
+                $controller->emitTaskCreationFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
                 $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush);
             }
             echo "data: [DONE]\n\n";
@@ -1269,6 +1401,31 @@ class AiChatController extends Controller
         $packet = $this->buildWorkoutFallbackProposal($user, $conversationId, $userMessage, $assistantText);
         echo 'data: '.json_encode(['type' => 'workout_import_proposal'] + $packet)."\n\n";
         $sseFlush();
+    }
+
+    public function emitTaskCreationFallbackIfNeeded(array $toolAccum, int $userId, int $conversationId, array $messages, string $assistantText, callable $sseFlush): void
+    {
+        if (!empty($toolAccum)) return;
+        $userMessage = '';
+        foreach (array_reverse($messages) as $message) {
+            if (($message['role'] ?? null) === 'user' && trim((string) ($message['content'] ?? '')) !== '') {
+                $userMessage = (string) $message['content'];
+                break;
+            }
+        }
+        if ($userMessage === '' || !$this->isTaskCreationIntent($userMessage, $assistantText)) return;
+        $user = User::find($userId);
+        if (!$user) return;
+        $proposals = $this->buildTaskCreationFallbackProposals($user, $userMessage, $assistantText);
+        foreach ($proposals as $proposal) {
+            echo 'data: '.json_encode(['type' => 'tool_proposal'] + $proposal)."\n\n";
+            $sseFlush();
+        }
+        if (!empty($proposals)) {
+            $notice = "\n\n✅ تسک‌ها به صورت fallback برای تایید آماده شدند — لطفاً کارت‌های بالا را تایید کنید.";
+            echo 'data: '.json_encode(['choices' => [['delta' => ['content' => $notice]]]])."\n\n";
+            $sseFlush();
+        }
     }
 
     /**
