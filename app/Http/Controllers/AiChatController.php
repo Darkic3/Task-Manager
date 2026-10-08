@@ -134,12 +134,6 @@ class AiChatController extends Controller
             'mode' => 'nullable|in:chat,agent',
         ]);
 
-        // Drop empty/whitespace-only turns (tool-only replies) before prompting.
-        $history = array_values(array_filter(
-            (array) $request->input('history', []),
-            fn ($m) => is_array($m) && trim((string) ($m['content'] ?? '')) !== ''
-        ));
-
         $user = Auth::user();
         $resolved = $this->ai->resolve($user);
         // Server is the only authority: tools only in agent mode.
@@ -152,14 +146,26 @@ class AiChatController extends Controller
 
             return response()->json(['reply' => __('No AI provider is configured. Go to AI Settings and add an API key for OpenAI, Gemini, Claude, DeepSeek or Meta.')], 200);
         }
-        AiLogger::log('request.resolved', ['rid' => $rid, 'user_id' => $user->id, 'mode' => $agentMode ? 'agent' : 'chat', 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? 'openai']);
+        AiLogger::log('request.resolved', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? 'openai']);
 
+        // Client-supplied history is accepted (backward compat) but NEVER trusted:
+        // the Context Engine builds history server-side. Log if a client sent any.
+        $clientHistoryCount = is_array($request->input('history')) ? count($request->input('history')) : 0;
+        if ($clientHistoryCount > 0) {
+            AiLogger::log('request.client_history_ignored', ['rid' => $rid, 'user_id' => $user->id, 'count' => $clientHistoryCount]);
+        }
+
+        // No conversation on this endpoint → server history is empty by design.
         try {
-            $context = $this->buildContext($user);
+            $ctx = app(\App\Services\AiContextEngine::class)->build($user, (string) $request->message, $agentMode ? 'agent' : 'chat');
+            $context = $ctx['text'];
+            $history = $ctx['history'];
+            AiLogger::log('context.built', ['rid' => $rid, 'user_id' => $user->id] + $ctx['meta']);
         } catch (\Exception $e) {
             \Log::error('AI buildContext error', ['user_id' => $user->id, 'error' => $e->getMessage()]);
             AiLogger::error('context.failed', ['rid' => $rid, 'user_id' => $user->id, 'error' => $e->getMessage()]);
             $context = '(Could not load user data)';
+            $history = [];
         }
 
         $messages = $this->buildMessages($user, $context, $history, $request->message, $agentMode ? 'agent' : 'chat');
@@ -168,7 +174,7 @@ class AiChatController extends Controller
             $result = $this->callProviderSyncWithTools($resolved, $messages, $user, $agentMode, $rid);
             \Log::info('AI chat response', ['user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'mode' => $agentMode ? 'agent' : 'chat']);
             $toolNames = collect($result['proposals'] ?? [])->map(fn ($p) => $p['tool'] ?? (isset($p['plan']) ? 'plan_propose' : (isset($p['import']) ? 'workout_plan_propose' : null)))->filter()->all();
-            AiLogger::log('request.completed', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'mode' => $agentMode ? 'agent' : 'chat', 'has_reply' => isset($result['reply']), 'proposals' => count($result['proposals'] ?? []), 'tools' => $toolNames]);
+            AiLogger::log('request.completed', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'mode' => $agentMode ? 'agent' : 'chat', 'has_reply' => isset($result['reply']), 'proposals' => count($result['proposals'] ?? []), 'tools' => $toolNames, 'context_chars' => mb_strlen($context ?? ''), 'history_count' => count($history ?? [])]);
             $payload = ['model' => $resolved['model'], 'provider' => $resolved['provider']];
             if (isset($result['reply'])) {
                 $payload['reply'] = $result['reply'];
@@ -207,6 +213,10 @@ class AiChatController extends Controller
             'history.*.role' => 'required|in:user,assistant',
             'history.*.content' => 'nullable|string|max:8000',
             'mode' => 'nullable|in:chat,agent',
+            'attach_note_ids' => 'nullable|array|max:5',
+            'attach_note_ids.*' => 'integer|min:1',
+            'attach_file_ids' => 'nullable|array|max:5',
+            'attach_file_ids.*' => 'integer|min:1',
         ]);
         if ($validator->fails()) {
             AiLogger::log('request.invalid', ['endpoint' => 'stream', 'user_id' => Auth::id(), 'errors' => $validator->errors()->toArray()]);
@@ -217,19 +227,15 @@ class AiChatController extends Controller
             ], 422);
         }
 
-        // Drop empty/whitespace-only turns (e.g. a tool-only reply stored as
-        // just newlines) — they carry no usable context and some clients send
-        // them without content at all.
-        $history = array_values(array_filter(
-            (array) $request->input('history', []),
-            fn ($m) => is_array($m) && trim((string) ($m['content'] ?? '')) !== ''
-        ));
+        // Client-supplied history is accepted (backward compat) but NEVER used:
+        // history comes from AiMessage server-side via the Context Engine.
+        $clientHistoryCount = is_array($request->input('history')) ? count($request->input('history')) : 0;
 
         $user = Auth::user();
         $resolved = $this->ai->resolve($user);
         $agentMode = $request->input('mode', 'chat') === 'agent';
         $rid = AiLogger::newRequestId();
-        AiLogger::log('request.received', ['rid' => $rid, 'endpoint' => 'stream', 'user_id' => $user->id, 'mode' => $agentMode ? 'agent' : 'chat', 'message_preview' => $request->message, 'message_len' => mb_strlen($request->message ?? ''), 'has_provider' => (bool) $resolved, 'provider' => $resolved['provider'] ?? null, 'model' => $resolved['model'] ?? null, 'type' => $resolved['type'] ?? null]);
+        AiLogger::log('request.received', ['rid' => $rid, 'endpoint' => 'stream', 'user_id' => $user->id, 'mode' => $agentMode ? 'agent' : 'chat', 'message_preview' => $request->message, 'message_len' => mb_strlen($request->message ?? ''), 'has_provider' => (bool) $resolved, 'provider' => $resolved['provider'] ?? null, 'model' => $resolved['model'] ?? null, 'type' => $resolved['type'] ?? null, 'client_history_ignored' => $clientHistoryCount]);
 
         // Resolve or create conversation
         $convId = $request->input('conversation_id');
@@ -240,8 +246,8 @@ class AiChatController extends Controller
             $conversation = AiConversation::create(['user_id' => $user->id, 'label' => __('New Chat')]);
         }
 
-        // Save user message
-        AiMessage::create([
+        // Save user message (its id is excluded from server-side history below)
+        $userMsg = AiMessage::create([
             'conversation_id' => $conversation->id,
             'role' => 'user',
             'content' => $request->message,
@@ -276,10 +282,24 @@ class AiChatController extends Controller
         }
 
         try {
-            $context = $this->buildContext($user);
+            $ctx = app(\App\Services\AiContextEngine::class)->build(
+                $user,
+                (string) $request->message,
+                $agentMode ? 'agent' : 'chat',
+                [
+                    'conversation_id' => $conversation->id,
+                    'exclude_message_id' => $userMsg->id,
+                    'note_ids' => (array) $request->input('attach_note_ids', []),
+                    'file_ids' => (array) $request->input('attach_file_ids', []),
+                ]
+            );
+            $context = $ctx['text'];
+            $history = $ctx['history'];
+            AiLogger::log('context.built', ['rid' => $rid, 'user_id' => $user->id] + $ctx['meta']);
         } catch (\Exception $e) {
             \Log::error('AI stream buildContext error', ['user_id' => $user->id, 'error' => $e->getMessage()]);
             $context = '(Could not load user data)';
+            $history = [];
         }
 
         $messages = $this->buildMessages($user, $context, $history, $request->message, $agentMode ? 'agent' : 'chat');
@@ -1578,44 +1598,18 @@ PROMPT;
         return preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $clean);
     }
 
+    /**
+     * Legacy entry point (kept for backward compatibility).
+     * Delegates to AiContextEngine with a neutral message; callers that need
+     * relevance/history should use the engine directly with the user message.
+     */
     private function buildContext($user): string
     {
-        $projects = Project::where('user_id', $user->id)->get(['name', 'status', 'end_date', 'budget']);
-        $projectLines = $projects->map(fn ($p) => "- {$p->name} (status: {$p->status}".($p->end_date ? ", due: {$p->end_date->format('Y-m-d')}" : '').')')->join("\n");
-
-        $tasks = Task::where('user_id', $user->id)->with('project:id,name')->get(['title', 'status', 'priority', 'due_date', 'project_id']);
-        $taskLines = $tasks->map(fn ($t) => "- [{$t->status}] {$t->title} (priority: {$t->priority}".($t->due_date ? ", due: {$t->due_date}" : '').($t->project ? ", project: {$t->project->name}" : '').')')->join("\n");
-
-        $notes = Note::where('user_id', $user->id)->get(['title', 'content', 'tags']);
-        $noteLines = $notes->map(function ($n) {
-            $tags = is_array($n->tags) ? implode(', ', $n->tags) : ($n->tags ?? '');
-
-            return "- {$n->title}".($tags ? " [tags: {$tags}]" : '').': '.strip_tags(substr($n->content ?? '', 0, 120));
-        })->join("\n");
-
-        $reminders = Reminder::where('user_id', $user->id)->get(['title', 'date', 'time', 'priority', 'is_completed', 'tags']);
-        $reminderLines = $reminders->map(function ($r) {
-            $tags = is_array($r->tags) ? implode(', ', $r->tags) : ($r->tags ?? '');
-            $status = $r->is_completed ? 'done' : 'pending';
-            $when = $r->date ? $r->date->format('Y-m-d').($r->time ? " {$r->time}" : '') : '';
-
-            return "- [{$status}] {$r->title}".($when ? " at {$when}" : '').($tags ? " [tags: {$tags}]" : '');
-        })->join("\n");
-
-        $routines = Routine::where('user_id', $user->id)->get(['title', 'frequency']);
-        $routineLines = $routines->map(fn ($r) => "- {$r->title} ({$r->frequency})")->join("\n");
-
-        $files = File::where('user_id', $user->id)->get(['name', 'type']);
-        $fileLines = $files->map(fn ($f) => "- {$f->name} (type: {$f->type})")->join("\n");
-
-        return implode("\n\n", array_filter([
-            $projects->count() ? "PROJECTS ({$projects->count()}):\n{$projectLines}" : null,
-            $tasks->count() ? "TASKS ({$tasks->count()}):\n{$taskLines}" : null,
-            $notes->count() ? "NOTES ({$notes->count()}):\n{$noteLines}" : null,
-            $reminders->count() ? "REMINDERS ({$reminders->count()}):\n{$reminderLines}" : null,
-            $routines->count() ? "ROUTINES ({$routines->count()}):\n{$routineLines}" : null,
-            $files->count() ? "FILES ({$files->count()}):\n{$fileLines}" : null,
-        ]));
+        try {
+            return app(\App\Services\AiContextEngine::class)->build($user, '', 'agent')['text'];
+        } catch (\Exception $e) {
+            return '(Could not load user data)';
+        }
     }
 
     /* ── Debug endpoint: one place to diagnose "agent said X but created nothing" ── */
