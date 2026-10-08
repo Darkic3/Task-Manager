@@ -1351,8 +1351,10 @@ class AiChatController extends Controller
                 echo 'data: '.json_encode(['error' => __('Stream interrupted.')])."\n\n";
                 $sseFlush();
             }
-            // Persist if we exited without [DONE]
-            if (trim($accumulatedText) !== '') {
+            // Persist if we exited without [DONE] — also persist tool-only responses so refresh doesn't lose them
+            $shouldPersistText = trim($accumulatedText) !== '';
+            $toolCount = is_array($toolAccum) ? count($toolAccum) : 0;
+            if ($shouldPersistText) {
                 $accumulatedText = trim($accumulatedText);
                 try {
                     $exists = AiMessage::where('conversation_id', $conversationId)->where('role', 'assistant')->where('content', $accumulatedText)->exists();
@@ -1362,6 +1364,13 @@ class AiChatController extends Controller
                     }
                 } catch (\Exception $e) {
                 }
+            } elseif ($toolCount > 0) {
+                // Tool-only response (e.g. 19 task_create) — leave a summary so history isn't empty after refresh
+                try {
+                    $summary = "✅ {$toolCount} تسک برای تایید آماده شد — لطفاً کارت‌های بالا را تایید کنید تا ساخته شوند.";
+                    AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => $summary, 'model' => $model]);
+                    AiConversation::where('id', $conversationId)->touch();
+                } catch (\Exception $e) {}
             }
             $controller->emitToolProposals($agentMode ? $toolAccum : [], $userId, $conversationId, $sseFlush);
             if ($agentMode) {
