@@ -498,7 +498,22 @@ class AiChatController extends Controller
             return $out;
         }
 
-        $first = $raw['tool_calls'][0];
+        // Turn guard: per-turn cap + identical-call loop cut (order preserved).
+        $indexed = [];
+        foreach (array_values($raw['tool_calls']) as $i => $tc) {
+            $indexed[] = [
+                'index' => $i,
+                'name' => $tc['function']['name'] ?? '',
+                'arguments' => $tc['function']['arguments'] ?? '{}',
+            ];
+        }
+        $guard = \App\Services\AiTooling\ToolPipeline::filterTurnCalls($indexed);
+        $keptCalls = [];
+        foreach ($guard['kept'] as $kept) {
+            $keptCalls[] = array_values($raw['tool_calls'])[$kept['index']];
+        }
+
+        $first = $keptCalls[0];
         $proposal = $this->createPendingFromToolCall(
             $user, null,
             $first['function']['name'] ?? '',
@@ -512,7 +527,7 @@ class AiChatController extends Controller
         // Keep EVERY tool call: long plans (e.g. one task per day) arrive
         // as several calls, not one. 'proposal' stays for backward compat.
         $proposals = [$proposal];
-        foreach (array_slice($raw['tool_calls'], 1) as $tc) {
+        foreach (array_slice($keptCalls, 1) as $tc) {
             $proposals[] = $this->createPendingFromToolCall(
                 $user, null,
                 $tc['function']['name'] ?? '',
@@ -521,6 +536,10 @@ class AiChatController extends Controller
             if (count($proposals) >= AiPendingAction::MAX_OPEN) {
                 break; // matches the per-user pending cap
             }
+        }
+        // Surfaced (not silent): dropped loop/over-cap calls arrive as errors.
+        foreach ($guard['dropped'] as $dropped) {
+            $proposals[] = ['error' => $dropped['error'], 'code' => $dropped['code'], 'tool' => $dropped['name']];
         }
         $out['proposals'] = $proposals;
         $out['proposal'] = $proposal;
@@ -535,6 +554,18 @@ class AiChatController extends Controller
     private function createPendingFromToolCall($user, $conversationId, string $tool, $argsJson): array
     {
         $tool = AiToolService::normalizeToolName($tool);
+
+        // Envelope guard first (shape/size) — also protects the plan/workout
+        // paths below, which carry the largest payloads.
+        $env = \App\Services\AiTooling\ToolSchema::envelope(
+            is_string($argsJson) ? $argsJson : (array) $argsJson
+        );
+        if (! ($env['ok'] ?? false)) {
+            AiLogger::log('tool.proposal_invalid', ['user_id' => $user->id, 'tool' => $tool, 'code' => $env['code'] ?? null, 'error' => $env['error'] ?? 'Invalid action.']);
+
+            return ['error' => $env['error'] ?? __('Invalid action.'), 'code' => $env['code'] ?? 'validation_error'];
+        }
+
         if ($tool === 'plan_propose') {
             return $this->createPlanFromToolCall($user, $conversationId, $argsJson);
         }
@@ -543,7 +574,6 @@ class AiChatController extends Controller
         }
 
         $service = new AiToolService;
-        $args = is_string($argsJson) ? (json_decode($argsJson, true) ?? []) : (array) $argsJson;
 
         $openActions = AiPendingAction::where('user_id', $user->id)
             ->where('status', AiPendingAction::STATUS_PENDING)
@@ -566,23 +596,59 @@ class AiChatController extends Controller
             ];
         }
 
-        $check = $service->validateCall($tool, $args, $user);
+        // Shared pipeline: schema → security → normalize → business →
+        // ownership → state → policy. Returns a derived idempotency key.
+        $check = \App\Services\AiTooling\ToolPipeline::validateForProposal(
+            $user, $tool, $env['args'], ['conversation_id' => $conversationId]
+        );
         if (! ($check['ok'] ?? false)) {
-            AiLogger::log('tool.proposal_invalid', ['user_id' => $user->id, 'tool' => $tool, 'error' => $check['error'] ?? 'Invalid action.', 'args' => $args]);
+            AiLogger::log('tool.proposal_invalid', ['user_id' => $user->id, 'tool' => $tool, 'code' => $check['code'] ?? null, 'error' => $check['error'] ?? 'Invalid action.']);
 
-            return ['error' => $check['error'] ?? __('Invalid action.')];
+            return ['error' => $check['error'] ?? __('Invalid action.'), 'code' => $check['code'] ?? 'validation_error'];
         }
 
-        $action = AiPendingAction::create([
-            'user_id' => $user->id,
-            'conversation_id' => $conversationId,
-            'tool' => $tool,
-            'args' => $check['resolved'],
-            'preview' => $service->preview($tool, $check['resolved'], $user),
-            'status' => AiPendingAction::STATUS_PENDING,
-            'expires_at' => now()->addMinutes(AiPendingAction::EXPIRY_MINUTES),
-            'idempotency_key' => bin2hex(random_bytes(32)),
-        ]);
+        // Retry/reconnect safe: the same (user, conversation, tool, args)
+        // reuses the live pending instead of stacking a duplicate.
+        $duplicate = \App\Services\AiTooling\ToolPipeline::findDuplicatePending($user->id, $check['idempotency_key']);
+        if ($duplicate) {
+            AiLogger::log('tool.proposal_deduped', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $duplicate->id]);
+
+            return [
+                'action_id' => $duplicate->id,
+                'tool' => $tool,
+                'preview' => $duplicate->preview,
+                'expires_at' => $duplicate->expires_at->toIso8601String(),
+                'deduped' => true,
+            ];
+        }
+
+        try {
+            $action = AiPendingAction::create([
+                'user_id' => $user->id,
+                'conversation_id' => $conversationId,
+                'tool' => $tool,
+                'args' => $check['resolved'],
+                'preview' => $service->preview($tool, $check['resolved'], $user),
+                'status' => AiPendingAction::STATUS_PENDING,
+                'expires_at' => now()->addMinutes(AiPendingAction::EXPIRY_MINUTES),
+                'idempotency_key' => $check['idempotency_key'],
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Lost a race with an identical proposal: reuse the winner.
+            if (str_contains(strtolower($e->getMessage()), 'duplicate')) {
+                $winner = \App\Services\AiTooling\ToolPipeline::findDuplicatePending($user->id, $check['idempotency_key']);
+                if ($winner) {
+                    return [
+                        'action_id' => $winner->id,
+                        'tool' => $tool,
+                        'preview' => $winner->preview,
+                        'expires_at' => $winner->expires_at->toIso8601String(),
+                        'deduped' => true,
+                    ];
+                }
+            }
+            throw $e;
+        }
 
         \Log::info('ai.tool.proposed', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $action->id]);
         AiLogger::log('tool.proposed', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $action->id, 'conversation_id' => $conversationId, 'resolved' => $check['resolved']]);
@@ -1481,7 +1547,26 @@ class AiChatController extends Controller
             return;
         }
         AiLogger::log('stream.tool_calls_received', ['rid' => $rid, 'user_id' => $userId, 'conversation_id' => $conversationId, 'count' => count($toolAccum), 'names' => collect(array_values($toolAccum))->map(fn ($tc) => $tc['name'] ?? '?')->all()]);
-        foreach (array_values($toolAccum) as $tc) {
+        // Turn guard: per-turn cap + identical-call loop cut (order preserved).
+        $indexed = [];
+        foreach (array_values($toolAccum) as $i => $tc) {
+            $indexed[] = [
+                'index' => $i,
+                'name' => $tc['name'] ?? '',
+                'arguments' => $tc['arguments'] ?? '{}',
+            ];
+        }
+        $guard = \App\Services\AiTooling\ToolPipeline::filterTurnCalls($indexed);
+        $keptIdx = collect($guard['kept'])->map(fn ($k) => $k['index'])->all();
+        foreach ($guard['dropped'] as $dropped) {
+            AiLogger::log('stream.proposal_dropped', ['rid' => $rid, 'user_id' => $userId, 'conversation_id' => $conversationId, 'tool' => $dropped['name'], 'code' => $dropped['code']]);
+            echo 'data: '.json_encode(['type' => 'tool_proposal', 'error' => $dropped['error'], 'code' => $dropped['code'], 'tool' => $dropped['name']])."\n\n";
+            $sseFlush();
+        }
+        foreach (array_values($toolAccum) as $i => $tc) {
+            if (! in_array($i, $keptIdx, true)) {
+                continue;
+            }
             $name = $tc['name'] ?? null;
             if (! $name) {
                 continue;

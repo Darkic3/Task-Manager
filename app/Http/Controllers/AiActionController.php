@@ -25,12 +25,10 @@ class AiActionController extends Controller
 
         $result = $this->runAction($action, Auth::user());
         if (! ($result['ok'] ?? false)) {
-            $status = ($result['code'] ?? null) === 'expired' ? 422 : 422;
-
-            return response()->json(['ok' => false, 'error' => $result['error']], $status);
+            return response()->json(['ok' => false, 'code' => $result['code'] ?? 'invalid', 'error' => $result['error']], 422);
         }
 
-        return response()->json(['ok' => true, 'deduped' => $result['deduped'] ?? false, 'message' => $result['message'] ?? null]);
+        return response()->json(['ok' => true, 'code' => 'ok', 'deduped' => $result['deduped'] ?? false, 'message' => $result['message'] ?? null]);
     }
 
     /**
@@ -110,12 +108,13 @@ class AiActionController extends Controller
 
     /**
      * Shared single-action runner: dedupe, expiry, re-validate, execute.
-     * Returns ['ok'=>bool,'message'=>?string,'error'=>?string,'code'=>?string,'deduped'=>bool].
+     * Returns structured ['ok','code','message'|'error','deduped'?].
      *
      * Security Boundary: confirmation is NOT authorization. The pending row
      * is locked (FOR UPDATE), ownership of the action AND of the linked
-     * conversation is re-checked, then args are re-validated (ownership may
-     * have changed since proposal) before anything executes.
+     * conversation is re-checked, then the full pipeline re-validates
+     * (schema → security → business → ownership → state) on fresh reads
+     * before anything executes.
      */
     private function runAction(AiPendingAction $action, $user): array
     {
@@ -123,13 +122,13 @@ class AiActionController extends Controller
             /** @var AiPendingAction|null $fresh */
             $fresh = AiPendingAction::where('id', $action->id)->lockForUpdate()->first();
             if (! $fresh) {
-                return ['ok' => false, 'code' => 'invalid', 'error' => __('No longer valid.')];
+                return ['ok' => false, 'code' => \App\Services\AiTooling\ToolError::NOT_FOUND, 'error' => __('No longer valid.')];
             }
             // Ownership of the pending action itself (confirmation ≠ authorization).
             if ((int) $fresh->user_id !== (int) $user->id) {
                 AiLogger::log('action.confirm_forbidden', ['user_id' => $user->id, 'action_id' => $fresh->id, 'owner' => $fresh->user_id]);
 
-                return ['ok' => false, 'code' => 'forbidden', 'error' => __('Not allowed.')];
+                return ['ok' => false, 'code' => \App\Services\AiTooling\ToolError::AUTHORIZATION_ERROR, 'error' => __('Not allowed.')];
             }
             // Ownership of the linked conversation (a pending may not be
             // moved across conversations/users by tampering with IDs).
@@ -138,12 +137,12 @@ class AiActionController extends Controller
                 if (! $conv || (int) $conv->user_id !== (int) $user->id) {
                     AiLogger::log('action.confirm_invalid', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'error' => 'conversation ownership mismatch']);
 
-                    return ['ok' => false, 'code' => 'invalid', 'error' => __('No longer valid.')];
+                    return ['ok' => false, 'code' => \App\Services\AiTooling\ToolError::AUTHORIZATION_ERROR, 'error' => __('No longer valid.')];
                 }
             }
 
             if ($fresh->status === AiPendingAction::STATUS_EXECUTED) {
-                return ['ok' => true, 'deduped' => true, 'message' => __('Already executed.')];
+                return ['ok' => true, 'code' => \App\Services\AiTooling\ToolError::OK, 'deduped' => true, 'message' => __('Already executed.')];
             }
 
             if (! $fresh->isActionable()) {
@@ -152,15 +151,17 @@ class AiActionController extends Controller
                 }
                 AiLogger::log('action.confirm_expired', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'status' => $fresh->status]);
 
-                return ['ok' => false, 'code' => 'expired', 'error' => __('This confirmation has expired. Ask Lina again.')];
+                return ['ok' => false, 'code' => \App\Services\AiTooling\ToolError::EXPIRED_ACTION, 'error' => __('This confirmation has expired. Ask Lina again.')];
             }
 
-            // Re-validate at execution time (ownership may have changed).
-            $check = $this->tools->validateCall($fresh->tool, (array) $fresh->args, $user);
+            // Full pipeline re-validation on fresh reads: a resource that
+            // vanished, changed owner, or changed state since proposal can
+            // never execute blindly.
+            $check = \App\Services\AiTooling\ToolPipeline::revalidateForExecute($user, $fresh->tool, (array) $fresh->args);
             if (! ($check['ok'] ?? false)) {
-                AiLogger::log('action.confirm_invalid', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'error' => $check['error'] ?? 'No longer valid.']);
+                AiLogger::log('action.confirm_invalid', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'code' => $check['code'] ?? null, 'error' => $check['error'] ?? 'No longer valid.']);
 
-                return ['ok' => false, 'code' => 'invalid', 'error' => $check['error'] ?? __('No longer valid.')];
+                return ['ok' => false, 'code' => $check['code'] ?? 'invalid', 'error' => $check['error'] ?? __('No longer valid.')];
             }
 
             // Atomic claim: only one concurrent confirmer moves pending → confirmed.
@@ -168,16 +169,19 @@ class AiActionController extends Controller
                 ->where('status', AiPendingAction::STATUS_PENDING)
                 ->update(['status' => AiPendingAction::STATUS_CONFIRMED]);
             if (! $claimed) {
-                return ['ok' => true, 'deduped' => true, 'message' => __('Already executed.')];
+                return ['ok' => true, 'code' => \App\Services\AiTooling\ToolError::OK, 'deduped' => true, 'message' => __('Already executed.')];
             }
             $fresh->status = AiPendingAction::STATUS_CONFIRMED;
 
-            $result = $this->tools->execute($fresh->tool, $check['resolved'], $user);
+            $result = \App\Services\AiTooling\ToolPipeline::normalizeResult(
+                $fresh->tool,
+                $this->tools->execute($fresh->tool, $check['resolved'], $user)
+            );
 
             if (! ($result['ok'] ?? false)) {
-                AiLogger::error('action.execute_failed', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'error' => $result['message'] ?? 'Execution failed.']);
+                AiLogger::error('action.execute_failed', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'code' => $result['code'] ?? null, 'error' => $result['message'] ?? 'Execution failed.']);
 
-                return ['ok' => false, 'code' => 'execute_failed', 'error' => $result['message'] ?? __('Execution failed.')];
+                return ['ok' => false, 'code' => $result['code'] ?? 'execute_failed', 'error' => $result['message'] ?? __('Execution failed.')];
             }
 
             $fresh->status = AiPendingAction::STATUS_EXECUTED;

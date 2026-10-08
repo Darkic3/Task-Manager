@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ChecklistItem;
 use App\Models\Note;
 use App\Models\Project;
+use App\Services\AiTooling\ToolError;
 use App\Models\Reminder;
 use App\Models\Routine;
 use App\Models\RoutineCompletion;
@@ -472,18 +473,19 @@ class AiToolService
     {
         $tool = self::normalizeToolName($tool);
         if (! in_array($tool, self::TOOLS, true)) {
-            return $this->fail("Unknown tool: {$tool}");
+            return $this->fail("Unknown tool: {$tool}.", ToolError::UNKNOWN_TOOL);
         }
 
         // Security Boundary: the LLM/client can never smuggle identity,
         // permission, or confirmation-policy keys through tool args.
         // `user` is legitimate ONLY for project_add_member (member ref).
+        // (The pipeline invokes the same screen as its own dedicated stage.)
         $forbidden = AiSecurity::findForbiddenKey($args);
         if ($forbidden !== null && ! ($tool === 'project_add_member' && strtolower($forbidden) === 'user')) {
-            return $this->fail("Argument '{$forbidden}' is not allowed.");
+            return $this->fail("Argument '{$forbidden}' is not allowed.", ToolError::AUTHORIZATION_ERROR);
         }
 
-        $args = $this->normalize($args);
+        $args = $this->normalizeArgs($args);
 
         return match ($tool) {
             'task_create' => $this->validateTaskCreate($args, $user),
@@ -491,7 +493,7 @@ class AiToolService
             'task_complete' => $this->validateTaskComplete($args, $user),
             'task_delete' => $this->validateTaskDelete($args, $user),
             'reminder_create' => $this->validateReminderCreate($args),
-            'reminder_complete' => $this->validateOwned($args, $user, Reminder::class, 'id'),
+            'reminder_complete' => $this->validateReminderComplete($args, $user),
             'reminder_delete' => $this->validateOwned($args, $user, Reminder::class, 'id'),
             'note_create' => $this->validateNoteCreate($args),
             'note_update' => $this->validateNoteUpdate($args, $user),
@@ -541,13 +543,14 @@ class AiToolService
 
     /**
      * Execute a validated pending action inside a transaction.
-     * Returns ['ok'=>bool,'message'=>string,'id'=>?int].
+     * Returns a STRUCTURED result ['ok','code','message','id'?] so callers
+     * never guess success from text (see AiTooling\ToolPipeline::normalizeResult).
      */
     public function execute(string $tool, array $resolved, $user): array
     {
         $tool = self::normalizeToolName($tool);
 
-        return DB::transaction(function () use ($tool, $resolved, $user) {
+        $result = DB::transaction(function () use ($tool, $resolved, $user) {
             return match ($tool) {
                 'task_create' => $this->execTaskCreate($resolved, $user),
                 'task_update' => $this->execTaskUpdate($resolved, $user),
@@ -576,6 +579,8 @@ class AiToolService
                 default => ['ok' => false, 'message' => __('Unsupported tool'), 'id' => null],
             };
         });
+
+        return \App\Services\AiTooling\ToolPipeline::normalizeResult($tool, $result);
     }
 
     // ── validators ──
@@ -602,7 +607,7 @@ class AiToolService
         if ($parentId) {
             $parent = Task::where('id', $parentId)->where('user_id', $user->id)->first();
             if (! $parent) {
-                return $this->fail('Parent task not found or not yours.');
+                return $this->fail('Parent task not found or not yours.', ToolError::NOT_FOUND);
             }
             $parentTitle = $parent->title;
 
@@ -624,7 +629,7 @@ class AiToolService
         if ($projectId) {
             $project = Project::where('id', $projectId)->where('user_id', $user->id)->first();
             if (! $project) {
-                return $this->fail('Project not found or not yours.');
+                return $this->fail('Project not found or not yours.', ToolError::NOT_FOUND);
             }
             $projectName = $project->name;
         } elseif (! empty($args['project'])) {
@@ -633,7 +638,7 @@ class AiToolService
                 ? Project::where('id', (int) $needle)->where('user_id', $user->id)->first()
                 : Project::where('user_id', $user->id)->where('name', 'like', "%{$needle}%")->first();
             if (! $project) {
-                return $this->fail("Project '{$needle}' not found.");
+                return $this->fail("Project '{$needle}' not found.", ToolError::NOT_FOUND);
             }
             $projectId = $project->id;
             $projectName = $project->name;
@@ -672,7 +677,7 @@ class AiToolService
         }
         $r = $this->resolveTask($args, $user);
         if (isset($r['error'])) {
-            return $this->fail($r['error']);
+            return $this->fail($r['error'], $r['code'] ?? ToolError::VALIDATION_ERROR);
         }
         $task = $r['task'];
 
@@ -698,7 +703,10 @@ class AiToolService
         }
         $r = $this->resolveTask($args, $user);
         if (isset($r['error'])) {
-            return $this->fail($r['error']);
+            return $this->fail($r['error'], $r['code'] ?? ToolError::VALIDATION_ERROR);
+        }
+        if ($r['task']->status === 'completed') {
+            return $this->fail("Task '{$r['task']->title}' is already completed.", ToolError::CONFLICT);
         }
 
         return ['ok' => true, 'error' => null, 'resolved' => ['id' => $r['task']->id, 'task_title' => $r['task']->title]];
@@ -717,10 +725,27 @@ class AiToolService
         }
         $r = $this->resolveTask($args, $user);
         if (isset($r['error'])) {
-            return $this->fail($r['error']);
+            return $this->fail($r['error'], $r['code'] ?? ToolError::VALIDATION_ERROR);
         }
 
         return ['ok' => true, 'error' => null, 'resolved' => ['id' => $r['task']->id, 'title' => $r['task']->title]];
+    }
+
+    private function validateReminderComplete(array $args, $user): array
+    {
+        $v = Validator::make($args, ['id' => 'required|integer']);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+        $rem = Reminder::where('id', $args['id'])->where('user_id', $user->id)->first();
+        if (! $rem) {
+            return $this->fail('Reminder not found or not yours.', ToolError::NOT_FOUND);
+        }
+        if ((bool) $rem->is_completed) {
+            return $this->fail("Reminder '{$rem->title}' is already completed.", ToolError::CONFLICT);
+        }
+
+        return ['ok' => true, 'error' => null, 'resolved' => ['id' => $rem->id, 'title' => $rem->title]];
     }
 
     private function validateOwned(array $args, $user, string $model, string $key = 'id'): array
@@ -731,7 +756,7 @@ class AiToolService
         }
         $row = $model::where('id', $args[$key])->where('user_id', $user->id)->first();
         if (! $row) {
-            return $this->fail('Item not found or not yours.');
+            return $this->fail('Item not found or not yours.', ToolError::NOT_FOUND);
         }
 
         return ['ok' => true, 'error' => null, 'resolved' => ['id' => $row->id, 'title' => $row->title ?? $row->name ?? "#{$row->id}"]];
@@ -800,7 +825,7 @@ class AiToolService
         }
         $note = Note::where('id', $args['id'])->where('user_id', $user->id)->first();
         if (! $note) {
-            return $this->fail('Note not found or not yours.');
+            return $this->fail('Note not found or not yours.', ToolError::NOT_FOUND);
         }
 
         return ['ok' => true, 'error' => null, 'resolved' => array_merge(['id' => $note->id], array_filter([
@@ -833,7 +858,7 @@ class AiToolService
                 : Note::where('user_id', $user->id)->where('title', 'like', "%{$needle}%")->first();
         }
         if (! $note) {
-            return $this->fail('Note not found or not yours.');
+            return $this->fail('Note not found or not yours.', ToolError::NOT_FOUND);
         }
 
         $typeMap = [
@@ -854,7 +879,7 @@ class AiToolService
                 : $type::where('user_id', $user->id)->where($nameColumn, 'like', "%{$needle}%")->first();
         }
         if (! $target) {
-            return $this->fail("Target {$args['target_type']} not found or not yours.");
+            return $this->fail("Target {$args['target_type']} not found or not yours.", ToolError::NOT_FOUND);
         }
         if ($type === Note::class && (int) $target->id === (int) $note->id) {
             return $this->fail('A note cannot link to itself.');
@@ -907,7 +932,7 @@ class AiToolService
                 ? Project::where('id', (int) $needle)->where('user_id', $user->id)->first()
                 : Project::where('user_id', $user->id)->where('name', 'like', "%{$needle}%")->first();
             if (! $parent) {
-                return $this->fail("Parent project '{$needle}' not found or not yours.");
+                return $this->fail("Parent project '{$needle}' not found or not yours.", ToolError::NOT_FOUND);
             }
             if ($this->projectDepth($parent) >= 5) {
                 return $this->fail('Parent project is nested too deep (max 5 levels).');
@@ -942,7 +967,7 @@ class AiToolService
         if ($projectId) {
             $project = Project::where('id', $projectId)->where('user_id', $user->id)->first();
             if (! $project) {
-                return $this->fail('Project not found or not yours.');
+                return $this->fail('Project not found or not yours.', ToolError::NOT_FOUND);
             }
         } elseif (! empty($args['project'])) {
             $needle = $args['project'];
@@ -950,7 +975,7 @@ class AiToolService
                 ? Project::where('id', (int) $needle)->where('user_id', $user->id)->first()
                 : Project::where('user_id', $user->id)->where('name', 'like', "%{$needle}%")->first();
             if (! $project) {
-                return $this->fail("Project '{$needle}' not found.");
+                return $this->fail("Project '{$needle}' not found.", ToolError::NOT_FOUND);
             }
         } else {
             return $this->fail('Tell me which project to add the member to.');
@@ -1028,7 +1053,7 @@ class AiToolService
         }
         $r = $this->resolveTask($args, $user, 'task_id', 'task');
         if (isset($r['error'])) {
-            return $this->fail($r['error']);
+            return $this->fail($r['error'], $r['code'] ?? ToolError::VALIDATION_ERROR);
         }
         $task = $r['task'];
 
@@ -1043,7 +1068,7 @@ class AiToolService
         }
         $item = ChecklistItem::where('id', $args['id'])->whereHas('task', fn ($q) => $q->where('user_id', $user->id))->first();
         if (! $item) {
-            return $this->fail('Checklist item not found or not yours.');
+            return $this->fail('Checklist item not found or not yours.', ToolError::NOT_FOUND);
         }
 
         return ['ok' => true, 'error' => null, 'resolved' => ['id' => $item->id, 'name' => $item->name]];
@@ -1182,7 +1207,7 @@ class AiToolService
         if (! empty($args[$idKey])) {
             $task = Task::where('id', (int) $args[$idKey])->where('user_id', $user->id)->first();
             if (! $task) {
-                return ['error' => 'Task not found or not yours.'];
+                return ['error' => 'Task not found or not yours.', 'code' => ToolError::NOT_FOUND];
             }
 
             return ['task' => $task];
@@ -1190,12 +1215,12 @@ class AiToolService
 
         $needle = trim((string) ($args[$titleKey] ?? ''));
         if ($needle === '') {
-            return ['error' => 'Pass the task id or its title (task).'];
+            return ['error' => 'Pass the task id or its title (task).', 'code' => ToolError::VALIDATION_ERROR];
         }
         if (is_numeric($needle)) {
             $task = Task::where('id', (int) $needle)->where('user_id', $user->id)->first();
             if (! $task) {
-                return ['error' => 'Task not found or not yours.'];
+                return ['error' => 'Task not found or not yours.', 'code' => ToolError::NOT_FOUND];
             }
 
             return ['task' => $task];
@@ -1211,7 +1236,7 @@ class AiToolService
                 ? Project::where('id', (int) $pneedle)->where('user_id', $user->id)->first()
                 : Project::where('user_id', $user->id)->where('name', 'like', "%{$pneedle}%")->first();
             if (! $project) {
-                return ['error' => "Project '{$pneedle}' not found."];
+                return ['error' => "Project '{$pneedle}' not found.", 'code' => ToolError::NOT_FOUND];
             }
             $query->where('project_id', $project->id);
             $projectName = $project->name;
@@ -1225,13 +1250,13 @@ class AiToolService
         if ($matches->isEmpty()) {
             $scope = $projectName ? " in project '{$projectName}'" : '';
 
-            return ['error' => "Task '{$needle}' not found{$scope}."];
+            return ['error' => "Task '{$needle}' not found{$scope}.", 'code' => ToolError::NOT_FOUND];
         }
         if ($matches->count() > 1) {
             $list = $matches->take(5)->map(fn ($t) => "'{$t->title}'")->join(', ');
             $hint = $projectName ? ' Pass the task id to pick one.' : ' Pass project to disambiguate, or the task id.';
 
-            return ['error' => "Multiple tasks match '{$needle}': {$list}.{$hint}"];
+            return ['error' => "Multiple tasks match '{$needle}': {$list}.{$hint}", 'code' => ToolError::CONFLICT];
         }
 
         return ['task' => $matches->first()];
@@ -1273,7 +1298,7 @@ class AiToolService
 
         $routine = $this->resolveRoutine($args, $user);
         if (! $routine) {
-            return $this->fail('Routine not found or not yours.');
+            return $this->fail('Routine not found or not yours.', ToolError::NOT_FOUND);
         }
         if (! $routine->isTracked()) {
             return $this->fail("Routine '{$routine->title}' has tracking disabled.");
@@ -1342,9 +1367,12 @@ class AiToolService
         }
         $routine = Routine::where('id', $args['id'])->where('user_id', $user->id)->first();
         if (! $routine) {
-            return $this->fail('Routine not found or not yours.');
+            return $this->fail('Routine not found or not yours.', ToolError::NOT_FOUND);
         }
         $date = isset($args['date']) ? Carbon::parse($args['date'])->toDateString() : now()->toDateString();
+        if ($routine->completedOn($date)) {
+            return $this->fail("Routine '{$routine->title}' is already done for {$date}.", ToolError::CONFLICT);
+        }
 
         return ['ok' => true, 'error' => null, 'resolved' => [
             'id' => $routine->id, 'title' => $routine->title, 'date' => $date,
@@ -2563,7 +2591,11 @@ class AiToolService
         return str_replace(['.', '-'], '_', trim($tool));
     }
 
-    private function normalize(array $args): array
+    /**
+     * Public alias/canonicalization pass (shared with the tool pipeline).
+     * Idempotent: safe to run on already-normalized args.
+     */
+    public function normalizeArgs(array $args): array
     {
         // Security Boundary: identity/authority keys are never trusted —
         // strip them even if a future validator forgets to check.
@@ -2624,8 +2656,8 @@ class AiToolService
         return $out;
     }
 
-    private function fail(string $error): array
+    private function fail(string $error, string $code = ToolError::VALIDATION_ERROR): array
     {
-        return ['ok' => false, 'error' => $error, 'resolved' => []];
+        return ['ok' => false, 'code' => $code, 'error' => $error, 'resolved' => []];
     }
 }
