@@ -20,8 +20,9 @@ class NotebookController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $this->validated($request);
+        $data['user_id'] = (int) Auth::id();
 
-        $notebook = Auth::user()->notebooks()->create($data);
+        $notebook = Notebook::create($data);
 
         return response()->json([
             'success' => true,

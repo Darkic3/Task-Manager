@@ -124,6 +124,26 @@ class User extends Authenticatable
         return $this->hasMany(Note::class);
     }
 
+    public function notebooks()
+    {
+        return $this->hasMany(Notebook::class);
+    }
+
+    public function noteLabels()
+    {
+        return $this->hasMany(NoteLabel::class);
+    }
+
+    public function noteShares()
+    {
+        return $this->hasMany(NoteShare::class);
+    }
+
+    public function noteSubjects()
+    {
+        return $this->hasMany(NoteSubject::class);
+    }
+
     /**
      * Get the calendar events for the user.
      */

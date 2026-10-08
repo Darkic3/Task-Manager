@@ -32,6 +32,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('note_share_id')->constrained()->cascadeOnDelete();
             $table->foreignId('note_id')->constrained()->cascadeOnDelete();
+            $table->timestamps();
 
             $table->unique(['note_share_id', 'note_id'], 'note_share_note_unique');
             $table->index('note_id');
