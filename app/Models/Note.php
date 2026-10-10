@@ -330,9 +330,54 @@ class Note extends Model
         return $this->effectiveDate();
     }
 
+    /**
+     * The note body rendered as HTML. The show page, the editor preview and
+     * the cards all go through App\Support\MarkdownRenderer, so the raw
+     * Markdown in $note->content is never printed directly.
+     */
+    public function getContentHtmlAttribute(): string
+    {
+        return \App\Support\MarkdownRenderer::toHtml((string) $this->content);
+    }
+
+    /**
+     * Same render, with the @person / #label tokens this note actually
+     * resolved turned into links back into the notes index (filters).
+     */
+    public function renderedBody(): string
+    {
+        $map = [];
+
+        if ($this->relationLoaded('labels')) {
+            foreach ($this->labels as $label) {
+                $token = '#'.$label->name;
+                $map[$token] = '<a class="nt-token nt-token-lbl" href="'.e(route('notes.index', ['label' => $label->name])).'">'.e($token).'</a>';
+            }
+        }
+
+        if ($this->relationLoaded('links')) {
+            foreach ($this->links as $link) {
+                if (! $link->linkable_type) {
+                    continue;
+                }
+                $token = '@'.$link->label;
+                if (isset($map[$token])) {
+                    continue;
+                }
+                $url = route('notes.index', [
+                    'linked_type' => $link->linkable_type,
+                    'linked_id' => $link->linkable_id,
+                ]);
+                $map[$token] = '<a class="nt-token nt-token-psn" href="'.e($url).'">'.e($token).'</a>';
+            }
+        }
+
+        return \App\Support\MarkdownRenderer::toHtmlLinked((string) $this->content, $map);
+    }
+
     public function getExcerptAttribute($length = 160)
     {
-        $text = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $this->content)) ?? '');
+        $text = \App\Support\MarkdownRenderer::toPlainText((string) $this->content);
 
         if ($text === '') {
             return '';
@@ -345,7 +390,7 @@ class Note extends Model
 
     public function getWordCountAttribute(): int
     {
-        $text = trim(strip_tags((string) $this->content));
+        $text = \App\Support\MarkdownRenderer::toPlainText((string) $this->content);
 
         if ($text === '') {
             return 0;

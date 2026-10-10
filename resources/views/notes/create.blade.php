@@ -4,39 +4,36 @@
 
 @include('notes._styles')
 
-@push('styles')
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.css">
-@endpush
-
 @section('content')
-<div class="d-flex align-items-center gap-3 mb-3">
-    <span class="nt-head-ico" style="width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:1.15rem;color:#fff;background:linear-gradient(135deg,#7c3aed,#5b21b6);">
-        <i class="bi bi-journal-plus"></i>
-    </span>
+<div class="nt-page-head">
+    <a href="{{ route('notes.index') }}" class="nt-page-back" title="{{ __('Back to notes') }}">
+        <i class="bi bi-arrow-right"></i>
+    </a>
+    <span class="nt-head-ico"><i class="bi bi-journal-plus"></i></span>
     <div>
-        <h1 class="mt-0 mb-0" style="font-size:1.2rem;font-weight:800;">{{ __('New note') }}</h1>
-        <p class="mb-0 mt-1" style="font-size:.78rem;color:var(--gray-500);font-weight:600;">
-            {{ __('Type @name and #label in the body to connect it automatically') }}
-        </p>
+        <h1 class="nt-head-title">{{ __('New note') }}</h1>
+        <p class="nt-head-sub">{{ __('Write it down. @person and #label connect it to your graph.') }}</p>
     </div>
 </div>
 
-<div class="panel">
-    <div class="card-body">
-        @include('notes._editor', [
-            'note' => $note,
-            'notebooks' => $notebooks,
-            'labels' => $labels,
-            'selectedLabels' => $selectedLabels,
-            'selectedFiles' => $selectedFiles,
-            'kindMeta' => $kindMeta,
-            'templates' => $templates ?? [],
-            'action' => route('notes.store'),
-        ])
+@if ($errors->any())
+    <div class="alert alert-danger mb-3">
+        <strong>{{ __('Please fix the following:') }}</strong>
+        <ul class="mb-0 mt-1 ps-3">
+            @foreach ($errors->all() as $err)<li>{{ $err }}</li>@endforeach
+        </ul>
     </div>
-</div>
+@endif
+
+@include('notes._editor', [
+    'note' => $note,
+    'notebooks' => $notebooks,
+    'labels' => $labels,
+    'selectedLabels' => $selectedLabels,
+    'selectedFiles' => $selectedFiles,
+    'kindMeta' => $kindMeta,
+    'templates' => $templates ?? [],
+    'prefillLink' => $prefillLink ?? null,
+    'action' => route('notes.store'),
+])
 @endsection
-
-@push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.js"></script>
-@endpush

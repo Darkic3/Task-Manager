@@ -266,9 +266,19 @@
         </div>
     @endif
 
+    @include('notes.partials._entity_notes', [
+        'entityKind' => 'project',
+        'attachUrl' => route('projects.notes.attach', $project),
+        'detachBase' => route('projects.notes.detach', [$project, '__ID__']),
+        'createUrl' => route('notes.create', ['linked_type' => 'project', 'linked_id' => $project->id]),
+        'indexUrl' => route('notes.index', ['linked_type' => \App\Models\Project::class, 'linked_id' => $project->id]),
+        'linkedNotes' => $linkedNotes ?? collect(),
+        'noteLinks' => $noteLinks ?? collect(),
+        'recentNotes' => $recentNotes ?? collect(),
+    ])
+
     <hr class="pj-divider">
-    <h2 class="pj-h">{{ __('Description') }}</h2>
-    @if($project->description)
+    <h2 class="pj-h">{{ __('Description') }}</h2>    @if($project->description)
         <div class="pj-desc">{!! $project->description !!}</div>
     @else
         <p class="pj-muted" style="font-style:italic;">{{ __('No description.') }} <a href="{{ route('projects.edit', $project) }}">{{ __('Add one') }} →</a></p>

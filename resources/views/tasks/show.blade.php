@@ -285,9 +285,19 @@
         <button type="submit" class="ts-cl-btn"><i class="bi bi-plus"></i> {{ __('Add') }}</button>
     </form>
 
+    @include('notes.partials._entity_notes', [
+        'entityKind' => 'task',
+        'attachUrl' => route('tasks.notes.attach', $task),
+        'detachBase' => route('tasks.notes.detach', [$task, '__ID__']),
+        'createUrl' => route('notes.create', ['linked_type' => 'task', 'linked_id' => $task->id]),
+        'indexUrl' => route('notes.index', ['linked_type' => \App\Models\Task::class, 'linked_id' => $task->id]),
+        'linkedNotes' => $linkedNotes ?? collect(),
+        'noteLinks' => $noteLinks ?? collect(),
+        'recentNotes' => $recentNotes ?? collect(),
+    ])
+
     <hr class="ts-divider">
-    <h2 class="ts-h">{{ __('Details') }}</h2>
-    <div class="ts-details">
+    <h2 class="ts-h">{{ __('Details') }}</h2>    <div class="ts-details">
         @if($task->project)
             <div>
                 <div class="ts-detail-lbl">{{ __('Project') }}</div>

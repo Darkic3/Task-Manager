@@ -4,23 +4,6 @@
 
 @include('notes._styles')
 
-@push('styles')
-<style>
-    .nt-head {
-        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-        margin-bottom: 13px;
-    }
-    .nt-head-ico {
-        width: 42px; height: 42px; flex: none; border-radius: 13px;
-        display: grid; place-items: center; font-size: 1.15rem; color: #fff;
-        background: linear-gradient(135deg, #7c3aed, #5b21b6);
-        box-shadow: 0 10px 20px -10px rgba(91,33,182,.7);
-    }
-    .nt-head-title { margin: 0; font-size: 1.2rem; font-weight: 800; color: var(--gray-900); line-height: 1.35; }
-    .nt-head-sub { font-size: .78rem; color: var(--gray-500); font-weight: 600; margin: 1px 0 0; }
-</style>
-@endpush
-
 @section('content')
 <div class="nt-head">
     <span class="nt-head-ico"><i class="bi bi-journal-richtext"></i></span>
@@ -32,8 +15,9 @@
         <button type="button" class="btn btn-outline" data-bs-toggle="modal" data-bs-target="#ntExportModal" id="ntExportBtn">
             <i class="bi bi-download"></i>{{ __('Export MD') }}
         </button>
-        <a href="{{ route('notes.create') }}" class="btn btn-brand">
+        <a href="{{ route('notes.create') }}" class="nt-newbtn" id="ntNewNoteBtn">
             <i class="bi bi-plus-lg"></i>{{ __('New note') }}
+            <span class="nt-newbtn-kbd">N</span>
         </a>
     </div>
 </div>
@@ -284,6 +268,17 @@ document.addEventListener('DOMContentLoaded', function () {
         .catch(() => {})
         .finally(() => { btn.disabled = false; });
     });
+
+    /* ── "N" jumps straight to a new note ── */
+    const newBtn = document.getElementById('ntNewNoteBtn');
+    if (newBtn) {
+        document.addEventListener('keydown', function (e) {
+            const tag = (e.target.tagName || '').toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (e.key === 'n' || e.key === 'N') { e.preventDefault(); window.location.href = newBtn.href; }
+        });
+    }
 
     /* ── Export preview (size check before sending to GPT) ── */
     const expModal = document.getElementById('ntExportModal');

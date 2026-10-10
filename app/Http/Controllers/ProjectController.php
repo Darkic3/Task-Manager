@@ -77,7 +77,27 @@ class ProjectController extends Controller
         $teamMembers = $project->users()->get(['users.id', 'users.name', 'users.email']);
         $users = User::query()->get(['id', 'name', 'email']);
 
-        return view('projects.show', compact('project', 'teamMembers', 'users'));
+        $linkedNotes = \App\Models\Note::ofUser((int) Auth::id())
+            ->linkedTo(\App\Models\Project::class, (int) $project->id)
+            ->notArchived()
+            ->with(['labels'])
+            ->chronological('desc')
+            ->limit(20)
+            ->get();
+
+        $noteLinks = \App\Models\NoteLink::where('linkable_type', \App\Models\Project::class)
+            ->where('linkable_id', (int) $project->id)
+            ->whereHas('note', fn ($q) => $q->where('user_id', Auth::id()))
+            ->with(['note:id,title,updated_at'])
+            ->get();
+
+        $recentNotes = \App\Models\Note::ofUser((int) Auth::id())
+            ->notArchived()
+            ->orderByDesc('updated_at')
+            ->limit(50)
+            ->get(['id', 'title']);
+
+        return view('projects.show', compact('project', 'teamMembers', 'users', 'linkedNotes', 'recentNotes', 'noteLinks'));
     }
 
     public function edit(Project $project)
@@ -206,5 +226,51 @@ class ProjectController extends Controller
         $project->teamProjects()->attach($request->user_id);
 
         return redirect()->back()->with('success', __('User added successfully.'));
+    }
+
+    /**
+     * Attach an existing note to this project.
+     */
+    public function attachNote(Request $request, Project $project, \App\Services\Notes\NoteLinkService $links)
+    {
+        abort_if($project->user_id !== Auth::id(), 403);
+
+        $data = $request->validate(['note_id' => ['required', 'integer', 'min:1']]);
+
+        $note = \App\Models\Note::ofUser(Auth::id())->whereKey($data['note_id'])->first();
+
+        if (! $note) {
+            return response()->json(['success' => false, 'message' => __('Note not found.')], 422);
+        }
+
+        $link = $links->attach($note, \App\Models\Project::class, (int) $project->id);
+
+        if (! $link) {
+            return response()->json(['success' => false, 'message' => __('Could not attach.')], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'note' => ['id' => $note->id, 'title' => $note->title, 'url' => route('notes.show', $note)],
+        ]);
+    }
+
+    public function detachNote(Project $project, \App\Models\NoteLink $link)
+    {
+        abort_if($project->user_id !== Auth::id(), 403);
+
+        if ($link->linkable_type !== \App\Models\Project::class || (int) $link->linkable_id !== (int) $project->id) {
+            return response()->json(['success' => false], 404);
+        }
+
+        $note = \App\Models\Note::ofUser(Auth::id())->whereKey($link->note_id)->first();
+
+        if (! $note) {
+            return response()->json(['success' => false], 404);
+        }
+
+        $link->delete();
+
+        return response()->json(['success' => true]);
     }
 }

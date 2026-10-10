@@ -4,7 +4,7 @@
 
 <div class="nt-panel" id="ntLinked">
     <div class="nt-panel-head">
-        <i class="bi bi-diagram-3"></i>{{ __('Linked') }}
+        <i class="bi bi-diagram-3"></i>{{ __('Linked to') }}
         <span class="nt-count ms-auto">{{ $groups->sum(fn ($g) => $g['items']->count()) }}</span>
     </div>
 

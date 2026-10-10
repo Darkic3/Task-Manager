@@ -104,6 +104,8 @@ class NoteController extends Controller
             'selectedFiles' => [],
             'kindMeta' => note_kind_meta(),
             'templates' => NoteTemplateService::all(),
+            'mentionPicks' => [],
+            'prefillLink' => $this->prefillLink($request, $userId),
         ]);
     }
 
@@ -118,12 +120,33 @@ class NoteController extends Controller
         }
 
         $this->links->syncFromText($note, (string) $note->content, $request->mentions());
+
+        // Direct "new note for this task/project" flow: ?linked_type=task&linked_id=X
+        // ensures the link even if the composer picks were stripped.
+        $this->attachPrefill($request, $note);
+
         $this->syncLabels($note, $request->labelIds());
         $this->syncFiles($note, $request->fileIds());
 
         return redirect()
             ->route('notes.show', $note)
             ->with('success', __('Note created successfully.'));
+    }
+
+    /**
+     * Rendered-HTML preview for the note editor. Uses the same renderer as
+     * the reader view, so the preview is never a different dialect than what
+     * gets saved.
+     */
+    public function preview(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'content' => ['required', 'string', 'max:50000'],
+        ]);
+
+        return response()->json([
+            'html' => \App\Support\MarkdownRenderer::toHtml($data['content']),
+        ]);
     }
 
     public function show(Request $request, Note $note)
@@ -167,6 +190,7 @@ class NoteController extends Controller
                 ->map(fn ($l) => ['type' => strtolower(class_basename($l->linkable_type)), 'id' => $l->linkable_id, 'name' => $l->label])
                 ->values()
                 ->all(),
+            'prefillLink' => null,
             'kindMeta' => note_kind_meta(),
         ]);
     }
@@ -191,6 +215,7 @@ class NoteController extends Controller
         $note->save();
 
         $this->links->syncFromText($note, (string) $note->content, $request->mentions());
+        $this->pruneDetachedLinks($note, $request->mentions());
         $this->syncLabels($note, $request->labelIds());
         $this->syncFiles($note, $request->fileIds());
 
@@ -295,5 +320,76 @@ class NoteController extends Controller
         }
 
         $note->attachments()->sync($fileIds);
+    }
+
+    /**
+     * Drop project/task/note links the editor no longer lists.
+     * (syncFromText only prunes subject links, so detached picks would linger.)
+     */
+    private function pruneDetachedLinks(Note $note, array $picks): void
+    {
+        if (! request()->has('mentions_submitted')) {
+            return;
+        }
+
+        $map = [
+            'project' => \App\Models\Project::class,
+            'task' => \App\Models\Task::class,
+            'note' => Note::class,
+        ];
+
+        $keep = collect($picks)
+            ->map(fn ($p) => (($map[$p['type'] ?? ''] ?? null) ? $map[$p['type']].':'.(int) ($p['id'] ?? 0) : null))
+            ->filter()
+            ->all();
+
+        $note->links()
+            ->whereIn('linkable_type', array_values($map))
+            ->get()
+            ->each(function ($link) use ($keep) {
+                if (! in_array($link->linkable_type.':'.$link->linkable_id, $keep, true)) {
+                    $link->delete();
+                }
+            });
+    }
+
+    /**
+     * Resolve ?linked_type=task|project&linked_id=X into a prefill chip.
+     * Subtasks are tasks (parent_id set) — same flow, label shows the title.
+     */
+    private function prefillLink(Request $request, int $userId): ?array
+    {
+        $type = strtolower((string) $request->query('linked_type', ''));
+        $id = (int) $request->query('linked_id', 0);
+
+        if ($id <= 0 || ! in_array($type, ['task', 'project'], true)) {
+            return null;
+        }
+
+        $class = $type === 'task' ? \App\Models\Task::class : \App\Models\Project::class;
+        $model = $class::where('user_id', $userId)->whereKey($id)->first();
+
+        if (! $model) {
+            return null;
+        }
+
+        return [
+            'type' => $type,
+            'id' => $model->id,
+            'name' => $type === 'task' ? $model->title : $model->name,
+        ];
+    }
+
+    private function attachPrefill(NoteRequest $request, Note $note): void
+    {
+        $type = strtolower((string) $request->input('linked_type', $request->query('linked_type', '')));
+        $id = (int) ($request->input('linked_id', $request->query('linked_id', 0)));
+
+        if ($id <= 0 || ! in_array($type, ['task', 'project'], true)) {
+            return;
+        }
+
+        $class = $type === 'task' ? \App\Models\Task::class : \App\Models\Project::class;
+        $this->links->attach($note, $class, $id);
     }
 }

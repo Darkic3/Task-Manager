@@ -2,299 +2,221 @@
 
 @section('title', $note->title)
 
+@include('notes._styles')
+
 @push('styles')
 <style>
-    .main-content { padding: 14px 16px; background: #f7f8fa; min-height: 100vh; }
-
-    /* Header */
-    .cu-header {
-        background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
-        border-radius: 10px; padding: 12px 18px; color: white;
-        margin-bottom: 14px; position: relative; overflow: hidden;
-        border: 1px solid #6d28d9; box-shadow: 0 2px 8px rgba(124,58,237,.3);
+    .nt-show-pill {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 3px 10px; border-radius: 999px; font-size: .72rem; font-weight: 700;
+        text-decoration: none;
     }
-    .cu-header::before {
-        content: ''; position: absolute; top: 0; right: 0;
-        width: 80px; height: 80px; background: rgba(255,255,255,.08);
-        border-radius: 50%; transform: translate(20px,-20px);
-    }
-    .cu-header-title { font-weight: 700; font-size: 17px; margin: 0; position: relative; z-index: 1; }
-    .cu-header-sub   { font-size: 12px; opacity: .8; margin: 2px 0 0; position: relative; z-index: 1; }
-
-    /* Layout */
-    .cu-layout { display: grid; grid-template-columns: 220px 1fr; gap: 14px; align-items: start; }
-    @media(max-width:768px) { .cu-layout { grid-template-columns: 1fr; } }
-
-    /* Left panel */
-    .cu-info-panel {
-        background: white; border: 1px solid #e3e4e8; border-radius: 8px;
-        overflow: hidden;
-    }
-    @media(min-width:769px) { .cu-info-panel { position: sticky; top: 14px; } }
-    .cu-info-panel-header { background: #f7f8fa; border-bottom: 1px solid #e3e4e8; padding: 10px 14px; }
-    .cu-info-panel-header span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #8a8f98; }
-    .cu-info-body { padding: 14px; }
-    .cu-avatar {
-        width: 48px; height: 48px; border-radius: 10px; background: #7c3aed;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 22px; color: white; margin: 0 auto 10px;
-    }
-    .cu-panel-name { text-align: center; font-size: 13px; font-weight: 700; color: #1a1d23; margin-bottom: 4px; word-break: break-word; }
-    .cu-panel-sub  { text-align: center; font-size: 11px; color: #adb0b8; margin-bottom: 10px; }
-    .cu-meta-row {
+    .nt-show-pillrow { display: flex; flex-wrap: wrap; gap: 5px; padding: 14px 22px 0; }
+    .nt-meta {
         display: flex; align-items: flex-start; gap: 8px;
-        padding: 7px 0; border-top: 1px solid #f0f1f3;
-        font-size: 12px; color: #6b7385;
+        padding: 7px 0; font-size: .78rem; color: var(--gray-600);
     }
-    .cu-meta-row i { font-size: 13px; color: #adb0b8; flex-shrink: 0; margin-top: 1px; }
-    .cu-meta-row strong { color: #1a1d23; font-weight: 600; }
-
-    /* Action buttons in panel */
-    .cu-quick-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; border-top: 1px solid #f0f1f3; padding-top: 12px; }
+    .nt-meta + .nt-meta { border-top: 1px solid var(--gray-100); }
+    .nt-meta i { color: var(--gray-400); margin-top: 2px; }
+    .nt-meta strong { color: var(--gray-900); font-weight: 700; }
+    .nt-subject-summary { font-size: .76rem; line-height: 1.85; color: var(--gray-700); }
     .cu-action-link {
-        display: flex; align-items: center; gap: 7px; padding: 6px 10px;
-        border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;
-        border: 1px solid transparent; cursor: pointer; transition: all .15s; background: white;
+        display: flex; align-items: center; gap: 7px; padding: 7px 10px;
+        border-radius: 8px; font-size: .78rem; font-weight: 600; text-decoration: none;
+        border: 1px solid transparent; cursor: pointer; transition: all .15s; background: #fff;
     }
-    .cu-action-link.edit   { border-color: #fde68a; color: #d97706; background: #fffbeb; }
-    .cu-action-link.edit:hover   { background: #fef3c7; }
-    .cu-action-link.copy   { border-color: #a7f3d0; color: #059669; background: #ecfdf5; }
-    .cu-action-link.copy:hover   { background: #d1fae5; }
-    .cu-action-link.del    { border-color: #fecaca; color: #dc2626; background: #fef2f2; }
-    .cu-action-link.del:hover    { background: #fee2e2; }
+    .cu-action-link.copy { border-color: var(--gray-200); color: var(--gray-700); }
+    .cu-action-link.copy:hover { border-color: var(--primary-500); color: var(--primary-700); }
+    .cu-action-link.del { border-color: #fecaca; color: #dc2626; background: #fef2f2; }
+    .cu-action-link.del:hover { border-color: #dc2626; background: #fee2e2; }
     .cu-fav-btn {
-        display: flex; align-items: center; gap: 7px; padding: 6px 10px;
-        border-radius: 6px; font-size: 12px; font-weight: 600;
-        border: 1px solid #d3d5db; color: #6b7385; background: white;
+        display: flex; align-items: center; gap: 7px; padding: 7px 10px;
+        border-radius: 8px; font-size: .78rem; font-weight: 600;
+        border: 1px solid var(--gray-200); color: var(--gray-600); background: #fff;
         cursor: pointer; transition: all .15s; width: 100%;
     }
-    .cu-fav-btn.active    { border-color: #f59e0b; color: #b45309; background: #fef3c7; }
-    .cu-fav-btn.active i  { color: #f59e0b; }
-    .cu-fav-btn i         { color: #d3d5db; font-size: 13px; }
-
-    /* Right content area */
-    .cu-content-card {
-        background: white; border: 1px solid #e3e4e8; border-radius: 8px; overflow: hidden;
-    }
-    .cu-content-header {
-        display: flex; align-items: center; gap: 8px;
-        padding: 10px 16px; background: #fafbfc; border-bottom: 1px solid #e3e4e8;
-    }
-    .cu-content-header-icon {
-        width: 26px; height: 26px; border-radius: 6px; background: #ede9fe; color: #7c3aed;
-        display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
-    }
-    .cu-content-title { font-size: 13px; font-weight: 700; color: #1a1d23; margin: 0; }
-    .cu-content-body {
-        padding: 20px 24px; font-size: 14px; line-height: 1.8; color: #374151;
-    }
-    /* Style rich text content */
-    .cu-content-body h1, .cu-content-body h2, .cu-content-body h3 { color: #1a1d23; margin: 1em 0 .5em; }
-    .cu-content-body p   { margin: 0 0 .75em; }
-    .cu-content-body ul, .cu-content-body ol { padding-left: 1.5em; margin-bottom: .75em; }
-    .cu-content-body blockquote { border-left: 3px solid #7c3aed; padding-left: 12px; color: #6b7385; margin: .75em 0; font-style: italic; }
-    .cu-content-body pre { background: #f7f8fa; border: 1px solid #e3e4e8; border-radius: 6px; padding: 12px; font-size: 12px; overflow-x: auto; }
-    .cu-content-body a   { color: #7c3aed; text-decoration: underline; }
-    .cu-content-body strong { color: #1a1d23; }
-
-    /* Badges */
-    .cu-cat-badge {
-        display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px;
-        font-size: 11px; font-weight: 700; background: #ede9fe; color: #6d28d9; margin-right: 4px;
-    }
-    .cu-tag-pill {
-        display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px;
-        font-size: 11px; font-weight: 600; background: #f3f4f6; color: #6b7385;
-        border: 1px solid #e3e4e8; margin: 2px;
-    }
-    .cu-badges-row { padding: 10px 24px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-
-    /* Stats bar */
-    .cu-stats-bar {
-        display: flex; gap: 16px; padding: 8px 24px; border-top: 1px solid #f0f1f3;
-        background: #fafbfc; font-size: 11px; color: #8a8f98; flex-wrap: wrap;
-    }
-    .cu-stats-bar span { display: flex; align-items: center; gap: 4px; }
-
-    /* ── Responsive ───────────────────────────────────────── */
-    @media(max-width:768px) {
-        .cu-header { padding: 10px 14px; }
-        .cu-header-title { font-size: 15px; }
-        .cu-header-sub   { font-size: 11px; }
-    }
+    .cu-fav-btn.active { border-color: #f59e0b; color: #b45309; background: #fef3c7; }
+    .cu-fav-btn.active i { color: #f59e0b; }
+    .cu-fav-btn i { color: var(--gray-400); }
 </style>
 @endpush
 
 @section('content')
-<div class="main-content">
-
-    {{-- Header --}}
-    <div class="cu-header">
-        <div class="d-flex align-items-center" style="position:relative;z-index:1;">
-            <a href="{{ route('notes.index') }}" class="me-3 text-decoration-none">
-                <i class="bi bi-arrow-left fs-5" style="color:rgba(255,255,255,.8);"></i>
-            </a>
-            <div>
-                <h1 class="cu-header-title">{{ $note->title }}</h1>
-                <p class="cu-header-sub">
-                    {{ __('Created') }} {{ $note->created_at->diffForHumans() }}
-                    @if($note->updated_at->ne($note->created_at))
-                        &middot; {{ __('Updated') }} {{ $note->updated_at->diffForHumans() }}
-                    @endif
-                </p>
-            </div>
-        </div>
+<div class="nt-page-head">
+    <a href="{{ route('notes.index') }}" class="nt-page-back" title="{{ __('Back to notes') }}">
+        <i class="bi bi-arrow-right"></i>
+    </a>
+    <span class="nt-head-ico"><i class="bi {{ note_kind_icon($note->kind) }}"></i></span>
+    <div>
+        <h1 class="nt-head-title">{{ $note->title }}</h1>
+        <p class="nt-head-sub">
+            {{ note_kind_label($note->kind) }} · {{ __('created') }} {{ $note->created_at->diffForHumans() }}
+            @if ($note->updated_at->ne($note->created_at))
+                · {{ __('edited') }} {{ $note->updated_at->diffForHumans() }}
+            @endif
+        </p>
     </div>
+    <a href="{{ route('notes.edit', $note) }}" class="btn btn-brand ms-auto">
+        <i class="bi bi-pencil"></i>{{ __('Edit') }}
+    </a>
+</div>
 
-    {{-- Layout --}}
-    <div class="cu-layout">
+@if (session('success'))
+    <div class="alert alert-success d-flex align-items-center gap-2" style="font-size:.82rem;">
+        <i class="bi bi-check-circle"></i>{{ session('success') }}
+    </div>
+@endif
 
-        {{-- Left panel --}}
-        <div class="cu-info-panel">
-            <div class="cu-info-panel-header"><span>{{ __('Note Details') }}</span></div>
-            <div class="cu-info-body">
-                <div class="cu-avatar"><i class="bi bi-journal-text"></i></div>
-                <div class="cu-panel-name">{{ $note->title }}</div>
-                @if($note->category)
-                    <div class="cu-panel-sub">{{ $note->category }}</div>
-                @else
-                    <div class="cu-panel-sub">{{ __('No category') }}</div>
-                @endif
-
-                <div class="cu-meta-row">
-                    <i class="bi bi-file-text"></i>
-                    <span><strong>{{ $note->word_count }}</strong> {{ __('words') }} &middot; {{ strlen(strip_tags($note->content)) }} {{ __('chars') }}</span>
-                </div>
-                <div class="cu-meta-row">
-                    <i class="bi bi-calendar3"></i>
-                    <span>{{ __('Created') }} <strong>{{ $note->created_at->format('M d, Y') }}</strong></span>
-                </div>
-                @if($note->updated_at->ne($note->created_at))
-                <div class="cu-meta-row">
-                    <i class="bi bi-pencil"></i>
-                    <span>{{ __('Modified') }} <strong>{{ $note->updated_at->format('M d, Y') }}</strong></span>
-                </div>
-                @endif
-                @if($note->date)
-                <div class="cu-meta-row">
-                    <i class="bi bi-calendar-event"></i>
-                    <span>{{ $note->formatted_date }}
-                        @if($note->time) &middot; {{ $note->formatted_time }} @endif
-                    </span>
-                </div>
-                @endif
-
-                {{-- Quick actions --}}
-                <div class="cu-quick-actions">
-                    <button class="cu-fav-btn {{ $note->is_favorite ? 'active' : '' }}" id="fav-btn" data-note-id="{{ $note->id }}">
-                        <i class="bi bi-star-fill"></i>
-                        <span id="fav-label">{{ $note->is_favorite ? __('Unfavourite') : __('Favourite') }}</span>
-                    </button>
-                    <a href="{{ route('notes.edit', $note->id) }}" class="cu-action-link edit">
-                        <i class="bi bi-pencil"></i> {{ __('Edit Note') }}
-                    </a>
-                    <button class="cu-action-link copy" onclick="duplicateNote({{ $note->id }})">
-                        <i class="bi bi-files"></i> {{ __('Duplicate') }}
-                    </button>
-                    <button class="cu-action-link copy" onclick="copyContent()" style="border-color:#bfdbfe;color:#2563eb;background:#eff6ff;">
-                        <i class="bi bi-clipboard"></i> {{ __('Copy Text') }}
-                    </button>
-                    <form action="{{ route('notes.destroy', $note->id) }}" method="POST" id="deleteForm">
-                        @csrf @method('DELETE')
-                        <button type="button" class="cu-action-link del" style="width:100%;" onclick="confirmDelete()">
-                            <i class="bi bi-trash"></i> {{ __('Delete') }}
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        {{-- Note content --}}
-        <div class="cu-content-card">
-            <div class="cu-content-header">
-                <div class="cu-content-header-icon"><i class="bi bi-journal-text"></i></div>
-                <span class="cu-content-title">{{ $note->title }}</span>
-                @if($note->is_favorite)
-                <i class="bi bi-star-fill ms-auto" style="color:#f59e0b;font-size:14px;" title="{{ __('Favourite') }}"></i>
-                @endif
-            </div>
-
-            {{-- Category + tags --}}
-            @if($note->category || ($note->tags && count($note->tags)))
-            <div class="cu-badges-row">
-                @if($note->category)
-                    <span class="cu-cat-badge"><i class="bi bi-tag" style="font-size:10px;"></i> {{ $note->category }}</span>
-                @endif
-                @if($note->tags)
-                    @foreach($note->tags as $tag)
-                        <span class="cu-tag-pill">{{ $tag }}</span>
+<div class="nt-editor-grid">
+    <div>
+        <div class="nt-panel">
+            @if ($note->labels->count())
+                <div class="nt-show-pillrow">
+                    @foreach ($note->labels as $label)
+                        <a class="nt-show-pill" href="{{ route('notes.index', ['label' => $label->name]) }}"
+                           style="background:{{ $label->color }}1a;color:{{ $label->color }};">
+                            <i class="bi bi-tag"></i>{{ $label->name }}
+                        </a>
                     @endforeach
-                @endif
-            </div>
+                </div>
             @endif
 
-            {{-- Content body --}}
-            <div class="cu-content-body" id="note-content">
-                {!! $note->content !!}
+            {{-- Rendered Markdown (escaped, never raw) with @/# tokens linked --}}
+            <div class="nt-prose" id="note-content" style="padding:16px 22px;">
+                {!! $note->renderedBody() !!}
             </div>
 
-            {{-- Stats bar --}}
-            <div class="cu-stats-bar">
-                <span><i class="bi bi-file-text"></i> {{ $note->word_count }} {{ __('words') }}</span>
+            <div class="nt-stats-bar">
+                <span><i class="bi bi-file-text"></i> {{ app_num($note->word_count) }} {{ __('words') }}</span>
+                <span><i class="bi bi-hourglass-split"></i> {{ app_num($note->reading_minutes) }} {{ __('min read') }}</span>
                 <span><i class="bi bi-clock"></i> {{ $note->created_at->format('M d, Y g:i A') }}</span>
-                @if($note->date)
-                <span><i class="bi bi-calendar-event"></i> {{ $note->formatted_date }}{{ $note->time ? ' ' . __('at') . ' ' . $note->formatted_time : '' }}</span>
+                @if ($note->effectiveDate())
+                    <span><i class="bi bi-calendar-event"></i> {{ $note->formatted_date }}</span>
                 @endif
             </div>
         </div>
 
         {{-- AI extraction --}}
-        <div class="cu-content-card mt-3" id="ntAiCard">
-            <div class="cu-content-header">
-                <div class="cu-content-header-icon"><i class="bi bi-stars"></i></div>
-                <span class="cu-content-title">{{ __('AI extraction') }}</span>
-                <button type="button" class="btn btn-sm btn-brand ms-auto" id="ntAiExtractBtn" style="font-size:.75rem;">
-                    <i class="bi bi-magic"></i> {{ __('Extract tasks & decisions') }}
+        <div class="nt-panel" id="ntAiCard">
+            <div class="nt-panel-head">
+                <i class="bi bi-stars"></i>{{ __('AI extraction') }}
+                <button type="button" class="btn btn-sm btn-brand ms-auto" id="ntAiExtractBtn" style="font-size:.7rem;">
+                    <i class="bi bi-magic"></i>{{ __('Extract tasks & decisions') }}
                 </button>
             </div>
-            <div class="cu-content-body" id="ntAiResult" style="padding:14px 20px;">
-                <p class="mb-0" style="font-size:.8rem;color:#8a8f98;">{{ __('Let AI read this note and propose tasks, decisions and a summary. You confirm before anything is created.') }}</p>
+            <div class="nt-panel-body" id="ntAiResult">
+                <p class="mb-0 nt-form-help">{{ __('Let AI read this note and propose tasks, decisions and a summary. You confirm before anything is created.') }}</p>
+            </div>
+        </div>
+    </div>
+
+    <aside class="nt-editor-side">
+        <div class="nt-panel">
+            <div class="nt-panel-head"><i class="bi bi-sliders"></i>{{ __('Details') }}</div>
+            <div class="nt-panel-body">
+                <div class="nt-meta">
+                    <i class="bi bi-file-text"></i>
+                    <span><strong>{{ app_num($note->word_count) }}</strong> {{ __('words') }}</span>
+                </div>
+                <div class="nt-meta">
+                    <i class="bi bi-calendar3"></i>
+                    <span>{{ __('Created') }} <strong>{{ $note->created_at->format('M d, Y') }}</strong></span>
+                </div>
+                @if ($note->updated_at->ne($note->created_at))
+                    <div class="nt-meta">
+                        <i class="bi bi-pencil"></i>
+                        <span>{{ __('Modified') }} <strong>{{ $note->updated_at->format('M d, Y') }}</strong></span>
+                    </div>
+                @endif
+                @if ($note->effectiveDate())
+                    <div class="nt-meta">
+                        <i class="bi bi-calendar-event"></i>
+                        <span>{{ $note->formatted_date }}@if ($note->formatted_time) · {{ $note->formatted_time }}@endif</span>
+                    </div>
+                @endif
+                @if ($note->mood || $note->energy)
+                    <div class="nt-meta">
+                        <i class="bi bi-emoji-smile"></i>
+                        <span>
+                            {{ __('Mood') }} {{ $note->mood ? note_mood_icon($note->mood)['emoji'] : '—' }} ·
+                            {{ __('Energy') }} {{ $note->energy ? note_mood_icon($note->energy)['emoji'] : '—' }}
+                        </span>
+                    </div>
+                @endif
+                @if ($note->notebook)
+                    <div class="nt-meta">
+                        <i class="bi bi-folder"></i>
+                        <span><a href="{{ route('notes.index', ['notebook' => $note->notebook_id]) }}"
+                                  style="color:var(--primary-700);font-weight:700;text-decoration:none;">{{ $note->notebook->title }}</a></span>
+                    </div>
+                @endif
+                @if ($note->tags)
+                    <div class="nt-meta">
+                        <i class="bi bi-tags"></i>
+                        <span>{{ implode('، ', $note->tags) }}</span>
+                    </div>
+                @endif
             </div>
         </div>
 
-        {{-- Linked subjects with living summaries --}}
-        @if(($subjects ?? collect())->count())
-        <div class="cu-content-card mt-3">
-            <div class="cu-content-header">
-                <div class="cu-content-header-icon"><i class="bi bi-person"></i></div>
-                <span class="cu-content-title">{{ __('People & topics in this note') }}</span>
-            </div>
-            <div class="cu-content-body" style="padding:14px 20px;">
-                @foreach($subjects as $subject)
-                <div class="mb-3" id="ntSubject{{ $subject->id }}">
-                    <div class="d-flex align-items-center gap-2">
-                        <strong style="font-size:.85rem;">{{ $subject->name }}</strong>
-                        <span class="cu-tag-pill">{{ $subject->type }}</span>
-                        <button type="button" class="btn btn-sm btn-outline ms-auto nt-subject-refresh"
-                                data-id="{{ $subject->id }}" style="font-size:.72rem;">
-                            <i class="bi bi-arrow-repeat"></i> {{ __('Refresh summary') }}
-                        </button>
-                    </div>
-                    <div class="nt-subject-summary mt-1" style="font-size:.82rem;line-height:1.8;color:#374151;">
-                        @if(!empty($subject->meta['ai_summary']))
-                            {!! nl2br(e($subject->meta['ai_summary'])) !!}
-                            <div style="font-size:.7rem;color:#9aa0aa;">{{ __('Updated') }}: {{ $subject->meta['ai_summary_at'] ?? '' }} · {{ $subject->meta['ai_summary_note_count'] ?? '' }} {{ __('notes') }}</div>
-                        @else
-                            <span style="color:#9aa0aa;">{{ __('No AI summary yet — refresh to generate one from all linked notes.') }}</span>
-                        @endif
-                    </div>
+        @if (($subjects ?? collect())->count())
+            <div class="nt-panel">
+                <div class="nt-panel-head"><i class="bi bi-people"></i>{{ __('People & topics') }}</div>
+                <div class="nt-panel-body">
+                    @foreach ($subjects as $subject)
+                        <div class="mb-3" id="ntSubject{{ $subject->id }}">
+                            <div class="d-flex align-items-center gap-2">
+                                <strong style="font-size:.8rem;">{{ $subject->name }}</strong>
+                                <span class="nt-badge nt-badge-kind">{{ $subject->type }}</span>
+                                <button type="button" class="btn btn-sm btn-outline ms-auto nt-subject-refresh"
+                                        data-id="{{ $subject->id }}" style="font-size:.65rem;padding:2px 7px;">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                            </div>
+                            <div class="nt-subject-summary mt-1">
+                                @if (! empty($subject->meta['ai_summary']))
+                                    {!! nl2br(e($subject->meta['ai_summary'])) !!}
+                                    <div style="font-size:.65rem;color:var(--gray-400);">
+                                        {{ app_num($subject->meta['ai_summary_note_count'] ?? 0) }} {{ __('notes') }}
+                                    </div>
+                                @else
+                                    <span class="nt-form-help">{{ __('No AI summary yet — refresh to generate one.') }}</span>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
-                @endforeach
             </div>
-        </div>
         @endif
 
-    </div>
+        @include('notes.partials._linked')
+
+        @if (! empty($backlinks) && count($backlinks))
+            @include('notes.partials._backlinks', ['notes' => $backlinks])
+        @endif
+
+        <div class="nt-panel">
+            <div class="nt-panel-head"><i class="bi bi-lightning"></i>{{ __('Actions') }}</div>
+            <div class="nt-panel-body d-grid gap-2">
+                <button type="button" class="cu-fav-btn {{ $note->is_favorite ? 'active' : '' }}" id="fav-btn" data-note-id="{{ $note->id }}">
+                    <i class="bi bi-star-fill"></i>
+                    <span id="fav-label">{{ $note->is_favorite ? __('Unfavourite') : __('Favourite') }}</span>
+                </button>
+                <button type="button" class="cu-action-link copy" onclick="duplicateNote({{ $note->id }})">
+                    <i class="bi bi-files"></i>{{ __('Duplicate') }}
+                </button>
+                <button type="button" class="cu-action-link copy" onclick="copyContent()" style="border-color:#bfdbfe;color:#2563eb;background:#eff6ff;">
+                    <i class="bi bi-clipboard"></i>{{ __('Copy as text') }}
+                </button>
+                <form action="{{ route('notes.destroy', $note->id) }}" method="POST" id="deleteForm">
+                    @csrf @method('DELETE')
+                    <button type="button" class="cu-action-link del w-100" onclick="confirmDelete()">
+                        <i class="bi bi-trash"></i>{{ __('Delete') }}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </aside>
 </div>
 @endsection
 
@@ -381,13 +303,13 @@ function confirmDelete() {
 
     btn.addEventListener('click', async function () {
         btn.disabled = true;
-        box.innerHTML = '<p style="font-size:.82rem;color:#8a8f98;">⏳ {{ __('AI is reading this note…') }}</p>';
+        box.innerHTML = '<p style="font-size:.78rem;color:var(--gray-500);">⏳ {{ __('AI is reading this note…') }}</p>';
         try {
             const r = await fetch(`/notes/${noteId}/extract`, { headers: { 'Accept': 'application/json' } });
             draft = await r.json();
             renderDraft();
         } catch (e) {
-            box.innerHTML = '<p class="text-danger" style="font-size:.82rem;">{{ __('AI request failed.') }}</p>';
+            box.innerHTML = '<p class="text-danger" style="font-size:.78rem;">{{ __('AI request failed.') }}</p>';
         } finally {
             btn.disabled = false;
         }
@@ -399,33 +321,34 @@ function confirmDelete() {
 
     function renderDraft() {
         let h = '';
-        if (!draft.ai) h += `<p style="font-size:.78rem;color:#b45309;">⚠️ {{ __('AI is not configured — showing checklist items found in the text.') }}</p>`;
-        if (draft.summary) h += `<div class="mb-2" style="font-size:.83rem;"><strong>{{ __('Summary') }}</strong><br>${esc(draft.summary)}</div>`;
+        if (!draft.ai) h += `<p style="font-size:.75rem;color:#b45309;">⚠️ {{ __('AI is not configured — showing checklist items found in the text.') }}</p>`;
+        if (draft.summary) h += `<div class="mb-2" style="font-size:.8rem;"><strong>{{ __('Summary') }}</strong><br>${esc(draft.summary)}</div>`;
         if ((draft.tasks || []).length) {
-            h += `<div class="mb-2" style="font-size:.83rem;"><strong>{{ __('Tasks') }} (${draft.tasks.length})</strong>`;
+            h += `<div class="mb-2" style="font-size:.8rem;"><strong>{{ __('Tasks') }} (${draft.tasks.length})</strong>`;
             draft.tasks.forEach((t, i) => {
                 h += `<label class="d-flex align-items-center gap-2 mt-1" style="font-weight:400;">
                     <input type="checkbox" class="form-check-input mt-0 nt-task-check" data-i="${i}" checked>
                     <span>${esc(t.title)}</span>
-                    <span class="cu-tag-pill">${esc(t.priority || '')}${t.due_date ? ' · ' + esc(t.due_date) : ''}</span>
+                    <span class="nt-badge nt-badge-kind">${esc(t.priority || '')}${t.due_date ? ' · ' + esc(t.due_date) : ''}</span>
                 </label>`;
             });
             h += `</div>`;
         }
         if ((draft.decisions || []).length) {
-            h += `<div class="mb-2" style="font-size:.83rem;"><strong>{{ __('Decisions') }}</strong><ul class="mb-0">`
+            h += `<div class="mb-2" style="font-size:.8rem;"><strong>{{ __('Decisions') }}</strong><ul class="mb-0">`
                 + draft.decisions.map(d => `<li><strong>${esc(d.title)}</strong>${d.detail ? ' — ' + esc(d.detail) : ''}</li>`).join('')
                 + `</ul></div>`;
         }
         if ((draft.questions || []).length) {
-            h += `<div class="mb-2" style="font-size:.83rem;"><strong>{{ __('Open questions') }}</strong><ul class="mb-0">`
-                + draft.questions.map(q => `<li>${esc(q)}</li>`).join('') + `</ul></div>`;
+            h += `<div class="mb-2" style="font-size:.8rem;"><strong>{{ __('Open questions') }}</strong><ul class="mb-0">`
+                + draft.questions.map(q => `<li>${esc(q)}</li>`).join('')
+                + `</ul></div>`;
         }
         if (!((draft.tasks || []).length || (draft.decisions || []).length)) {
-            h += `<p style="font-size:.8rem;color:#8a8f98;">{{ __('Nothing actionable found in this note.') }}</p>`;
+            h += `<p style="font-size:.76rem;color:var(--gray-500);">{{ __('Nothing actionable found in this note.') }}</p>`;
         }
         h += `<div class="d-flex gap-2 mt-2">
-            <button class="btn btn-sm btn-brand" id="ntAiApply" style="font-size:.75rem;">{{ __('Create selected tasks & save summary') }}</button>
+            <button class="btn btn-sm btn-brand" id="ntAiApply" style="font-size:.72rem;">{{ __('Create selected tasks & save summary') }}</button>
         </div>`;
         box.innerHTML = h;
         document.getElementById('ntAiApply').addEventListener('click', applyDraft);
@@ -444,9 +367,9 @@ function confirmDelete() {
         });
         const d = await r.json();
         if (d.success) {
-            box.innerHTML = `<p style="font-size:.83rem;color:#059669;">✅ {{ __('Done') }} — ${d.created.length} {{ __('tasks created and linked to this note.') }}</p>`;
+            box.innerHTML = `<p style="font-size:.8rem;color:#059669;">✅ {{ __('Done') }} — ${d.created.length} {{ __('tasks created and linked to this note.') }}</p>`;
         } else {
-            box.innerHTML = `<p class="text-danger" style="font-size:.82rem;">{{ __('Could not save.') }}</p>`;
+            box.innerHTML = `<p class="text-danger" style="font-size:.78rem;">{{ __('Could not save.') }}</p>`;
         }
     }
 
@@ -456,7 +379,7 @@ function confirmDelete() {
             const id = this.dataset.id;
             const wrap = document.querySelector(`#ntSubject${id} .nt-subject-summary`);
             this.disabled = true;
-            if (wrap) wrap.innerHTML = '<span style="color:#9aa0aa;">⏳ …</span>';
+            if (wrap) wrap.innerHTML = '<span class="nt-form-help">⏳ …</span>';
             try {
                 const r = await fetch(`/note-subjects/${id}/summarize`, {
                     method: 'POST',

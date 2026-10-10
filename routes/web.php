@@ -70,6 +70,10 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
     Route::post('tasks/{task}/update-status', [TaskController::class, 'updateStatus']);
     Route::post('tasks/{task}/add-to-day', [TaskController::class, 'addToDay'])->name('tasks.add-to-day');
+    Route::post('tasks/{task}/notes', [TaskController::class, 'attachNote'])->name('tasks.notes.attach');
+    Route::delete('tasks/{task}/notes/{link}', [TaskController::class, 'detachNote'])->name('tasks.notes.detach');
+    Route::post('projects/{project}/notes', [ProjectController::class, 'attachNote'])->name('projects.notes.attach');
+    Route::delete('projects/{project}/notes/{link}', [ProjectController::class, 'detachNote'])->name('projects.notes.detach');
 
     Route::resource('routines', RoutineController::class)->except(['show']);
     Route::post('routines/reorder', [RoutineController::class, 'reorder'])->name('routines.reorder');
@@ -104,6 +108,7 @@ Route::middleware(['auth'])->group(function () {
     // otherwise notes/{note} swallows them.
     Route::post('notes/quick-capture', [NoteQuickCaptureController::class, 'store'])->name('notes.quick-capture');
     Route::get('notes/mentions', [NoteQuickCaptureController::class, 'mentions'])->name('notes.mentions');
+    Route::post('notes/preview', [NoteController::class, 'preview'])->name('notes.preview')->middleware('throttle:120,1');
     Route::get('notes/timeline', [NoteController::class, 'index'])->defaults('view', 'timeline')->name('notes.timeline');
     Route::get('notes/export/markdown', [NoteExportController::class, 'markdown'])->name('notes.export.markdown');
     Route::get('notes/export/preview', [NoteExportController::class, 'preview'])->name('notes.export.preview');

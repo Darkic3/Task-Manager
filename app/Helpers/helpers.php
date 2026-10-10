@@ -261,7 +261,7 @@ if (!function_exists('note_mood_icon')) {
     {
         $scale = [
             1 => ['emoji' => '😞', 'color' => '#ef4444'],
-            2 => ['icon' => 'bi-emoji-frown', 'color' => '#f97316'],
+            2 => ['emoji' => '😕', 'color' => '#f97316'],
             3 => ['emoji' => '😐', 'color' => '#f59e0b'],
             4 => ['emoji' => '🙂', 'color' => '#10b981'],
             5 => ['emoji' => '😄', 'color' => '#059669'],
