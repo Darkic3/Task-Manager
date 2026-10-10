@@ -17,7 +17,11 @@
         @if($todayWorkoutDay->isTraining())
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div style="flex: 1; min-width: 220px;">
-                    <h6 class="fw-bold mb-1 text-dark fs-6">{{ $todayWorkoutDay->title ?: __(ucfirst($todayWorkoutDay->weekday)) }}</h6>
+                    <h6 class="fw-bold mb-1 text-dark fs-6">
+                        <a href="{{ route('workouts.days.show', $todayWorkoutDay) }}" class="text-dark text-decoration-none">
+                            {{ $todayWorkoutDay->title ?: __(ucfirst($todayWorkoutDay->weekday)) }}
+                        </a>
+                    </h6>
                     <div class="d-flex flex-wrap gap-1 mt-2">
                         @foreach($todayWorkoutDay->exercises as $we)
                             <span class="badge bg-white text-dark border fw-semibold shadow-xs" style="font-size: 11px; padding: 4px 8px;">
@@ -27,7 +31,10 @@
                     </div>
                 </div>
 
-                <div class="pt-1">
+                <div class="pt-1 d-flex align-items-center gap-2 flex-wrap">
+                    <a href="{{ route('workouts.days.show', $todayWorkoutDay) }}" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-bold px-3 py-2 rounded-pill shadow-sm">
+                        <i class="bi bi-eye"></i> {{ __('View Details') }}
+                    </a>
                     @if(isset($todayWorkoutSession) && $todayWorkoutSession->status === 'completed')
                         <div class="badge bg-success text-white p-2 px-3 rounded-pill d-inline-flex align-items-center gap-1 shadow-sm">
                             <i class="bi bi-check-circle-fill"></i> {{ __('Completed Today') }} ({{ $todayWorkoutSession->durationMinutes() ?? 45 }} {{ __('m') }})
@@ -47,9 +54,12 @@
                 </div>
             </div>
         @else
-            <div class="text-center py-2 text-muted small d-flex align-items-center justify-content-center gap-2">
+            <div class="text-center py-2 text-muted small d-flex align-items-center justify-content-center gap-2 flex-wrap">
                 <i class="bi bi-cup-hot text-warning fs-5"></i>
                 <span>{{ __('Active rest & recovery day. Focus on hydration, mobility, and healthy recovery!') }}</span>
+                <a href="{{ route('workouts.days.show', $todayWorkoutDay) }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold">
+                    <i class="bi bi-eye"></i> {{ __('View Details') }}
+                </a>
             </div>
         @endif
     </div>

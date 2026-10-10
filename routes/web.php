@@ -25,6 +25,7 @@ use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TimeTrackingController;
 use App\Http\Controllers\TrackController;
 use App\Http\Controllers\ExerciseController;
+use App\Http\Controllers\WorkoutDayController;
 use App\Http\Controllers\WorkoutPlanController;
 use App\Http\Controllers\WorkoutSessionController;
 use App\Http\Controllers\WorkoutReportController;
@@ -77,6 +78,7 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('exercises', ExerciseController::class)->except(['show']);
         Route::resource('plans', WorkoutPlanController::class)->except(['show'])->parameters(['plans' => 'workoutPlan']);
         Route::post('plans/{workoutPlan}/new-cycle', [WorkoutPlanController::class, 'newCycle'])->name('plans.new-cycle');
+        Route::get('days/{workoutDay}', [WorkoutDayController::class, 'show'])->name('days.show');
         Route::post('days/{workoutDay}/session', [WorkoutSessionController::class, 'start'])->name('sessions.start');
         Route::get('sessions/{workoutSession}', [WorkoutSessionController::class, 'show'])->name('sessions.show');
         Route::post('sessions/{workoutSession}/sets', [WorkoutSessionController::class, 'saveSet'])->name('sessions.sets.store');

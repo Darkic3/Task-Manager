@@ -581,7 +581,7 @@
                                         $isDayToday = ($day->weekday === $todayWeekday);
                                         $exCount = $day->exercises_count ?? $day->exercises->count();
                                     @endphp
-                                    <div class="wp-day-tile {{ $day->type }} {{ $isDayToday ? 'is-today' : '' }}" title="{{ $day->title }} ({{ ucfirst($day->weekday) }})">
+                                    <a href="{{ route('workouts.days.show', $day) }}" class="wp-day-tile {{ $day->type }} {{ $isDayToday ? 'is-today' : '' }}" title="{{ $day->title }} ({{ ucfirst($day->weekday) }}) — {{ __('Click to view details') }}">
                                         <div class="wp-day-weekday">{{ strtoupper(substr($day->weekday, 0, 3)) }}</div>
                                         <div class="wp-day-name">{{ $day->type === 'rest' ? 'Rest' : $day->title }}</div>
                                         <div class="wp-day-badge">
@@ -593,7 +593,7 @@
                                                 Rest
                                             @endif
                                         </div>
-                                    </div>
+                                    </a>
                                 @endforeach
                             </div>
                         </div>
@@ -632,14 +632,19 @@
 
                         {{-- Start Today Action --}}
                         @if($isTodayTraining)
-                            <form method="POST" action="{{ route('workouts.sessions.start', $todayDay) }}" class="mt-2">
-                                @csrf
-                                <input type="hidden" name="date" value="{{ now()->toDateString() }}">
-                                <button class="wp-start-today w-100 border-0" type="submit">
-                                    <i class="bi bi-play-circle-fill fs-6"></i>
-                                    <span>Start Today’s Session: {{ $todayDay->title }} ({{ $todayDay->exercises->count() }} movements)</span>
-                                </button>
-                            </form>
+                            <div class="d-flex gap-2 mt-2">
+                                <form method="POST" action="{{ route('workouts.sessions.start', $todayDay) }}" class="flex-grow-1">
+                                    @csrf
+                                    <input type="hidden" name="date" value="{{ now()->toDateString() }}">
+                                    <button class="wp-start-today w-100 border-0" type="submit">
+                                        <i class="bi bi-play-circle-fill fs-6"></i>
+                                        <span>Start Today’s Session: {{ $todayDay->title }} ({{ $todayDay->exercises->count() }} movements)</span>
+                                    </button>
+                                </form>
+                                <a href="{{ route('workouts.days.show', $todayDay) }}" class="wp-btn flex-shrink-0 align-self-stretch d-inline-flex align-items-center" title="{{ __('View workout details without starting') }}">
+                                    <i class="bi bi-eye"></i> <span>{{ __('Details') }}</span>
+                                </a>
+                            </div>
                         @else
                             <div class="wp-start-today rest mt-2">
                                 <i class="bi bi-moon-stars text-muted"></i>
