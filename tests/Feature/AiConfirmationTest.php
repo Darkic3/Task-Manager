@@ -318,4 +318,157 @@ class AiConfirmationTest extends TestCase
         $this->assertDatabaseMissing('ai_pending_actions', ['id' => $old->id]);
         $this->assertSame(AiPendingAction::STATUS_PENDING, $fresh->fresh()->status);
     }
+
+    /* ── backend confirmation policy (LLM never decides) ─────── */
+
+    public function test_policy_read_needs_no_confirmation_but_destructive_sensitive_always_do(): void
+    {
+        // READ: no confirmation.
+        $this->assertTrue(AiToolService::isReadOnly('report_generate'));
+        $this->assertFalse(AiToolService::requiresConfirmation('report_generate'));
+
+        // Every DESTRUCTIVE and SENSITIVE tool always needs confirmation.
+        foreach (AiToolService::TOOLS as $tool) {
+            if (AiToolService::isDestructive($tool) || AiToolService::isSensitive($tool)) {
+                $this->assertTrue(AiToolService::requiresConfirmation($tool), "{$tool} must require confirmation");
+            }
+        }
+        $this->assertTrue(AiToolService::isDestructive('task_delete'));
+        $this->assertTrue(AiToolService::isDestructive('reminder_delete'));
+        $this->assertTrue(AiToolService::isDestructive('note_delete'));
+        $this->assertTrue(AiToolService::isDestructive('routine_delete'));
+        $this->assertTrue(AiToolService::isSensitive('project_add_member'));
+        $this->assertTrue(AiToolService::isSensitive('plan_propose'));
+
+        // State aliases required by the confirmation contract.
+        $this->assertSame(AiPendingAction::STATUS_PENDING, AiPendingAction::STATUS_OPEN);
+        $this->assertSame(AiPendingAction::STATUS_REJECTED, AiPendingAction::STATUS_CANCELLED);
+    }
+
+    public function test_llm_cannot_override_confirmation_policy(): void
+    {
+        $user = User::factory()->create();
+        $svc = new AiToolService;
+
+        foreach ([
+            ['auto_confirm' => true],
+            ['skip_confirmation' => true],
+            ['policy' => 'no_confirm'],
+            ['confirmation_policy' => 'auto'],
+            ['permissions' => 'admin'],
+            ['is_admin' => true],
+        ] as $smuggled) {
+            $r = $svc->validateCall('task_create', array_merge(['title' => 'Sneaky'], $smuggled), $user);
+            $this->assertFalse($r['ok'] ?? true, 'policy override must be rejected: '.json_encode($smuggled));
+            $this->assertSame(ToolError::AUTHORIZATION_ERROR, $r['code'] ?? null);
+        }
+        $this->assertDatabaseCount('ai_pending_actions', 0);
+    }
+
+    /* ── race: reject vs confirm ─────────────────────────────── */
+
+    public function test_reject_after_execute_is_deduped_never_clobbers(): void
+    {
+        $user = User::factory()->create();
+        $action = $this->pendingFor($user, 'task_create', ['title' => 'WonRace', 'priority' => 'medium', 'status' => 'to_do']);
+
+        $this->actingAs($user)->postJson(route('ai.actions.confirm', $action), [])->assertOk();
+        $this->assertSame(AiPendingAction::STATUS_EXECUTED, $action->fresh()->status);
+
+        // Late cancel must not flip an executed action back.
+        $this->actingAs($user)->postJson(route('ai.actions.reject', $action), [])
+            ->assertOk()->assertJson(['ok' => true, 'deduped' => true]);
+        $this->assertSame(AiPendingAction::STATUS_EXECUTED, $action->fresh()->status);
+        $this->assertSame(1, Task::where('title', 'WonRace')->count());
+    }
+
+    public function test_reject_after_reject_is_deduped(): void
+    {
+        $user = User::factory()->create();
+        $action = $this->pendingFor($user, 'task_create', ['title' => 'Twice']);
+
+        $this->actingAs($user)->postJson(route('ai.actions.reject', $action), [])->assertOk();
+        $this->actingAs($user)->postJson(route('ai.actions.reject', $action), [])
+            ->assertOk()->assertJson(['deduped' => true]);
+        $this->assertSame(AiPendingAction::STATUS_REJECTED, $action->fresh()->status);
+    }
+
+    /* ── revalidation: tampered / stolen args ────────────────── */
+
+    public function test_confirm_with_tampered_foreign_args_fails_structured(): void
+    {
+        $victim = User::factory()->create();
+        $attacker = User::factory()->create();
+        $victimTask = Task::factory()->create(['user_id' => $victim->id, 'title' => 'VictimTask']);
+        // Attacker proposes against their own pending row but with the
+        // victim's resource id smuggled into args (post-proposal tamper).
+        $action = $this->pendingFor($attacker, 'task_delete', ['id' => $victimTask->id, 'title' => 'VictimTask']);
+
+        $this->actingAs($attacker)->postJson(route('ai.actions.confirm', $action), [])
+            ->assertStatus(422)
+            ->assertJson(['ok' => false, 'code' => ToolError::NOT_FOUND]);
+
+        $this->assertTrue($victimTask->fresh() !== null || Task::where('id', $victimTask->id)->exists());
+        $this->assertNotSame(AiPendingAction::STATUS_EXECUTED, $action->fresh()->status);
+    }
+
+    /* ── duplicate execution via retry (idempotency) ─────────── */
+
+    public function test_retry_after_success_reuses_executed_without_new_row(): void
+    {
+        $user = User::factory()->create();
+        $controller = new \App\Http\Controllers\AiChatController(app(\App\Services\AiProviderService::class));
+        $ref = new \ReflectionMethod($controller, 'createPendingFromToolCall');
+
+        $first = $ref->invoke($controller, $user, null, 'task_create', json_encode(['title' => 'RetrySafe']));
+        $this->assertArrayHasKey('action_id', $first);
+
+        $this->actingAs($user)->postJson(route('ai.actions.confirm', $first['action_id']), [])->assertOk();
+        $this->assertSame(1, Task::where('title', 'RetrySafe')->count());
+
+        // Retry / reconnect / double-send after success: same derived key →
+        // the executed row is surfaced, no second task is ever proposed.
+        $retry = $ref->invoke($controller, $user, null, 'task_create', json_encode(['title' => 'RetrySafe']));
+        $this->assertTrue($retry['deduped'] ?? false);
+        $this->assertTrue($retry['already_executed'] ?? false);
+        $this->assertSame($first['action_id'], $retry['action_id']);
+        $this->assertSame(1, Task::where('title', 'RetrySafe')->count());
+    }
+
+    /* ── confirmAll respects the action limit ────────────────── */
+
+    public function test_confirm_all_respects_max_open_limit(): void
+    {
+        $user = User::factory()->create();
+        for ($i = 0; $i < AiPendingAction::MAX_OPEN + 5; $i++) {
+            $this->pendingFor($user, 'task_create', ['title' => "Cap {$i}", 'priority' => 'medium', 'status' => 'to_do']);
+        }
+
+        $this->actingAs($user)->postJson(route('ai.actions.confirm-all'), [])->assertOk();
+
+        // Exactly MAX_OPEN executed; the overflow stays pending for the next batch.
+        $this->assertSame(AiPendingAction::MAX_OPEN, Task::where('user_id', $user->id)->count());
+        $this->assertSame(5, AiPendingAction::where('user_id', $user->id)->where('status', AiPendingAction::STATUS_PENDING)->count());
+    }
+
+    /* ── plan cancel is race-safe ────────────────────────────── */
+
+    public function test_plan_cancel_after_done_is_deduped(): void
+    {
+        $user = User::factory()->create();
+        $plan = AiPlan::create([
+            'user_id' => $user->id,
+            'title' => 'DonePlan',
+            'structure' => ['project' => ['name' => 'P', 'tasks' => []]],
+            'phases' => [],
+            'status' => AiPlan::STATUS_DONE,
+            'current_phase' => 0,
+            'expires_at' => now()->addMinutes(15),
+            'idempotency_key' => bin2hex(random_bytes(16)),
+        ]);
+
+        $this->actingAs($user)->postJson(route('ai.plans.cancel', $plan), [])
+            ->assertOk()->assertJson(['ok' => true, 'deduped' => true]);
+        $this->assertSame(AiPlan::STATUS_DONE, $plan->fresh()->status);
+    }
 }

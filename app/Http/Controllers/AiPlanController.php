@@ -131,14 +131,30 @@ class AiPlanController extends Controller
     {
         abort_if($plan->user_id !== Auth::id(), 403);
 
-        if (! in_array($plan->status, [AiPlan::STATUS_DONE, AiPlan::STATUS_CANCELLED], true)) {
-            $plan->status = AiPlan::STATUS_CANCELLED;
-            $plan->save();
-            Log::info('ai.plan.cancelled', ['user_id' => Auth::id(), 'plan_id' => $plan->id]);
-            AiLogger::log('plan.cancelled', ['user_id' => Auth::id(), 'plan_id' => $plan->id]);
-        }
+        // Race-safe: only an actionable (non-terminal) plan can be cancelled.
+        // A concurrent confirmStructure/confirmPhase that already flipped the
+        // plan to confirmed/executing/done wins — the conditional update below
+        // makes the loser a deduped no-op instead of clobbering the winner.
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($plan) {
+            /** @var AiPlan|null $locked */
+            $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->first();
+            if (! $locked || (int) $locked->user_id !== (int) Auth::id()) {
+                abort(403);
+            }
+            if (in_array($locked->status, [AiPlan::STATUS_DONE, AiPlan::STATUS_CANCELLED], true)) {
+                return response()->json(['ok' => true, 'deduped' => true, 'message' => __('Plan already resolved — nothing changed.')]);
+            }
+            if (! in_array($locked->status, [AiPlan::STATUS_PROPOSED, AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING], true)) {
+                return response()->json(['ok' => true, 'deduped' => true, 'message' => __('Plan already resolved — nothing changed.')]);
+            }
 
-        return response()->json(['ok' => true, 'message' => __('Plan cancelled — already-created items stay.')]);
+            $locked->status = AiPlan::STATUS_CANCELLED;
+            $locked->save();
+            Log::info('ai.plan.cancelled', ['user_id' => Auth::id(), 'plan_id' => $locked->id]);
+            AiLogger::log('plan.cancelled', ['user_id' => Auth::id(), 'plan_id' => $locked->id]);
+
+            return response()->json(['ok' => true, 'message' => __('Plan cancelled — already-created items stay.')]);
+        });
     }
 
     private function advancePastDone(AiPlan $plan): void

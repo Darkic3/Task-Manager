@@ -28,6 +28,14 @@ class AiPendingAction extends Model
     public const STATUS_REJECTED = 'rejected';
     public const STATUS_EXPIRED = 'expired';
 
+    /**
+     * Prompt-level aliases (same stored strings, explicit names):
+     *   OPEN      = pending    (only actionable state)
+     *   CANCELLED = rejected   (user cancelled)
+     */
+    public const STATUS_OPEN = self::STATUS_PENDING;
+    public const STATUS_CANCELLED = self::STATUS_REJECTED;
+
     /** @deprecated Kept for backward compatibility; the claim now targets EXECUTING. */
     public const STATUS_CONFIRMED = 'confirmed';
 
