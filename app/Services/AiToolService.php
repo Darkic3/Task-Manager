@@ -299,7 +299,7 @@ class AiToolService
                 'type' => 'function',
                 'function' => [
                     'name' => 'plan_propose',
-                    'description' => 'Propose a whole multi-level build as ONE plan: up to 5 independent projects (projects[]) each with tasks, OR one project with sub-projects (project+subprojects), plus optional reminders[] and notes[]. NEVER use for workout/training plans — those must use workout_plan_propose.',
+                    'description' => 'Propose a whole multi-level build as ONE plan: up to 5 independent projects (projects[] array of {name, tasks[]}) each with tasks, OR one project with sub-projects (project object {name, tasks[]} + subprojects array), plus optional reminders[] and notes[]. Shapes: project is ALWAYS an object like {"name":"Task Manager","tasks":[{"title":"T1"}]}, NEVER a string. projects/subprojects are ALWAYS arrays of objects, tasks/subtasks ALWAYS arrays of {title}. NEVER use for workout/training plans — those must use workout_plan_propose.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
@@ -485,7 +485,7 @@ class AiToolService
             return $this->fail("Argument '{$forbidden}' is not allowed.", ToolError::AUTHORIZATION_ERROR);
         }
 
-        $args = $this->normalizeArgs($args);
+        $args = $this->normalizeArgs($args, $tool);
 
         return match ($tool) {
             'task_create' => $this->validateTaskCreate($args, $user),
@@ -1386,17 +1386,31 @@ class AiToolService
      */
     private function validatePlanPropose(array $args): array
     {
+        // Defensive: normalizeArgs() already coerces, but validateCall can be
+        // reached with raw model JSON — coerce again so a `project` string
+        // never surfaces as "project باید یک آرایه باشد".
+        $args = $this->coercePlanArgs($args);
         $args['subprojects'] = $args['subProjects'] ?? $args['subprojects'] ?? [];
         unset($args['subProjects']);
         if (! is_array($args['subprojects'])) {
-            return $this->fail('subprojects must be a list.');
+            return $this->fail('subprojects must be a list of {name, tasks[]}. Example: {"project":{"name":"Task Manager"},"subprojects":[]}.');
         }
         $args['projects'] = $args['Projects'] ?? $args['projects'] ?? [];
         unset($args['Projects']);
         if (! is_array($args['projects'])) {
-            return $this->fail('projects must be a list.');
+            return $this->fail('projects must be a list of {name, tasks[]}. Example: {"projects":[{"name":"A","tasks":[{"title":"T1"}]}]}.');
         }
         $args['projects'] = array_values($args['projects']);
+        // A single object instead of a list (or a bare string) was already
+        // coerced, but guard again for hand-built calls.
+        foreach (['reminders', 'notes', 'routines'] as $lk) {
+            if (isset($args[$lk]) && is_array($args[$lk]) && ! empty($args[$lk]) && ! array_is_list($args[$lk])) {
+                $args[$lk] = [$args[$lk]];
+            }
+            if (isset($args[$lk]) && is_string($args[$lk])) {
+                unset($args[$lk]);
+            }
+        }
         $args['reminders'] = array_values((array) ($args['reminders'] ?? []));
         $args['notes'] = array_values((array) ($args['notes'] ?? []));
         $args['routines'] = array_values((array) ($args['routines'] ?? []));
@@ -1424,7 +1438,7 @@ class AiToolService
             'routines' => 'nullable|array|max:' . self::MAX_PLAN_ROUTINES,
         ]);
         if ($v->fails()) {
-            return $this->fail($v->errors()->first());
+            return $this->fail($this->friendlyPlanError($v));
         }
 
         // Routines are exclusive — never mixed with projects/reminders/notes.
@@ -1448,14 +1462,29 @@ class AiToolService
         }
 
         $cleanTasks = function ($tasks, string $where) {
-            $tasks = is_array($tasks) ? array_values($tasks) : [];
+            $tasks = $this->coerceTaskList($tasks);
             $out = [];
             foreach ($tasks as $t) {
                 if (! is_array($t)) {
-                    return $this->fail("A task in {$where} is malformed.");
+                    return $this->fail("A task in {$where} is malformed. Each task must be {title}.");
                 }
                 $t['subtasks'] = $t['subTasks'] ?? $t['subtasks'] ?? [];
                 unset($t['subTasks']);
+                $t['subtasks'] = $this->coerceTaskList($t['subtasks']);
+                // Verbatim user text: keep the FULL text — if the title is over
+                // 120 chars, shorten the title and preserve everything in
+                // description (max 500, truncated with care for multibyte).
+                $rawTitle = trim((string) ($t['title'] ?? ''));
+                $rawDesc = isset($t['description']) ? trim((string) $t['description']) : null;
+                if ($rawTitle !== '' && mb_strlen($rawTitle) > 120) {
+                    $short = mb_substr($rawTitle, 0, 117).'…';
+                    $full = $rawTitle.($rawDesc ? "\n\n".$rawDesc : '');
+                    $t['title'] = $short;
+                    $t['description'] = mb_substr($full, 0, 500);
+                }
+                if (isset($t['description']) && is_string($t['description']) && mb_strlen($t['description']) > 500) {
+                    $t['description'] = mb_substr($t['description'], 0, 500);
+                }
                 $tv = Validator::make($t, [
                     'title' => 'required|string|max:120',
                     'due_date' => 'nullable|date',
@@ -1465,11 +1494,18 @@ class AiToolService
                     'subtasks.*.title' => 'required|string|max:120',
                 ]);
                 if ($tv->fails()) {
-                    return $this->fail("{$where}: " . $tv->errors()->first());
+                    return $this->fail("{$where}: ".$tv->errors()->first());
                 }
                 $subs = [];
                 foreach ((array) ($t['subtasks'] ?? []) as $s) {
-                    $subs[] = ['title' => trim((string) $s['title'])];
+                    if (is_string($s) || is_numeric($s)) {
+                        $s = ['title' => (string) $s];
+                    }
+                    $st = trim((string) ($s['title'] ?? ''));
+                    if ($st === '') {
+                        continue;
+                    }
+                    $subs[] = ['title' => mb_substr($st, 0, 120)];
                 }
                 $out[] = [
                     'title' => trim((string) $t['title']),
@@ -2595,7 +2631,7 @@ class AiToolService
      * Public alias/canonicalization pass (shared with the tool pipeline).
      * Idempotent: safe to run on already-normalized args.
      */
-    public function normalizeArgs(array $args): array
+    public function normalizeArgs(array $args, ?string $tool = null): array
     {
         // Security Boundary: identity/authority keys are never trusted —
         // strip them even if a future validator forgets to check.
@@ -2641,7 +2677,215 @@ class AiToolService
             }
         }
 
+        // Plan shapes: smaller models often send `project` as a plain string,
+        // `projects[]` items as strings, or a single object instead of a list.
+        // Coerce here (before ToolSchema::check) so the pipeline never fails
+        // with a cryptic "project باید یک آرایه باشد".
+        // NOTE: task_create also has {title, project:string} — coercion is
+        // tool-aware so single-task calls are never mistaken for plans.
+        if ($tool === null) {
+            $tool = $this->inferPlanTool($args);
+        }
+        if ($tool === 'plan_propose') {
+            $args = $this->coercePlanArgs($args);
+        }
+
         return $args;
+    }
+
+    /**
+     * Best-effort plan detection for tool-agnostic callers (pipeline envelope).
+     * Returns 'plan_propose' only for UNAMBIGUOUS plan shapes — a bare
+     * {title, project:string} stays untouched here because it is identical
+     * to a task_create call; the tool-aware path (validateCall/pipeline
+     * with an explicit tool name) still coerces it correctly.
+     */
+    private function inferPlanTool(array $args): ?string
+    {
+        if (! array_key_exists('title', $args)) {
+            return null;
+        }
+        foreach (['projects', 'Projects', 'subprojects', 'subProjects', 'SubProjects', 'Subprojects', 'reminders', 'notes', 'routines'] as $k) {
+            if (array_key_exists($k, $args)) {
+                return 'plan_propose';
+            }
+        }
+        if (array_key_exists('project', $args) && is_array($args['project'])) {
+            return 'plan_propose';
+        }
+
+        return null;
+    }
+
+    /**
+     * Tolerantly coerce plan_propose shapes into their canonical form.
+     * Idempotent and safe to run on any tool args: it only touches keys
+     * when the payload looks like a plan (has title + plan keys).
+     */
+    public function coercePlanArgs(array $args): array
+    {
+        $planKeys = ['project', 'projects', 'subprojects', 'subProjects', 'Projects', 'Subprojects', 'SubProjects', 'reminders', 'notes', 'routines'];
+        $looksLikePlan = array_key_exists('title', $args) && count(array_intersect(array_keys($args), $planKeys)) > 0;
+        // Also handle already-aliased single `project` string payloads.
+        if (! $looksLikePlan) {
+            return $args;
+        }
+
+        // Unify capital/camel variants first.
+        foreach (['Projects' => 'projects', 'subProjects' => 'subprojects', 'SubProjects' => 'subprojects', 'Subprojects' => 'subprojects'] as $from => $to) {
+            if (array_key_exists($from, $args) && ! array_key_exists($to, $args)) {
+                $args[$to] = $args[$from];
+            }
+            unset($args[$from]);
+        }
+
+        // `project`: string|int => {name}. Empty string => drop (reminders/notes-only plan).
+        if (array_key_exists('project', $args)) {
+            $p = $args['project'];
+            if (is_string($p) || is_numeric($p)) {
+                $name = trim((string) $p);
+                $args['project'] = $name === '' ? null : ['name' => mb_substr($name, 0, 255)];
+            } elseif (is_array($p)) {
+                $args['project'] = $this->coerceProjectEntry($p);
+            } elseif ($p === null) {
+                // keep null
+            } else {
+                // unexpected scalar (bool etc.) => drop so Validator gives a clear error later
+                $args['project'] = null;
+            }
+        }
+
+        // `projects`: string|single object => list. Items: string => {name}.
+        if (array_key_exists('projects', $args)) {
+            $args['projects'] = $this->coerceProjectList($args['projects']);
+        }
+
+        // `subprojects`: same treatment (belongs to the single-project tree).
+        if (array_key_exists('subprojects', $args)) {
+            $args['subprojects'] = $this->coerceProjectList($args['subprojects']);
+        }
+
+        // `reminders` / `notes` / `routines`: single object => wrap in list.
+        foreach (['reminders', 'notes', 'routines'] as $listKey) {
+            if (array_key_exists($listKey, $args) && is_array($args[$listKey]) && ! empty($args[$listKey]) && ! array_is_list($args[$listKey])) {
+                // Single assoc object sent instead of a list of one.
+                $args[$listKey] = [$args[$listKey]];
+            }
+            if (array_key_exists($listKey, $args) && is_string($args[$listKey])) {
+                // A bare string can never be a valid reminder/note/routine — drop it
+                // so the plan falls back to a clear "empty plan" error, not a crash.
+                unset($args[$listKey]);
+            }
+        }
+
+        return $args;
+    }
+
+    /**
+     * Coerce a projects/subprojects value into a list of {name,...} entries.
+     */
+    private function coerceProjectList(mixed $value): array
+    {
+        if (is_string($value) || is_numeric($value)) {
+            $name = trim((string) $value);
+            return $name === '' ? [] : [['name' => mb_substr($name, 0, 255)]];
+        }
+        if (! is_array($value)) {
+            return [];
+        }
+        // Single project object instead of a list: {name: ...} => [{...}].
+        if (! empty($value) && ! array_is_list($value) && (isset($value['name']) || isset($value['title']))) {
+            $value = [$value];
+        }
+        $out = [];
+        foreach (array_values($value) as $entry) {
+            if (is_string($entry) || is_numeric($entry)) {
+                $name = trim((string) $entry);
+                if ($name !== '') {
+                    $out[] = ['name' => mb_substr($name, 0, 255)];
+                }
+                continue;
+            }
+            if (! is_array($entry)) {
+                continue;
+            }
+            // {title: ...} instead of {name: ...} — accept it.
+            if (! isset($entry['name']) && isset($entry['title']) && is_string($entry['title'])) {
+                $entry['name'] = $entry['title'];
+            }
+            $out[] = $this->coerceProjectEntry($entry);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Coerce one project/subproject entry: tasks/members/subtasks tolerance.
+     */
+    private function coerceProjectEntry(array $entry): array
+    {
+        if (isset($entry['tasks'])) {
+            $entry['tasks'] = $this->coerceTaskList($entry['tasks']);
+        }
+        if (isset($entry['subtasks'])) {
+            $entry['subtasks'] = $this->coerceTaskList($entry['subtasks']);
+        }
+        if (isset($entry['subTasks']) && ! isset($entry['subtasks'])) {
+            $entry['subtasks'] = $this->coerceTaskList($entry['subTasks']);
+        }
+        unset($entry['subTasks']);
+        // members: "a@x.com, b@x.com" or single string => list.
+        if (isset($entry['members']) && (is_string($entry['members']) || is_numeric($entry['members']))) {
+            $raw = trim((string) $entry['members']);
+            if ($raw === '') {
+                $entry['members'] = [];
+            } else {
+                $parts = preg_split('/[\s,؛،\n]+/u', $raw) ?: [$raw];
+                $entry['members'] = array_values(array_filter(array_map(fn ($m) => mb_substr(trim($m), 0, 255), $parts)));
+            }
+        }
+
+        return $entry;
+    }
+
+    /**
+     * Coerce a tasks/subtasks value: strings => {title}, single object => list.
+     */
+    private function coerceTaskList(mixed $value): array
+    {
+        if (is_string($value) || is_numeric($value)) {
+            $t = trim((string) $value);
+            return $t === '' ? [] : [['title' => $t]];
+        }
+        if (! is_array($value)) {
+            return [];
+        }
+        if (! empty($value) && ! array_is_list($value) && (isset($value['title']) || isset($value['name']))) {
+            $value = [$value];
+        }
+        $out = [];
+        foreach (array_values($value) as $t) {
+            if (is_string($t) || is_numeric($t)) {
+                $title = trim((string) $t);
+                if ($title !== '') {
+                    $out[] = ['title' => $title];
+                }
+                continue;
+            }
+            if (! is_array($t)) {
+                continue;
+            }
+            if (! isset($t['title']) && isset($t['name']) && (is_string($t['name']) || is_numeric($t['name']))) {
+                $t['title'] = $t['name'];
+            }
+            if (isset($t['subtasks']) || isset($t['subTasks'])) {
+                $t['subtasks'] = $this->coerceTaskList($t['subtasks'] ?? $t['subTasks'] ?? []);
+            }
+            unset($t['subTasks']);
+            $out[] = $t;
+        }
+
+        return $out;
     }
 
     private function rows(array $resolved, array $keys): array
@@ -2659,5 +2903,36 @@ class AiToolService
     private function fail(string $error, string $code = ToolError::VALIDATION_ERROR): array
     {
         return ['ok' => false, 'code' => $code, 'error' => $error, 'resolved' => []];
+    }
+
+    /**
+     * Map raw Validator messages for plan_propose into actionable Persian-friendly
+     * errors so the UI never shows a bare "project باید یک آرایه باشد".
+     */
+    private function friendlyPlanError(\Illuminate\Contracts\Validation\Validator $v): string
+    {
+        $raw = $v->errors()->first();
+        $failed = $v->failed();
+        $isFa = app()->getLocale() === 'fa';
+
+        // `project` sent as string (in case coercion missed an exotic shape).
+        if (isset($failed['project']['Array'])) {
+            return $isFa
+                ? 'ساختار پروژه اشتباه فرستاده شد (project باید آبجکت {name, tasks[]} باشد، نه رشته). لطفاً درخواست را دوباره بفرستید — اصلاح خودکار فعال شد.'
+                : 'The project structure was malformed (project must be an object {name, tasks[]}, not a string). Please send the request again — auto-fix is now on.';
+        }
+        if (isset($failed['projects']['Array'])) {
+            return $isFa
+                ? 'ساختار projects اشتباه است (باید لیستی از آبجکت‌ها باشد). لطفاً دوباره تلاش کنید.'
+                : 'The projects structure was malformed (must be a list of objects). Please try again.';
+        }
+        if (isset($failed['subprojects']['Array'])) {
+            return $isFa
+                ? 'ساختار subprojects اشتباه است (باید لیست باشد). لطفاً دوباره تلاش کنید.'
+                : 'The subprojects structure was malformed (must be a list). Please try again.';
+        }
+
+        // Title too long etc. — keep the field context.
+        return $raw;
     }
 }

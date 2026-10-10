@@ -695,9 +695,16 @@ class AiChatController extends Controller
 
         $check = $service->validateCall('plan_propose', $args, $user);
         if (! ($check['ok'] ?? false)) {
-            AiLogger::log('plan.proposal_invalid', ['user_id' => $user->id, 'error' => $check['error'] ?? 'Invalid plan.']);
+            AiLogger::log('plan.proposal_invalid', [
+                'user_id' => $user->id,
+                'error' => $check['error'] ?? 'Invalid plan.',
+                'code' => $check['code'] ?? null,
+                'args_keys' => is_array($args) ? array_keys($args) : null,
+                'project_type' => isset($args['project']) ? gettype($args['project']) : null,
+                'projects_type' => isset($args['projects']) ? gettype($args['projects']) : null,
+            ]);
 
-            return ['error' => $check['error'] ?? __('Invalid plan.')];
+            return ['error' => $check['error'] ?? __('Invalid plan.'), 'code' => $check['code'] ?? 'validation_error'];
         }
 
         $plan = AiPlan::create([
@@ -1623,6 +1630,7 @@ class AiChatController extends Controller
             - NOTE LINKS: note_link connects a note to a project/task/note so it appears in backlinks — use it when the user says a note "belongs to" or "is about" something.
             - REPORTS: report_generate builds a read-only workspace summary for today/week/month (nothing changes). Use it when the user asks "how am I doing / گزارش بده". After it runs, explain the numbers in 2-4 bullets.
             - PROJECT BUILDS & STRATEGY: When asked to plan, break down, or architect projects/goals, first provide a concise 2-4 bullet strategic overview in your text reply, and then call plan_propose ONCE with EVERYTHING.
+              * SHAPES (critical — the server rejects anything else): project is ALWAYS an object {"name":"...","tasks":[{"title":"..."}]}, NEVER a string. projects[]/subprojects[] are ALWAYS arrays of objects, tasks[]/subtasks[] ALWAYS arrays of {title}. Example single project: {"title":"...","project":{"name":"Task Manager","tasks":[{"title":"T1","description":"full text"}]}}. Example multi: {"title":"...","projects":[{"name":"A","tasks":[{"title":"T1"}]}]}.
               * MULTIPLE independent projects (e.g. "make projects A, B, C"): put them ALL in the projects[] array in ONE call — never one call per project, never project+subprojects for this.
               * ONE project with sub-divisions: use project + subprojects (max 3).
               * Reminders/events (e.g. "today at 18:00 at Laleh bazaar") go in reminders[] with date YYYY-MM-DD, time HH:MM and location — SAME call, not a separate tool.

@@ -200,9 +200,15 @@ class AiPlansTest extends TestCase
         $this->assertTrue($ok['ok'], $ok['error'] ?? 'validate failed');
         $this->assertEquals(0, $ok['resolved']['totals']['tasks']);
 
+        // Overlong verbatim titles are auto-shortened (title ≤120) with the
+        // full text preserved in description — no cryptic failure.
         $long = $this->workoutArgs();
         $long['subprojects'][0]['tasks'][0]['title'] = str_repeat('x', 121);
-        $this->assertFalse($svc->validateCall('plan_propose', $long, $user)['ok']);
+        $truncated = $svc->validateCall('plan_propose', $long, $user);
+        $this->assertTrue($truncated['ok'], $truncated['error'] ?? 'validate failed');
+        $storedTitle = $truncated['resolved']['structure']['subprojects'][0]['tasks'][0]['title'];
+        $this->assertLessThanOrEqual(120, mb_strlen($storedTitle));
+        $this->assertStringContainsString(str_repeat('x', 121), $truncated['resolved']['structure']['subprojects'][0]['tasks'][0]['description'] ?? '');
     }
 
     public function test_full_plan_flow_builds_hierarchy(): void

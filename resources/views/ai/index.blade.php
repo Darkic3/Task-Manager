@@ -703,7 +703,19 @@ footer, .topnav { display: none !important; }
         };
         if (body) opts.body = JSON.stringify(body);
         const res = await fetch(url, opts);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) {
+            let detail = '';
+            try {
+                const errJson = await res.clone().json();
+                detail = errJson.error || errJson.message
+                    || Object.values(errJson.errors || {}).flat().join(' ')
+                    || '';
+            } catch { /* non-JSON */ }
+            const err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
+            err.status = res.status;
+            err.detail = detail;
+            throw err;
+        }
         return res.json();
     }
 
@@ -863,7 +875,42 @@ footer, .topnav { display: none !important; }
     function appendError(msg) {
         const div = document.createElement('div');
         div.className = 'lina-error';
-        div.textContent = '⚠ ' + msg;
+        div.textContent = '⚠ ' + friendlyAiError(msg);
+        msgsEl.appendChild(div);
+        scrollBottom();
+    }
+
+    // Map cryptic shape errors (e.g. "project باید یک آرایه باشد") into
+    // actionable Persian guidance + a retry affordance.
+    function friendlyAiError(msg) {
+        const s = String(msg || '');
+        if (/project/i.test(s) && (/آرایه/.test(s) || /must be an? (array|object)/i.test(s) || /plan_propose\.project/i.test(s))) {
+            return 'ساختار پروژه ناقص فرستاده شد و پلن ساخته نشد — چیزی اجرا نشده. لطفاً درخواست را یک بار دیگر بفرستید (اصلاح خودکار ساختار فعال شد). اگر تکرار شد، پروژه را با تسک‌های کوتاه‌تر در دو پیام جدا بفرستید.';
+        }
+        if (/projects.*(array|list)/i.test(s) && /must be/i.test(s)) {
+            return 'ساختار لیست پروژه‌ها ناقص بود و پلن ساخته نشد. لطفاً دوباره تلاش کنید.';
+        }
+        return s;
+    }
+
+    function appendPlanErrorWithRetry(msg) {
+        const div = document.createElement('div');
+        div.className = 'lina-error';
+        div.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;';
+        const span = document.createElement('span');
+        span.textContent = '⚠ ' + friendlyAiError(msg);
+        div.appendChild(span);
+        const retry = document.createElement('button');
+        retry.className = 'lina-tool-reject';
+        retry.style.cssText = 'padding:4px 12px;font-size:12px;';
+        retry.textContent = 'تلاش مجدد';
+        retry.onclick = () => {
+            if (input) {
+                input.focus();
+                input.placeholder = 'درخواست را دوباره بفرستید...';
+            }
+        };
+        div.appendChild(retry);
         msgsEl.appendChild(div);
         scrollBottom();
     }
@@ -1013,7 +1060,7 @@ footer, .topnav { display: none !important; }
                             else console.warn('[Lina] plan ignored in chat mode');
                         } else if (json.type === 'plan_proposal' && json.error) {
                             errorShown = true;
-                            appendError(json.error);
+                            appendPlanErrorWithRetry(json.error);
                         } else if (json.type === 'workout_import_proposal' && json.import) {
                             if (chatMode === 'agent') { proposalRendered = true; renderWorkoutImportCard(json.import); }
                             else console.warn('[Lina] workout import ignored in chat mode');
@@ -1609,8 +1656,8 @@ footer, .topnav { display: none !important; }
                     const res = await api('POST', '/ai/plans/' + plan.id + '/confirm-structure');
                     const executed = await api('POST', '/ai/plans/' + plan.id + '/confirm-phase', { run_all: true });
                     paintPlan(card, executed.plan);
-                } catch {
-                    appendError('خطا در اجرای پلن. ممکن است منقضی شده باشد.');
+                } catch (e) {
+                    appendError(e && e.detail ? e.detail : 'خطا در اجرای پلن. ممکن است منقضی شده باشد.');
                     paintPlan(card, plan);
                 }
                 scrollBottom();

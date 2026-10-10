@@ -60,7 +60,7 @@ final class ToolPipeline
 
         // 3) Normalization (alias mapping, id casts, identity stripping).
         $service = new AiToolService;
-        $args = $service->normalizeArgs($env['args']);
+        $args = $service->normalizeArgs($env['args'], $tool);
 
         // 4) Schema: shape of normalized args.
         $shape = ToolSchema::check($tool, $args);
@@ -118,7 +118,7 @@ final class ToolPipeline
         }
 
         $service = new AiToolService;
-        $normalized = $service->normalizeArgs($args);
+        $normalized = $service->normalizeArgs($args, $tool);
 
         $shape = ToolSchema::check($tool, $normalized);
         if (! ($shape['ok'] ?? false)) {
