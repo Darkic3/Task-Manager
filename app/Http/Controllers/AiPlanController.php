@@ -23,27 +23,36 @@ class AiPlanController extends Controller
     {
         abort_if($plan->user_id !== Auth::id(), 403);
 
-        if (in_array($plan->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_DONE], true)) {
-            return response()->json(['ok' => true, 'deduped' => true, 'plan' => $this->serialize($plan->fresh())]);
-        }
-        if (! $plan->isActionable()) {
-            $this->expire($plan);
-            AiLogger::log('plan.structure_expired', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'status' => $plan->status]);
+        // Row lock: the status check and the proposed → confirmed flip must
+        // be atomic, otherwise two concurrent clicks both confirm and both
+        // append the "Structure approved" note.
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($plan) {
+            /** @var AiPlan $locked */
+            $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->firstOrFail();
+            abort_if($locked->user_id !== Auth::id(), 403);
 
-            return response()->json(['ok' => false, 'error' => __('This plan has expired. Ask Lina to propose it again.')], 422);
-        }
+            if (in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_DONE], true)) {
+                return response()->json(['ok' => true, 'deduped' => true, 'plan' => $this->serialize($locked->fresh())]);
+            }
+            if (! $locked->isActionable()) {
+                $this->expire($locked);
+                AiLogger::log('plan.structure_expired', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'status' => $locked->status]);
 
-        $plan->status = AiPlan::STATUS_CONFIRMED;
-        // Skip zero-count phases so the stepper starts at real work.
-        $this->advancePastDone($plan);
-        $plan->touchExpiry();
-        $plan->save();
+                return response()->json(['ok' => false, 'error' => __('This plan has expired. Ask Lina to propose it again.')], 422);
+            }
 
-        Log::info('ai.plan.structure_confirmed', ['user_id' => Auth::id(), 'plan_id' => $plan->id]);
-        AiLogger::log('plan.structure_confirmed', ['user_id' => Auth::id(), 'plan_id' => $plan->id, 'title' => $plan->title, 'note' => 'structure approved only — nothing created yet until confirm-phase']);
-        $this->note($plan, __('📋 Structure approved (nothing created yet — run the phases below to build): :title', ['title' => $plan->title]));
+            $locked->status = AiPlan::STATUS_CONFIRMED;
+            // Skip zero-count phases so the stepper starts at real work.
+            $this->advancePastDone($locked);
+            $locked->expires_at = now()->addMinutes(AiPlan::EXPIRY_MINUTES);
+            $locked->save();
 
-        return response()->json(['ok' => true, 'plan' => $this->serialize($plan->fresh())]);
+            Log::info('ai.plan.structure_confirmed', ['user_id' => Auth::id(), 'plan_id' => $locked->id]);
+            AiLogger::log('plan.structure_confirmed', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'title' => $locked->title, 'note' => 'structure approved only — nothing created yet until confirm-phase']);
+            $this->note($locked, __('📋 Structure approved (nothing created yet — run the phases below to build): :title', ['title' => $locked->title]));
+
+            return response()->json(['ok' => true, 'plan' => $this->serialize($locked->fresh())]);
+        });
     }
 
     public function confirmPhase(Request $request, AiPlan $plan)

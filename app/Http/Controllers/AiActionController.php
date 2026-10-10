@@ -146,23 +146,38 @@ class AiActionController extends Controller
     public function rejectAll(Request $request)
     {
         $user = Auth::user();
-        $count = 0;
-        AiPendingAction::where('user_id', $user->id)
+        // Collect candidate IDs first (a concurrent confirm may resolve some
+        // between the read and the write — the conditional flip below makes
+        // that safe: only still-pending rows are ever cancelled).
+        $ids = AiPendingAction::where('user_id', $user->id)
             ->where('status', AiPendingAction::STATUS_PENDING)
             ->orderBy('id')
             ->limit(AiPendingAction::MAX_OPEN)
-            ->get()
-            ->each(function (AiPendingAction $action) use (&$count) {
-                if ($action->isExpired()) {
-                    $action->markExpired();
-                } else {
-                    $action->status = AiPendingAction::STATUS_REJECTED;
-                    $action->save();
-                    $count++;
-                }
-            });
+            ->pluck('id');
 
-        AiLogger::log('action.reject_all', ['user_id' => $user->id, 'cancelled' => $count]);
+        $count = 0;
+        $expired = 0;
+        foreach ($ids as $id) {
+            /** @var AiPendingAction|null $row */
+            $row = AiPendingAction::where('id', $id)->where('user_id', $user->id)->first(['id', 'expires_at', 'status']);
+            if (! $row || $row->status !== AiPendingAction::STATUS_PENDING) {
+                continue; // resolved concurrently — never touch it.
+            }
+            if ($row->expires_at && $row->expires_at->isPast()) {
+                $marked = AiPendingAction::where('id', $id)
+                    ->where('user_id', $user->id)
+                    ->where('status', AiPendingAction::STATUS_PENDING)
+                    ->update(['status' => AiPendingAction::STATUS_EXPIRED]);
+                $expired += (int) ($marked > 0);
+                continue;
+            }
+            $count += (int) (AiPendingAction::where('id', $id)
+                ->where('user_id', $user->id)
+                ->where('status', AiPendingAction::STATUS_PENDING)
+                ->update(['status' => AiPendingAction::STATUS_REJECTED]) > 0);
+        }
+
+        AiLogger::log('action.reject_all', ['user_id' => $user->id, 'cancelled' => $count, 'expired' => $expired]);
 
         return response()->json(['ok' => true, 'message' => $count > 0 ? __(':count pending action(s) cancelled — nothing changed.', ['count' => $count]) : __('Nothing pending.')]);
     }
@@ -306,12 +321,18 @@ class AiActionController extends Controller
     {
         abort_if($action->user_id !== Auth::id(), 403);
 
-        if (! $action->isPending()) {
+        // Atomic conditional flip: a concurrent confirm that already claimed
+        // or executed this action can never be clobbered back to rejected.
+        $cancelled = AiPendingAction::where('id', $action->id)
+            ->where('user_id', Auth::id())
+            ->where('status', AiPendingAction::STATUS_PENDING)
+            ->update(['status' => AiPendingAction::STATUS_REJECTED]);
+
+        if (! $cancelled) {
+            // Already resolved (executed / executing / failed / expired / …):
+            // nothing changed — report deduped, never an error.
             return response()->json(['ok' => true, 'deduped' => true]);
         }
-
-        $action->status = AiPendingAction::STATUS_REJECTED;
-        $action->save();
 
         Log::info('ai.tool.rejected', [
             'user_id' => Auth::id(), 'tool' => $action->tool, 'action_id' => $action->id,

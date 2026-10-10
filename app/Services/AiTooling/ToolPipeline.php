@@ -310,13 +310,49 @@ final class ToolPipeline
         return null;
     }
 
-    /* ── Idempotency ───────────────────────────────────────────────── */
+    /* ── Idempotency ─────────────────────────────────────────────────
+     *
+     * Contract (single-tool actions AND plans):
+     * - The key is STABLE: derived from (user, conversation, tool, canonical
+     *   resolved args). Never random per attempt — retries, reconnects and
+     *   double-clicks must derive the identical key.
+     * - The UNIQUE constraint on `idempotency_key` is the final arbiter.
+     *   Check-then-insert always races, so every insert catches a duplicate
+     *   violation and reuses the live winner instead of throwing.
+     * - A key whose row is terminal/expired is ROTATED (suffix attempt) so a
+     *   legitimate later repeat never hits a permanent unique violation.
+     * - A repeated proposal while the row is live (pending/executing)
+     *   reuses it (deduped). A repeat shortly after success reuses the
+     *   executed row (already_executed). Anything older creates anew.
+     */
 
     public static function deriveKey(int $userId, $conversationId, string $tool, array $resolvedArgs): string
     {
         $canon = self::canonicalJson($resolvedArgs);
 
         return hash('sha256', implode('|', ['v1', $userId, $conversationId ?? 'none', $tool, $canon]));
+    }
+
+    /**
+     * Stable plan key from the VALIDATED (resolved) title + structure.
+     * Replaces the previous random_bytes key, which made every retry look
+     * like a brand-new plan and defeated the unique constraint.
+     */
+    public static function derivePlanKey(int $userId, $conversationId, string $title, array $structure): string
+    {
+        $canon = self::canonicalJson(['title' => $title, 'structure' => $structure]);
+
+        return hash('sha256', implode('|', ['v1', $userId, $conversationId ?? 'none', 'plan_propose', $canon]));
+    }
+
+    /**
+     * Rotate a collided key whose owner row is terminal/expired.
+     * Bounded (attempts 1..5): the first free key wins; all inputs are
+     * server-side so rotation can never be abused to bypass caps.
+     */
+    public static function rotateKey(string $key, int $attempt, int $userId): string
+    {
+        return hash('sha256', implode('|', [$key, 'retry', max(1, $attempt), $userId]));
     }
 
     public static function canonicalJson(array $args): string
@@ -344,6 +380,12 @@ final class ToolPipeline
     /** Live pending with the same derived key, if any (retry/reconnect safe). */
     public static function findDuplicatePending(int $userId, string $key): ?AiPendingAction
     {
+        return self::findLivePendingByKey($userId, $key);
+    }
+
+    /** Live (actionable or claimed) row for a key: pending/executing + unexpired. */
+    public static function findLivePendingByKey(int $userId, string $key): ?AiPendingAction
+    {
         return AiPendingAction::where('user_id', $userId)
             ->where('idempotency_key', $key)
             ->whereIn('status', [
@@ -354,6 +396,107 @@ final class ToolPipeline
             ->where('expires_at', '>', now())
             ->orderBy('id')
             ->first();
+    }
+
+    /** Any row holding a key, newest first (for duplicate-violation triage). */
+    public static function findAnyPendingByKey(int $userId, string $key): ?AiPendingAction
+    {
+        return AiPendingAction::where('user_id', $userId)
+            ->where('idempotency_key', $key)
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /**
+     * Recently executed row for a key (proposal-window dedupe).
+     * A repeated proposal right after success (retry/reconnect/double-send)
+     * must surface the executed action, not build a second task. Older
+     * repeats (past the proposal window) intentionally create anew so a
+     * user can legitimately repeat an identical request later.
+     * FAILED rows are never matched: after a failure the user may retry.
+     */
+    public static function findRecentlyExecutedPending(int $userId, string $key): ?AiPendingAction
+    {
+        return AiPendingAction::where('user_id', $userId)
+            ->where('idempotency_key', $key)
+            ->where('status', AiPendingAction::STATUS_EXECUTED)
+            ->where('expires_at', '>', now())
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /**
+     * Decide a duplicate-key collision: live row → reuse it (return null key);
+     * terminal/expired row → rotate to a fresh key so the legitimate repeat
+     * can be recorded. Returns ['reuse' => Model] or ['key' => string].
+     */
+    public static function resolvePendingKeyCollision(int $userId, string $key): array
+    {
+        $existing = self::findAnyPendingByKey($userId, $key);
+        if ($existing === null) {
+            return ['key' => $key];
+        }
+        // The key is globally unique, so $existing is the only candidate:
+        // live (or recently executed) → reuse it, otherwise rotate.
+        $live = self::findLivePendingByKey($userId, $key)
+            ?? self::findRecentlyExecutedPending($userId, $key);
+        if ($live !== null) {
+            return ['reuse' => $live];
+        }
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $rotated = self::rotateKey($key, $attempt, $userId);
+            if (self::findAnyPendingByKey($userId, $rotated) === null) {
+                return ['key' => $rotated];
+            }
+        }
+
+        // Practically unreachable (5 chained collisions); surface loudly.
+        return ['key' => $key.'_'.bin2hex(random_bytes(8))];
+    }
+
+    /** Live plan for a key: proposed/confirmed/executing + unexpired. */
+    public static function findLivePlanByKey(int $userId, string $key): ?\App\Models\AiPlan
+    {
+        return \App\Models\AiPlan::where('user_id', $userId)
+            ->where('idempotency_key', $key)
+            ->whereIn('status', [
+                \App\Models\AiPlan::STATUS_PROPOSED,
+                \App\Models\AiPlan::STATUS_CONFIRMED,
+                \App\Models\AiPlan::STATUS_EXECUTING,
+            ])
+            ->where('expires_at', '>', now())
+            ->orderBy('id')
+            ->first();
+    }
+
+    /** Any plan holding a key, newest first (for duplicate-violation triage). */
+    public static function findAnyPlanByKey(int $userId, string $key): ?\App\Models\AiPlan
+    {
+        return \App\Models\AiPlan::where('user_id', $userId)
+            ->where('idempotency_key', $key)
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /** Same collision contract as actions, for plans. */
+    public static function resolvePlanKeyCollision(int $userId, string $key): array
+    {
+        $existing = self::findAnyPlanByKey($userId, $key);
+        if ($existing === null) {
+            return ['key' => $key];
+        }
+        $live = self::findLivePlanByKey($userId, $key);
+        if ($live) {
+            return ['reuse' => $live];
+        }
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $rotated = self::rotateKey($key, $attempt, $userId);
+            if (self::findAnyPlanByKey($userId, $rotated) === null) {
+                return ['key' => $rotated];
+            }
+        }
+
+        return ['key' => $key.'_'.bin2hex(random_bytes(8))];
     }
 
     /* ── Turn guard: per-turn cap + loop detection ─────────────────── */

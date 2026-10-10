@@ -609,7 +609,7 @@ class AiChatController extends Controller
 
         // Retry/reconnect safe: the same (user, conversation, tool, args)
         // reuses the live pending instead of stacking a duplicate.
-        $duplicate = \App\Services\AiTooling\ToolPipeline::findDuplicatePending($user->id, $check['idempotency_key']);
+        $duplicate = \App\Services\AiTooling\ToolPipeline::findLivePendingByKey($user->id, $check['idempotency_key']);
         if ($duplicate) {
             AiLogger::log('tool.proposal_deduped', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $duplicate->id]);
 
@@ -622,43 +622,93 @@ class AiChatController extends Controller
             ];
         }
 
-        try {
-            $action = AiPendingAction::create([
-                'user_id' => $user->id,
-                'conversation_id' => $conversationId,
+        // A repeat right after success (retry/reconnect/double-send) must
+        // surface the executed action, never build a second task.
+        $executed = \App\Services\AiTooling\ToolPipeline::findRecentlyExecutedPending($user->id, $check['idempotency_key']);
+        if ($executed) {
+            AiLogger::log('tool.proposal_already_executed', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $executed->id]);
+
+            return [
+                'action_id' => $executed->id,
                 'tool' => $tool,
-                'args' => $check['resolved'],
-                'preview' => $service->preview($tool, $check['resolved'], $user),
-                'status' => AiPendingAction::STATUS_PENDING,
-                'expires_at' => now()->addMinutes(AiPendingAction::EXPIRY_MINUTES),
-                'idempotency_key' => $check['idempotency_key'],
-            ]);
-        } catch (\Illuminate\Database\QueryException $e) {
-            // Lost a race with an identical proposal: reuse the winner.
-            if (str_contains(strtolower($e->getMessage()), 'duplicate')) {
-                $winner = \App\Services\AiTooling\ToolPipeline::findDuplicatePending($user->id, $check['idempotency_key']);
-                if ($winner) {
-                    return [
-                        'action_id' => $winner->id,
-                        'tool' => $tool,
-                        'preview' => $winner->preview,
-                        'expires_at' => $winner->expires_at->toIso8601String(),
-                        'deduped' => true,
-                    ];
-                }
-            }
-            throw $e;
+                'preview' => $executed->preview,
+                'expires_at' => $executed->expires_at->toIso8601String(),
+                'deduped' => true,
+                'already_executed' => true,
+            ];
         }
+
+        [$action, $raceReused] = $this->insertPendingIdempotent($user, $conversationId, $tool, $check, $service->preview($tool, $check['resolved'], $user));
 
         \Log::info('ai.tool.proposed', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $action->id]);
         AiLogger::log('tool.proposed', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $action->id, 'conversation_id' => $conversationId, 'resolved' => $check['resolved']]);
 
-        return [
+        $out = [
             'action_id' => $action->id,
             'tool' => $tool,
             'preview' => $action->preview,
             'expires_at' => $action->expires_at->toIso8601String(),
         ];
+        if ($raceReused) {
+            $out['deduped'] = true;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Insert a pending action under its idempotency key, racing safely.
+     * Returns [AiPendingAction, bool $reusedWinner].
+     * - Duplicate violation with a LIVE winner → reuse the winner.
+     * - Duplicate with a terminal/expired owner → rotate the key and insert
+     *   anew (a legitimate later repeat must never 500 on the UNIQUE
+     *   constraint). Bounded retries; anything else rethrows.
+     */
+    private function insertPendingIdempotent($user, $conversationId, string $tool, array $check, array $preview): array
+    {
+        $pipeline = \App\Services\AiTooling\ToolPipeline::class;
+        $key = $check['idempotency_key'];
+
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            try {
+                return [AiPendingAction::create([
+                    'user_id' => $user->id,
+                    'conversation_id' => $conversationId,
+                    'tool' => $tool,
+                    'args' => $check['resolved'],
+                    'preview' => $preview,
+                    'status' => AiPendingAction::STATUS_PENDING,
+                    'expires_at' => now()->addMinutes(AiPendingAction::EXPIRY_MINUTES),
+                    'idempotency_key' => $key,
+                ]), false];
+            } catch (\Illuminate\Database\QueryException $e) {
+                if (! str_contains(strtolower($e->getMessage()), 'duplicate')) {
+                    throw $e;
+                }
+                $decision = $pipeline::resolvePendingKeyCollision($user->id, $key);
+                if (isset($decision['reuse'])) {
+                    /** @var AiPendingAction $winner */
+                    $winner = $decision['reuse'];
+                    AiLogger::log('tool.proposal_race_reused', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $winner->id]);
+
+                    return [$winner, true];
+                }
+                $key = $decision['key'];
+                AiLogger::log('tool.proposal_key_rotated', ['user_id' => $user->id, 'tool' => $tool, 'attempt' => $attempt + 1]);
+            }
+        }
+
+        // Extremely unlikely (3 chained collisions): fall back to a fresh key.
+        return [AiPendingAction::create([
+            'user_id' => $user->id,
+            'conversation_id' => $conversationId,
+            'tool' => $tool,
+            'args' => $check['resolved'],
+            'preview' => $preview,
+            'status' => AiPendingAction::STATUS_PENDING,
+            'expires_at' => now()->addMinutes(AiPendingAction::EXPIRY_MINUTES),
+            'idempotency_key' => $key.'_'.bin2hex(random_bytes(8)),
+        ]), false];
     }
 
     private function toolsForResolved(array $resolved): ?array
@@ -707,7 +757,25 @@ class AiChatController extends Controller
             return ['error' => $check['error'] ?? __('Invalid plan.'), 'code' => $check['code'] ?? 'validation_error'];
         }
 
-        $plan = AiPlan::create([
+        $pipeline = \App\Services\AiTooling\ToolPipeline::class;
+        $controller = app(AiPlanController::class);
+
+        // Stable key from the VALIDATED title + structure: retries,
+        // reconnects and double-sends derive the identical key.
+        $key = $pipeline::derivePlanKey(
+            (int) $user->id, $conversationId,
+            $check['resolved']['title'], $check['resolved']['structure']
+        );
+
+        // Retry/reconnect safe: reuse the live plan instead of stacking one.
+        $duplicate = $pipeline::findLivePlanByKey($user->id, $key);
+        if ($duplicate) {
+            AiLogger::log('plan.proposal_deduped', ['user_id' => $user->id, 'plan_id' => $duplicate->id]);
+
+            return ['plan' => $controller->serialize($duplicate)] + ['expires_at' => $duplicate->expires_at->toIso8601String(), 'deduped' => true];
+        }
+
+        $attrs = [
             'user_id' => $user->id,
             'conversation_id' => $conversationId,
             'title' => $check['resolved']['title'],
@@ -716,15 +784,43 @@ class AiChatController extends Controller
             'status' => AiPlan::STATUS_PROPOSED,
             'current_phase' => 0,
             'expires_at' => now()->addMinutes(AiPlan::EXPIRY_MINUTES),
-            'idempotency_key' => bin2hex(random_bytes(32)),
-        ]);
+            'idempotency_key' => $key,
+        ];
+
+        $plan = null;
+        $raceReused = false;
+        for ($attempt = 0; $attempt < 3 && $plan === null; $attempt++) {
+            try {
+                $plan = AiPlan::create($attrs);
+            } catch (\Illuminate\Database\QueryException $e) {
+                if (! str_contains(strtolower($e->getMessage()), 'duplicate')) {
+                    throw $e;
+                }
+                $decision = $pipeline::resolvePlanKeyCollision($user->id, $attrs['idempotency_key']);
+                if (isset($decision['reuse'])) {
+                    $plan = $decision['reuse'];
+                    $raceReused = true;
+                    AiLogger::log('plan.proposal_race_reused', ['user_id' => $user->id, 'plan_id' => $plan->id]);
+                } else {
+                    $attrs['idempotency_key'] = $decision['key'];
+                    AiLogger::log('plan.proposal_key_rotated', ['user_id' => $user->id, 'attempt' => $attempt + 1]);
+                }
+            }
+        }
+        if ($plan === null) {
+            $attrs['idempotency_key'] .= '_'.bin2hex(random_bytes(8));
+            $plan = AiPlan::create($attrs);
+        }
 
         \Log::info('ai.plan.proposed', ['user_id' => $user->id, 'plan_id' => $plan->id]);
         AiLogger::log('plan.proposed', ['user_id' => $user->id, 'plan_id' => $plan->id, 'conversation_id' => $conversationId, 'title' => $plan->title, 'totals' => $check['resolved']['totals'] ?? []]);
 
-        $controller = app(AiPlanController::class);
+        $out = ['plan' => $controller->serialize($plan)] + ['expires_at' => $plan->expires_at->toIso8601String()];
+        if ($raceReused) {
+            $out['deduped'] = true;
+        }
 
-        return ['plan' => $controller->serialize($plan)] + ['expires_at' => $plan->expires_at->toIso8601String()];
+        return $out;
     }
 
     /**
@@ -752,6 +848,33 @@ class AiChatController extends Controller
 
         $structure = app(\App\Services\WorkoutImportService::class)
             ->normalizeStructure($check['resolved']['structure'], $check['resolved']['structure']['start_date'] ?? null);
+
+        // Retry/reconnect safe (no idempotency_key column on this table):
+        // a live preview with the identical normalized structure is reused.
+        $structHash = hash('sha256', \App\Services\AiTooling\ToolPipeline::canonicalJson($structure));
+        $existing = \App\Models\WorkoutImport::where('user_id', $user->id)
+            ->where('status', \App\Models\WorkoutImport::PREVIEW)
+            ->where('expires_at', '>', now())
+            ->latest()
+            ->limit(3)
+            ->get()
+            ->first(fn ($row) => hash('sha256', \App\Services\AiTooling\ToolPipeline::canonicalJson((array) $row->structure)) === $structHash);
+        if ($existing) {
+            AiLogger::log('workout.proposal_deduped', ['user_id' => $user->id, 'import_id' => $existing->id]);
+
+            return [
+                'import' => [
+                    'id' => $existing->id,
+                    'title' => $existing->structure['title'] ?? 'Workout plan',
+                    'week_number' => $existing->structure['week_number'] ?? null,
+                    'start_date' => $existing->structure['start_date'] ?? null,
+                    'preview' => $service->previewWorkoutPlan(['structure' => $existing->structure]),
+                    'preview_url' => route('workouts.imports.show', $existing),
+                ],
+                'expires_at' => $existing->expires_at->toIso8601String(),
+                'deduped' => true,
+            ];
+        }
 
         $import = \App\Models\WorkoutImport::create([
             'user_id' => $user->id,
