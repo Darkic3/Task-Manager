@@ -833,6 +833,129 @@
     .nt-prose a.nt-token-psn:hover { background: #ddd6fe; color: #5b21b6; }
     [dir="rtl"] .nt-prose { direction: rtl; text-align: right; }
 
+    /* ── Rich writing surface (WYSIWYG, stores Markdown) ─────── */
+    .nt-write-panel { overflow: visible; }
+    .nt-write-body { padding: 16px 18px 12px; }
+    .nt-title-input {
+        font-size: 1.42rem;
+        padding: 4px 2px 10px;
+    }
+    .nt-ed-shell.is-rich { border-radius: 14px; overflow: visible; }
+    .nt-ed-shell.is-empty-error { border-color: var(--error-500); animation: nt-shake .3s ease 2; }
+    @keyframes nt-shake {
+        25% { transform: translateX(-3px); }
+        75% { transform: translateX(3px); }
+    }
+    .nt-ed-toolbar { border-radius: 14px 14px 0 0; background: #f8fafc; padding: 7px 9px; gap: 3px; }
+    .nt-rich-wrap { position: relative; background: #fff; border-radius: 0 0 14px 14px; }
+    .nt-rich {
+        min-height: 340px;
+        max-height: 68vh;
+        overflow-y: auto;
+        padding: 18px 20px;
+        outline: none;
+        font-size: 1rem;
+        line-height: 2;
+        color: var(--gray-800);
+        caret-color: var(--primary-600);
+        overflow-wrap: break-word;
+    }
+    .nt-rich:empty::before {
+        content: attr(data-placeholder);
+        color: var(--gray-300);
+        font-size: .92rem;
+        pointer-events: none;
+        display: block;
+    }
+    .nt-rich > :first-child { margin-top: 0; }
+    .nt-rich > :last-child { margin-bottom: 0; }
+    .nt-rich h1, .nt-rich h2, .nt-rich h3, .nt-rich h4 {
+        font-weight: 800; color: var(--gray-900); line-height: 1.6;
+        margin: 1.1em 0 .45em;
+    }
+    .nt-rich h1 { font-size: 1.5rem; letter-spacing: -.01em; }
+    .nt-rich h2 { font-size: 1.28rem; }
+    .nt-rich h3 { font-size: 1.1rem; }
+    .nt-rich h4 { font-size: .95rem; color: var(--gray-600); }
+    .nt-rich p, .nt-rich div[data-ph] { margin: 0 0 .7em; }
+    .nt-rich a { color: var(--primary-700); text-decoration: underline; text-underline-offset: 3px; }
+    .nt-rich strong, .nt-rich b { font-weight: 800; color: var(--gray-900); }
+    .nt-rich code {
+        background: #fdf2f8; border: 1px solid #fbcfe8; color: #be185d;
+        padding: .1em .4em; border-radius: 6px; font-size: .86em;
+        font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+    .nt-rich pre {
+        background: #0f172a; color: #e2e8f0; border-radius: 12px;
+        padding: 13px 15px; margin: .9em 0; overflow-x: auto;
+        font-size: .84rem; line-height: 1.8;
+    }
+    .nt-rich pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; }
+    .nt-rich blockquote {
+        margin: .9em 0; padding: .55em 1em;
+        border-inline-start: 3px solid var(--primary-500);
+        background: var(--primary-50); border-radius: 0 10px 10px 0; color: var(--gray-600);
+    }
+    .nt-rich ul, .nt-rich ol { margin: 0 0 .8em; padding-inline-start: 1.5em; }
+    .nt-rich li { margin: .28em 0; }
+    .nt-rich ul.nt-todo { list-style: none; padding-inline-start: .2em; }
+    .nt-rich ul.nt-todo li { display: flex; align-items: flex-start; gap: 9px; }
+    .nt-rich ul.nt-todo input[type="checkbox"] {
+        width: 17px; height: 17px; margin-top: .5em; flex: none;
+        accent-color: var(--primary-600); cursor: pointer;
+    }
+    .nt-rich hr { border: none; border-top: 2px solid var(--gray-200); margin: 1.4em auto; max-width: 220px; border-radius: 2px; }
+    .nt-rich table { width: 100%; border-collapse: collapse; margin: .9em 0; font-size: .86rem; display: block; overflow-x: auto; }
+    .nt-rich th, .nt-rich td { border: 1px solid var(--gray-200); padding: 7px 11px; text-align: start; }
+    .nt-rich th { background: var(--gray-50); font-weight: 800; }
+    .nt-rich img { max-width: 100%; border-radius: 12px; }
+    .nt-rich:focus { box-shadow: inset 0 0 0 2px rgb(99 102 241 / .08); border-radius: 0 0 12px 12px; }
+    [dir="rtl"] .nt-rich { text-align: right; }
+
+    /* Floating selection bubble */
+    .nt-bubble {
+        position: absolute; z-index: 60;
+        display: flex; align-items: center; gap: 2px;
+        background: #0f172a; border-radius: 12px; padding: 5px 7px;
+        box-shadow: 0 14px 30px -10px rgba(15,23,42,.5);
+    }
+    .nt-bubble[hidden] { display: none; }
+    .nt-bubble button {
+        border: none; background: transparent; color: #cbd5e1;
+        width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+        font-size: .85rem; display: grid; place-items: center; font-weight: 800;
+    }
+    .nt-bubble button:hover { background: rgba(255,255,255,.12); color: #fff; }
+
+    /* Slash block menu */
+    .nt-slash {
+        position: absolute; z-index: 70; width: 230px; max-height: 280px; overflow-y: auto;
+        background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+        box-shadow: 0 18px 40px -14px rgba(15,23,42,.3); padding: 5px;
+    }
+    .nt-slash[hidden] { display: none; }
+    .nt-slash-item {
+        display: flex; align-items: center; gap: 9px;
+        padding: 8px 10px; border-radius: 8px; cursor: pointer;
+        font-size: .82rem; font-weight: 700; color: var(--gray-700);
+    }
+    .nt-slash-item i { color: var(--primary-600); font-size: .9rem; }
+    .nt-slash-item.is-active, .nt-slash-item:hover { background: var(--primary-50); }
+
+    /* Mini markdown-export button in the status bar */
+    .nt-ed-mini {
+        display: inline-flex; align-items: center; gap: 5px;
+        border: 1px solid var(--gray-200); background: #fff; border-radius: 8px;
+        padding: 3px 10px; font-size: .7rem; font-weight: 800; color: var(--gray-600);
+        cursor: pointer; transition: all .14s;
+    }
+    .nt-ed-mini:hover { border-color: var(--primary-500); color: var(--primary-700); background: var(--primary-50); }
+    .nt-ed-mini.is-ok { border-color: #10b981; color: #059669; background: #ecfdf5; }
+    .nt-ed-hide-sm { display: inline-flex; align-items: center; gap: 4px; }
+    @media (max-width: 576px) { .nt-ed-hide-sm { display: none; } }
+    .nt-ed-shell.is-zen .nt-rich { min-height: 70vh; max-height: none; font-size: 1.06rem; }
+    .nt-ed-shell.is-zen .nt-ed-toolbar { border-radius: 0; }
+
     /* ── Pagination ──────────────────────────────────────────── */
     .nt-pager { display: flex; justify-content: center; margin-top: 14px; }
     .nt-pager .pagination { margin: 0; }
