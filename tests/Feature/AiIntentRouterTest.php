@@ -164,8 +164,10 @@ class AiIntentRouterTest extends TestCase
             $this->assertNotEmpty($r['clarification_question'], $msg);
             $this->assertShape($r);
         }
-        // Ambiguous never narrows tools (fail-open).
-        $this->assertNull(AiIntentRouter::toolsFor($this->route('این'), new AiToolService));
+        // Ambiguous narrows to the READ-only safe set (never the full
+        // mutation surface): the model may answer or clarify, nothing else.
+        $names = collect(AiIntentRouter::toolsFor($this->route('این'), new AiToolService))->map(fn ($d) => $d['function']['name'])->all();
+        $this->assertSame(['report_generate'], $names);
     }
 
     public function test_mixed_report_and_mutation_prefers_mutation(): void
@@ -205,9 +207,14 @@ class AiIntentRouterTest extends TestCase
         $names = collect(AiIntentRouter::toolsFor($reportHigh, $svc))->map(fn ($d) => $d['function']['name'])->all();
         $this->assertSame(['report_generate'], $names);
 
-        // Medium confidence (bare noun-ish) keeps the FULL set.
+        // Medium confidence (non-ambiguous, bare noun-ish) keeps the FULL
+        // set (fail-open). Ambiguous input instead gets the READ-only safe
+        // set — never the full mutation surface.
         $medium = AiIntentRouter::route('پیشرفت');
-        if ($medium['confidence'] !== 'high') {
+        if ($medium['intent'] === AiIntentRouter::INTENT_AMBIGUOUS) {
+            $names = collect(AiIntentRouter::toolsFor($medium, $svc))->map(fn ($d) => $d['function']['name'])->all();
+            $this->assertSame(['report_generate'], $names);
+        } elseif ($medium['confidence'] !== 'high') {
             $this->assertNull(AiIntentRouter::toolsFor($medium, $svc));
         }
 

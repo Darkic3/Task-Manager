@@ -37,11 +37,21 @@ final class ToolError
     /** Tool name is not in the registry. */
     public const UNKNOWN_TOOL = 'unknown_tool';
 
+    /**
+     * Model proposed a tool that was not visible in the payload sent to it
+     * (controller visibility gate). Distinct from NOT_ALLOWED_FOR_INTENT
+     * (pipeline intent-allowlist gate) so logs show which layer rejected.
+     */
+    public const NOT_ROUTED = 'tool_not_routed';
+
     /** Identical call repeated in one turn (model loop). */
     public const LOOP_DETECTED = 'loop_detected';
 
     /** Per-user pending cap reached. */
     public const RATE_LIMITED = 'rate_limited';
+
+    /** Tool was not exposed to the model for this intent (capability routing). */
+    public const NOT_ALLOWED_FOR_INTENT = 'not_allowed_for_intent';
 
     /** Execution itself failed after a valid claim. */
     public const EXECUTION_ERROR = 'execution_error';

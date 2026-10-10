@@ -353,7 +353,10 @@ class AiChatController extends Controller
         if (($resolved['type'] ?? 'openai') === 'openai') {
             AiLogger::log('stream.openai_start', ['rid' => $rid, 'user_id' => $user->id, 'conversation_id' => $conversation->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'agent_mode' => $agentMode]);
 
-            return $this->streamOpenAi($resolved, $messages, $conversation, $agentMode, $rid, $route);
+            return $this->streamOpenAi($resolved, $messages, $conversation, $agentMode, $rid, $route, [
+                'note_count' => count((array) $request->input('attach_note_ids', [])),
+                'file_count' => count((array) $request->input('attach_file_ids', [])),
+            ]);
         }
         AiLogger::log('stream.sync_fallback_provider', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? null]);
 
@@ -451,7 +454,7 @@ class AiChatController extends Controller
      * Sync dispatch that also supports tool proposals for OpenAI-compatible providers.
      * Returns ['reply'=>string] or ['reply'=>string,'proposal'=>array].
      */
-    private function callProviderSyncWithTools(array $resolved, array $messages, $user, bool $withTools = true, ?string $rid = null, ?array $route = null): array
+    private function callProviderSyncWithTools(array $resolved, array $messages, $user, bool $withTools = true, ?string $rid = null, ?array $route = null, array $toolContext = []): array
     {
         $type = $resolved['type'] ?? 'openai';
         if ($type !== 'openai' || ! $withTools) {
@@ -462,7 +465,10 @@ class AiChatController extends Controller
             return ['reply' => $this->callProviderSync($resolved, $messages)];
         }
 
-        $tools = $this->toolsForResolved($resolved, $route);
+        $tools = $withTools ? $this->toolsForResolved($resolved, $route, ['agent_mode' => $withTools] + $toolContext) : null;
+        // Visibility set: exactly what was sent to the model. Enforcement below
+        // rejects anything outside it (server-side, not prompt).
+        $allowedNames = $tools === null ? null : collect($tools)->map(fn ($d) => $d['function']['name'] ?? null)->filter()->all();
         $raw = $this->callOpenAiSyncRaw($resolved['key'], $resolved['config']['base_url'], $messages, $resolved['model'], $tools);
         AiLogger::log('provider.tool_calls', ['rid' => $rid, 'user_id' => $user->id ?? null, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'tool_call_count' => count($raw['tool_calls'] ?? []), 'tool_names' => collect($raw['tool_calls'] ?? [])->map(fn ($tc) => $tc['function']['name'] ?? '?')->all(), 'reply_len' => mb_strlen($raw['text'] ?? '')]);
 
@@ -525,12 +531,20 @@ class AiChatController extends Controller
             $keptCalls[] = array_values($raw['tool_calls'])[$kept['index']];
         }
 
-        $first = $keptCalls[0];
-        $proposal = $this->createPendingFromToolCall(
-            $user, null,
-            $first['function']['name'] ?? '',
-            $first['function']['arguments'] ?? '{}'
-        );
+        // Visibility enforcement (server-side): a model call for a tool that
+        // was NOT sent to the model is rejected — surfaced, never silent.
+        // This is separate from ToolPipeline auth/validation/confirmation.
+        $routedCalls = [];
+        $offRoute = [];
+        foreach ($keptCalls as $tc) {
+            $name = $tc['function']['name'] ?? '';
+            if ($allowedNames !== null && ! \App\Services\AiTooling\ToolCapabilityRouter::isAllowed($name, $allowedNames)) {
+                $offRoute[] = $name;
+                AiLogger::log('tool.not_routed', ['rid' => $rid, 'user_id' => $user->id ?? null, 'tool' => \App\Services\AiToolService::normalizeToolName((string) $name)]);
+                continue;
+            }
+            $routedCalls[] = $tc;
+        }
 
         $out = [];
         if ($raw['text'] !== '') {
@@ -538,12 +552,13 @@ class AiChatController extends Controller
         }
         // Keep EVERY tool call: long plans (e.g. one task per day) arrive
         // as several calls, not one. 'proposal' stays for backward compat.
-        $proposals = [$proposal];
-        foreach (array_slice($keptCalls, 1) as $tc) {
+        $proposals = [];
+        foreach ($routedCalls as $tc) {
             $proposals[] = $this->createPendingFromToolCall(
                 $user, null,
                 $tc['function']['name'] ?? '',
-                $tc['function']['arguments'] ?? '{}'
+                $tc['function']['arguments'] ?? '{}',
+                $allowedNames
             );
             if (count($proposals) >= AiPendingAction::MAX_OPEN) {
                 break; // matches the per-user pending cap
@@ -553,8 +568,17 @@ class AiChatController extends Controller
         foreach ($guard['dropped'] as $dropped) {
             $proposals[] = ['error' => $dropped['error'], 'code' => $dropped['code'], 'tool' => $dropped['name']];
         }
+        foreach ($offRoute as $name) {
+            $norm = \App\Services\AiToolService::normalizeToolName((string) $name);
+            $proposals[] = ['error' => "Tool '{$norm}' is not available for this request and was rejected.", 'code' => \App\Services\AiTooling\ToolError::NOT_ROUTED, 'tool' => $norm];
+        }
+        if (empty($proposals)) {
+            // All calls were off-route: keep a single rejection so the UI
+            // never renders an empty proposal list as success.
+            $proposals[] = ['error' => __('This action is not available for the current request. Please rephrase or clarify.'), 'code' => \App\Services\AiTooling\ToolError::NOT_ROUTED];
+        }
         $out['proposals'] = $proposals;
-        $out['proposal'] = $proposal;
+        $out['proposal'] = $proposals[0];
 
         return $out;
     }
@@ -562,8 +586,12 @@ class AiChatController extends Controller
     /**
      * Validate + store a tool call as a pending action (no execution).
      * Returns proposal array for the frontend card, or ['error'=>...] on failure.
+     * $allowedTools (null|array): capability-routing allowlist for THIS
+     * request — forwarded to the pipeline so off-route model calls are
+     * rejected server-side. Null = no routing restriction (server-generated
+     * fallbacks and legacy callers).
      */
-    private function createPendingFromToolCall($user, $conversationId, string $tool, $argsJson): array
+    private function createPendingFromToolCall($user, $conversationId, string $tool, $argsJson, ?array $allowedTools = null): array
     {
         $tool = AiToolService::normalizeToolName($tool);
 
@@ -608,10 +636,10 @@ class AiChatController extends Controller
             ];
         }
 
-        // Shared pipeline: schema → security → normalize → business →
-        // ownership → state → policy. Returns a derived idempotency key.
+        // Shared pipeline: capability allowlist → schema → security →
+        // normalize → business → ownership → state → policy.
         $check = \App\Services\AiTooling\ToolPipeline::validateForProposal(
-            $user, $tool, $env['args'], ['conversation_id' => $conversationId]
+            $user, $tool, $env['args'], ['conversation_id' => $conversationId] + ($allowedTools !== null ? ['allowed_tools' => $allowedTools] : [])
         );
         if (! ($check['ok'] ?? false)) {
             AiLogger::log('tool.proposal_invalid', ['user_id' => $user->id, 'tool' => $tool, 'code' => $check['code'] ?? null, 'error' => $check['error'] ?? 'Invalid action.']);
@@ -724,23 +752,82 @@ class AiChatController extends Controller
     }
 
     /**
-     * Tool definitions for a request. The Intent Router may narrow the set
-     * on high-confidence routes (cost optimization only) — execution is
-     * still gated by ToolPipeline + user confirmation either way.
+     * Tool definitions for a request. The Capability Router selects the
+     * minimal categories for (intent + context + provider) and ONLY those
+     * definitions are sent to the model (server-side visibility, not prompt).
+     * Cost optimization only — execution is still gated by ToolPipeline +
+     * user confirmation either way.
      */
-    private function toolsForResolved(array $resolved, ?array $route = null): ?array
+    private function toolsForResolved(array $resolved, ?array $route = null, array $toolContext = []): ?array
     {
         if (($resolved['type'] ?? 'openai') !== 'openai') {
             return null;
         }
         if ($route !== null) {
-            $narrowed = \App\Services\AiIntentRouter::toolsFor($route, new AiToolService);
-            if ($narrowed !== null) {
-                return $narrowed;
+            $ctx = $this->capabilityContext($resolved, $toolContext);
+            $defs = \App\Services\AiTooling\ToolCapabilityRouter::definitionsFor(
+                $route, new AiToolService, $ctx
+            );
+            if ($defs !== null) {
+                $cmp = \App\Services\AiTooling\ToolCapabilityRouter::tokenComparison($route, new AiToolService, $ctx);
+                AiLogger::log('tools.routed', [
+                    'intent' => $route['intent'] ?? null,
+                    'confidence' => $route['confidence'] ?? null,
+                    'sent_tools' => \App\Services\AiTooling\ToolCapabilityRegistry::namesFromDefinitions($defs),
+                    'full_tokens' => $cmp['full'],
+                    'routed_tokens' => $cmp['routed'],
+                    'saved_tokens' => $cmp['saved'],
+                    'saved_pct' => $cmp['saved_pct'],
+                ]);
+
+                return $defs;
             }
         }
 
         return (new AiToolService)->definitions();
+    }
+
+    /**
+     * Request context for capability routing: mode + provider + explicit
+     * cues (attached notes/files). All cues are ownership-checked downstream;
+     * here they only widen the visible categories.
+     */
+    private function capabilityContext(array $resolved, array $extra = []): array
+    {
+        // $extra may carry 'agent_mode' (bool) or 'mode' + attachment counts.
+        $mode = 'agent';
+        if (array_key_exists('mode', $extra)) {
+            $mode = $extra['mode'];
+        } elseif (array_key_exists('agent_mode', $extra)) {
+            $mode = $extra['agent_mode'] ? 'agent' : 'chat';
+        }
+
+        return [
+            'mode' => $mode,
+            'provider_type' => $resolved['type'] ?? 'openai',
+            'has_note_attachments' => ! empty($extra['has_note_attachments']) || ((int) ($extra['note_count'] ?? 0)) > 0,
+            'has_file_attachments' => ! empty($extra['has_file_attachments']) || ((int) ($extra['file_count'] ?? 0)) > 0,
+        ];
+    }
+
+    /**
+     * Allowed tool names for visibility enforcement (null = full set).
+     * Model calls outside this set are rejected with tool_not_routed —
+     * an ADDITIONAL server-side visibility check, never replacing
+     * ToolPipeline validation, ownership or confirmation.
+     */
+    private function allowedToolsFor(array $resolved, ?array $route, array $toolContext = []): ?array
+    {
+        if (($resolved['type'] ?? 'openai') !== 'openai') {
+            return [];
+        }
+        if ($route === null) {
+            return null;
+        }
+
+        return \App\Services\AiTooling\ToolCapabilityRouter::allowedNames(
+            $route, $this->capabilityContext($resolved, $toolContext)
+        );
     }
 
     /**
@@ -1277,13 +1364,16 @@ class AiChatController extends Controller
     }
 
     /* ── OpenAI streaming ── */
-    private function streamOpenAi(array $resolved, array $messages, AiConversation $conversation, bool $agentMode = true, ?string $rid = null, ?array $route = null)
+    private function streamOpenAi(array $resolved, array $messages, AiConversation $conversation, bool $agentMode = true, ?string $rid = null, ?array $route = null, array $toolContext = [])
     {
         $key = $resolved['key'];
         $cfg = $resolved['config'];
         $model = $resolved['model'];
         $provider = $resolved['provider'];
-        $tools = $agentMode ? $this->toolsForResolved($resolved, $route) : null;
+        $tools = $agentMode ? $this->toolsForResolved($resolved, $route, ['agent_mode' => $agentMode] + $toolContext) : null;
+        // Names actually sent to the model — the enforcement allowlist.
+        // Null (chat mode) means "nothing visible": emitToolProposals gets [].
+        $allowedNames = $tools === null ? ($agentMode ? null : []) : collect($tools)->map(fn ($d) => $d['function']['name'] ?? null)->filter()->all();
 
         $client = new Client(['verify' => (bool) config('ai.tls_verify', true), 'timeout' => 60]);
         $response = null;
@@ -1330,7 +1420,7 @@ class AiChatController extends Controller
                 $fallbackTools = [];
             }
 
-            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages) {
+            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $rid) {
                 echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
                 $sseFlush();
                 foreach (mb_str_split($fullText, 5) as $chunk) {
@@ -1354,7 +1444,7 @@ class AiChatController extends Controller
                                 : json_encode($tc['function']['arguments'] ?? []),
                         ];
                     }
-                    $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
+                    $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush, $rid, $allowedNames);
                     $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
                     $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
                     $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
@@ -1383,7 +1473,7 @@ class AiChatController extends Controller
                     $fullText = $this->isProviderConnectionError($e2) ? $this->formatProviderError(new AiProviderException($e2->getMessage(), parse_url($endpoint, PHP_URL_HOST) ?: $provider, $endpoint, null, 0, $e2), $resolvedForError) : $this->formatSystemError($e2);
                     $fallbackTools = [];
                 }
-                return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages) {
+                return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $rid) {
                     echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
                     $sseFlush();
                     foreach (mb_str_split($fullText, 5) as $chunk) {
@@ -1407,7 +1497,7 @@ class AiChatController extends Controller
                                     : json_encode($tc['function']['arguments'] ?? []),
                             ];
                         }
-                        $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
+                        $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush, $rid, $allowedNames);
                         $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
                     $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
                         $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
@@ -1435,7 +1525,7 @@ class AiChatController extends Controller
                 $fallbackTools = [];
             }
 
-            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages) {
+            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $rid) {
                 echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
                 $sseFlush();
                 foreach (mb_str_split($fullText, 5) as $chunk) {
@@ -1459,7 +1549,7 @@ class AiChatController extends Controller
                                 : json_encode($tc['function']['arguments'] ?? []),
                         ];
                     }
-                    $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
+                    $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush, $rid, $allowedNames);
                     $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
                     $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
                     $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
@@ -1474,7 +1564,7 @@ class AiChatController extends Controller
         $userId = Auth::id();
         $sseFlush = $this->sseFlushClosure();
 
-        return response()->stream(function () use ($body, $model, $provider, $userId, $conversationId, $sseFlush, $agentMode, $key, $endpoint, $messages, $tools) {
+        return response()->stream(function () use ($body, $model, $provider, $userId, $conversationId, $sseFlush, $agentMode, $key, $endpoint, $messages, $tools, $allowedNames, $rid) {
             echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
             $sseFlush();
             $buffer = '';
@@ -1502,7 +1592,7 @@ class AiChatController extends Controller
                                 AiConversation::where('id', $conversationId)->touch();
                             }
                             if ($agentMode) {
-                                $controller->emitToolProposals($toolAccum, $userId, $conversationId, $sseFlush);
+                                $controller->emitToolProposals($toolAccum, $userId, $conversationId, $sseFlush, $rid, $allowedNames);
                                 $controller->emitWorkoutFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
                 $controller->emitTaskCreationFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
                                 $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush);
@@ -1557,7 +1647,7 @@ class AiChatController extends Controller
                                                         : json_encode($tc['function']['arguments'] ?? []),
                                                 ];
                                             }
-                                            $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush);
+                                            $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush, $rid, $allowedNames);
                                             $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fallbackText, $sseFlush);
                                             $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fallbackText, $sseFlush);
                                             $controller->emitToolMissedNotice($fallbackText, $accum, $sseFlush);
@@ -1620,7 +1710,7 @@ class AiChatController extends Controller
                     AiConversation::where('id', $conversationId)->touch();
                 } catch (\Exception $e) {}
             }
-            $controller->emitToolProposals($agentMode ? $toolAccum : [], $userId, $conversationId, $sseFlush);
+            $controller->emitToolProposals($agentMode ? $toolAccum : [], $userId, $conversationId, $sseFlush, $rid, $allowedNames);
             if ($agentMode) {
                 $controller->emitWorkoutFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
                 $controller->emitTaskCreationFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
@@ -1687,8 +1777,10 @@ class AiChatController extends Controller
 
     /**
      * Turn accumulated tool_calls into pending actions and emit SSE proposals.
+     * $allowedNames (null = no visibility check, e.g. legacy callers) enforces
+     * server-side that the model only proposed visible tools.
      */
-    public function emitToolProposals(array $toolAccum, int $userId, int $conversationId, callable $sseFlush, ?string $rid = null): void
+    public function emitToolProposals(array $toolAccum, int $userId, int $conversationId, callable $sseFlush, ?string $rid = null, ?array $allowedNames = null): void
     {
         if (empty($toolAccum)) {
             AiLogger::log('stream.no_tool_calls', ['user_id' => $userId, 'conversation_id' => $conversationId, 'rid' => $rid]);
@@ -1724,7 +1816,14 @@ class AiChatController extends Controller
             if (! $name) {
                 continue;
             }
-            $proposal = $this->createPendingFromToolCall($user, $conversationId, $name, $tc['arguments'] ?? '{}');
+            if ($allowedNames !== null && ! \App\Services\AiTooling\ToolCapabilityRouter::isAllowed($name, $allowedNames)) {
+                $norm = AiToolService::normalizeToolName((string) $name);
+                AiLogger::log('stream.proposal_not_routed', ['rid' => $rid, 'user_id' => $userId, 'conversation_id' => $conversationId, 'tool' => $norm]);
+                echo 'data: '.json_encode(['type' => 'tool_proposal', 'error' => "Tool '{$norm}' is not available for this request and was rejected.", 'code' => \App\Services\AiTooling\ToolError::NOT_ROUTED, 'tool' => $norm])."\n\n";
+                $sseFlush();
+                continue;
+            }
+            $proposal = $this->createPendingFromToolCall($user, $conversationId, $name, $tc['arguments'] ?? '{}', $allowedNames);
             $normalizedName = AiToolService::normalizeToolName($name);
             $packetType = $normalizedName === 'plan_propose'
                 ? 'plan_proposal'

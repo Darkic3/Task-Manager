@@ -116,12 +116,18 @@ final class AiIntentRouter
     }
 
     /**
-     * Tool definitions for a route. Returns null when the full toolset
-     * must be kept (anything below high confidence, plans, ambiguous).
+     * Tool definitions for a route.
+     * - high confidence → entity-aware allowlist from ToolCapabilityRegistry
+     *   (multi-category union for combined requests).
+     * - ambiguous (any confidence) → READ-only safe fallback + clarification.
+     * - anything else below high confidence → null (full set, fail-open).
      * An empty array means "no tools needed" (confident smalltalk).
      */
     public static function toolsFor(array $route, AiToolService $svc): ?array
     {
+        if (($route['intent'] ?? null) === self::INTENT_AMBIGUOUS) {
+            return $svc->definitions(\App\Services\AiTooling\ToolCapabilityRegistry::SAFE_FALLBACK);
+        }
         if (($route['confidence'] ?? null) !== self::CONF_HIGH) {
             return null;
         }
@@ -157,20 +163,27 @@ final class AiIntentRouter
             'requires_clarification' => $needsClarify,
             'clarification_question' => $needsClarify ? self::clarificationQuestion() : null,
             'context_profile' => $intent === self::INTENT_GENERAL ? 'minimal' : 'mode_default',
-            'tool_filter' => self::toolFilter($intent),
+            'tool_filter' => self::toolFilter($intent, $entities),
         ];
     }
 
-    /** Tool subset per intent (applied on high confidence only). */
-    private static function toolFilter(string $intent): ?array
+    /** Tool subset per intent (applied on high confidence only; entity-aware for mutations). */
+    private static function toolFilter(string $intent, array $entities = []): ?array
     {
+        if ($intent === self::INTENT_AMBIGUOUS) {
+            return \App\Services\AiTooling\ToolCapabilityRegistry::SAFE_FALLBACK;
+        }
+
         return match ($intent) {
             self::INTENT_GENERAL => [],
             self::INTENT_QUERY => ['report_generate'],
             self::INTENT_REPORT => ['report_generate'],
-            self::INTENT_MUTATION => array_merge(AiToolService::TOOL_GROUPS['single'], AiToolService::TOOL_GROUPS['report']),
+            self::INTENT_MUTATION => \App\Services\AiTooling\ToolCapabilityRegistry::resolveForRoute(
+                ['intent' => $intent, 'entities' => $entities]
+            ),
             self::INTENT_WORKOUT => AiToolService::TOOL_GROUPS['workout'],
-            // plan_build + ambiguous keep the FULL set (fail-open).
+            // plan_build keeps the FULL set (fail-open): plans embed
+            // projects/tasks/reminders/notes/routines/members.
             default => null,
         };
     }

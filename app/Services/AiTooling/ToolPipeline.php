@@ -38,12 +38,29 @@ final class ToolPipeline
     /**
      * Full proposal-time validation. No DB writes (except reads).
      * Returns ['ok','code','error','resolved','idempotency_key'] (+ field).
+     *
+     * $options['allowed_tools'] (null|array): capability-routing allowlist
+     * for THIS request. null = no routing restriction (legacy/direct calls).
+     * When set, a tool outside the list is rejected with
+     * NOT_ALLOWED_FOR_INTENT — this is visibility enforcement, NOT
+     * authorization (ownership/confirmation still run afterwards).
      */
     public static function validateForProposal($user, string $tool, $rawArgs, array $options = []): array
     {
         $tool = AiToolService::normalizeToolName((string) $tool);
         if (! in_array($tool, AiToolService::TOOLS, true)) {
             return ToolError::fail(ToolError::UNKNOWN_TOOL, "Unknown tool: {$tool}.");
+        }
+
+        if (array_key_exists('allowed_tools', $options) && is_array($options['allowed_tools'])) {
+            if (! ToolCapabilityRegistry::isAllowed($tool, $options['allowed_tools'])) {
+                AiLogger::log('tool.capability_denied', ['tool' => $tool, 'user_id' => $user->id ?? null]);
+
+                return ToolError::fail(
+                    ToolError::NOT_ALLOWED_FOR_INTENT,
+                    "Tool '{$tool}' is not available for this request. Ask the user to rephrase, or split the request so the right capability is selected."
+                );
+            }
         }
 
         // 1) Schema: envelope (shape/size) on raw args.
@@ -105,11 +122,22 @@ final class ToolPipeline
      * Execution-time re-validation: same stages, fresh reads.
      * Must be called inside (or just before) the execution transaction.
      */
-    public static function revalidateForExecute($user, string $tool, array $args): array
+    public static function revalidateForExecute($user, string $tool, array $args, array $options = []): array
     {
         $tool = AiToolService::normalizeToolName((string) $tool);
         if (! in_array($tool, AiToolService::TOOLS, true)) {
             return ToolError::fail(ToolError::UNKNOWN_TOOL, "Unknown tool: {$tool}.");
+        }
+
+        if (array_key_exists('allowed_tools', $options) && is_array($options['allowed_tools'])) {
+            if (! ToolCapabilityRegistry::isAllowed($tool, $options['allowed_tools'])) {
+                AiLogger::log('tool.capability_denied', ['tool' => $tool, 'user_id' => $user->id ?? null, 'stage' => 'execute']);
+
+                return ToolError::fail(
+                    ToolError::NOT_ALLOWED_FOR_INTENT,
+                    "Tool '{$tool}' is not available for this request."
+                );
+            }
         }
 
         $denied = self::securityScreen($tool, $args);

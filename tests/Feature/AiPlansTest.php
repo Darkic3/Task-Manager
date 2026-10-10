@@ -319,7 +319,10 @@ class AiPlansTest extends TestCase
             ]],
         ]]]], 200));
 
-        $this->actingAs($user)->postJson(route('ai.chat'), ['message' => 'Build it', 'mode' => 'agent'])
+        // Capability routing: the message must carry a plan signal so
+        // plan_propose is visible to the model (vague follow-ups like
+        // "Build it" only expose the READ-only safe set by design).
+        $this->actingAs($user)->postJson(route('ai.chat'), ['message' => 'می‌خوام برنامه ماهانه‌ام رو بچینم', 'mode' => 'agent'])
             ->assertOk()
             ->assertJsonPath('proposal.plan.title', 'Weekly workout');
 
