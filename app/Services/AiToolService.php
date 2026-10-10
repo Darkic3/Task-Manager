@@ -33,6 +33,27 @@ class AiToolService
         'plan_propose', 'workout_plan_propose',
     ];
 
+    /**
+     * Tool groups for the Intent Router (AiIntentRouter::toolFilter).
+     * Subsets are attached on high-confidence routes only; anything else
+     * keeps the full toolset (fail-open). Add new tools to a group here —
+     * never gate execution on the router (ToolPipeline still validates).
+     */
+    public const TOOL_GROUPS = [
+        'single' => [
+            'task_create', 'task_update', 'task_complete', 'task_delete',
+            'reminder_create', 'reminder_complete', 'reminder_delete',
+            'note_create', 'note_update', 'note_delete',
+            'project_create', 'project_add_member',
+            'note_link',
+            'checklist_add', 'checklist_toggle',
+            'routine_create', 'routine_complete', 'routine_delete', 'routine_log',
+        ],
+        'report' => ['report_generate'],
+        'plan' => ['plan_propose'],
+        'workout' => ['workout_plan_propose'],
+    ];
+
     public const ROUTINE_VALUE_KINDS = ['number', 'weight', 'time', 'reps', 'percent'];
 
     public const MAX_PLAN_ROUTINES = 7;
@@ -106,12 +127,15 @@ class AiToolService
 
     /**
      * OpenAI-compatible function definitions for OpenRouter/custom providers.
+     * $only narrows to the given tool names (order-preserving, unknown
+     * names ignored) — used by the Intent Router on high-confidence
+     * routes. Null keeps the full set (default, backward compatible).
      */
-    public function definitions(): array
+    public function definitions(?array $only = null): array
     {
         $date = fn () => ['type' => 'string', 'description' => 'Date as YYYY-MM-DD'];
 
-        return [
+        $all = [
             $this->fn('task_create', 'Create a task for the user. Pass parent_id to create a subtask (project is inherited from the parent)', [
                 'title' => ['type' => 'string', 'description' => 'Task title'],
                 'project' => ['type' => 'string', 'description' => 'Project name or ID (optional)'],
@@ -418,6 +442,16 @@ class AiToolService
                 ],
             ],
         ];
+
+        if ($only === null) {
+            return $all;
+        }
+        $keep = array_fill_keys(array_map([self::class, 'normalizeToolName'], $only), true);
+
+        return array_values(array_filter(
+            $all,
+            fn ($def) => isset($keep[self::normalizeToolName($def['function']['name'] ?? '')])
+        ));
     }
 
     /**

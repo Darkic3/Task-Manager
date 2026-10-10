@@ -279,9 +279,14 @@ class AiContextEngineTest extends TestCase
     public function test_build_messages_signature_is_unchanged(): void
     {
         $ref = new \ReflectionMethod(AiChatController::class, 'buildMessages');
-        $names = collect($ref->getParameters())->map(fn ($p) => $p->getName())->all();
+        $params = $ref->getParameters();
+        $names = collect($params)->map(fn ($p) => $p->getName())->all();
 
-        $this->assertSame(['user', 'context', 'history', 'newMessage', 'mode'], $names);
+        // The original 5 params are untouched; the router hint rides an
+        // OPTIONAL 6th param (all existing 5-arg callers keep working).
+        $this->assertSame(['user', 'context', 'history', 'newMessage', 'mode'], array_slice($names, 0, 5));
+        $this->assertSame('intentRoute', $names[5] ?? null);
+        $this->assertTrue($params[5]->isOptional());
     }
 
     public function test_chat_and_agent_endpoints_still_work(): void

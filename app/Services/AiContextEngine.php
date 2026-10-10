@@ -45,6 +45,20 @@ class AiContextEngine
      * same heuristic used elsewhere in the codebase).
      */
     public const PROFILES = [
+        // Intent-routed profile for casual/general questions: NO workspace
+        // queries at all (skip_workspace) — only a static note + history.
+        'minimal' => [
+            'workspace_budget' => 800,
+            'history_limit' => 4,
+            'history_chars' => 1500,
+            'task_lines' => 0,
+            'project_lines' => 0,
+            'reminders' => 'never',
+            'routines' => 'never',
+            'notes' => 'never',
+            'files' => 'never',
+            'skip_workspace' => true,
+        ],
         'chat' => [
             'workspace_budget' => 4000,
             'history_limit' => 8,
@@ -93,6 +107,33 @@ class AiContextEngine
     {
         $cfg = self::PROFILES[$profile] ?? self::PROFILES['agent'];
         $budget = (int) ($cfg['workspace_budget'] ?? self::WORKSPACE_BUDGET);
+        $intent = $options['intent'] ?? null;
+
+        // Intent-routed fast path: general questions skip every workspace
+        // query (no snapshot, no relevance retrieval — zero workspace I/O).
+        if (! empty($cfg['skip_workspace'])) {
+            $history = $this->loadHistory($user->id, $options, (int) $cfg['history_limit'], (int) $cfg['history_chars']);
+            $text = 'WORKSPACE: skipped (general question — no workspace data loaded).';
+
+            return [
+                'text' => $text,
+                'history' => $history['turns'],
+                'meta' => [
+                    'profile' => $profile,
+                    'intent' => $intent,
+                    'workspace_chars' => mb_strlen($text),
+                    'workspace_budget' => $budget,
+                    'history_count' => count($history['turns']),
+                    'history_chars' => $history['chars'],
+                    'included' => [],
+                    'dropped' => ['global', 'projects', 'tasks', 'reminders', 'routines', 'notes', 'files'],
+                    'trimmed' => [],
+                    'cache_hit' => false,
+                    'project_match' => null,
+                    'keyword_count' => 0,
+                ],
+            ];
+        }
 
         $keywords = $this->keywords($message);
         $cues = $this->cues($message);
@@ -177,6 +218,7 @@ class AiContextEngine
             'history' => $history['turns'],
             'meta' => [
                 'profile' => $profile,
+                'intent' => $intent,
                 'workspace_chars' => mb_strlen($text),
                 'workspace_budget' => $budget,
                 'history_count' => count($history['turns']),
