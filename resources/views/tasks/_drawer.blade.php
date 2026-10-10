@@ -34,7 +34,7 @@
 
             <div class="d-flex align-items-center gap-2">
                 {{-- Start Timer for this task --}}
-                <button type="button" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1" id="drawerTimerBtn" onclick="startDrawerTaskTimer()" title="{{ __('Start tracking time on this task') }}">
+                <button type="button" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1" id="drawerTimerBtn" onclick="startDrawerTaskTimer(this)" title="{{ __('Start tracking time on this task') }}">
                     <i class="bi bi-play-fill"></i> {{ __('Track Time') }}
                 </button>
 
@@ -281,6 +281,7 @@
             const data = await res.json();
             currentDrawerTask = data.task;
             populateTaskDrawer(data.task);
+            syncDrawerTimerBtn();
         } catch (e) {
             console.error('Error fetching task', e);
             showDrawerStatus('Failed to load task details');
@@ -489,29 +490,36 @@
         }
     }
 
-    // Start timer for task in drawer
-    async function startDrawerTaskTimer() {
-        if (!currentDrawerTask) return;
+    // Start timer for task in drawer (updates the global timer store, no reload)
+    async function startDrawerTaskTimer(btn) {
+        if (!currentDrawerTask || !window.TM) return;
+        if (btn) btn.disabled = true;
         try {
-            const res = await fetch('{{ route("time.start") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': DRAWER_CSRF,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    task_id: currentDrawerTask.id,
-                    project_id: currentDrawerTask.project_id
-                })
+            await TM.start({
+                task_id: currentDrawerTask.id,
+                project_id: currentDrawerTask.project_id
             });
-            if (res.ok) {
-                window.location.reload();
-            }
+            if (typeof plShowToast === 'function') plShowToast('{{ __("Timer started") }}');
         } catch (e) {
             console.error('Timer start failed', e);
+        } finally {
+            if (btn) btn.disabled = false;
         }
     }
+
+    // Keep the drawer timer button in sync with the global timer store
+    function syncDrawerTimerBtn() {
+        const btn = document.getElementById('drawerTimerBtn');
+        if (!btn || !window.TM) return;
+        const entry = TM.entry;
+        const tracking = !!(entry && currentDrawerTask && entry.task && entry.task.id === currentDrawerTask.id);
+        btn.classList.toggle('btn-outline-success', !tracking);
+        btn.classList.toggle('btn-success', tracking);
+        btn.innerHTML = tracking
+            ? '<i class="bi bi-check2-all"></i> {{ __('Tracking') }}'
+            : '<i class="bi bi-play-fill"></i> {{ __('Track Time') }}';
+    }
+    if (window.TM) TM.subscribe(syncDrawerTimerBtn);
 
     // Update corresponding DOM elements if present on page
     function updatePageTaskElement(taskId, data) {

@@ -926,6 +926,11 @@
     .pl-ffb-btn-fullscreen:hover{background:rgba(124,58,237,.4);color:#fff;}
     .pl-ffb-btn-close{background:transparent;border:none;color:#94a3b8;}
     .pl-ffb-btn-close:hover{color:#f8fafc;background:rgba(255,255,255,.1);}
+    .pl-ffb-btn:disabled{opacity:.5;pointer-events:none;}
+    .pl-ffb-btn-pause{transition:background .15s ease,transform .1s ease;}
+    .pl-ffb-btn-pause:active{transform:scale(.92);}
+    .pl-ffb-paused .pl-ffb-pulse{background:#f59e0b;animation:none;box-shadow:0 0 0 4px rgba(245,158,11,.25);}
+    .pl-ffb-paused .pl-ffb-clock{color:#94a3b8;}
 
     /* ── Task Row Quick Action Buttons ── */
     .pl-task-act-play{background:#eff6ff !important;color:#2563eb !important;border-color:#bfdbfe !important;}
@@ -3631,18 +3636,19 @@
         if (!card || card.dataset.nextType !== 'task') return;
         const taskId = card.dataset.nextId;
         try {
-            await plFetch('{{ route('time.start') }}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ task_id: taskId }),
-            });
+            await TM.start({ task_id: taskId });
+            plBarDismissedId = null;
+        } catch (e) {
+            console.error('[Planner] next up timer start failed', e);
+        }
+        try {
             await plFetch('{{ url('tasks') }}/' + taskId + '/update-status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify({ status: 'in_progress' }),
             });
         } catch (e) {
-            console.error('[Planner] next up start failed', e);
+            console.error('[Planner] next up status update failed', e);
         }
     }
 
@@ -4030,11 +4036,11 @@
         }
     });
 
-    /* ── Live Floating Focus Bar & Timer Logic ── */
-    let plActiveTimeEntry = null;
-    let plTimerTicker = null;
-    let plElapsedSeconds = 0;
+    /* ── Live Floating Focus Bar — mirrors the global TM timer store ── */
     let plBreakMode = false;
+    let plBreakEndAt = 0;
+    let plBreakTicker = null;
+    let plBarDismissedId = null;
 
     function formatTimeDisplay(totalSeconds) {
         const h = Math.floor(totalSeconds / 3600);
@@ -4047,45 +4053,44 @@
         ].filter(Boolean).join(':');
     }
 
-    function updateFloatingClockDisplay() {
-        const clockEl = document.getElementById('plFfbClock');
-        if (clockEl) {
-            clockEl.textContent = formatTimeDisplay(plElapsedSeconds);
-        }
-    }
-
-    function renderFloatingBarState() {
+    function plRenderFloatingBar(snap) {
         const bar = document.getElementById('plFloatingFocusBar');
         if (!bar) return;
-
-        if (!plActiveTimeEntry && !plBreakMode) {
-            bar.style.display = 'none';
-            if (plTimerTicker) clearInterval(plTimerTicker);
-            return;
-        }
-
-        bar.style.display = 'block';
-
+        const entry = snap.entry;
+        const clockEl = document.getElementById('plFfbClock');
         const titleEl = document.getElementById('plFfbTaskTitle');
         const projEl = document.getElementById('plFfbProject');
         const badgeEl = document.getElementById('plFfbStatusBadge');
         const pauseIcon = document.getElementById('plFfbPauseIcon');
+        const pauseBtnEl = document.getElementById('plFfbPauseBtn');
 
         if (plBreakMode) {
+            bar.style.display = 'block';
+            bar.classList.remove('pl-ffb-paused');
+            const remain = Math.max(0, Math.ceil((plBreakEndAt - Date.now()) / 1000));
             if (titleEl) titleEl.textContent = '☕ {{ __("Pomodoro Break") }}';
             if (projEl) projEl.textContent = '{{ __("Rest & Recharge") }}';
             if (badgeEl) {
                 badgeEl.textContent = '{{ __("Break") }}';
                 badgeEl.style.background = '#0284c7';
             }
+            if (clockEl) clockEl.textContent = formatTimeDisplay(remain);
             return;
         }
 
-        if (titleEl) titleEl.textContent = plActiveTimeEntry.task?.title || plActiveTimeEntry.description || '{{ __("Active Focus Session") }}';
-        if (projEl) projEl.textContent = plActiveTimeEntry.project?.name || '{{ __("General") }}';
-        
+        if (!entry || entry.id === plBarDismissedId) {
+            bar.style.display = 'none';
+            return;
+        }
+
+        bar.style.display = 'block';
+        bar.classList.toggle('pl-ffb-paused', entry.status === 'paused');
+
+        if (titleEl) titleEl.textContent = entry.task?.title || entry.description || '{{ __("Active Focus Session") }}';
+        if (projEl) projEl.textContent = entry.project?.name || '{{ __("General") }}';
+
         if (badgeEl) {
-            if (plActiveTimeEntry.status === 'paused') {
+            if (entry.status === 'paused') {
                 badgeEl.textContent = '{{ __("Paused") }}';
                 badgeEl.style.background = '#64748b';
             } else {
@@ -4095,34 +4100,20 @@
         }
 
         if (pauseIcon) {
-            pauseIcon.className = plActiveTimeEntry.status === 'paused' ? 'bi bi-play-fill' : 'bi bi-pause-fill';
+            pauseIcon.className = entry.status === 'paused' ? 'bi bi-play-fill' : 'bi bi-pause-fill';
         }
+        if (pauseBtnEl) pauseBtnEl.disabled = !!snap.busy;
+        if (clockEl) clockEl.textContent = formatTimeDisplay(snap.elapsed);
     }
+
+    TM.subscribe(plRenderFloatingBar);
 
     window.plStartTaskTimer = async function(taskId, title, project) {
         try {
-            const res = await plFetch('/time/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ task_id: taskId })
-            });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            const data = await res.json();
-            
+            await TM.start({ task_id: taskId });
+            plBarDismissedId = null;
+            if (plBreakTicker) { clearInterval(plBreakTicker); plBreakTicker = null; }
             plBreakMode = false;
-            plActiveTimeEntry = data.active;
-            plElapsedSeconds = data.active.elapsed || 0;
-            renderFloatingBarState();
-            updateFloatingClockDisplay();
-
-            if (plTimerTicker) clearInterval(plTimerTicker);
-            plTimerTicker = setInterval(() => {
-                if (plActiveTimeEntry && plActiveTimeEntry.status === 'running') {
-                    plElapsedSeconds++;
-                    updateFloatingClockDisplay();
-                }
-            }, 1000);
-
             plShowToast('{{ __("Timer started") }}: ' + (title || @json(__('Task'))));
         } catch (err) {
             console.error('[Planner] start timer failed', err);
@@ -4130,104 +4121,57 @@
         }
     };
 
-    window.plToggleFloatingPause = async function() {
-        if (!plActiveTimeEntry) return;
-        const isPaused = plActiveTimeEntry.status === 'paused';
-        const url = isPaused ? `/time/entries/${plActiveTimeEntry.id}/resume` : `/time/entries/${plActiveTimeEntry.id}/pause`;
-        
-        try {
-            const res = await plFetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
-            });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            const data = await res.json();
-            plActiveTimeEntry = data.active;
-            renderFloatingBarState();
-        } catch (err) {
-            console.error('[Planner] pause/resume failed', err);
-        }
+    window.plToggleFloatingPause = function() {
+        TM.togglePause().catch(() => plShowToast('{{ __("Could not update the timer") }}'));
     };
 
     window.plStopFloatingTimer = async function() {
-        if (!plActiveTimeEntry) return;
         try {
-            const res = await plFetch(`/time/entries/${plActiveTimeEntry.id}/stop`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
-            });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            
-            if (plTimerTicker) clearInterval(plTimerTicker);
-            plActiveTimeEntry = null;
-            plBreakMode = false;
-            renderFloatingBarState();
+            await TM.stop();
             plShowToast('{{ __("Timer stopped and time recorded") }}');
         } catch (err) {
             console.error('[Planner] stop timer failed', err);
+            plShowToast('{{ __("Error stopping timer") }}');
         }
     };
 
     window.plStartBreak = function(minutes = 5) {
-        if (plTimerTicker) clearInterval(plTimerTicker);
         plBreakMode = true;
-        plElapsedSeconds = minutes * 60;
-        renderFloatingBarState();
-        updateFloatingClockDisplay();
-
-        plTimerTicker = setInterval(() => {
-            if (plElapsedSeconds > 0) {
-                plElapsedSeconds--;
-                updateFloatingClockDisplay();
-            } else {
-                clearInterval(plTimerTicker);
-                plBreakMode = false;
-                renderFloatingBarState();
-                plShowToast('{{ __("Break finished! Ready to focus?") }}');
-            }
-        }, 1000);
+        plBreakEndAt = Date.now() + minutes * 60000;
+        if (!plBreakTicker) {
+            plBreakTicker = setInterval(() => {
+                const remain = Math.max(0, Math.ceil((plBreakEndAt - Date.now()) / 1000));
+                if (remain <= 0) {
+                    clearInterval(plBreakTicker);
+                    plBreakTicker = null;
+                    plBreakMode = false;
+                    plRenderFloatingBar(TM.snapshot());
+                    plShowToast('{{ __("Break finished! Ready to focus?") }}');
+                    return;
+                }
+                const clockEl = document.getElementById('plFfbClock');
+                if (clockEl) clockEl.textContent = formatTimeDisplay(remain);
+            }, 250);
+        }
+        plRenderFloatingBar(TM.snapshot());
     };
 
     window.plExpandToFocusWorkstation = function() {
         if (typeof openFocusWorkstation === 'function') {
+            const entry = TM.entry;
             openFocusWorkstation(
-                plActiveTimeEntry?.task?.id,
-                plActiveTimeEntry?.task?.title,
-                plActiveTimeEntry?.project?.name
+                entry?.task?.id,
+                entry?.task?.title,
+                entry?.project?.name
             );
         }
     };
 
     window.plCloseFloatingBar = function() {
+        plBarDismissedId = TM.entry ? TM.entry.id : null;
         const bar = document.getElementById('plFloatingFocusBar');
         if (bar) bar.style.display = 'none';
     };
-
-    async function plInitActiveTimer() {
-        try {
-            const res = await plFetch('/time/active', {
-                headers: { 'Accept': 'application/json' }
-            });
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data.active) {
-                plActiveTimeEntry = data.active;
-                plElapsedSeconds = data.active.elapsed || 0;
-                renderFloatingBarState();
-                updateFloatingClockDisplay();
-
-                if (plTimerTicker) clearInterval(plTimerTicker);
-                if (plActiveTimeEntry.status === 'running') {
-                    plTimerTicker = setInterval(() => {
-                        plElapsedSeconds++;
-                        updateFloatingClockDisplay();
-                    }, 1000);
-                }
-            }
-        } catch (e) {
-            /* silent */
-        }
-    }
 
     /* ── Week view: clean planning (add / move / remove per day) ── */
     (function initWeekView() {
@@ -4582,7 +4526,8 @@
         };
     })();
 
-    plInitActiveTimer();
+    /* Floating bar boot is handled by the global TM store (time/_store) which
+       auto-syncs /time/active and pushes state into plRenderFloatingBar. */
 })();
 </script>
 @endpush

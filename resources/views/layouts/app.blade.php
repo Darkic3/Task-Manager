@@ -1314,6 +1314,7 @@
             if (window.innerWidth > 768) setSidebar(false);
         });
     </script>
+    @include('time._store')
     @include('time._widget')
     @include('tasks._drawer')
     @stack('scripts')

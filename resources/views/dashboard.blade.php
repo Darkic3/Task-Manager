@@ -136,7 +136,7 @@
                                 </div>
                             </div>
                             <div class="task-actions-wrap pt-1">
-                                <button type="button" class="btn btn-sm btn-light border p-1 text-muted hover-primary" title="{{ __('Start') }}" onclick="startTimerForTask({{ $task->id }}, {{ $task->project_id ?? 'null' }}, '{{ addslashes($task->title) }}')">
+                                <button type="button" class="btn btn-sm btn-light border p-1 text-muted hover-primary" title="{{ __('Start') }}" onclick="startTimerForTask(this, {{ $task->id }}, {{ $task->project_id ?? 'null' }}, '{{ addslashes($task->title) }}')">
                                     <i class="bi bi-play-fill text-success fs-6"></i>
                                 </button>
                             </div>
@@ -172,7 +172,9 @@
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <div>
                                     <span class="badge bg-dark text-white text-uppercase" style="font-size:10px;">{{ $activeWorkoutPlan->title ?? __('Current Plan') }}</span>
-                                    <h5 class="fw-bold mt-1 mb-0">{{ $todayWorkoutDay->title ?: ucfirst($todayWorkoutDay->weekday) }}</h5>
+                                    <h5 class="fw-bold mt-1 mb-0">
+                                        <a href="{{ route('workouts.days.show', $todayWorkoutDay) }}" class="text-dark text-decoration-none">{{ $todayWorkoutDay->title ?: ucfirst($todayWorkoutDay->weekday) }}</a>
+                                    </h5>
                                 </div>
                                 <span class="badge {{ $todayWorkoutDay->isTraining() ? 'bg-primary text-white' : 'bg-secondary text-white' }}">
                                     {{ $todayWorkoutDay->isTraining() ? __('Training Day') : __('Rest Day') }}
@@ -193,7 +195,10 @@
                                     @endif
                                 </div>
 
-                                <div class="mt-3">
+                                <div class="mt-3 d-grid gap-2">
+                                    <a href="{{ route('workouts.days.show', $todayWorkoutDay) }}" class="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center gap-2 py-2 fw-semibold">
+                                        <i class="bi bi-eye"></i> {{ __('View Workout Details') }}
+                                    </a>
                                     @if($todayWorkoutSession && $todayWorkoutSession->status === 'completed')
                                         <div class="alert alert-success d-flex align-items-center justify-content-between py-2 px-3 m-0 rounded-3">
                                             <span class="d-flex align-items-center gap-2 small fw-medium">
@@ -217,7 +222,8 @@
                             @else
                                 <div class="p-3 text-center text-muted">
                                     <i class="bi bi-cup-hot text-warning fs-3 mb-2 d-block"></i>
-                                    <p class="small mb-0">{{ __('Active rest day. Focus on hydration, stretching, and nutrition!') }}</p>
+                                    <p class="small mb-2">{{ __('Active rest day. Focus on hydration, stretching, and nutrition!') }}</p>
+                                    <a href="{{ route('workouts.days.show', $todayWorkoutDay) }}" class="btn btn-sm btn-outline-secondary">{{ __('View Details') }}</a>
                                 </div>
                             @endif
                         </div>
@@ -938,18 +944,25 @@
     }
 
     // Start timer for a specific task
-    async function startTimerForTask(taskId, projectId, taskTitle) {
+    async function startTimerForTask(btn, taskId, projectId, taskTitle) {
+        if (!window.TM) return;
+        const original = btn ? btn.innerHTML : null;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm text-success" role="status"></span>';
+        }
         try {
-            const res = await plFetch('{{ route("time.start") }}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ task_id: taskId, project_id: projectId })
-            });
-            if (res.ok) {
-                window.location.reload();
-            }
+            await TM.start({ task_id: taskId, project_id: projectId });
+            plShowToast('{{ __("Timer started") }}: ' + taskTitle);
         } catch (e) {
             console.error('Error starting timer', e);
+            plShowToast('{{ __("Error starting timer") }}');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check2-all text-success fs-6"></i>';
+                setTimeout(() => { btn.innerHTML = original; }, 1800);
+            }
         }
     }
 
