@@ -119,8 +119,10 @@ class AiIdempotencyTest extends TestCase
             ]],
         ]]]], 200));
 
-        $first = $this->actingAs($user)->postJson(route('ai.chat'), ['message' => 'Make it', 'mode' => 'agent'])->assertOk();
-        $second = $this->actingAs($user)->postJson(route('ai.chat'), ['message' => 'Make it', 'mode' => 'agent'])->assertOk();
+        // Capability routing: the message must expose task_create (a bare
+        // "Make it" only exposes the READ-only safe set by design).
+        $first = $this->actingAs($user)->postJson(route('ai.chat'), ['message' => 'یه تسک بساز به نام HTTP dupe', 'mode' => 'agent'])->assertOk();
+        $second = $this->actingAs($user)->postJson(route('ai.chat'), ['message' => 'یه تسک بساز به نام HTTP dupe', 'mode' => 'agent'])->assertOk();
 
         $this->assertSame($first->json('proposal.action_id'), $second->json('proposal.action_id'));
         $this->assertTrue((bool) $second->json('proposal.deduped'));
