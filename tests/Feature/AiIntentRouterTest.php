@@ -164,10 +164,11 @@ class AiIntentRouterTest extends TestCase
             $this->assertNotEmpty($r['clarification_question'], $msg);
             $this->assertShape($r);
         }
-        // Ambiguous narrows to the READ-only safe set (never the full
-        // mutation surface): the model may answer or clarify, nothing else.
+        // Ambiguous narrows to the safe set (never the full mutation
+        // surface): report + search + the choice tool — the model may
+        // answer, look things up or ask, nothing else.
         $names = collect(AiIntentRouter::toolsFor($this->route('این'), new AiToolService))->map(fn ($d) => $d['function']['name'])->all();
-        $this->assertSame(['report_generate'], $names);
+        $this->assertSame(['report_generate', 'workspace_search', 'ask_user_choice'], $names);
     }
 
     public function test_mixed_report_and_mutation_prefers_mutation(): void
@@ -205,7 +206,7 @@ class AiIntentRouterTest extends TestCase
 
         $reportHigh = $this->route('گزارش بده');
         $names = collect(AiIntentRouter::toolsFor($reportHigh, $svc))->map(fn ($d) => $d['function']['name'])->all();
-        $this->assertSame(['report_generate'], $names);
+        $this->assertSame(['report_generate', 'workspace_search', 'ask_user_choice'], $names);
 
         // Medium confidence (non-ambiguous, bare noun-ish) keeps the FULL
         // set (fail-open). Ambiguous input instead gets the READ-only safe
@@ -213,7 +214,7 @@ class AiIntentRouterTest extends TestCase
         $medium = AiIntentRouter::route('پیشرفت');
         if ($medium['intent'] === AiIntentRouter::INTENT_AMBIGUOUS) {
             $names = collect(AiIntentRouter::toolsFor($medium, $svc))->map(fn ($d) => $d['function']['name'])->all();
-            $this->assertSame(['report_generate'], $names);
+            $this->assertSame(['report_generate', 'workspace_search', 'ask_user_choice'], $names);
         } elseif ($medium['confidence'] !== 'high') {
             $this->assertNull(AiIntentRouter::toolsFor($medium, $svc));
         }

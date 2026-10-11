@@ -64,7 +64,7 @@ class AiContextEngine
             'history_limit' => 8,
             'history_chars' => 3000,
             'task_lines' => 20,
-            'project_lines' => 8,
+            'project_lines' => 10,
             'reminders' => 'cue',   // 'cue' | 'always' | 'never'
             'routines' => 'cue',
             'notes' => 'cue',
@@ -75,7 +75,9 @@ class AiContextEngine
             'history_limit' => 10,
             'history_chars' => 4000,
             'task_lines' => 30,
-            'project_lines' => 12,
+            // The project tree (id + hierarchy of EVERY project) is the
+            // backbone of the search-before-create policy — keep headroom.
+            'project_lines' => 25,
             'reminders' => 'cue',
             'routines' => 'cue',
             'notes' => 'cue',
@@ -86,7 +88,7 @@ class AiContextEngine
             'history_limit' => 6,
             'history_chars' => 2000,
             'task_lines' => 30,
-            'project_lines' => 15,
+            'project_lines' => 30,
             'reminders' => 'always',
             'routines' => 'always',
             'notes' => 'cue',
@@ -314,8 +316,15 @@ class AiContextEngine
             $uid = $user->id;
             $projects = Project::where('user_id', $uid)
                 ->orderBy('id')
-                ->get(['id', 'name', 'status'])
-                ->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'status' => $p->status])
+                ->get(['id', 'name', 'status', 'parent_id'])
+                ->map(fn ($p) => [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'status' => $p->status,
+                    // Legacy cached snapshots lack this key — rendered code
+                    // must treat it as nullable.
+                    'parent_id' => $p->parent_id,
+                ])
                 ->all();
 
             $taskAgg = Task::where('user_id', $uid)
@@ -604,13 +613,55 @@ class AiContextEngine
 
     private function projectLines(array $projects, ?array $matched, int $limit): array
     {
+        if (empty($projects) || $limit <= 0) {
+            return [];
+        }
+
+        // Compact project tree: EVERY project with its ID and hierarchy so
+        // the model can resolve "add to project X" to an existing record
+        // instead of creating a duplicate (search-before-create policy).
+        // The matched project is listed first for relevance.
+        $byParent = [];
+        foreach ($projects as $p) {
+            $byParent[$p['parent_id'] ?? null][] = $p;
+        }
+        foreach ($byParent as &$siblings) {
+            // Cosmetic ordering only — plain byte compare is fine here.
+            usort($siblings, fn ($a, $b) => strcasecmp((string) $a['name'], (string) $b['name']));
+        }
+        unset($siblings);
+
+        $flat = [];
+        $walk = function ($parentId, int $depth) use (&$walk, &$byParent, &$flat) {
+            foreach ($byParent[$parentId] ?? [] as $p) {
+                if ($depth > 5) {
+                    continue; // mirrors the project nesting cap
+                }
+                $flat[] = ['p' => $p, 'depth' => $depth];
+                $walk($p['id'], $depth + 1);
+            }
+        };
+        $walk(null, 0);
+
         $lines = [];
         if ($matched) {
-            $lines[] = "- {$matched['name']} (status: {$matched['status']})";
+            $lines[] = AiSecurity::markUntrusted(
+                "- [id:{$matched['id']}] {$matched['name']} ({$matched['status']}) — mentioned in this message"
+            );
         }
-        // Other projects stay in the summary counts — never dumped wholesale.
+        foreach ($flat as $e) {
+            if ($matched && $e['p']['id'] === $matched['id']) {
+                continue; // already listed above as the mentioned project
+            }
+            $p = $e['p'];
+            $indent = str_repeat('  ', $e['depth']);
+            // Untrusted user data — never an instruction for the model.
+            $lines[] = AiSecurity::markUntrusted(
+                "- [id:{$p['id']}] {$indent}{$p['name']} ({$p['status']})"
+            );
+        }
 
-        return array_slice($lines, 0, max(0, $limit));
+        return array_slice($lines, 0, $limit);
     }
 
     private function taskLines(array $tasks): array

@@ -25,6 +25,14 @@ final class ToolError
     /** Resource exists but its current state rejects the mutation. */
     public const CONFLICT = 'conflict';
 
+    /**
+     * A strongly-similar resource already exists (duplicate guard): creating
+     * would produce a near-identical record. The error carries `candidates`
+     * so the agent can reuse an existing id or ask the user which one they
+     * mean — never silently create a duplicate.
+     */
+    public const DUPLICATE_TARGET = 'duplicate_target';
+
     /** Pending action expired (or already resolved to a terminal state). */
     public const EXPIRED_ACTION = 'expired_action';
 

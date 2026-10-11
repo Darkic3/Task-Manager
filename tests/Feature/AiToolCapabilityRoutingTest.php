@@ -49,18 +49,25 @@ class AiToolCapabilityRoutingTest extends TestCase
                 $tool
             );
         }
-        $this->assertCount(22, AiToolService::TOOLS);
-        $this->assertCount(22, ToolCapabilityRegistry::CAPABILITIES);
+        $this->assertCount(24, AiToolService::TOOLS);
+        $this->assertCount(24, ToolCapabilityRegistry::CAPABILITIES);
     }
 
-    public function test_only_report_generate_is_read_only(): void
+    public function test_only_read_only_and_interaction_tools_are_safe(): void
     {
         $readOnly = array_values(array_filter(
             AiToolService::TOOLS,
             fn ($t) => AiToolService::isReadOnly($t)
         ));
-        $this->assertSame(['report_generate'], $readOnly);
-        $this->assertSame(['report_generate'], ToolCapabilityRegistry::SAFE_FALLBACK);
+        // READ tools never create/update/delete workspace records.
+        $this->assertSame(['report_generate', 'workspace_search'], $readOnly);
+        // The safe set adds the interaction tool (asks, executes nothing by
+        // itself) — it must never contain a workspace-mutation tool.
+        $this->assertSame(['report_generate', 'workspace_search', 'ask_user_choice'], ToolCapabilityRegistry::SAFE_FALLBACK);
+        foreach (ToolCapabilityRegistry::SAFE_FALLBACK as $tool) {
+            $this->assertNotContains('DESTRUCTIVE', AiToolService::riskOf($tool), $tool);
+            $this->assertNotContains('SENSITIVE', AiToolService::riskOf($tool), $tool);
+        }
     }
 
     /* ── Routing: unrelated tools are not sent ── */
@@ -94,7 +101,11 @@ class AiToolCapabilityRoutingTest extends TestCase
         $route = AiIntentRouter::route('گزارش بده');
         $sel = ToolCapabilityRouter::select($route, $this->agentContext());
 
-        $this->assertSame(['report_generate'], $sel['tools']);
+        // Report routes carry report + search + choice — READ/interaction
+        // only, never a workspace-mutation tool.
+        $this->assertSame(['report_generate', 'workspace_search', 'ask_user_choice'], $sel['tools']);
+        $this->assertNotContains('task_create', $sel['tools']);
+        $this->assertNotContains('project_create', $sel['tools']);
     }
 
     public function test_workout_request_only_exposes_workout_tool(): void
@@ -153,11 +164,14 @@ class AiToolCapabilityRoutingTest extends TestCase
         $this->assertNotEmpty($route['clarification_question']);
 
         $sel = ToolCapabilityRouter::select($route, $this->agentContext());
-        $this->assertSame(['report_generate'], $sel['tools']);
+        $this->assertSame(['report_generate', 'workspace_search', 'ask_user_choice'], $sel['tools']);
 
         $defs = ToolCapabilityRouter::definitionsFor($route, new AiToolService, $this->agentContext());
-        $this->assertCount(1, $defs);
-        $this->assertSame('report_generate', $defs[0]['function']['name']);
+        $this->assertCount(3, $defs);
+        $this->assertSame(
+            ['report_generate', 'workspace_search', 'ask_user_choice'],
+            array_map(fn ($d) => $d['function']['name'], $defs)
+        );
     }
 
     /* ── Provider / mode gating is preserved ── */

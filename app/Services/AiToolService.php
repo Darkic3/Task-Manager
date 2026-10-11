@@ -31,6 +31,7 @@ class AiToolService
         'checklist_add', 'checklist_toggle',
         'routine_create', 'routine_complete', 'routine_delete', 'routine_log',
         'plan_propose', 'workout_plan_propose',
+        'workspace_search', 'ask_user_choice',
     ];
 
     /**
@@ -52,6 +53,8 @@ class AiToolService
         'report' => ['report_generate'],
         'plan' => ['plan_propose'],
         'workout' => ['workout_plan_propose'],
+        'search' => ['workspace_search'],
+        'interaction' => ['ask_user_choice'],
     ];
 
     public const ROUTINE_VALUE_KINDS = ['number', 'weight', 'time', 'reps', 'percent'];
@@ -95,6 +98,8 @@ class AiToolService
         'routine_log' => ['WRITE'],
         'plan_propose' => ['WRITE', 'SENSITIVE'],
         'workout_plan_propose' => ['WRITE'],
+        'workspace_search' => ['READ'],
+        'ask_user_choice' => ['WRITE'],
     ];
 
     public static function riskOf(string $tool): array
@@ -319,11 +324,33 @@ class AiToolService
                     ],
                 ],
             ], ['title', 'days']),
+            $this->fn('workspace_search', 'Search the user\'s existing projects, tasks, notes, routines and reminders by name/title (Persian-friendly). ALWAYS use this before creating or attaching anything when the target may already exist — it returns ids and names you can pass as project_id/parent_id.', [
+                'query' => ['type' => 'string', 'description' => 'Free-text search (name or title fragment, Persian or English)'],
+                'kinds' => ['type' => 'array', 'description' => 'Optional filter: any of project, task, note, routine, reminder. Omit to search everything.', 'items' => ['type' => 'string', 'enum' => ['project', 'task', 'note', 'routine', 'reminder']]],
+                'limit' => ['type' => 'integer', 'description' => 'Max results (default 8, max 20)'],
+            ], ['query']),
+            $this->fn('ask_user_choice', 'Ask the user to pick between 2-5 concrete options instead of guessing. Use when the target is ambiguous (e.g. several similar project names) or several structures are reasonable. Each option carries the exact tool + args to run for that choice — the user picks with one click and the chosen call is proposed normally.', [
+                'question' => ['type' => 'string', 'description' => 'Short question shown to the user (Persian if they write Persian)'],
+                'options' => [
+                    'type' => 'array',
+                    'description' => '2-5 options. Each: {label, tool, args}. tool must be a real tool name (never ask_user_choice); args is the exact argument object for that tool.',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'label' => ['type' => 'string', 'description' => 'Short button label (what will happen)'],
+                            'tool' => ['type' => 'string', 'description' => 'Tool to run if this option is picked'],
+                            'args' => ['type' => 'object', 'description' => 'Arguments for that tool'],
+                        ],
+                        'required' => ['label', 'tool'],
+                        'additionalProperties' => false,
+                    ],
+                ],
+            ], ['question', 'options']),
             [
                 'type' => 'function',
                 'function' => [
                     'name' => 'plan_propose',
-                    'description' => 'Propose a whole multi-level build as ONE plan: up to 5 independent projects (projects[] array of {name, tasks[]}) each with tasks, OR one project with sub-projects (project object {name, tasks[]} + subprojects array), plus optional reminders[] and notes[]. Shapes: project is ALWAYS an object like {"name":"Task Manager","tasks":[{"title":"T1"}]}, NEVER a string. projects/subprojects are ALWAYS arrays of objects, tasks/subtasks ALWAYS arrays of {title}. NEVER use for workout/training plans — those must use workout_plan_propose.',
+                    'description' => 'Propose a whole multi-level build as ONE plan: up to 5 independent projects (projects[] array of {name, tasks[]}) each with tasks, OR one project with sub-projects (project object {name, tasks[]} + subprojects array), plus optional reminders[] and notes[]. Shapes: project is ALWAYS an object like {"name":"Task Manager","tasks":[{"title":"T1"}]}, NEVER a string. projects/subprojects are ALWAYS arrays of objects, tasks/subtasks ALWAYS arrays of {title}. If a project/sub-project ALREADY EXISTS (see PROJECTS in the context), set its project_id to attach the new tasks to that record — NEVER propose a duplicate of an existing project. NEVER use for workout/training plans — those must use workout_plan_propose.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
@@ -333,6 +360,7 @@ class AiToolService
                                 'properties' => [
                                     'name' => ['type' => 'string'],
                                     'description' => ['type' => 'string'],
+                                    'project_id' => ['type' => 'integer', 'description' => 'ID of an EXISTING project (from the PROJECTS context) — attach instead of creating a duplicate'],
                                     'tasks' => [
                                         'type' => 'array',
                                         'description' => 'Tasks directly under the project (no sub-project)',
@@ -350,6 +378,7 @@ class AiToolService
                                     'properties' => [
                                         'name' => ['type' => 'string'],
                                         'description' => ['type' => 'string'],
+                                        'project_id' => ['type' => 'integer', 'description' => 'ID of an EXISTING sub-project under the same parent — attach instead of creating'],
                                         'tasks' => ['type' => 'array', 'items' => $this->planTaskSchema()],
                                     ],
                                     'required' => ['name'],
@@ -364,6 +393,7 @@ class AiToolService
                                     'properties' => [
                                         'name' => ['type' => 'string'],
                                         'description' => ['type' => 'string'],
+                                        'project_id' => ['type' => 'integer', 'description' => 'ID of an EXISTING project (from the PROJECTS context) — attach instead of creating a duplicate'],
                                         'tasks' => ['type' => 'array', 'items' => $this->planTaskSchema()],
                                         'members' => ['type' => 'array', 'description' => 'Max 5 collaborator emails or names to add to this project', 'items' => ['type' => 'string']],
                                     ],
@@ -542,8 +572,10 @@ class AiToolService
             'routine_complete' => $this->validateRoutineComplete($args, $user),
             'routine_delete' => $this->validateOwned($args, $user, Routine::class, 'id'),
             'routine_log' => $this->validateRoutineLog($args, $user),
-            'plan_propose' => $this->validatePlanPropose($args),
+            'plan_propose' => $this->validatePlanPropose($args, $user),
             'workout_plan_propose' => $this->validateWorkoutPlanPropose($args),
+            'workspace_search' => $this->validateWorkspaceSearch($args),
+            'ask_user_choice' => $this->validateAskUserChoice($args),
             default => $this->fail('Unsupported tool'),
         };
     }
@@ -571,6 +603,16 @@ class AiToolService
             'report_generate' => ['title' => 'Generate report', 'rows' => $this->rows($resolved, ['range', 'range_label'])],
             'plan_propose' => $this->previewPlan($resolved),
             'workout_plan_propose' => $this->previewWorkoutPlan($resolved),
+            'workspace_search' => ['title' => 'Search workspace', 'rows' => $this->rows($resolved, ['query', 'kinds_label', 'matches'])],
+            'ask_user_choice' => [
+                'title' => 'Question for you',
+                'question' => $resolved['question'] ?? '',
+                // Labels in order — the UI renders one button per entry and
+                // posts its index back via /ai/actions/{id}/choice.
+                'options' => array_values(array_map(fn ($o) => (string) $o['label'], $resolved['options'] ?? [])),
+                'rows' => array_merge([['k' => 'question', 'v' => $resolved['question'] ?? '']],
+                    array_map(fn ($o, $i) => ['k' => 'option '.($i + 1), 'v' => (string) $o['label']], $resolved['options'] ?? [], array_keys($resolved['options'] ?? []))),
+            ],
             default => ['title' => ucfirst(str_replace('_', ' ', $tool)), 'rows' => $this->rows($resolved, array_keys($resolved))],
         };
     }
@@ -610,6 +652,11 @@ class AiToolService
                 'plan_propose' => ['ok' => false, 'message' => __('Plans run phase by phase after structure approval.'), 'id' => null],
                 // Workout plans are created via the WorkoutImport preview/confirm flow, not as a single action.
                 'workout_plan_propose' => ['ok' => false, 'message' => __('Workout plans are created via the import preview after confirmation.'), 'id' => null],
+                // Clarifications are never "executed": the pending row waits
+                // until the user picks an option (or it expires). confirm-all
+                // simply consumes the row with this message.
+                'ask_user_choice' => ['ok' => true, 'message' => __('Waiting for the user to choose an option.'), 'id' => null],
+                'workspace_search' => $this->execWorkspaceSearch($resolved, $user),
                 default => ['ok' => false, 'message' => __('Unsupported tool'), 'id' => null],
             };
         });
@@ -975,6 +1022,22 @@ class AiToolService
             $parentName = $parent->name;
         }
 
+        // Duplicate guard: refuse to create a near-identical project. The
+        // error carries candidates so the model reuses an existing project
+        // (or asks the user which one they mean) instead of duplicating.
+        if ($user !== null) {
+            $matches = $this->similarProjects((int) $user->id, $args['name']);
+            if ($matches->isNotEmpty()) {
+                $candidates = $this->candidateList($matches);
+                $names = implode(', ', array_map(fn ($c) => "'{$c['path']}' (id {$c['id']})", $candidates));
+
+                return $this->fail(
+                    "A similar project already exists: {$names}. Do NOT create a duplicate — reuse the existing project_id, or ask the user which project they mean.",
+                    ToolError::DUPLICATE_TARGET
+                ) + ['candidates' => $candidates];
+            }
+        }
+
         return ['ok' => true, 'error' => null, 'resolved' => [
             'name' => $args['name'],
             'description' => $args['description'] ?? null,
@@ -982,6 +1045,104 @@ class AiToolService
             'parent_id' => $parentId,
             'parent_name' => $parentName,
         ]];
+    }
+
+    /**
+     * Normalized project-name comparison key: Arabic→Persian folding, ZWNJ,
+     * punctuation and spacing stripped — mirrors AiIntentRouter::normalize
+     * so server-side matching agrees with what the model sees.
+     */
+    private static function normProjectKey(string $name): string
+    {
+        $n = mb_strtolower(trim($name));
+        $n = str_replace(['ي', 'ك', 'ة', 'ـ'], ['ی', 'ک', 'ه', ''], $n);
+        $n = str_replace(["\u{200C}", "\u{200D}", ' '], '', $n);
+
+        return (string) preg_replace('/[^\p{L}\p{N}]+/u', '', $n);
+    }
+
+    /**
+     * Existing projects of $userId whose name strongly matches $name.
+     * Powers the duplicate guard (project_create) and plan attach resolution
+     * (plan_propose). Match tiers: exact normalized (1.0), containment of a
+     * reasonably-sized key (0.9), high similarity (0.8). Short keys never
+     * containment-match to avoid false positives.
+     *
+     * @param  array  $excludeIds  project ids to ignore
+     * @param  ?int  $parentId  when set, only candidates directly under it (sub-projects)
+     * @return \Illuminate\Database\Eloquent\Collection<int, Project> best first
+     */
+    private function similarProjects(int $userId, string $name, array $excludeIds = [], ?int $parentId = null, int $limit = 3)
+    {
+        $needle = self::normProjectKey($name);
+        if ($needle === '') {
+            return collect();
+        }
+        $rows = Project::where('user_id', $userId)->get(['id', 'name', 'parent_id']);
+        $scored = [];
+        foreach ($rows as $p) {
+            if (in_array((int) $p->id, $excludeIds, true)) {
+                continue;
+            }
+            if ($parentId !== null && (int) $p->parent_id !== $parentId) {
+                continue;
+            }
+            $hay = self::normProjectKey((string) $p->name);
+            if ($hay === '') {
+                continue;
+            }
+            $score = 0.0;
+            if ($hay === $needle) {
+                $score = 1.0;
+            } elseif (mb_strlen($needle) >= 4 && mb_strlen($hay) >= 4
+                && (str_contains($hay, $needle) || str_contains($needle, $hay))) {
+                $score = 0.9;
+            } else {
+                $pct = 0.0;
+                similar_text($hay, $needle, $pct);
+                // Near-identical only (≤1 char off in longer names):
+                // anything looser misfires on "Week 1" vs "Week 2"-style
+                // siblings (="chapter1" vs "chapter2" scores 87.5%).
+                if ($pct >= 95.0) {
+                    $score = 0.8;
+                }
+            }
+            if ($score > 0) {
+                $scored[] = [$score, $p];
+            }
+        }
+        usort($scored, fn ($a, $b) => $b[0] <=> $a[0]);
+
+        return collect(array_slice(array_map(fn ($s) => $s[1], $scored), 0, $limit));
+    }
+
+    /** "Parent > Child" breadcrumb (callers already user-scope the project). */
+    private function projectBreadcrumb(Project $project): string
+    {
+        $parts = [(string) $project->name];
+        $current = $project->parent_id ? Project::find($project->parent_id) : null;
+        $guard = 0;
+        while ($current && $guard++ < 6) {
+            array_unshift($parts, (string) $current->name);
+            $current = $current->parent_id ? Project::find($current->parent_id) : null;
+        }
+
+        return implode(' > ', $parts);
+    }
+
+    /** Candidate rows for duplicate/ambiguous-target errors (id, name, path). */
+    private function candidateList(iterable $projects): array
+    {
+        $out = [];
+        foreach ($projects as $p) {
+            $out[] = [
+                'id' => (int) $p->id,
+                'name' => (string) $p->name,
+                'path' => $this->projectBreadcrumb($p),
+            ];
+        }
+
+        return $out;
     }
 
     private function validateProjectAddMember(array $args, $user): array
@@ -1418,7 +1579,7 @@ class AiToolService
      * Caps: 5 root projects, 3 sub-projects each, 30 tasks, 100 subtasks,
      * 10 reminders, 10 notes. Routines stay exclusive (no mixing).
      */
-    private function validatePlanPropose(array $args): array
+    private function validatePlanPropose(array $args, $user = null): array
     {
         // Defensive: normalizeArgs() already coerces, but validateCall can be
         // reached with raw model JSON — coerce again so a `project` string
@@ -1467,6 +1628,9 @@ class AiToolService
             'projects.*.members.*' => 'string|max:255',
             'project.members' => 'nullable|array|max:5',
             'project.members.*' => 'string|max:255',
+            'project.project_id' => 'nullable|integer',
+            'projects.*.project_id' => 'nullable|integer',
+            'subprojects.*.project_id' => 'nullable|integer',
             'reminders' => 'nullable|array|max:' . \App\Models\AiPlan::MAX_REMINDERS,
             'notes' => 'nullable|array|max:' . \App\Models\AiPlan::MAX_NOTES,
             'routines' => 'nullable|array|max:' . self::MAX_PLAN_ROUTINES,
@@ -1578,6 +1742,7 @@ class AiToolService
                 $roots[] = [
                     'name' => trim((string) $p['name']),
                     'description' => $p['description'] ?? null,
+                    'project_id' => isset($p['project_id']) && $p['project_id'] !== null ? (int) $p['project_id'] : null,
                     'tasks' => $tasks,
                     'subprojects' => [],
                     'members' => $cleanMembers($p['members'] ?? []),
@@ -1601,16 +1766,30 @@ class AiToolService
                     $subs[] = [
                         'name' => trim((string) $sub['name']),
                         'description' => $sub['description'] ?? null,
+                        'project_id' => isset($sub['project_id']) && $sub['project_id'] !== null ? (int) $sub['project_id'] : null,
                         'tasks' => $tasks,
                     ];
                 }
                 $roots[] = [
                     'name' => trim((string) $args['project']['name']),
                     'description' => $args['project']['description'] ?? null,
+                    'project_id' => isset($args['project']['project_id']) && $args['project']['project_id'] !== null ? (int) $args['project']['project_id'] : null,
                     'tasks' => $direct,
                     'subprojects' => $subs,
                     'members' => $cleanMembers($args['project']['members'] ?? []),
                 ];
+            }
+        }
+
+        // Duplicate guard + explicit attach: reuse an existing project when
+        // (a) the model passed project_id (from the PROJECTS context tree),
+        // (b) or the node's name strongly matches an existing project.
+        // Attached nodes execute against the existing record — the preview
+        // shows the reuse, so the user still confirms before anything runs.
+        if ($user !== null && ! empty($roots)) {
+            $roots = $this->resolvePlanAttachments($roots, (int) $user->id);
+            if (isset($roots['ok'])) {
+                return $roots;
             }
         }
 
@@ -1658,6 +1837,8 @@ class AiToolService
             'project' => $first ? [
                 'name' => $first['name'],
                 'description' => $first['description'],
+                'project_id' => $first['project_id'] ?? null,
+                'attached' => $first['attached'] ?? false,
                 'tasks' => $first['tasks'],
             ] : null,
             'subprojects' => $first['subprojects'] ?? [],
@@ -1681,6 +1862,67 @@ class AiToolService
                 'members' => array_sum(array_map(fn ($r) => count($r['members'] ?? []), $roots)),
             ],
         ]];
+    }
+
+    /**
+     * Resolve plan project/sub-project nodes to EXISTING records where
+     * possible: explicit project_id wins; otherwise a strong name match
+     * auto-attaches (the duplicate guard's counterpart for plans).
+     *
+     * Sub-projects only auto-attach to a candidate under the SAME resolved
+     * parent — an equal name in another branch is a different sub-project,
+     * not a duplicate. New roots skip sub attach (parent id doesn't exist yet).
+     *
+     * @return array roots (mutated) | failure array with 'ok' => false
+     */
+    private function resolvePlanAttachments(array $roots, int $userId)
+    {
+        $check = function ($id, string $label) use ($userId) {
+            $existing = Project::where('id', (int) $id)->where('user_id', $userId)->first();
+
+            return $existing ?: $this->fail("{$label} #{$id} not found or not yours.", ToolError::NOT_FOUND);
+        };
+
+        foreach ($roots as $i => $root) {
+            $explicit = $root['project_id'] ?? null;
+            if ($explicit !== null) {
+                $existing = $check($explicit, 'Project');
+                if (isset($existing['ok'])) {
+                    return $existing;
+                }
+                $roots[$i]['project_id'] = (int) $existing->id;
+                $roots[$i]['attached'] = true;
+                $roots[$i]['attached_name'] = (string) $existing->name;
+            } else {
+                $match = $this->similarProjects($userId, $root['name']);
+                if ($match->isNotEmpty()) {
+                    $roots[$i]['project_id'] = (int) $match[0]->id;
+                    $roots[$i]['attached'] = true;
+                    $roots[$i]['attached_name'] = (string) $match[0]->name;
+                }
+            }
+
+            $parentId = $roots[$i]['project_id'] ?? null;
+            foreach (array_values($root['subprojects'] ?? []) as $si => $sub) {
+                $sExplicit = $sub['project_id'] ?? null;
+                if ($sExplicit !== null) {
+                    $existing = $check($sExplicit, 'Sub-project');
+                    if (isset($existing['ok'])) {
+                        return $existing;
+                    }
+                    $roots[$i]['subprojects'][$si]['project_id'] = (int) $existing->id;
+                    $roots[$i]['subprojects'][$si]['attached'] = true;
+                } elseif ($parentId !== null) {
+                    $match = $this->similarProjects($userId, $sub['name'], [(int) $parentId], (int) $parentId, 1);
+                    if ($match->isNotEmpty()) {
+                        $roots[$i]['subprojects'][$si]['project_id'] = (int) $match[0]->id;
+                        $roots[$i]['subprojects'][$si]['attached'] = true;
+                    }
+                }
+            }
+        }
+
+        return $roots;
     }
 
     /**
@@ -1882,6 +2124,157 @@ class AiToolService
      * plans (project+subprojects) and new multi-project plans (projects[]).
      * Each root: {name, description, tasks[], subprojects[]}.
      */
+    /* ── workspace_search ───────────────────────────────────── */
+
+    private function validateWorkspaceSearch(array $args): array
+    {
+        $v = Validator::make($args, [
+            'query' => 'required|string|max:255',
+            'kinds' => 'nullable|array|max:5',
+            'kinds.*' => 'string|in:project,task,note,routine,reminder',
+            'limit' => 'nullable|integer|min:1|max:20',
+        ]);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+        $kinds = array_values(array_intersect(
+            array_map('strval', (array) ($args['kinds'] ?? [])),
+            ['project', 'task', 'note', 'routine', 'reminder']
+        ));
+
+        return ['ok' => true, 'error' => null, 'resolved' => [
+            'query' => trim((string) $args['query']),
+            'kinds' => $kinds,
+            'kinds_label' => empty($kinds) ? 'all' : implode(',', $kinds),
+            'limit' => max(1, min(20, (int) ($args['limit'] ?? 8))),
+        ]];
+    }
+
+    /**
+     * Persian-friendly search across the user's own workspace.
+     *
+     * Matching runs in PHP on normalized text (AiIntentRouter::normalize:
+     * Arabic→Persian folding, ZWNJ/punctuation stripped) so «كتابخانه» finds
+     * «کتاب‌خانه». Data is bounded per kind (400 newest rows) — a personal
+     * workspace fits comfortably and the result set is small by design.
+     */
+    private function execWorkspaceSearch(array $r, $user): array
+    {
+        $query = trim((string) ($r['query'] ?? ''));
+        $needle = \App\Services\AiIntentRouter::normalize($query);
+        if ($needle === '') {
+            return ['ok' => false, 'message' => __('Give a non-empty search query.')];
+        }
+        $tokens = array_values(array_filter(explode(' ', $needle), fn ($w) => mb_strlen($w) >= 2));
+        $kinds = array_values(array_intersect((array) ($r['kinds'] ?? []), ['project', 'task', 'note', 'routine', 'reminder']))
+            ?: ['project', 'task', 'note', 'routine', 'reminder'];
+        $limit = max(1, min(20, (int) ($r['limit'] ?? 8)));
+        $uid = $user->id;
+
+        $candidates = [];
+        if (in_array('project', $kinds, true)) {
+            foreach (Project::where('user_id', $uid)->orderByDesc('id')->limit(400)->get(['id', 'name', 'parent_id']) as $p) {
+                $candidates[] = ['kind' => 'project', 'id' => $p->id, 'title' => (string) $p->name, 'extra' => $this->projectBreadcrumb($p)];
+            }
+        }
+        if (in_array('task', $kinds, true)) {
+            foreach (Task::where('user_id', $uid)->with('project:id,name')->orderByDesc('id')->limit(400)->get(['id', 'title', 'project_id', 'due_date']) as $t) {
+                $extra = [];
+                if ($t->project?->name) {
+                    $extra[] = 'project: '.$t->project->name;
+                }
+                if ($t->due_date) {
+                    $extra[] = 'due: '.($t->due_date instanceof \DateTimeInterface ? $t->due_date->format('Y-m-d') : (string) $t->due_date);
+                }
+                $candidates[] = ['kind' => 'task', 'id' => $t->id, 'title' => (string) $t->title, 'extra' => implode(', ', $extra)];
+            }
+        }
+        if (in_array('note', $kinds, true)) {
+            foreach (Note::where('user_id', $uid)->orderByDesc('id')->limit(200)->get(['id', 'title']) as $n) {
+                $candidates[] = ['kind' => 'note', 'id' => $n->id, 'title' => (string) $n->title, 'extra' => ''];
+            }
+        }
+        if (in_array('routine', $kinds, true)) {
+            foreach (Routine::where('user_id', $uid)->orderByDesc('id')->limit(200)->get(['id', 'title']) as $rt) {
+                $candidates[] = ['kind' => 'routine', 'id' => $rt->id, 'title' => (string) $rt->title, 'extra' => ''];
+            }
+        }
+        if (in_array('reminder', $kinds, true)) {
+            foreach (Reminder::where('user_id', $uid)->orderByDesc('id')->limit(200)->get(['id', 'title']) as $rm) {
+                $candidates[] = ['kind' => 'reminder', 'id' => $rm->id, 'title' => (string) $rm->title, 'extra' => ''];
+            }
+        }
+
+        $scored = [];
+        foreach ($candidates as $c) {
+            $hay = \App\Services\AiIntentRouter::normalize($c['title']);
+            if ($hay === '') {
+                continue;
+            }
+            $score = 0;
+            if (str_contains($hay, $needle)) {
+                $score += 5;
+            }
+            foreach ($tokens as $w) {
+                if (str_contains($hay, $w)) {
+                    $score += 1;
+                }
+            }
+            if ($score > 0) {
+                $c['score'] = $score;
+                $scored[] = $c;
+            }
+        }
+        usort($scored, fn ($a, $b) => [$b['score'], $b['id']] <=> [$a['score'], $a['id']]);
+        $top = array_slice($scored, 0, $limit);
+
+        if (empty($top)) {
+            return ['ok' => true, 'message' => __('No matches for ":query". The item may not exist — ask the user instead of creating anything.', ['query' => $query])];
+        }
+        $lines = [];
+        foreach ($top as $c) {
+            $lines[] = '- ['.$c['kind'].' #'.$c['id'].'] '.$c['title'].($c['extra'] !== '' ? ' ('.$c['extra'].')' : '');
+        }
+        $total = count($scored);
+
+        return ['ok' => true, 'message' => __(':n match(es) for ":query":', ['n' => $total, 'query' => $query])."\n".implode("\n", $lines)];
+    }
+
+    /* ── ask_user_choice ────────────────────────────────────── */
+
+    private function validateAskUserChoice(array $args): array
+    {
+        $v = Validator::make($args, [
+            'question' => 'required|string|max:500',
+            'options' => 'required|array|min:2|max:5',
+            'options.*.label' => 'required|string|max:120',
+            'options.*.tool' => 'required|string|max:60',
+            'options.*.args' => 'nullable|array',
+        ]);
+        if ($v->fails()) {
+            return $this->fail($v->errors()->first());
+        }
+        $clean = [];
+        foreach (array_values($args['options']) as $i => $o) {
+            $label = trim((string) ($o['label'] ?? ''));
+            $tool = self::normalizeToolName((string) ($o['tool'] ?? ''));
+            if ($label === '') {
+                return $this->fail('Every option needs a label.');
+            }
+            // The chosen option is proposed (and re-validated) as a normal
+            // tool call later — only structural sanity is checked here.
+            if ($tool === 'ask_user_choice' || ! in_array($tool, self::TOOLS, true)) {
+                return $this->fail("Option ".($i + 1)." has an unknown tool '{$tool}'.");
+            }
+            $clean[] = ['label' => $label, 'tool' => $tool, 'args' => (array) ($o['args'] ?? [])];
+        }
+
+        return ['ok' => true, 'error' => null, 'resolved' => [
+            'question' => trim((string) $args['question']),
+            'options' => $clean,
+        ]];
+    }
+
     public function planRoots(array $structure): array
     {
         if (! empty($structure['projects'])) {
@@ -1891,6 +2284,8 @@ class AiToolService
             return [[
                 'name' => $structure['project']['name'],
                 'description' => $structure['project']['description'] ?? null,
+                'project_id' => $structure['project']['project_id'] ?? null,
+                'attached' => $structure['project']['attached'] ?? false,
                 'tasks' => $structure['project']['tasks'] ?? [],
                 'subprojects' => $structure['subprojects'] ?? [],
             ]];
@@ -1972,17 +2367,34 @@ class AiToolService
             } elseif ($key === 'project' || $key === 'projects') {
                 // Legacy stored plans have a single root via project/subprojects.
                 $created = [];
+                $attachedNames = [];
                 $membersAdded = 0;
                 $membersSkipped = [];
                 foreach ($roots as $root) {
-                    $project = $user->projects()->create([
-                        'name' => $root['name'],
-                        'description' => $root['description'] ?? null,
-                        'status' => 'in_progress',
-                        'type' => 'project',
-                        'sort_order' => 0,
-                    ]);
-                    $created[] = ['id' => $project->id, 'name' => $project->name];
+                    if (! empty($root['project_id'])) {
+                        // Attach node: reuse the existing project (re-checked
+                        // at execution time — state may have changed since).
+                        $existing = Project::where('id', (int) $root['project_id'])
+                            ->where('user_id', $user->id)->first();
+                        if (! $existing) {
+                            return ['ok' => false, 'message' => __('Plan project is missing. Cancel and start over.'), 'phase' => $phase];
+                        }
+                        $project = $existing;
+                        $attachedNames[] = (string) $project->name;
+                    } else {
+                        $project = $user->projects()->create([
+                            'name' => $root['name'],
+                            'description' => $root['description'] ?? null,
+                            'status' => 'in_progress',
+                            'type' => 'project',
+                            'sort_order' => 0,
+                        ]);
+                    }
+                    $created[] = [
+                        'id' => $project->id,
+                        'name' => $project->name,
+                        'attached' => ! empty($root['project_id']),
+                    ];
                     foreach (($root['members'] ?? []) as $ref) {
                         $member = $this->resolveMemberUser($ref);
                         if ($member && (int) $member->id !== (int) $user->id) {
@@ -2009,6 +2421,9 @@ class AiToolService
                 if ($membersAdded > 0) {
                     $message .= __(' :count member(s) added.', ['count' => $membersAdded]);
                 }
+                if (! empty($attachedNames)) {
+                    $message .= __(' Attached to existing project(s): :names.', ['names' => implode(', ', $attachedNames)]);
+                }
                 if (! empty($membersSkipped)) {
                     $message .= __(' Skipped unknown users: ') . implode(', ', $membersSkipped) . '.';
                 }
@@ -2029,6 +2444,19 @@ class AiToolService
                         return ['ok' => false, 'message' => __('Plan project is missing. Cancel and start over.'), 'phase' => $phase];
                     }
                     foreach (($root['subprojects'] ?? []) as $sub) {
+                        if (! empty($sub['project_id'])) {
+                            $existingSub = Project::where('id', (int) $sub['project_id'])
+                                ->where('user_id', $user->id)
+                                ->where('parent_id', $parent->id)
+                                ->first();
+                            if ($existingSub) {
+                                $subsByRoot[$pi][] = $existingSub->id;
+                                $flatIds[] = $existingSub->id;
+                                continue;
+                            }
+                            // Parent changed since validation → fall through
+                            // and create the sub-project fresh.
+                        }
                         $created = $user->projects()->create([
                             'name' => $sub['name'],
                             'description' => $sub['description'] ?? null,
@@ -2266,9 +2694,14 @@ class AiToolService
         $tree = [
             'projects' => array_map(fn ($r) => [
                 'name' => $r['name'],
+                // Reuse of an existing record — rendered as "(existing)" in
+                // the structure card so the user sees it before confirming.
+                'attached' => ! empty($r['project_id']),
+                'attached_name' => $r['attached_name'] ?? null,
                 'tasks' => array_map($taskView, $r['tasks'] ?? []),
                 'subprojects' => array_map(fn ($s) => [
                     'name' => $s['name'],
+                    'attached' => ! empty($s['project_id']),
                     'tasks' => array_map($taskView, $s['tasks'] ?? []),
                 ], $r['subprojects'] ?? []),
                 'members' => array_values($r['members'] ?? []),

@@ -210,6 +210,10 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('throttle:30,1')->name('ai.actions.confirm');
     Route::post('/ai/actions/{action}/reject', [AiActionController::class, 'reject'])
         ->middleware('throttle:30,1')->name('ai.actions.reject');
+    // Answer a clarification (ask_user_choice) — the chosen option becomes a
+    // NORMAL pending action with its own confirmation card.
+    Route::post('/ai/actions/{action}/choice', [AiActionController::class, 'choice'])
+        ->middleware('throttle:30,1')->name('ai.actions.choice');
     Route::post('/ai/actions/{action}/undo', [AiActionController::class, 'undo'])
         ->middleware('throttle:30,1')->name('ai.actions.undo');
     // AI structured plans (structure approval + phased execution)

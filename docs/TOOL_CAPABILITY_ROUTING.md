@@ -1,10 +1,10 @@
 # Tool/Capability Routing — Lina (ایجنت)
 
-هدف: به‌جای ارسال هر ۲۲ تعریف Tool در هر درخواست، فقط قابلیت‌های مرتبط با
+هدف: به‌جای ارسال هر ۲۴ تعریف Tool در هر درخواست، فقط قابلیت‌های مرتبط با
 Intent و درخواست فعلی در اختیار مدل قرار می‌گیرد. محدودسازی واقعاً در سمت
 سرور اعمال می‌شود (payload + allowlist)، نه صرفاً در Prompt.
 
-## ۱. قابلیت‌های فعلی (۲۲ ابزار)
+## ۱. قابلیت‌های فعلی (۲۴ ابزار)
 
 | Tool | دسته | عملیات | توضیح | دسترسی |
 |---|---|---|---|---|
@@ -30,8 +30,12 @@ Intent و درخواست فعلی در اختیار مدل قرار می‌گی�
 | `report_generate` | report | READ | خلاصه‌ی read-only (today/week/month) | owner-only، read-only |
 | `plan_propose` | plan | WRITE+SENSITIVE | پیشنهاد بیلد چندپروژه‌ای (یکجا) | فازبه‌فاز پس از تأیید |
 | `workout_plan_propose` | workout | WRITE | پیشنهاد پلن ۷روزه‌ی تمرینی | via import preview پس از تأیید |
+| `workspace_search` | search | READ | جستجوی فارسی پروژه/تسک/نوت/روتین/یادآوری (search-before-create) | owner-only، read-only |
+| `ask_user_choice` | question | WRITE | کارت انتخاب ۲-۵ گزینه به‌جای حدس؛ گزینه‌ی انتخاب‌شده pending عادی می‌شود | owner-only؛ اجرای مستقیم ندارد |
 
-- تنها ابزار READ: `report_generate`. بقیه نیازمند تأیید صریح کاربر.
+- ابزارهای READ: `report_generate` و `workspace_search`. `ask_user_choice`
+  خودش داده‌ای نمی‌سازد (فقط سؤال می‌پرسد)؛ ابزارِ داخل گزینه بعداً با
+  confirmation card عادی اجرا می‌شود. بقیه نیازمند تأیید صریح کاربر.
 - منبع حقیقت دسته‌بندی: `App\Services\AiTooling\ToolCapabilityRegistry`
   (`CATEGORY_TOOLS` + `CAPABILITIES`). `TOOL_GROUPS`/`TOOL_RISK` در
   `AiToolService` برای سازگاری عقبرو حفظ شده.
@@ -44,16 +48,19 @@ Intent و درخواست فعلی در اختیار مدل قرار می‌گی�
   - `mode` و `provider_type` از کانتکست: حالت `chat` یا پرووایدر غیر
     OpenAI-compatible (gemini/anthropic) → هیچ ابزاری (`[]`).
   - `general_chat` با اطمینان بالا → `[]` (بدون workspace/tools).
-  - `workspace_query`/`report` → فقط `report_generate`.
+  - `workspace_query`/`report` → `report_generate` + `workspace_search` +
+    `ask_user_choice` (همه READ/تعاملی؛ بدون سطح mutation).
   - `workout_plan` → فقط `workout_plan_propose`.
   - `task_mutation` → اجتماع دسته‌های شناسایی‌شده از
-    `entities.objects` (+ همیشه `report`)؛ بدون object → مجموعه‌ی broad
-    قبلی (single+report). درخواست ترکیبی «تسک+یادآوری+یادداشت» هر سه دسته
-    را می‌گیرد ولی `plan/workout` سنگین بیرون می‌ماند.
+    `entities.objects` (+ همیشه `report` + `search` + `question` —
+    جستجوی قبل از نوشتن و امکان پرسش)؛ بدون object → مجموعه‌ی broad
+    قبلی (single+report+search+question). درخواست ترکیبی «تسک+یادآوری+یادداشت»
+    هر سه دسته را می‌گیرد ولی `plan/workout` سنگین بیرون می‌ماند.
   - `plan_build` → fail-open (`null` = ست کامل؛ پلن ممکن است همه‌ی ابعاد را
     یکجا ببندد).
-  - `ambiguous` یا اطمینان پایین → مجموعه‌ی امن READ-only
-    (`report_generate`) + سؤال شفاف‌سازی (`hintFor` در system prompt).
+  - `ambiguous` یا اطمینان پایین → مجموعه‌ی امن
+    (`report_generate` + `workspace_search` + `ask_user_choice`) + سؤال
+    شفاف‌سازی (`hintFor` در system prompt).
   - اطمینان متوسط (غیرمبهم) → fail-open (`null`) برای حفظ recall.
 - سیگنال‌های صریح کانتکست (مثل `has_note_attachments`) فقط دسته را عریض
   می‌کنند؛ مالکیت downstream بررسی می‌شود.
@@ -72,6 +79,12 @@ Intent و درخواست فعلی در اختیار مدل قرار می‌گی�
 4. Routing هرگز جایگزین Authorization/validation/confirmation نیست:
    مالکیت، وضعیت، policy و تأیید کاربر مثل قبل روی همه‌ی mutationها اجرا
    می‌شود؛ ابزار روت‌شده ولی foreign/conflict همچنان رد می‌شود.
+5. **گارد دی‌دوپلیکیت (بحث ۶.۳ AI_SYSTEM.md):** خطای business با کد
+   `duplicate_target` و آرایه‌ی `candidates` (id/name/path) از مرحله ۵
+   `ToolPipeline::validateForProposal` به مدل عبور می‌کند تا agent به‌جای
+   ساخت پروژه‌ی تکراری، به رکورد موجود وصل شود یا از کاربر بپرسد.
+   `project_create` و `plan_propose` (attach به پروژه‌ی موجود) هر دو از
+   `AiToolService::similarProjects` (نرمال‌سازی فارسی) استفاده می‌کنند.
 
 حفظ‌شده‌ها: سقف `MAX_TOOL_CALLS_PER_TURN=20`، `MAX_IDENTICAL_PER_TURN=3`
 (loop cut)، سقف pending (`MAX_OPEN`)، سقف plan، idempotency، و fallback
@@ -79,18 +92,18 @@ Intent و درخواست فعلی در اختیار مدل قرار می‌گی�
 
 ## ۴. مصرف توکن (قبل/بعد، تخمین chars/4 روی JSON definitions)
 
-Full (۲۲ ابزار): ‎~4578 توکن (~18KB).
+Full (۲۴ ابزار): ‎~5216 توکن (~21KB).
 
 | درخواست | Intent | ابزار ارسالی | بعد | صرفه‌جویی |
 |---|---|---|---|---|
 | سلام | general | ۰ | ~۱ | ۱۰۰٪ |
-| گزارش بده | report | ۱ | ~۱۰۱ | ۹۷.۸٪ |
-| «یه تسک بساز» | mutation | ۷ | ~۱۰۴۸ | ۷۷.۱٪ |
-| یادآوری | mutation | ۴ | ~۳۶۵ | ۹۲٪ |
-| ترکیبی تسک+یادآوری+یادداشت | mutation | ۱۴ | ~۱۶۷۲ | ۶۳.۵٪ |
-| برنامه تمرینی | workout | ۱ | ~۵۷۱ | ۸۷.۵٪ |
-| سه پروژه | plan (fail-open) | FULL | ~۴۵۷۸ | ۰٪ |
-| مبهم «این» | ambiguous (safe) | ۱ | ~۱۰۱ | ۹۷.۸٪ |
+| گزارش بده | report | ۳ (report+search+question) | ~۵۸۸ | ۸۸.۷٪ |
+| «یه تسک بساز» | mutation | ۹ (task/checklist + report+search+question) | ~۱۵۳۵ | ۷۰.۶٪ |
+| یادآوری | mutation | ۶ | ~۶۹۲ | ۸۶.۷٪ |
+| ترکیبی تسک+یادآوری+یادداشت | mutation | ۱۶ | ~۱۹۶۲ | ۶۲.۴٪ |
+| برنامه تمرینی | workout | ۱ | ~۵۷۱ | ۸۹٪ |
+| سه پروژه | plan (fail-open) | FULL | ~۵۲۱۶ | ۰٪ |
+| مبهم «این» | ambiguous (safe) | ۳ | ~۵۸۸ | ۸۸.۷٪ |
 
 تکرار اندازه‌گیری:
 `ToolCapabilityRouter::tokenComparison($route, $svc, $ctx)` —
@@ -103,4 +116,12 @@ Full (۲۲ ابزار): ‎~4578 توکن (~18KB).
   مبهم، گیت provider/mode، رد off-route (sync+stream، بدون ساخت pending)،
   بقای turn-cap/loop، و صرفه‌جویی توکن.
 - `tests/Feature/AiIntentRouterTest.php`: ambiguous حالا safe-set امن
-  (READ-only) می‌گیرد؛ medium غیرمبهم همچنان fail-open.
+  (report+search+question) می‌گیرد؛ medium غیرمبهم همچنان fail-open.
+- `tests/Feature/AiSearchAndAskTest.php` (۸ تست): جستجوی فارسی/ایزولاسیون/
+  فیلتر kinds در workspace_search، اعتبارسنجی ask_user_choice، جریان کامل
+  انتخاب (pick → pending عادی → تأیید → اجرا)، گیت مالکیت/انقضا/دوباره‌جواب،
+  و ردِ re-validation آرگومانِ خارجی پشتِ برچسبِ بی‌گناه.
+- `tests/Feature/AiSearchBeforeCreateTest.php` (۱۲ تست): درخت پروژه‌ها در
+  کانتکست، ایزولاسیون بین کاربران، گارد نام فارسی/عربی در project_create،
+  عبور candidates از pipeline، attach خودکار/صریح/خارجی در plan_propose،
+  عدم attach زیرپروژه بین شاخه‌ها، و برچسب preview.

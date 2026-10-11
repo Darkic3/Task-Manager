@@ -86,7 +86,7 @@ final class ToolCapabilityRouter
         if ($intent === AiIntentRouter::INTENT_AMBIGUOUS || $confidence === AiIntentRouter::CONF_LOW) {
             return [
                 'tools' => ToolCapabilityRegistry::SAFE_FALLBACK,
-                'categories' => ['report'],
+                'categories' => ['report', 'search', 'question'],
                 'reason' => 'unclear_intent_safe_set',
             ];
         }
@@ -101,8 +101,10 @@ final class ToolCapabilityRouter
             case AiIntentRouter::INTENT_QUERY:
             case AiIntentRouter::INTENT_REPORT:
                 return [
-                    'tools' => ToolCapabilityRegistry::toolsForCategories(['report']),
-                    'categories' => ['report'],
+                    // Search-before-answer + choice tool for "which one?" —
+                    // READ/interaction only, no mutation surface added.
+                    'tools' => ToolCapabilityRegistry::toolsForCategories(['report', 'search', 'question']),
+                    'categories' => ['report', 'search', 'question'],
                     'reason' => 'read_only_report',
                 ];
 
@@ -164,9 +166,13 @@ final class ToolCapabilityRouter
             $categories = ['task', 'checklist', 'reminder', 'note', 'link', 'project', 'routine'];
         }
 
-        // Report is always visible alongside mutations (read-only, cheap).
-        if (! in_array('report', $categories, true)) {
-            $categories[] = 'report';
+        // Report (read-only read-back) + search (search-before-create) + the
+        // choice tool (ask instead of guessing) are always visible alongside
+        // mutations: all READ/interaction, zero extra mutation surface.
+        foreach (['report', 'search', 'question'] as $cat) {
+            if (! in_array($cat, $categories, true)) {
+                $categories[] = $cat;
+            }
         }
 
         // Canonical registry order for stable payloads.

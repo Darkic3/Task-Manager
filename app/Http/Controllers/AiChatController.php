@@ -697,6 +697,22 @@ class AiChatController extends Controller
     }
 
     /**
+     * Public entry for the choice flow (AiActionController::choice): propose
+     * the option the user picked through the exact same pipeline as a
+     * model-emitted call (schema → security → business → ownership → policy
+     * → own confirmation card). The chosen action is NEVER executed directly.
+     */
+    public function proposeChosenOption($user, ?int $conversationId, string $tool, array $args): array
+    {
+        return $this->createPendingFromToolCall(
+            $user,
+            $conversationId,
+            $tool,
+            json_encode($args, JSON_UNESCAPED_UNICODE)
+        );
+    }
+
+    /**
      * Insert a pending action under its idempotency key, racing safely.
      * Returns [AiPendingAction, bool $reusedWinner].
      * - Duplicate violation with a LIVE winner → reuse the winner.
@@ -1878,7 +1894,12 @@ class AiChatController extends Controller
             - COLLABORATORS: project_add_member finds the person by email, name, or user ID — prefer email when the user gives one. In plans, put collaborator emails/names in each project's members[] so they join when the project is built.
             - NOTE LINKS: note_link connects a note to a project/task/note so it appears in backlinks — use it when the user says a note "belongs to" or "is about" something.
             - REPORTS: report_generate builds a read-only workspace summary for today/week/month (nothing changes). Use it when the user asks "how am I doing / گزارش بده". After it runs, explain the numbers in 2-4 bullets.
+            - SEARCH BEFORE CREATE (mandatory): the PROJECTS section below lists ALL the user's projects with their IDs and hierarchy (indented = sub-project). When the user says "add X to project Y" or references something that may already exist, attach to the matching existing record (pass its project_id) — NEVER create a new project for it. If nothing matches and the user did not explicitly ask to create a project, ASK in text which project they mean (list the closest existing names + IDs) and wait for the answer. For anything not visible in the context (a task/note/reminder by name), call workspace_search FIRST — it returns ids/names you can pass to other tools.
+            - WHEN IN DOUBT, USE ask_user_choice: when the target is ambiguous (2+ similar project/task names) or two or more structures are reasonable (items under an existing sub-project vs a new one; a note on a project vs a task), call ask_user_choice ONCE with 2-5 short labeled options — each option carries the exact tool + args to run for that choice. The user picks with one click and the chosen call is proposed for confirmation. Never guess when a real choice exists.
+            - MINIMAL NEW STRUCTURE: prefer attaching to what already exists. Conceptual group names in a user's list (e.g. "Workout", "Notes", a chapter/division) are sub-projects or tasks under the closest existing project — NOT new root projects. Create a ROOT project only when the user explicitly says "create/make a project" or the topic is clearly unrelated to everything that exists.
+            - MAPPING REQUESTS TO STRUCTURE: a categorized list from the user (headings + items) maps to tasks with subtasks (or checklist items for short bullets) under the matching sub-project — never one project per heading. Keep the user's wording verbatim in titles; full text goes to descriptions.
             - PROJECT BUILDS & STRATEGY: When asked to plan, break down, or architect projects/goals, first provide a concise 2-4 bullet strategic overview in your text reply, and then call plan_propose ONCE with EVERYTHING.
+              * If a project node targets an EXISTING project (see PROJECTS in context), set that node's project_id so its tasks are added to the existing project instead of a duplicate being created. The same applies to subprojects.
               * SHAPES (critical — the server rejects anything else): project is ALWAYS an object {"name":"...","tasks":[{"title":"..."}]}, NEVER a string. projects[]/subprojects[] are ALWAYS arrays of objects, tasks[]/subtasks[] ALWAYS arrays of {title}. Example single project: {"title":"...","project":{"name":"Task Manager","tasks":[{"title":"T1","description":"full text"}]}}. Example multi: {"title":"...","projects":[{"name":"A","tasks":[{"title":"T1"}]}]}.
               * MULTIPLE independent projects (e.g. "make projects A, B, C"): put them ALL in the projects[] array in ONE call — never one call per project, never project+subprojects for this.
               * ONE project with sub-divisions: use project + subprojects (max 3).

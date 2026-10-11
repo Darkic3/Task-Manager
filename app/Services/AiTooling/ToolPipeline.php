@@ -88,10 +88,13 @@ final class ToolPipeline
         // 5) Business validation (existing per-tool validators).
         $check = $service->validateCall($tool, $args, $user);
         if (! ($check['ok'] ?? false)) {
+            // Duplicate/ambiguity guards attach `candidates` (id, name, path)
+            // so the model can reuse an existing record or ask the user —
+            // pass it through instead of flattening to text only.
             return ToolError::fail(
                 $check['code'] ?? ToolError::VALIDATION_ERROR,
                 $check['error'] ?? 'Invalid action.'
-            );
+            ) + (isset($check['candidates']) ? ['candidates' => $check['candidates']] : []);
         }
         $resolved = $check['resolved'] ?? [];
 

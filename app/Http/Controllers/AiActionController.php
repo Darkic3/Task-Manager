@@ -183,6 +183,100 @@ class AiActionController extends Controller
     }
 
     /**
+     * Answer a clarification (ask_user_choice) with one option.
+     *
+     * Flow: lock the clarification row → ownership + state checks → consume
+     * it atomically (pending → rejected) → propose the chosen option through
+     * the NORMAL proposal path, so the selected action gets its own
+     * confirmation card. Nothing executes here: picking an option only
+     * decides WHAT gets confirmed next — the confirmation boundary is fully
+     * preserved (a model can never sneak a destructive call behind a benign
+     * label: the chosen args are re-validated and re-shown to the user).
+     */
+    public function choice(Request $request, AiPendingAction $action)
+    {
+        $user = Auth::user();
+        $data = $request->validate(['option_index' => 'required|integer|min:0|max:9']);
+
+        $result = \Illuminate\Support\Facades\DB::transaction(function () use ($action, $user, $data) {
+            /** @var AiPendingAction|null $fresh */
+            $fresh = AiPendingAction::where('id', $action->id)->lockForUpdate()->first();
+            if (! $fresh || (int) $fresh->user_id !== (int) $user->id) {
+                AiLogger::log('action.choice_forbidden', ['user_id' => $user->id ?? null, 'action_id' => $action->id]);
+
+                return ['error' => __('Not allowed.'), 'status' => 403];
+            }
+            if ($fresh->tool !== 'ask_user_choice') {
+                return ['error' => __('This is not a clarification.'), 'status' => 422];
+            }
+            if ($fresh->status !== AiPendingAction::STATUS_PENDING) {
+                return ['error' => __('This question was already answered or expired.'), 'status' => 422];
+            }
+            if ($fresh->isExpired()) {
+                $fresh->markExpired();
+
+                return ['error' => __('This question has expired. Ask Lina again.'), 'status' => 422];
+            }
+
+            $options = array_values((array) ($fresh->args['options'] ?? []));
+            $idx = (int) $data['option_index'];
+            if (! isset($options[$idx])) {
+                return ['error' => __('Unknown option.'), 'status' => 422];
+            }
+            $opt = $options[$idx];
+
+            // Atomic consume: exactly one answer wins (mirrors runAction's claim).
+            $claimed = AiPendingAction::where('id', $fresh->id)
+                ->where('status', AiPendingAction::STATUS_PENDING)
+                ->update([
+                    'status' => AiPendingAction::STATUS_REJECTED,
+                    'error' => 'answered: '.(string) ($opt['label'] ?? $idx),
+                ]);
+            if (! $claimed) {
+                return ['error' => __('This question was already answered.'), 'status' => 422];
+            }
+
+            if ($fresh->conversation_id) {
+                AiMessage::create([
+                    'conversation_id' => $fresh->conversation_id,
+                    'role' => 'user',
+                    'content' => '↪ '.(string) ($opt['label'] ?? ''),
+                ]);
+            }
+
+            // Normal proposal path for the chosen option: envelope, security
+            // screen, business validation, ownership, policy and its own
+            // confirmation card — identical to a model-emitted call.
+            $proposal = app(\App\Http\Controllers\AiChatController::class)
+                ->proposeChosenOption($user, $fresh->conversation_id, (string) ($opt['tool'] ?? ''), (array) ($opt['args'] ?? []));
+
+            AiLogger::log('action.choice_picked', [
+                'user_id' => $user->id,
+                'action_id' => $fresh->id,
+                'option_index' => $idx,
+                'tool' => $opt['tool'] ?? null,
+                'proposal_action_id' => $proposal['action_id'] ?? null,
+                'error' => $proposal['error'] ?? null,
+            ]);
+
+            // Same packet typing as the SSE emitter so the frontend can reuse
+            // its existing renderers.
+            $tool = (string) ($opt['tool'] ?? '');
+            $type = $tool === 'plan_propose'
+                ? 'plan_proposal'
+                : ($tool === 'workout_plan_propose' ? 'workout_import_proposal' : 'tool_proposal');
+
+            return ['ok' => true, 'type' => $type] + $proposal;
+        });
+
+        if (isset($result['status'])) {
+            return response()->json(['ok' => false] + $result, (int) $result['status']);
+        }
+
+        return response()->json($result);
+    }
+
+    /**
      * Shared single-action runner: dedupe, expiry, re-validate, execute.
      * Returns structured ['ok','code','message'|'error','deduped'?].
      *

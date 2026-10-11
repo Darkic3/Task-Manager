@@ -28,7 +28,7 @@ app/Http/Controllers/AiActionController.php    (confirm/reject/confirmAll/reject
 app/Http/Controllers/AiPlanController.php      (confirmStructure/confirmPhase/cancel + serialize)
 app/Http/Controllers/NoteAiController.php      (sendCollection/extractPreview/extractApply/summarizeSubject)
 app/Services/AiProviderService.php             (resolve/key/endpoint/retry/payload/converters)
-app/Services/AiToolService.php                 (۲۲ ابزار: definitions/validateCall/preview/execute + executePlanPhase)
+app/Services/AiToolService.php                 (۲۴ ابزار: definitions/validateCall/preview/execute + executePlanPhase)
 app/Services/AiLogger.php                     (log/error/sanitize/tail)
 app/Services/LinaFallbackBrain.php             (~۵۰۱ خط) + resources/ai/lina_dataset.json
 app/Services/Notes/NoteAiService.php           (MODES + complete + contextFor + extract + summarize + analyzeCollection)
@@ -264,11 +264,42 @@ Guidelines: lang directive (fa→ فارسی روان / en→ English) + markdow
 
 بلاک CHAT: read-only؛ workout را توضیح بده ولی نساز (ارجاع به Agent یا Workouts→Import).
 
+### ۶.۳ درخت پروژه‌ها + پالیسی Search-Before-Create (فاز ۰+۲ پلن ارتقا)
+
+**مشکل قبلی:** مدل پروژه‌ی موجود را در کانتکست نمی‌دید و هر درخواست «اضافه کن به X» را با `project_create`/`plan_propose` جواب می‌داد → پروژه‌ی تکراری ساخته می‌شد (باگ گزارش‌شده‌ی کاربر: «تسک منیجر» هر بار از نو ساخته شد).
+
+**درخت پروژه‌ها (AiContextEngine::projectLines):** بخش PROJECTS حالا درخت فشرده‌ی **همه‌ی** پروژه‌های کاربر است با ID و سلسله‌مراتب (فرزند با indent دوکاراکتری):
+
+```
+PROJECTS (n):
+- [id:12] Task Manager (in_progress)
+- [id:15]   چاپبر (in_progress)
+- [id:16]   فصل ۱ (not_started) — mentioned in this message   ← پروژه‌ی مچ‌شده اول لیست می‌شود
+```
+
+سقف‌ها: `agent=25`، `planning=30`، `chat=10` خط پروژه؛ عمق ≤۵؛ خطوط با `markUntrusted`. این بخش اولویت ۱۰ دارد (قبل از TASKS) و معمولاً ≤۲K chars است.
+
+**پالیسی system prompt (بلاک AGENT):** سه قانون اجباری اضافه شده:
+1. **SEARCH BEFORE CREATE** — هر ارجاع به پروژه‌ی موجود باید با `project_id` وصل شود؛ اگر چیزی پیدا نشد و کاربر نگفته «بساز»، مدل باید متنی بپرسد (لیست نزدیک‌ترین‌ها + ID).
+2. **WHEN IN DOUBT, ASK WITH OPTIONS** — دو تفسیر معقول → لیست شماره‌دار + منتظر جواب ماندن.
+3. **MINIMAL NEW STRUCTURE** — نام‌های دسته‌ای («ورک‌اوت»، «یادداشت‌ها»، فصل/چاپبر) زیرپروژه/تسک زیر نزدیک‌ترین پروژه‌اند، نه پروژه‌ی ریشه‌ی جدید.
+
+**گارد سروری دی‌دوپلیکیت (مستقل از پرامپت — AiToolService):**
+- `similarProjects(userId, name)`: نرمال‌سازی فارسی (ی/ک عربی، ZWNJ، نشانه‌ها — مثل `AiIntentRouter::normalize`) + سه سطح امتیاز: برابری exact (۱.۰)، containment با کلید ≥۴ کاراکتر (۰.۹)، `similar_text ≥ 95%` (۰.۸ — فقط تایپوی ≤۱ کاراکتر، چون ۸۰٪ روی «Chapter 1» vs «Chapter 2» اشتباه می‌گیرد).
+- `project_create`: اگر match قوی بود → خطای `duplicate_target` + آرایه‌ی `candidates` (`id,name,path` با breadcrumb) که از `ToolPipeline` مرحله ۵ به مدل می‌رسد؛ مدل وصل می‌کند یا می‌پرسد. فقط پروژه‌های خود کاربر اسکن می‌شوند (ایزولاسیون).
+- `plan_propose`: هر گره‌ی `project`/`subprojects` به‌صورت خودکار resolve می‌شود — `project_id` صریح (از درخت کانتکست) یا تطبیق قوی نام → گره `attached=true` می‌شود و فازِ اجرا **به‌جای ساخت، پروژه‌ی موجود را reuse می‌کند**. زیرپروژه فقط زیر همان والد resolve می‌شود (نام مشابه در شاخه‌ی دیگر = زیرپروژه‌ی متفاوت، نه تکراری). کارت ساختار پلن در UI برچسب «↩︎ موجود از قبل» می‌گیرد.
+
+**ابزارهای فاز ۱+۳ (تکمیل‌کننده‌ی همین پالیسی):**
+- `workspace_search` (READ): جستجوی فارسی روی پروژه/تسک/نوت/روتین/یادآوری‌های خود کاربر — مدل قبل از هر ساخت/اتصالی باید بگردد؛ بدون match پیام «بپرس، نساز» می‌گیرد. در همه‌ی مسیرهای report/query/mutation و safe-set مبهم دیده می‌شود.
+- `ask_user_choice` (تعاملی): وقتی هدف مبهم است یا چند ساختار معقول است، مدل به‌جای حدس ۲-۵ گزینه‌ی برچسب‌دار می‌دهد و کارت انتخاب در چت رندر می‌شود (`renderProposalCard` شاخه‌ی `ask_user_choice`). انتخاب کاربر → `POST /ai/actions/{id}/choice` → ردیف consume و ابزارِ انتخاب‌شده از مسیر عادی proposal می‌شود (کارت تأیید جدا می‌گیرد؛ اجرای مستقیم وجود ندارد — مرز «تأیید ≠ مجوز» حفظ است و آرگومانِ گزینه دوباره به‌طور کامل re-validate می‌شود).
+
+تست‌ها: `tests/Feature/AiSearchBeforeCreateTest.php` (۱۲ تست: درخت، ایزولاسیون، گارد نام فارسی/عربی، عبور candidates از pipeline، attach خودکار/صریح/خارجی، عدم attach زیرپروژه بین شاخه‌ها، preview) و `tests/Feature/AiSearchAndAskTest.php` (۸ تست: جستجو، ایزولاسیون، kinds، اعتبارسنجی گزینه‌ها، جریان کامل انتخاب، گیت مالکیت/انقضا/دوباره‌جواب، re-validation آرگومان خارجی).
+
 مقادیر عددی فعلی: ورودی `message≤8000`، `history≤40` نوبت هرکدام `≤8000`؛ `max_tokens` خروجی ۲۰۴۸/۴۰۹۶/۱۶۰۰۰؛ Gemini `maxOutputTokens 2048/temp 0.7`؛ Anthropic `max_tokens 2048/temp 0.7`؛ NoteAi جدا `temp 0.3` و سقف‌های ۲۰۰۰/۲۵۰۰/۳۰۰۰.
 
 ---
 
-## ۷. ابزارها (۲۲ عدد) — ورودی و رفتار دقیق
+## ۷. ابزارها (۲۴ عدد) — ورودی و رفتار دقیق
 
 > قرارداد نام: فقط snake_case (`normalizeToolName` نسخه‌های نقطه/خط‌فاصله قدیمی را هم می‌پذیرد ولی ۴۰۰ نمی‌دهد چون اسکیما `additionalProperties:false` دارد).
 
@@ -282,7 +313,7 @@ Guidelines: lang directive (fa→ فارسی روان / en→ English) + markdow
 | ۶/۷ | `reminder_complete/delete` | `id*` | مالکیت user_id |
 | ۸ | `note_create` | `title*, content*`, `category?` | مستقیم |
 | ۹/۱۰ | `note_update/delete` | `id*` (+title/content/category برای update) | مالکیت user_id |
-| ۱۱ | `project_create` | `name*`, `description?`, `status?`, `parent?/parent_id?` (نام یا ID) | والد باید مال کاربر؛ عمق ≤۵ (`projectDepth`)؛ type=project |
+| ۱۱ | `project_create` | `name*`, `description?`, `status?`, `parent?/parent_id?` (نام یا ID) | والد باید مال کاربر؛ عمق ≤۵ (`projectDepth`)؛ type=project؛ **گارد دی‌دوپلیکیت**: نام مشابه (نرمال‌سازی فارسی) → خطای `duplicate_target` + `candidates` (بخش ۶.۳) |
 | ۱۲ | `project_add_member` | `project?/project_id?` + `user*` (email/نام/ID) + `role? member/viewer/editor` | پروژه باید مال تو؛ ممبر با `resolveMemberUser` (عددی→find، شامل @→email، وگرنه LIKE نام، اولین)؛ خودت خطا؛ اجرا `syncWithoutDetaching` |
 | ۱۳ | `note_link` | `note?/note_id?` + `target_type* (project/task/note)` + `target?/target_id?` | هر دو سمت `where user_id`؛ سلف‌لینک نوت ممنوع؛ اجرا `NoteLinkService::attach` |
 | ۱۴ | `report_generate` | `range? today/week/month (default week)` | فقط‌خواندنی (`UnifiedReportService`)؛ هیچ رکوردی نمی‌سازد؛ خروجی مارک‌داون KPI+دلتا+اینسایت |
@@ -292,8 +323,10 @@ Guidelines: lang directive (fa→ فارسی روان / en→ English) + markdow
 | ۱۸ | `routine_complete` | `id*`, `date?` (default امروز) | هرگز un-complete نمی‌کند؛ تکراری → «already done» |
 | ۱۹ | `routine_delete` | `id*` | سافت‌دیلیت؛ کارت می‌گوید تاریخچه می‌ماند |
 | ۲۰ | `routine_log` | `routine?/routine_id?`, `date?`, `value*` (عدد؛ time-kind: دقیقه از نیمه‌شب یا رشته HH:MM)، `item?/item_id?/set_no?` (sets-mode) | چک رهگیری‌بودن؛ sets کامل → auto-complete |
-| ۲۱ | `plan_propose` | `title*` + یکی از: `projects[]` (تا ۵ مستقل، هرکدام tasks[] + members[] تا ۵) یا `project{}+subprojects[]` (تا ۳) یا `routines[]` (انحصاری، تا ۷) + `reminders[]` (تا ۱۰) + `notes[]` (تا ۱۰)؛ تسک‌ها `{title≤120,due_date,priority,description≤500,subtasks[]}` | فقط validate + ساخت `AiPlan`؛ اجرا مرحله‌ای (بخش ۸)؛ مدل هیچ ID نمی‌بیند |
+| ۲۱ | `plan_propose` | `title*` + یکی از: `projects[]` (تا ۵ مستقل، هرکدام tasks[] + members[] تا ۵ + `project_id?`) یا `project{}+subprojects[]` (تا ۳، هرکدام `project_id?`) یا `routines[]` (انحصاری، تا ۷) + `reminders[]` (تا ۱۰) + `notes[]` (تا ۱۰)؛ تسک‌ها `{title≤120,due_date,priority,description≤500,subtasks[]}` | فقط validate + ساخت `AiPlan`؛ **attach**: `project_id` صریح یا تطبیق قوی نام → وصل به پروژه‌ی موجود به‌جای ساخت (بخش ۶.۳)؛ اجرا مرحله‌ای (بخش ۸)؛ مدل ID پروژه‌ها را از درخت کانتکست می‌بیند |
 | ۲۲ | `workout_plan_propose` | `title*, days[7]` (به ترتیب اجرا، هر روز `{title,type:training/rest/recovery,notes?,exercises[]}`؛ هر تمرین `{name*,section?,target_sets?,rep_min/max?,duration_seconds?,target_weight?,target_rir?,rest_seconds?,tempo?,side_mode?,is_amrap?,is_circuit?,circuit_rounds/rest?,notes?}`) + `week_number?/start_date?/goal?/description?/rules[]?` | فقط validate + ساخت `WorkoutImport(PREVIEW,+30min)`؛ سقف ۷ روز، ۴۰ تمرین/روز |
+| ۲۳ | `workspace_search` | `query*`, `kinds?` (project/task/note/routine/reminder), `limit? ≤20 (default 8)` | READ؛ جستجو در entityهای خود کاربر با نرمال‌سازی فارسی (`AiIntentRouter::normalize` روی ≤۴۰۰ ردیف اخیر هر kind در PHP)؛ امتیاز: exact-contains +۵، هر توکن +۱؛ خروجی متن `- [kind #id] title (extra)`؛ بدون match → پیام «بپرس، نساز» |
+| ۲۴ | `ask_user_choice` | `question* ≤500`, `options* ۲-۵` هرکدام `{label*, tool*, args?}` | کارت انتخاب در چت؛ tool داخل گزینه باید واقعی باشد (خودِ ask_user_choice ممنوع)؛ ردیف pending با ابزار `ask_user_choice` می‌نشیند؛ `POST /ai/actions/{id}/choice` با `option_index` → ردیف consume (rejected) و ابزارِ انتخاب‌شده از مسیر عادی `createPendingFromToolCall` (پالیسی کامل + کارت تأیید جدا) proposal می‌شود — هیچ اجرای مستقیمی وجود ندارد؛ confirm-all آن را با پیام «در انتظار» مصرف می‌کند |
 
 `validateCall(tool,args,user)` ابتدا normalize (شامل aliasهای camelCase مثل `projectId/dueDate/monthDays`) بعد match به ولیدیتور. هیچ ولیدیتوری write نمی‌کند. `preview(tool,resolved,user)` ردیف‌های کارت تأیید را می‌دهد (برای deleteها هشدار impact قرمز در فرانت). `execute(tool,resolved,user)` داخل `DB::transaction` می‌نویسد و `{ok,message,id?}` برمی‌گرداند؛ `plan/workout` در execute تکی اجرا نمی‌شوند (پیام «مرحله‌به‌مرحله»).
 
@@ -451,7 +484,7 @@ Guidelines: lang directive (fa→ فارسی روان / en→ English) + markdow
 
 گپ‌های عینی (فقط مشاهده، بدون تجویز):
 1. اعداد سقف در سه‌جا تکرار شده‌اند: مدل (`AiPlan`/`AiPendingAction`)، ولیدیتور، system prompt — امکان ناهمگامی.
-2. `docs/PROJECT-GUIDE.md:94` می‌گوید «۱۶ ابزار» و «سقف ۵ باز» ولی کد فعلی ۲۲ ابزار و `MAX_OPEN=30` است (داک قدیمی).
+2. `docs/PROJECT-GUIDE.md:94` می‌گوید «۱۶ ابزار» و «سقف ۵ باز» ولی کد فعلی ۲۴ ابزار و `MAX_OPEN=30` است (داک قدیمی).
 3. `AiMessage` ستون `model` دارد ولی `provider/request_id/tokens/feedback` ندارد.
 4. `is_default` در `ai_providers` نوشته می‌شود ولی خوانده نمی‌شود (default از `ai_settings` است).
 5. `clearConversation` پیام‌ها را hard-delete می‌کند (audit از بین می‌رود).

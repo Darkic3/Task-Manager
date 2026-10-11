@@ -50,7 +50,7 @@ class AiToolValidationTest extends TestCase
             $this->assertArrayHasKey($tool, ToolSchema::schemas(), "missing schema for {$tool}");
             $this->assertNotEmpty(AiToolService::riskOf($tool), "missing risk for {$tool}");
         }
-        $this->assertCount(22, AiToolService::TOOLS);
+        $this->assertCount(24, AiToolService::TOOLS);
     }
 
     /* ── unknown tool ───────────────────────────────────────── */

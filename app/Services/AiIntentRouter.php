@@ -176,8 +176,8 @@ final class AiIntentRouter
 
         return match ($intent) {
             self::INTENT_GENERAL => [],
-            self::INTENT_QUERY => ['report_generate'],
-            self::INTENT_REPORT => ['report_generate'],
+            self::INTENT_QUERY => \App\Services\AiTooling\ToolCapabilityRegistry::toolsForCategories(['report', 'search', 'question']),
+            self::INTENT_REPORT => \App\Services\AiTooling\ToolCapabilityRegistry::toolsForCategories(['report', 'search', 'question']),
             self::INTENT_MUTATION => \App\Services\AiTooling\ToolCapabilityRegistry::resolveForRoute(
                 ['intent' => $intent, 'entities' => $entities]
             ),

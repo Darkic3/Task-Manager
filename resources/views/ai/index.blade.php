@@ -1350,6 +1350,71 @@ footer, .topnav { display: none !important; }
             imp.className = 'lina-tool-impact'; imp.textContent = prev.impact;
             card.appendChild(imp);
         }
+        /* ── Clarification card (ask_user_choice): options ARE the buttons ── */
+        if (p.tool === 'ask_user_choice') {
+            const opts = (prev.options || []).slice();
+            if (!opts.length && (prev.rows || []).length) {
+                prev.rows.slice(1).forEach(r => opts.push(r.v));
+            }
+            const q = document.createElement('div');
+            q.style.cssText = 'font-size:13px;font-weight:600;margin:6px 0 8px;white-space:pre-wrap;';
+            q.textContent = '❓ ' + (prev.question || (prev.rows?.[0]?.v) || '');
+            card.appendChild(q);
+            const choiceWrap = document.createElement('div');
+            choiceWrap.className = 'lina-choice-opts';
+            const finish = () => card.querySelectorAll('.lina-choice-opts, .lina-tool-actions').forEach(n => n.remove());
+            opts.forEach((label, i) => {
+                const b = document.createElement('button');
+                b.className = 'lina-tool-confirm lina-choice-opt';
+                b.style.cssText = 'display:block;width:100%;margin:4px 0;text-align:right;';
+                b.textContent = (i + 1) + '. ' + label;
+                b.onclick = async () => {
+                    choiceWrap.querySelectorAll('button').forEach(x => x.disabled = true);
+                    try {
+                        // The chosen option becomes a NORMAL pending action —
+                        // the standard confirm card below always follows.
+                        const res = await api('POST', '/ai/actions/' + p.action_id + '/choice', { option_index: i });
+                        finish();
+                        if (res.error) { appendError(res.error); return; }
+                        if (res.type === 'plan_proposal' && res.plan) renderPlanCard(res.plan);
+                        else if (res.type === 'workout_import_proposal' && res.import) renderWorkoutImportCard(res.import);
+                        else if (res.action_id) renderProposalCard(res);
+                        else appendError(@json(__('Could not apply the chosen option.')));
+                        refreshPendingDock();
+                        scrollBottom();
+                    } catch (e) {
+                        choiceWrap.querySelectorAll('button').forEach(x => x.disabled = false);
+                        appendError(@json(__('Action failed or expired.')));
+                    }
+                };
+                choiceWrap.appendChild(b);
+            });
+            card.appendChild(choiceWrap);
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'lina-tool-reject';
+            cancelBtn.textContent = 'لغو';
+            cancelBtn.onclick = async () => {
+                cancelBtn.disabled = true;
+                try { await api('POST', '/ai/actions/' + p.action_id + '/reject'); } catch {}
+                finish();
+                const done = document.createElement('div');
+                done.style.cssText = 'font-size:12.5px;color:var(--gray-500);margin-top:8px;';
+                done.textContent = @json(__('Cancelled — nothing changed.'));
+                card.appendChild(done);
+                refreshPendingDock();
+            };
+            card.appendChild(cancelBtn);
+            if (p.expires_at) {
+                const exp = document.createElement('div');
+                exp.className = 'lina-tool-expiry';
+                exp.textContent = 'Expires ' + formatTime(p.expires_at);
+                card.appendChild(exp);
+            }
+            wrap.appendChild(card);
+            msgsEl.appendChild(wrap);
+            scrollBottom();
+            return;
+        }
         const actions = document.createElement('div');
         actions.className = 'lina-tool-actions';
         const okBtn = document.createElement('button');
@@ -1585,13 +1650,20 @@ footer, .topnav { display: none !important; }
                 : (tree.project ? [{ name: tree.project.name, tasks: tree.project.tasks, subprojects: tree.subprojects }] : []);
             rootList.forEach(p => {
                 html += '<li>📁 <strong>' + escPlan(p.name) + '</strong>';
+                if (p.attached) {
+                    html += ' <span class="lina-plan-due" title="به پروژه‌ی موجود وصل می‌شود، پروژه‌ی جدید ساخته نمی‌شود">↩︎ موجود از قبل</span>';
+                }
                 if ((p.members || []).length) {
                     html += ' <span class="lina-plan-subs">👥 ' + p.members.map(escPlan).join(', ') + '</span>';
                 }
                 html += '<ul>';
                 (p.tasks || []).forEach(t => { html += taskHtml(t); });
                 (p.subprojects || []).forEach(s => {
-                    html += '<li>📂 <strong>' + escPlan(s.name) + '</strong><ul>';
+                    html += '<li>📂 <strong>' + escPlan(s.name) + '</strong>';
+                    if (s.attached) {
+                        html += ' <span class="lina-plan-due" title="به زیرپروژه‌ی موجود وصل می‌شود">↩︎ موجود از قبل</span>';
+                    }
+                    html += '<ul>';
                     (s.tasks || []).forEach(t => { html += taskHtml(t); });
                     html += '</ul></li>';
                 });

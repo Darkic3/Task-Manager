@@ -185,6 +185,17 @@ final class ToolSchema
                 'rules' => ['type' => 'array', 'max' => 30],
                 'days' => ['type' => 'array', 'max' => 7],
             ],
+            'workspace_search' => [
+                'query' => $reqStr(255),
+                'kinds' => ['type' => 'array', 'max' => 5],
+                'limit' => ['type' => 'int', 'min' => 1, 'max' => 20],
+            ],
+            // Options are validated in business (each carries tool+args that
+            // get fully re-validated when the user picks that option).
+            'ask_user_choice' => [
+                'question' => $reqStr(500),
+                'options' => ['type' => 'array', 'max' => 5],
+            ],
         ];
     }
 

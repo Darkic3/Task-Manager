@@ -56,6 +56,10 @@ final class ToolCapabilityRegistry
 
     public const CATEGORY_WORKOUT = 'workout';
 
+    public const CATEGORY_SEARCH = 'search';
+
+    public const CATEGORY_QUESTION = 'question';
+
     public const CATEGORIES = [
         self::CATEGORY_TASK,
         self::CATEGORY_REMINDER,
@@ -67,6 +71,8 @@ final class ToolCapabilityRegistry
         self::CATEGORY_LINK,
         self::CATEGORY_PLAN,
         self::CATEGORY_WORKOUT,
+        self::CATEGORY_SEARCH,
+        self::CATEGORY_QUESTION,
     ];
 
     /**
@@ -84,6 +90,8 @@ final class ToolCapabilityRegistry
         'report' => ['report_generate'],
         'plan' => ['plan_propose'],
         'workout' => ['workout_plan_propose'],
+        'search' => ['workspace_search'],
+        'question' => ['ask_user_choice'],
     ];
 
     /**
@@ -114,6 +122,8 @@ final class ToolCapabilityRegistry
         'report_generate' => ['category' => 'report', 'desc' => 'Read-only workspace summary (today/week/month)', 'access' => 'owner-only, read-only'],
         'plan_propose' => ['category' => 'plan', 'desc' => 'Propose a multi-project/routine build as one plan', 'access' => 'owner-only, phase-by-phase after approval'],
         'workout_plan_propose' => ['category' => 'workout', 'desc' => 'Propose a structured 7-day workout plan', 'access' => 'owner-only, via import preview after approval'],
+        'workspace_search' => ['category' => 'search', 'desc' => 'Search own projects/tasks/notes/routines/reminders by name (search-before-create)', 'access' => 'owner-only, read-only'],
+        'ask_user_choice' => ['category' => 'question', 'desc' => 'Ask the user to pick 2-5 labeled options instead of guessing', 'access' => 'owner-only, chosen option re-validated as a normal proposal'],
     ];
 
     /**
@@ -134,11 +144,15 @@ final class ToolCapabilityRegistry
         // 'file' maps to no tool category (no file tools exist).
     ];
 
-    /** READ-only, always-safe fallback for unclear intents. */
-    public const SAFE_FALLBACK = ['report_generate'];
+    /**
+     * Always-safe fallback for unclear intents: READ-only search/report plus
+     * the interaction tool (zero mutation surface — the choice itself only
+     * proposes a normal, separately-confirmed pending action).
+     */
+    public const SAFE_FALLBACK = ['report_generate', 'workspace_search', 'ask_user_choice'];
 
     /** Alias kept for router call sites (same safe set). */
-    public const SAFE_SET = ['report_generate'];
+    public const SAFE_SET = self::SAFE_FALLBACK;
 
     /* ── Lookups ─────────────────────────────────────────────── */
 
@@ -227,7 +241,9 @@ final class ToolCapabilityRegistry
                 return [];
             case \App\Services\AiIntentRouter::INTENT_QUERY:
             case \App\Services\AiIntentRouter::INTENT_REPORT:
-                return self::CATEGORY_TOOLS['report'];
+                // Search before answer + the choice tool for "which one?" —
+                // both READ/interaction, zero extra mutation surface.
+                return self::toolsForCategories(['report', 'search', 'question']);
             case \App\Services\AiIntentRouter::INTENT_WORKOUT:
                 return self::CATEGORY_TOOLS['workout'];
             case \App\Services\AiIntentRouter::INTENT_PLAN:
