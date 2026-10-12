@@ -1189,6 +1189,98 @@
     .pl-avoid-history-btn{padding:4px 10px;border-radius:16px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:11px;font-weight:700;cursor:pointer;}
     .pl-avoid-history-btn:hover{border-color:#c4b5fd;color:#7c3aed;}
     .pl-avoid-last{font-size:11px;color:#8a8f98;}
+
+    /* ── Day Log (دفتر روز) — visual prototype: no persistence yet ── */
+    .lg-section{border-color:#ddd6fe;box-shadow:0 2px 12px rgba(124,58,237,.07);}
+    .lg-section .pl-section-head{background:linear-gradient(135deg,#faf5ff 0%,#f5f3ff 100%);border-bottom:1px solid #ede9fe;}
+    .lg-beta{font-size:9.5px;font-weight:800;letter-spacing:.02em;background:#ede9fe;color:#6d28d9;border-radius:20px;padding:2px 8px;text-transform:uppercase;}
+    .lg-head-sub{font-size:11px;color:#8a8f98;font-weight:600;}
+    .lg-body{padding:12px;display:flex;flex-direction:column;gap:10px;}
+    .lg-stats{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#fafbfc;border:1px dashed #e5e7eb;border-radius:10px;padding:8px 12px;font-size:11.5px;color:#64748b;font-weight:600;}
+    .lg-stats strong{color:#0f172a;font-weight:800;}
+    .lg-spark{margin-inline-start:auto;display:flex;align-items:flex-end;gap:3px;height:22px;}
+    .lg-spark b{display:block;width:7px;border-radius:2px;background:#ddd6fe;}
+    .lg-spark b.on{background:#7c3aed;}
+    .lg-spark em{font-style:normal;font-size:10px;color:#94a3b8;align-self:center;margin-inline-end:4px;}
+    .lg-nudge{border:1px solid #e0e7ff;background:linear-gradient(135deg,#f8faff 0%,#eef2ff 100%);border-radius:12px;padding:11px 13px;display:flex;gap:11px;align-items:flex-start;}
+    .lg-nudge.avoid{border-color:#fee2e2;background:linear-gradient(135deg,#fffafb 0%,#fff1f2 100%);}
+    .lg-nudge-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#e0e7ff;color:#4338ca;flex-shrink:0;}
+    .lg-nudge.avoid .lg-nudge-icon{background:#fee2e2;color:#b91c1c;}
+    .lg-nudge-text{font-size:12.5px;color:#334155;font-weight:600;line-height:1.7;flex:1;}
+    .lg-nudge-text b{color:#1e293b;font-weight:800;}
+    .lg-nudge-acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+    .lg-nudge-acts button{font-family:inherit;font-size:11.5px;font-weight:700;border-radius:9px;padding:6px 12px;cursor:pointer;border:1px solid transparent;}
+    .lg-nudge-yes{background:var(--primary-600,#4f46e5);color:#fff;}
+    .lg-nudge-yes:hover{background:var(--primary-700,#4338ca);}
+    .lg-nudge.avoid .lg-nudge-yes{background:var(--error-600,#dc2626);}
+    .lg-nudge.avoid .lg-nudge-yes:hover{background:#b91c1c;}
+    .lg-nudge-later{background:#fff;border-color:#e5e7eb;color:#64748b;}
+    .lg-nudge-later:hover{color:#334155;border-color:#cbd5e1;}
+    .lg-capture{border:1px solid #e9e9ee;border-radius:12px;background:#fff;padding:12px;display:flex;flex-direction:column;gap:10px;}
+    .lg-capture-top{display:flex;gap:8px;align-items:center;}
+    .lg-input-wrap{position:relative;flex:1;}
+    .lg-input{width:100%;border:1.5px solid #e5e7eb;border-radius:10px;padding:9px 12px;font-size:13.5px;font-weight:600;color:#1e293b;background:#fff;outline:none;font-family:inherit;}
+    .lg-input:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.14);}
+    .lg-input::placeholder{color:#a8adb8;font-weight:500;}
+    .lg-suggest{position:absolute;top:calc(100% + 4px);inset-inline:0;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:var(--shadow-md);z-index:60;overflow-y:auto;max-height:230px;display:none;}
+    .lg-suggest.show{display:block;}
+    .lg-suggest-item{padding:8px 12px;font-size:12.5px;font-weight:600;color:#1e293b;display:flex;align-items:center;gap:8px;cursor:pointer;}
+    .lg-suggest-item:hover,.lg-suggest-item.active{background:#f5f3ff;}
+    .lg-suggest-item small{margin-inline-start:auto;color:#94a3b8;font-weight:600;font-size:11px;}
+    .lg-suggest-empty{padding:10px 12px;font-size:12px;color:#94a3b8;}
+    .lg-kind-switch{display:flex;background:#f1f5f9;border-radius:9px;padding:3px;gap:2px;flex-shrink:0;}
+    .lg-kind-btn{border:0;background:transparent;font-family:inherit;font-size:11.5px;font-weight:700;color:#64748b;padding:6px 11px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:5px;}
+    .lg-kind-btn.active{background:#fff;color:#0f172a;box-shadow:0 2px 5px rgba(0,0,0,.06);}
+    .lg-modes{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+    .lg-mode-btn{border:1px solid #e5e7eb;background:#fff;border-radius:9px;padding:6px 12px;font-family:inherit;font-size:11.5px;font-weight:700;color:#64748b;cursor:pointer;display:flex;align-items:center;gap:6px;}
+    .lg-mode-btn:hover{border-color:#c7d2fe;color:#4338ca;background:#f8faff;}
+    .lg-mode-btn.active{background:#eef2ff;border-color:#a5b4fc;color:#4338ca;}
+    .lg-fields{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    .lg-fields[hidden]{display:none;}
+    .lg-note-row{display:flex;align-items:center;gap:8px;border-top:1px dashed #eef0f3;padding-top:10px;}
+    .lg-note-row .lg-input{flex:1;width:auto;}
+    .lg-num{width:74px;border:1px solid #e5e7eb;border-radius:9px;padding:7px 9px;font-family:inherit;font-size:12.5px;font-weight:700;color:#1e293b;text-align:center;}
+    .lg-sel,.lg-time{border:1px solid #e5e7eb;border-radius:9px;padding:7px 9px;font-family:inherit;font-size:12px;font-weight:600;color:#334155;background:#fff;}
+    .lg-time{width:96px;}
+    .lg-tilde{color:#94a3b8;font-weight:700;}
+    .lg-quick{display:flex;gap:5px;flex-wrap:wrap;}
+    .lg-quick button{border:1px solid #e5e7eb;background:#fafbfc;border-radius:20px;padding:4px 11px;font-family:inherit;font-size:11px;font-weight:700;color:#5b6472;cursor:pointer;}
+    .lg-quick button:hover{border-color:#c7d2fe;background:#f5f3ff;color:#4338ca;}
+    .lg-label{font-size:11.5px;font-weight:600;color:#8a8f98;}
+    .lg-chips{display:flex;gap:5px;flex-wrap:wrap;}
+    .lg-chip-btn{border:1px solid #e5e7eb;background:#fff;border-radius:20px;padding:4px 11px;font-family:inherit;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;display:flex;align-items:center;gap:5px;}
+    .lg-chip-btn.active{border-color:currentColor;background:#fafbfc;}
+    .lg-capture-bottom{display:flex;align-items:center;gap:10px;border-top:1px dashed #eef0f3;padding-top:10px;}
+    .lg-preview{font-size:11.5px;color:#8a8f98;font-weight:600;display:flex;align-items:center;gap:6px;flex:1;flex-wrap:wrap;}
+    .lg-preview em{font-style:normal;color:#4338ca;font-weight:700;}
+    .lg-save{border:0;background:var(--primary-600,#4f46e5);color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;padding:9px 18px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:7px;box-shadow:0 4px 10px rgba(79,70,229,.25);}
+    .lg-save:hover{background:var(--primary-700,#4338ca);}
+    .lg-save:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+    .lg-group-head{display:flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;color:#64748b;padding:8px 4px 3px;}
+    .lg-group-head i{font-size:12px;}
+    .lg-group-line{flex:1;height:1px;background:#f1f5f9;}
+    .lg-rows{display:flex;flex-direction:column;gap:6px;}
+    .lg-row{display:flex;align-items:flex-start;gap:10px;border:1px solid #eceef1;border-radius:10px;padding:9px 11px;background:#fff;}
+    .lg-row:hover{border-color:#d8dae0;box-shadow:0 3px 12px rgba(0,0,0,.05);}
+    .lg-row.is-journal{background:#fffdf8;border-color:#f3e8d1;border-style:dashed;}
+    .lg-badge{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex-shrink:0;font-size:13px;font-weight:800;background:#f5f3ff;color:var(--c,#7c3aed);}
+    .lg-row-body{flex:1;min-width:0;}
+    .lg-row-title{font-size:13.5px;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:7px;flex-wrap:wrap;line-height:1.5;word-break:break-word;}
+    .lg-row.is-journal .lg-row-title{font-weight:600;font-style:italic;color:#57534e;}
+    .lg-row-note{font-size:11.5px;color:#8a8f98;margin-top:2px;line-height:1.6;}
+    .lg-tag{font-size:10.5px;font-weight:700;border-radius:20px;padding:1px 8px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
+    .lg-tag.time{background:#eef2ff;color:#4338ca;}
+    .lg-tag.amount{background:#ecfdf5;color:#047857;}
+    .lg-tag.period{background:#f5f3ff;color:#6d28d9;}
+    .lg-tag.mood{background:#fff7ed;color:#c2410c;}
+    .lg-tag.faint{background:#fafafa;color:#a8adb8;border:1px dashed #e5e7eb;}
+    .lg-row-acts{display:flex;align-items:center;gap:5px;flex-shrink:0;opacity:.5;transition:opacity .18s;align-self:center;}
+    .lg-row:hover .lg-row-acts,.lg-row:focus-within .lg-row-acts{opacity:1;}
+    .lg-act{width:27px;height:27px;display:grid;place-items:center;padding:0;border:1px solid #e3e4e8;background:#fff;color:#5b6472;border-radius:8px;cursor:pointer;font-size:12px;}
+    .lg-act:hover{border-color:#c7d2fe;color:#4338ca;background:#f8faff;}
+    .lg-act.danger:hover{border-color:#fca5a5;color:#dc2626;background:#fef2f2;}
+    .lg-inline-edit{border:1.5px solid #8b5cf6;border-radius:8px;padding:4px 8px;font-family:inherit;font-size:13px;font-weight:700;color:#1e293b;outline:none;width:min(320px,100%);}
+    .lg-foot-note{font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:6px;padding:2px 4px;}
 </style>
 @endpush
 
@@ -1382,6 +1474,122 @@
                 </div>
             </div>
         @endif
+
+        {{-- ── Day Log (دفتر روز) — visual prototype only: entries live in the
+             browser and are NOT persisted yet (no routes, no tables). ── --}}
+        <div class="pl-section lg-section" id="lgSection">
+            <div class="pl-section-head">
+                <i class="bi bi-journal-text" style="color:#7c3aed;"></i>
+                <span class="pl-section-title">{{ __('Day Log') }}</span>
+                <span class="lg-head-sub">{{ __('What you actually did today') }}</span>
+                <span class="lg-beta">{{ __('Preview') }}</span>                    <span class="pl-section-count" id="lgCount"></span>
+            </div>
+            <div class="lg-body">
+
+                {{-- Today at a glance --}}
+                <div class="lg-stats">
+                    <i class="bi bi-hourglass-split" style="color:#7c3aed;"></i>
+                    <span>{{ __('Logged today') }} <strong id="lgTotal"></strong></span>
+                    <span>·</span>
+                    <span><strong id="lgEntriesCount"></strong> <span id="lgEntriesLabel">{{ __('activities') }}</span></span>
+                    <span id="lgJournalWrap" hidden>· <strong id="lgJournalsCount"></strong> <span id="lgJournalsLabel">{{ __('mood notes') }}</span></span>
+                    <span class="lg-spark" id="lgSpark" title="{{ __('Last 7 days') }}"></span>
+                </div>
+
+                {{-- Pattern suggestions (habit / quit-habit) --}}
+                <div id="lgNudges"></div>
+
+                {{-- Quick capture --}}
+                <div class="lg-capture">
+                    <div class="lg-capture-top">
+                        <div class="lg-input-wrap">
+                            <input type="text" class="lg-input" id="lgInput" autocomplete="off"
+                                   aria-label="{{ __('Log a new activity') }}"
+                                   placeholder="{{ __('e.g. played piano…') }}">
+                            <div class="lg-suggest" id="lgSuggest" role="listbox"></div>
+                        </div>
+                        <div class="lg-kind-switch" role="group" aria-label="{{ __('Entry type') }}">
+                            <button type="button" class="lg-kind-btn active" data-lg-kind="activity">
+                                <i class="bi bi-activity"></i> {{ __('Log entry') }}
+                            </button>
+                            <button type="button" class="lg-kind-btn" data-lg-kind="journal">
+                                <i class="bi bi-chat-quote"></i> {{ __('Mood / sentence') }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="lgTimeArea">
+                        <div class="lg-modes" role="group" aria-label="{{ __('How long') }}">
+                            <button type="button" class="lg-mode-btn" data-lg-mode="none"><i class="bi bi-slash-circle"></i> {{ __('Untimed') }}</button>
+                            <button type="button" class="lg-mode-btn active" data-lg-mode="duration"><i class="bi bi-stopwatch"></i> {{ __('Duration / amount') }}</button>
+                            <button type="button" class="lg-mode-btn" data-lg-mode="range"><i class="bi bi-clock-history"></i> {{ __('Clock to clock') }}</button>
+                            <button type="button" class="lg-mode-btn" data-lg-mode="period"><i class="bi bi-sunset"></i> {{ __('Time of day') }}</button>
+                        </div>
+
+                        <div class="lg-fields" id="lgFields" style="margin-top:10px;">
+                            <div class="lg-fields" id="lgFieldsDuration">
+                                <input type="number" class="lg-num" id="lgAmount" min="1" step="1" value="45" aria-label="{{ __('Amount') }}">
+                                <select class="lg-sel" id="lgUnit" aria-label="{{ __('Unit') }}">
+                                    <option>{{ __('minute') }}</option>
+                                    <option>{{ __('hour') }}</option>
+                                    <option>{{ __('page') }}</option>
+                                    <option>{{ __('verse') }}</option>
+                                    <option>{{ __('time(s)') }}</option>
+                                    <option>{{ __('km') }}</option>
+                                </select>
+                                <div class="lg-quick">
+                                    @foreach([15, 30, 45, 60, 90] as $lgQuickMinutes)
+                                        @php
+                                            $lgIsHours = $lgQuickMinutes >= 60;
+                                            $lgQuickLabel = $lgIsHours
+                                                ? rtrim(rtrim(number_format($lgQuickMinutes / 60, 1, '.', ''), '0'), '.')
+                                                : $lgQuickMinutes;
+                                        @endphp
+                                        <button type="button" data-lg-val="{{ $lgQuickMinutes }}">{{ app_num($lgQuickLabel) }}{{ $lgIsHours ? __('h') : __('m') }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="lg-fields" id="lgFieldsRange" hidden>
+                                <input type="time" class="lg-time" id="lgStart" value="19:30" aria-label="{{ __('From') }}">
+                                <span class="lg-tilde">{{ __('to') }}</span>
+                                <input type="time" class="lg-time" id="lgEnd" value="20:15" aria-label="{{ __('To') }}">
+                            </div>
+                        </div>
+
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;">
+                            <span class="lg-label">{{ __('Time of day (optional):') }}</span>
+                            <div class="lg-chips" id="lgPeriodChips"></div>
+                        </div>
+                    </div>
+
+                    <div class="lg-note-row">
+                        <i class="bi bi-pencil-square" style="color:#a8adb8;flex-shrink:0;"></i>
+                        <input type="text" class="lg-input" id="lgNote" style="font-weight:500;font-size:12.5px;"
+                               aria-label="{{ __('Short note (optional)') }}"
+                               placeholder="{{ __('Short note (optional) — e.g. read 12 pages…') }}">
+                    </div>
+
+                    <div class="lg-capture-bottom">
+                        <span class="lg-preview" id="lgPreview"></span>
+                        <button type="button" class="lg-save" id="lgSave" disabled>
+                            <i class="bi bi-plus-lg"></i> {{ __('Save to Day Log') }}
+                        </button>
+                    </div>
+                </div>
+
+                {{-- Logged entries --}}
+                <div class="lg-rows" id="lgRows" role="list"></div>
+
+                <div class="lg-foot-note">
+                    <i class="bi bi-info-circle"></i>
+                    {{ __('Not commitments — just a record. That is why they have no checkbox.') }}
+                </div>
+                <div class="lg-foot-note" style="color:#c4b5fd;">
+                    <i class="bi bi-cone-striped"></i>
+                    {{ __('Prototype: entries stay in the browser and are not saved yet.') }}
+                </div>
+            </div>
+        </div>
     @else
         {{-- Week view: clean day columns with period sections + inline add --}}
         @php
@@ -4528,6 +4736,545 @@
 
     /* Floating bar boot is handled by the global TM store (time/_store) which
        auto-syncs /time/active and pushes state into plRenderFloatingBar. */
+})();
+</script>
+@endpush
+@push('scripts')
+<script>
+/* ── Day Log (دفتر روز) — VISUAL PROTOTYPE ───────────────────────────────────
+   Nothing here is persisted: entries live in JS memory only (no routes, no
+   tables, no migrations). It reuses plShowToast() and the real quick-add habit
+   form so the flow can be judged before the backend is built.
+   ─────────────────────────────────────────────────────────────────────────── */
+@php
+    $lgPeriods = collect(config('routines.periods', []))->map(fn ($p, $k) => [
+        'key' => $k, 'label' => __($p['label']), 'icon' => $p['icon'],
+        'color' => $p['color'], 'at' => $p['at'],
+    ])->values()->all();
+@endphp
+(function () {
+    const root = document.getElementById('lgSection');
+    if (!root) { return; }   // day view only
+
+    const I18N = {
+        noTitle:    @json(__('No title')),
+        logged:     @json(__('Logged')),
+        removed:    @json(__('Removed from Day Log')),
+        untimed:    @json(__('No time logged yet')),
+        noPeriod:   @json(__('No specific time of day')),
+        and:        @json(__('and')),
+        minutes:    @json(__('minute')),
+        minutesPlural: @json(__('minutes')),
+        hoursUnit:  @json(__('hour')),
+        hoursPlural: @json(__('hours')),
+        activityOne: @json(__('activity')),
+        activityMany: @json(__('activities')),
+        moodOne:    @json(__('mood note')),
+        moodMany:   @json(__('mood notes')),
+        moodLabel:  @json(__('Mood')),
+        week:       @json(__('Week')),
+        empty:      @json(__('Nothing logged for today yet.')),
+        emptySub:   @json(__('Log anything you did — even something small.')),
+        turned:     @json(__('Turned into an activity — add a time or a time of day')),
+        prefilled:  @json(__('Form pre-filled from this entry')),
+        habitNudge: @json(__('You logged ":name" :count times in the last 3 weeks. Make it a habit? (If not, just keep logging it.)')),
+        habitYes:   @json(__('Yes, make it a habit')),
+        quitNudge:  @json(__('You logged ":name" :count times this week. Define it as something you are quitting, so clean days and slips get counted?')),
+        quitYes:    @json(__('Define as a quit habit')),
+        later:      @json(__('Later')),
+        beStill:    @json(__('Okay — I will stop suggesting this.')),
+    };
+
+    /* Periods are pre-built in the @php block above: handing the json directive
+       a nested expression breaks Blade's parser, so we pass a plain variable. */
+    const PERIODS = @json($lgPeriods);
+
+    const TIME_UNITS = [I18N.minutes, I18N.hoursUnit];
+    const CYCLE = ['#7c3aed', '#0ea5e9', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#0e7490'];
+    /* Same rule as the app_num() helper: Persian digits only for the fa locale. */
+    const IS_FA = @json(app()->getLocale() === 'fa');
+    const NUM = n => IS_FA ? String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]) : String(n);
+    const plural = (n, one, many) => n === 1 ? one : many;
+    const esc = s => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const periodOf = key => PERIODS.find(p => p.key === key) || null;
+
+    /* Sample catalog — what this user has logged before (drives the suggestions). */
+    const catalog = [
+        { name: @json(__('Playing piano')),     uses: 7,  icon: 'bi-music-note-beamed', unit: 0 },
+        { name: @json(__('Reading a book')),   uses: 12, icon: 'bi-book',              unit: 2 },
+        { name: @json(__('Working on music')), uses: 4,  icon: 'bi-soundwave',         unit: 0 },
+        { name: @json(__('Memorizing a poem')), uses: 3, icon: 'bi-vector-pen',        unit: 3 },
+        { name: @json(__('Walking')),          uses: 9,  icon: 'bi-person-walking',    unit: 0 },
+        { name: @json(__('Smoking')),          uses: 5,  icon: 'bi-fire',              unit: 4, avoid: true },
+        { name: @json(__('Meeting')),          uses: 6,  icon: 'bi-people',            unit: 0 },
+    ].map((c, i) => Object.assign(c, { id: 'lc' + i, color: CYCLE[i % CYCLE.length] }));
+
+    /* Sample entries for the selected day (prototype data, memory only). */
+    let seq = 100;
+    const entries = [
+        { id: ++seq, actId: 'lc0', title: catalog[0].name, kind: 'activity', mode: 'range',
+          start: '19:30', end: '20:15', seconds: 2700, period: 'evening',
+          note: @json(__('Practice — new piece')), icon: 'bi-music-note-beamed', color: '#7c3aed' },
+        { id: ++seq, actId: 'lc1', title: catalog[1].name, kind: 'activity', mode: 'duration',
+          amount: 12, amountUnit: @json(__('page')), period: 'afternoon',
+          note: @json(__('Chapter 4')), icon: 'bi-book', color: '#0ea5e9' },
+        { id: ++seq, actId: 'lc3', title: catalog[3].name, kind: 'activity', mode: 'period',
+          period: 'morning', note: null, icon: 'bi-vector-pen', color: '#f59e0b' },
+        { id: ++seq, actId: 'lc2', title: catalog[2].name, kind: 'activity', mode: 'duration',
+          seconds: 5400, period: 'night', note: null, icon: 'bi-soundwave', color: '#ec4899' },
+        { id: ++seq, actId: null, title: @json(__('Woke up early and felt full of energy today.')),
+          kind: 'journal', mode: 'none', mood: 8, period: null, note: null,
+          icon: 'bi-chat-quote', color: '#a16207' },
+    ];
+
+    const dismissed = {};
+    const sessionAdds = {};
+    let activeIdx = -1;
+
+    const state = { kind: 'activity', mode: 'duration', unit: I18N.minutes, period: 'evening',
+                    actId: null, amount: 45, start: '19:30', end: '20:15' };
+
+    const $ = id => document.getElementById(id);
+    const input = $('lgInput');
+    const suggestBox = $('lgSuggest');
+
+    function humanDuration(sec) {
+        const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+        const hours = NUM(h) + ' ' + plural(h, I18N.hoursUnit, I18N.hoursPlural);
+        const mins = NUM(m) + ' ' + plural(m, I18N.minutes, I18N.minutesPlural);
+        if (h && m) { return hours + ' ' + I18N.and + ' ' + mins; }
+        return h ? hours : mins;
+    }
+    const clockRange = e => (e.start && e.end)
+        ? NUM(e.start) + ' ' + @json(__('to')) + ' ' + NUM(e.end) : null;
+
+    function groupOf(e) {
+        if (e.period) { return e.period; }
+        if (e.mode === 'range' && e.start) {
+            const h = parseInt(e.start.split(':')[0], 10);
+            let best = PERIODS.length ? PERIODS[0].key : 'unscheduled';
+            PERIODS.forEach(p => { if (h >= p.at - 3) { best = p.key; } });
+            return best;
+        }
+        return 'unscheduled';
+    }
+
+    function rowHtml(e) {
+        const isJ = e.kind === 'journal';
+        const tags = [];
+        if (e.mode === 'range' && clockRange(e)) {
+            tags.push('<span class="lg-tag time"><i class="bi bi-clock-history"></i> ' + clockRange(e) + '</span>');
+        }
+        if (e.seconds) {
+            tags.push('<span class="lg-tag time"><i class="bi bi-stopwatch"></i> ' + humanDuration(e.seconds) + '</span>');
+        }
+        if (e.amount && e.amountUnit) {
+            tags.push('<span class="lg-tag amount"><i class="bi bi-hash"></i> ' + NUM(e.amount) + ' ' + esc(e.amountUnit) + '</span>');
+        }
+        if (e.period && periodOf(e.period)) {
+            const p = periodOf(e.period);
+            tags.push('<span class="lg-tag period"><i class="bi ' + p.icon + '"></i> ' + p.label + '</span>');
+        }
+        if (!e.seconds && !e.amount && !e.period && !isJ) {
+            tags.push('<span class="lg-tag faint">' + esc(I18N.untimed) + '</span>');
+        }
+        if (isJ && e.mood) {
+            tags.push('<span class="lg-tag mood">' + esc(I18N.moodLabel) + ' ' + NUM(e.mood) + '/' + NUM(10) + '</span>');
+        }
+
+        return '' +
+            '<div class="lg-row ' + (isJ ? 'is-journal' : '') + '" data-lg-id="' + e.id + '" role="listitem">' +
+                '<span class="lg-badge" style="--c:' + e.color + '">' +
+                    (e.icon ? '<i class="bi ' + e.icon + '"></i>' : esc(e.title.trim().charAt(0))) +
+                '</span>' +
+                '<div class="lg-row-body">' +
+                    '<div class="lg-row-title" data-lg-title>' + esc(e.title) + tags.join('') + '</div>' +
+                    (e.note ? '<div class="lg-row-note"><i class="bi bi-chat-left-text"></i> ' + esc(e.note) + '</div>' : '') +
+                '</div>' +
+                '<div class="lg-row-acts">' +
+                    (isJ
+                        ? '<button type="button" class="lg-act" data-lg-act="activity" title="' + esc(@json(__('Turn into an activity'))) + '"><i class="bi bi-arrow-left-right"></i></button>'
+                        : '<button type="button" class="lg-act" data-lg-act="habit" title="' + esc(@json(__('Convert to habit'))) + '"><i class="bi bi-arrow-repeat"></i></button>') +
+                    '<button type="button" class="lg-act" data-lg-act="edit" title="' + esc(@json(__('Edit'))) + '"><i class="bi bi-pencil"></i></button>' +
+                    '<button type="button" class="lg-act danger" data-lg-act="delete" title="' + esc(@json(__('Delete'))) + '"><i class="bi bi-trash"></i></button>' +
+                '</div>' +
+            '</div>';
+    }
+
+    function renderRows() {
+        const groups = {};
+        entries.forEach(e => { const k = groupOf(e); (groups[k] = groups[k] || []).push(e); });
+
+        const order = PERIODS.map(p => p.key).concat(['unscheduled']);
+        let html = '', shown = 0;
+
+        order.forEach(key => {
+            const rows = groups[key];
+            if (!rows || !rows.length) { return; }
+            const p = periodOf(key);
+            html += '<div class="lg-group-head">' + (p
+                ? '<i class="bi ' + p.icon + '" style="color:' + p.color + '"></i><span>' + p.label + '</span>'
+                : '<i class="bi bi-dash-circle" style="color:#94a3b8"></i><span>' + esc(I18N.noPeriod) + '</span>') +
+                '<span class="lg-group-line"></span></div>';
+            html += '<div class="lg-rows">' + rows.map(rowHtml).join('') + '</div>';
+            shown += rows.length;
+        });
+
+        if (!shown) {
+            html = '<div class="pl-empty"><i class="bi bi-journal"></i>' + esc(I18N.empty) +
+                   '<br><span style="font-size:11.5px">' + esc(I18N.emptySub) + '</span></div>';
+        }
+        $('lgRows').innerHTML = html;
+    }
+
+    function renderStats() {
+        const secs = entries.reduce((s, e) => s + (e.seconds || 0), 0);
+        const journals = entries.filter(e => e.kind === 'journal').length;
+        const activities = entries.length - journals;
+        $('lgTotal').textContent = secs ? humanDuration(secs) : I18N.untimed;
+        $('lgEntriesCount').textContent = NUM(activities);
+        $('lgEntriesLabel').textContent = plural(activities, I18N.activityOne, I18N.activityMany);
+        $('lgCount').textContent = NUM(entries.length);
+        $('lgJournalWrap').hidden = journals === 0;
+        $('lgJournalsCount').textContent = NUM(journals);
+        $('lgJournalsLabel').textContent = plural(journals, I18N.moodOne, I18N.moodMany);
+    }
+
+    /* Last-7-days sparkline (sample shape — the real one will come from data). */
+    function renderSpark() {
+        const heights = [9, 16, 22, 12, 18, 8, 20];
+        $('lgSpark').innerHTML = '<em>' + esc(I18N.week) + '</em>' + heights
+            .map((h, i) => '<b class="' + (i >= 4 ? 'on' : '') + '" style="height:' + h + 'px"></b>').join('');
+    }
+
+    function nudgeCard(id, opts) {
+        return '<div class="lg-nudge ' + (opts.avoid ? 'avoid' : '') + '" data-lg-nudge="' + id + '">' +
+            '<span class="lg-nudge-icon"><i class="bi ' + (opts.avoid ? 'bi-fire' : 'bi-lightbulb') + '"></i></span>' +
+            '<div class="lg-nudge-text">' + opts.text +
+                '<div class="lg-nudge-acts">' +
+                    '<button type="button" class="lg-nudge-yes" data-lg-nudge-yes="' + id + '">' + esc(opts.yes) + '</button>' +
+                    '<button type="button" class="lg-nudge-later" data-lg-nudge-later="' + id + '">' + esc(I18N.later) + '</button>' +
+                '</div></div></div>';
+    }
+
+    function renderNudges() {
+        const cards = [];
+        if (!dismissed.piano) {
+            cards.push(nudgeCard('piano', {
+                text: esc(I18N.habitNudge).replace(':name', '<b>' + esc(catalog[0].name) + '</b>').replace(':count', '<b>' + NUM(5) + '</b>'),
+                yes: I18N.habitYes,
+            }));
+        }
+        if (!dismissed.quit) {
+            cards.push(nudgeCard('quit', {
+                avoid: true,
+                text: esc(I18N.quitNudge).replace(':name', '<b>' + esc(catalog[5].name) + '</b>').replace(':count', '<b>' + NUM(4) + '</b>'),
+                yes: I18N.quitYes,
+            }));
+        }
+        Object.keys(sessionAdds).forEach(name => {
+            const key = 'live:' + name;
+            if (dismissed[key] || sessionAdds[name] < 3) { return; }
+            cards.push(nudgeCard(key, {
+                text: esc(@json(__('You logged ":name" three times just now. Shall we make it a habit?'))).replace(':name', '<b>' + esc(name) + '</b>'),
+                yes: I18N.habitYes,
+            }));
+        });
+        $('lgNudges').innerHTML = cards.length
+            ? '<div style="display:flex;flex-direction:column;gap:8px">' + cards.join('') + '</div>'
+            : '';
+    }
+
+    function renderChips() {
+        $('lgPeriodChips').innerHTML = PERIODS.map(p =>
+            '<button type="button" class="lg-chip-btn ' + (state.period === p.key ? 'active' : '') + '"' +
+            ' data-lg-period="' + p.key + '" style="color:' + p.color + '">' +
+            '<i class="bi ' + p.icon + '"></i> ' + p.label + '</button>').join('');
+    }
+
+    function previewText() {
+        if (state.kind === 'journal') {
+            return esc(@json(__('A mood sentence — no time, not counted in the day totals.')));
+        }
+        const parts = ['<em>' + esc(input.value.trim() || I18N.noTitle) + '</em>'];
+        if (state.mode === 'duration' && state.amount) {
+            parts.push('<em>' + NUM(state.amount) + ' ' + esc(state.unit) + '</em>');
+        }
+        if (state.mode === 'range') {
+            parts.push('<em>' + NUM(state.start) + ' ' + esc(@json(__('to'))) + ' ' + NUM(state.end) + '</em>');
+        }
+        if (state.mode === 'period') {
+            parts.push('<em>' + (periodOf(state.period) ? periodOf(state.period).label : '—') + '</em>');
+        } else if (state.period && periodOf(state.period)) {
+            parts.push('<em>' + periodOf(state.period).label + '</em>');
+        }
+        return esc(@json(__('Will be saved:'))) + ' ' + parts.join(' · ');
+    }
+
+    function render() {
+        renderRows();
+        renderStats();
+        renderNudges();
+        renderChips();
+        $('lgPreview').innerHTML = previewText();
+        $('lgSave').disabled = !input.value.trim();
+    }
+
+    /* ── autocomplete over the catalog ── */
+    function openSuggest() {
+        const q = input.value.trim();
+        let list = catalog.slice().sort((a, b) => b.uses - a.uses);
+        if (q) { list = list.filter(c => c.name.indexOf(q) >= 0); }
+        suggestBox.innerHTML = list.slice(0, 6).map(c =>
+            '<div class="lg-suggest-item" data-lg-pick="' + c.id + '" role="option">' +
+                '<i class="bi ' + c.icon + '" style="color:' + c.color + '"></i>' + esc(c.name) +
+                '<small>' + NUM(c.uses) + ' ' + esc(@json(__('times before'))) + '</small>' +
+            '</div>').join('') ||
+            '<div class="lg-suggest-empty">' + esc(@json(__('New one — log it as is and it will be suggested from now on.'))) + '</div>';
+        suggestBox.classList.add('show');
+        activeIdx = -1;
+    }
+    const closeSuggest = () => suggestBox.classList.remove('show');
+
+    function pick(id) {
+        const c = catalog.find(x => x.id === id);
+        if (!c) { return; }
+        input.value = c.name;
+        state.actId = c.id;
+        if (c.unit !== undefined && $('lgUnit').options[c.unit]) {
+            state.unit = $('lgUnit').options[c.unit].value;
+            $('lgUnit').selectedIndex = c.unit;
+        }
+        closeSuggest();
+        $('lgSave').disabled = false;
+        render();
+    }
+
+    input.addEventListener('focus', openSuggest);
+    input.addEventListener('input', () => { state.actId = null; render(); openSuggest(); });
+    input.addEventListener('keydown', ev => {
+        const items = Array.from(suggestBox.querySelectorAll('.lg-suggest-item'));
+        if (ev.key === 'ArrowDown' && items.length) { ev.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); }
+        else if (ev.key === 'ArrowUp' && items.length) { ev.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); }
+        else if (ev.key === 'Enter') {
+            ev.preventDefault();
+            if (suggestBox.classList.contains('show') && items[Math.max(activeIdx, 0)]) {
+                pick(items[Math.max(activeIdx, 0)].dataset.lgPick);
+            } else if (input.value.trim()) {
+                $('lgSave').click();
+            }
+            return;
+        } else if (ev.key === 'Escape') { closeSuggest(); return; }
+        else { activeIdx = -1; }
+        items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+    });
+    suggestBox.addEventListener('mousedown', ev => {
+        const item = ev.target.closest('[data-lg-pick]');
+        if (!item) { return; }
+        ev.preventDefault();
+        pick(item.dataset.lgPick);
+    });
+    document.addEventListener('click', ev => {
+        if (!ev.target.closest('.lg-capture-top')) { closeSuggest(); }
+    });
+
+    /* ── kind switch: activity vs mood sentence ── */
+    root.querySelectorAll('[data-lg-kind]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            root.querySelectorAll('[data-lg-kind]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.kind = btn.dataset.lgKind;
+            $('lgTimeArea').style.display = state.kind === 'journal' ? 'none' : '';
+            input.placeholder = state.kind === 'journal'
+                ? @json(__('What did you feel today? One sentence…'))
+                : @json(__('e.g. played piano…'));
+            render();
+        });
+    });
+
+    /* ── four time modes ── */
+    root.querySelectorAll('[data-lg-mode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            root.querySelectorAll('[data-lg-mode]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.mode = btn.dataset.lgMode;
+            $('lgFieldsDuration').hidden = state.mode !== 'duration';
+            $('lgFieldsRange').hidden = state.mode !== 'range';
+            $('lgFields').hidden = state.mode === 'none';
+            render();
+        });
+    });
+
+    $('lgAmount').addEventListener('input', e => { state.amount = Number(e.target.value) || 0; render(); });
+    $('lgUnit').addEventListener('change', e => { state.unit = e.target.value; render(); });
+    root.querySelectorAll('[data-lg-val]').forEach(b => b.addEventListener('click', () => {
+        $('lgAmount').value = b.dataset.lgVal;
+        state.amount = Number(b.dataset.lgVal);
+        render();
+    }));
+    $('lgStart').addEventListener('input', e => { state.start = e.target.value; render(); });
+    $('lgEnd').addEventListener('input', e => { state.end = e.target.value; render(); });
+    $('lgPeriodChips').addEventListener('click', ev => {
+        const b = ev.target.closest('[data-lg-period]');
+        if (!b) { return; }
+        state.period = (state.mode === 'period' || state.period !== b.dataset.lgPeriod)
+            ? b.dataset.lgPeriod : null;
+        render();
+    });
+
+    /* ── save (memory only) ── */
+    $('lgSave').addEventListener('click', () => {
+        const name = input.value.trim();
+        if (!name) { return; }
+
+        const entry = {
+            id: ++seq, actId: state.actId, title: name, kind: state.kind,
+            mode: state.mode,
+            period: state.kind === 'journal' ? null : state.period,
+            note: $('lgNote').value.trim() || null,
+        };
+
+        if (state.kind === 'journal') {
+            Object.assign(entry, { icon: 'bi-chat-quote', color: '#a16207', mode: 'none', mood: 7 });
+        } else {
+            let c = catalog.find(x => x.id === state.actId) || catalog.find(x => x.name === name);
+            if (!c) {
+                c = { id: 'lc' + catalog.length, name: name, uses: 0, icon: null,
+                      color: CYCLE[catalog.length % CYCLE.length], unit: 0 };
+                catalog.push(c);
+            }
+            c.uses += 1;
+            entry.icon = c.icon;
+            entry.color = c.color;
+            sessionAdds[c.name] = (sessionAdds[c.name] || 0) + 1;
+
+            if (state.mode === 'duration') {
+                if (TIME_UNITS.indexOf(state.unit) >= 0) {
+                    entry.seconds = state.amount * (state.unit === I18N.hoursUnit ? 3600 : 60);
+                } else {
+                    entry.amount = state.amount;
+                    entry.amountUnit = state.unit;
+                }
+            } else if (state.mode === 'range') {
+                const [sh, sm] = state.start.split(':').map(Number);
+                const [eh, em] = state.end.split(':').map(Number);
+                let mins = (eh * 60 + em) - (sh * 60 + sm);
+                if (mins <= 0) { mins += 24 * 60; }
+                entry.seconds = mins * 60;
+                entry.start = state.start;
+                entry.end = state.end;
+                if (!entry.period) { entry.period = groupOf(entry); }
+            }
+        }
+
+        entries.push(entry);
+        input.value = '';
+        $('lgNote').value = '';
+        state.actId = null;
+        render();
+        plShowToast(I18N.logged + ': ' + (state.kind === 'journal' ? @json(__('mood sentence')) : entry.title));
+    });
+
+    /* ── row actions ── */
+    $('lgRows').addEventListener('click', ev => {
+        const btn = ev.target.closest('[data-lg-act]');
+        if (!btn) { return; }
+        const row = btn.closest('.lg-row');
+        const entry = entries.find(x => x.id === Number(row.dataset.lgId));
+        if (!entry) { return; }
+
+        if (btn.dataset.lgAct === 'delete') {
+            const idx = entries.indexOf(entry);
+            entries.splice(idx, 1);
+            render();
+            plShowToast(I18N.removed, () => { entries.splice(idx, 0, entry); render(); });
+        } else if (btn.dataset.lgAct === 'habit') {
+            openHabitForm(entry);
+        } else if (btn.dataset.lgAct === 'activity') {
+            entry.kind = 'activity';
+            entry.icon = null;
+            entry.color = '#7c3aed';
+            entry.mode = 'period';
+            entry.period = state.period || 'evening';
+            delete entry.mood;
+            render();
+            plShowToast(I18N.turned);
+        } else if (btn.dataset.lgAct === 'edit') {
+            inlineEdit(row, entry);
+        }
+    });
+
+    $('lgRows').addEventListener('dblclick', ev => {
+        const titleEl = ev.target.closest('[data-lg-title]');
+        if (!titleEl) { return; }
+        const entry = entries.find(x => x.id === Number(titleEl.closest('.lg-row').dataset.lgId));
+        if (entry) { inlineEdit(titleEl.closest('.lg-row'), entry); }
+    });
+
+    function inlineEdit(row, entry) {
+        const titleEl = row.querySelector('[data-lg-title]');
+        const tags = Array.from(titleEl.querySelectorAll('.lg-tag')).map(t => t.outerHTML).join(' ');
+        titleEl.innerHTML = '<input class="lg-inline-edit" value="' + esc(entry.title) + '" aria-label="' +
+            esc(@json(__('Edit'))) + '">' + tags;
+        const field = titleEl.querySelector('input');
+        field.focus();
+        field.select();
+        let done = false;
+        const commit = () => {
+            if (done) { return; }
+            done = true;
+            if (field.value.trim()) { entry.title = field.value.trim(); }
+            render();
+        };
+        field.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { commit(); }
+            if (e.key === 'Escape') { done = true; render(); }
+        });
+        field.addEventListener('blur', commit);
+    }
+
+    /* Reuses the real quick-add habit form instead of adding a second modal. */
+    function openHabitForm(entry) {
+        if (typeof openQuickAdd !== 'function') { return; }
+        openQuickAdd('routine');
+        const panel = document.querySelector('[data-qa-panel="routine"]');
+        if (!panel) { return; }
+        const title = panel.querySelector('[name="title"]');
+        if (title) { title.value = entry.title; }
+        const period = panel.querySelector('[name="time_period"]');
+        if (period && entry.period) { period.value = entry.period; }
+        plShowToast(I18N.prefilled);
+    }
+
+    /* ── pattern nudges ── */
+    $('lgNudges').addEventListener('click', ev => {
+        const yes = ev.target.closest('[data-lg-nudge-yes]');
+        const later = ev.target.closest('[data-lg-nudge-later]');
+
+        if (later) {
+            dismissed[later.dataset.lgNudgeLater] = true;
+            renderNudges();
+            plShowToast(I18N.beStill);
+            return;
+        }
+        if (!yes) { return; }
+
+        const id = yes.dataset.lgNudgeYes;
+        if (id === 'quit') {
+            dismissed.quit = true;
+            renderNudges();
+            openHabitForm({ title: catalog[5].name, period: state.period });
+            return;
+        }
+        const name = id === 'piano' ? catalog[0].name : id.slice(5);
+        dismissed['live:' + name] = true;
+        renderNudges();
+        openHabitForm({ title: name, period: state.period });
+    });
+
+    renderSpark();
+    render();
 })();
 </script>
 @endpush
