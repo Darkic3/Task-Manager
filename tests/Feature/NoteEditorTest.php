@@ -106,8 +106,10 @@ class NoteEditorTest extends TestCase
             $this->assertStringContainsString('id="ntEdShell"', $html, 'editor shell missing');
             $this->assertStringContainsString('id="ntEdPreview"', $html, 'live preview pane missing');
             $this->assertStringContainsString('nt-draft-bar', $html, 'draft restore banner missing');
-            $this->assertStringContainsString('data-tpl=', $html, 'template gallery missing');
             $this->assertStringContainsString('id="ntEdMention"', $html, 'mention autocomplete missing');
+
+            // The template gallery was removed — no template controls may remain.
+            $this->assertStringNotContainsString('data-tpl=', $html, 'template gallery should be gone');
 
             // The old CDN editor must be gone.
             $this->assertStringNotContainsString('easymde', strtolower($html));
@@ -143,14 +145,17 @@ class NoteEditorTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/id="ntMoodBlock"[^>]*hidden/s', $html);
     }
 
-    public function test_templates_can_be_applied_from_the_sidebar_gallery(): void
+    public function test_kind_selector_still_renders_after_template_removal(): void
     {
         $user = User::factory()->create();
 
         $html = $this->actingAs($user)->get(route('notes.create'))->assertOk()->getContent();
 
+        // The type (kind) dropdown is a separate feature from templates and
+        // must survive their removal.
+        $this->assertStringContainsString('id="ntKind"', $html, 'kind selector missing');
         foreach (\App\Models\Note::KINDS as $kind) {
-            $this->assertStringContainsString('data-tpl="' . $kind . '"', $html);
+            $this->assertStringContainsString('value="' . $kind . '"', $html, "kind {$kind} missing from selector");
         }
     }
 

@@ -726,19 +726,6 @@
     }
     .nt-title-input::placeholder { color: var(--gray-300); }
 
-    /* Template gallery in the sidebar */
-    .nt-tpl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .nt-tpl {
-        display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
-        padding: 8px 9px; border: 1px solid var(--gray-200); border-radius: 10px;
-        background: #fff; cursor: pointer; text-align: start; transition: all .14s;
-    }
-    .nt-tpl:hover { border-color: var(--primary-500); background: var(--primary-50); transform: translateY(-1px); }
-    .nt-tpl.is-on { border-color: var(--primary-600); background: var(--primary-50); box-shadow: inset 0 0 0 1px var(--primary-500); }
-    .nt-tpl i { font-size: .95rem; color: var(--primary-600); }
-    .nt-tpl-name { font-size: .74rem; font-weight: 700; color: var(--gray-800); line-height: 1.3; }
-    .nt-tpl-hint { font-size: .62rem; font-weight: 600; color: var(--gray-400); line-height: 1.35; }
-
     /* Sticky save bar */
     .nt-savebar {
         position: sticky; bottom: 0; z-index: 20;

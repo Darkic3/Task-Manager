@@ -1,15 +1,13 @@
 {{--
     Shared note editor. Self-hosted (no CDN): a Markdown editor with toolbar,
-    live server-rendered preview, @/# autocomplete, local drafts, a template
-    gallery and Zen mode.
+    live server-rendered preview, @/# autocomplete, local drafts and Zen mode.
 
     Expects:
       $note (Note), $notebooks (tree Collection), $labels (Collection),
-      $selectedLabels (array), $kindMeta, $templates (array), $action (url)
+      $selectedLabels (array), $kindMeta, $action (url)
 --}}
 @php
     $isEdit = $note->exists;
-    $templates = $templates ?? [];
 
     // Flatten the notebook tree into indented options.
     $nbOptions = [];
@@ -25,11 +23,6 @@
     // exists in the DOM now and is toggled, so switching the type at runtime
     // works instead of silently hiding the control.
     $showMood = old('kind', $note->kind) === \App\Models\Note::KIND_DAILY;
-
-    $tplIcons = [];
-    foreach (array_keys($templates) as $k) {
-        $tplIcons[$k] = $kindMeta[$k]['icon'] ?? 'bi-journal';
-    }
 
     // "New note for this task/project" flow: the chip is shown above the editor
     // and the pair is submitted as hidden inputs so the link survives even when
@@ -182,23 +175,6 @@
 
         {{-- ── Sidebar ── --}}
         <aside class="nt-editor-side">
-            @if ($templates)
-                <div class="nt-panel">
-                    <div class="nt-panel-head"><i class="bi bi-magic"></i>{{ __('Templates') }}</div>
-                    <div class="nt-panel-body">
-                        <div class="nt-tpl-grid">
-                            @foreach ($templates as $tk => $tpl)
-                                <button type="button" class="nt-tpl {{ old('kind', $note->kind) === $tk ? 'is-on' : '' }}" data-tpl="{{ $tk }}" title="{{ $tpl['hint'] ?? '' }}">
-                                    <i class="bi {{ $tplIcons[$tk] ?? 'bi-journal' }}"></i>
-                                    <span class="nt-tpl-name">{{ $kindMeta[$tk]['label'] ?? $tk }}</span>
-                                </button>
-                            @endforeach
-                        </div>
-                        <div class="nt-form-help mt-2" id="ntTemplateHint">{{ $templates[$note->kind]['hint'] ?? '' }}</div>
-                    </div>
-                </div>
-            @endif
-
             <div class="nt-panel">
                 <div class="nt-panel-head"><i class="bi bi-sliders"></i>{{ __('Details') }}</div>
                 <div class="nt-panel-body">
@@ -341,8 +317,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
     const PREVIEW_URL = @json(route('notes.preview'));
     const MENTIONS_URL = ta.dataset.mentionsUrl || '';
-    const TEMPLATES = @json($templates);
-    const KIND_ICONS = @json($tplIcons);
     const DRAFT_KEY = 'nt:draft:{{ $isEdit ? $note->id : 'new' }}';
     const SERVER_TS = {{ (int) ($isEdit && $note->updated_at ? $note->updated_at->getTimestampMs() : microtime(true) * 1000) }};
 
@@ -836,45 +810,11 @@ document.addEventListener('DOMContentLoaded', function () {
         scheduleDraft();
     }
 
-    /* ── Type / templates ─────────────────────────────────────── */
-
-    const hintEl = document.getElementById('ntTemplateHint');
-
-    function applyTemplate(kind, force) {
-        const tpl = TEMPLATES[kind];
-        if (!tpl) return;
-        const body = tpl.body || '';
-        const current = ta.value;
-        const untouched = current.trim() === '' || Object.keys(TEMPLATES).some(k => (TEMPLATES[k].body || '') === current);
-
-        const run = () => {
-            ta.value = body;
-            if (hintEl) hintEl.textContent = tpl.hint || '';
-            shell.querySelectorAll('[data-tpl]').forEach(b => b.classList.toggle('is-on', b.dataset.tpl === kind));
-            onChange();
-            ta.focus();
-        };
-
-        if (!untouched && !force) {
-            confirmSwal('{{ __('Replace the current text with this template?') }}').then(ok => { if (ok) run(); });
-            return;
-        }
-        run();
-    }
-
-    shell.closest('body') && document.querySelectorAll('[data-tpl]').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const kind = this.dataset.tpl;
-            if (kindSel) kindSel.value = kind;
-            applyTemplate(kind);
-            toggleMood();
-        });
-    });
+    /* ── Type ────────────────────────────────────────────────── */
 
     if (kindSel) {
         kindSel.addEventListener('change', function () {
             toggleMood();
-            applyTemplate(this.value);
         });
     }
 
@@ -970,7 +910,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
     const PREVIEW_URL = @json(route('notes.preview'));
     const MENTIONS_URL = hidden.dataset.mentionsUrl || '';
-    const TEMPLATES = @json($templates ?? []);
     const DRAFT_KEY = 'nt:rich:{{ $isEdit ? $note->id : 'new' }}';
     const SERVER_TS = {{ (int) ($isEdit && $note->updated_at ? $note->updated_at->getTimestampMs() : microtime(true) * 1000) }};
 
@@ -1614,59 +1553,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    /* ══ Templates (Markdown on server → rich HTML) ══════════════ */
-    const hintEl = document.getElementById('ntTemplateHint');
-    function mdFallback(md) {
-        return esc(md).split(/\n{2,}/).map(chunk => {
-            const lines = chunk.split('\n');
-            if (/^#{1,3}\s/.test(lines[0])) {
-                const lvl = lines[0].match(/^(#{1,3})/)[1].length;
-                return '<h' + lvl + '>' + esc(lines[0].replace(/^#{1,3}\s*/, '')) + '</h' + lvl + '>';
-            }
-            if (lines.every(l => /^\s*([-*+]|\d+[.)])\s/.test(l) || l.trim() === '')) {
-                return '<ul><li>' + lines.filter(l => l.trim()).map(l => esc(l.replace(/^\s*([-*+]|\d+[.)])\s*/, '')) || '<br>').join('</li><li>') + '</li></ul>';
-            }
-            return '<p>' + lines.map(esc).join('<br>') + '</p>';
-        }).join('');
-    }
-    function applyTemplate(kind, force) {
-        const tpl = TEMPLATES[kind];
-        if (!tpl) return;
-        const body = tpl.body || '';
-        const currentMd = htmlToMarkdown(rich.innerHTML);
-        const untouched = currentMd.trim() === '' || Object.keys(TEMPLATES).some(k => ((TEMPLATES[k].body || '').trim() === currentMd.trim()));
-        const run = () => {
-            fetch(PREVIEW_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
-                body: JSON.stringify({ content: body }),
-            })
-                .then(r => r.ok ? r.json() : Promise.reject())
-                .then(j => { rich.innerHTML = (j.html || '').trim() ? j.html : mdFallback(body); })
-                .catch(() => { rich.innerHTML = mdFallback(body); })
-                .finally(() => {
-                    if (hintEl) hintEl.textContent = tpl.hint || '';
-                    document.querySelectorAll('[data-tpl]').forEach(b => b.classList.toggle('is-on', b.dataset.tpl === kind));
-                    onChange();
-                    rich.focus();
-                });
-        };
-        if (!untouched && !force) {
-            confirmSwal(@json(__('Replace the current text with this template?'))).then(ok => { if (ok) run(); });
-            return;
-        }
-        run();
-    }
-    document.querySelectorAll('[data-tpl]').forEach(btn => {
-        btn.addEventListener('click', function () {
-            if (kindSel) kindSel.value = this.dataset.tpl;
-            applyTemplate(this.dataset.tpl);
-            toggleMood();
-        });
-    });
+    /* ══ Type ═══════════════════════════════════════════════════ */
     if (kindSel) kindSel.addEventListener('change', function () {
         toggleMood();
-        applyTemplate(this.value);
     });
     function toggleMood() {
         if (!moodBlock) return;

@@ -32,7 +32,6 @@
     'selectedLabels' => $selectedLabels,
     'selectedFiles' => $selectedFiles,
     'kindMeta' => $kindMeta,
-    'templates' => $templates ?? [],
     'prefillLink' => $prefillLink ?? null,
     'action' => route('notes.store'),
 ])

@@ -11,7 +11,6 @@ use App\Models\Notebook;
 use App\Services\Notes\NoteLinkService;
 use App\Services\Notes\NoteQueryService;
 use App\Services\Notes\NoteRevisionService;
-use App\Services\Notes\NoteTemplateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -96,14 +95,13 @@ class NoteController extends Controller
             'note' => new Note([
                 'kind' => $kind,
                 'occurred_at' => now(),
-                'content' => NoteTemplateService::bodyFor($kind),
+                'content' => '',
             ]),
             'notebooks' => Notebook::treeFor($userId),
             'labels' => NoteLabel::ofUser($userId)->orderBy('name')->get(),
             'selectedLabels' => [],
             'selectedFiles' => [],
             'kindMeta' => note_kind_meta(),
-            'templates' => NoteTemplateService::all(),
             'mentionPicks' => [],
             'prefillLink' => $this->prefillLink($request, $userId),
         ]);
@@ -182,7 +180,6 @@ class NoteController extends Controller
             'note' => $note,
             'notebooks' => Notebook::treeFor($userId),
             'labels' => NoteLabel::ofUser($userId)->orderBy('name')->get(),
-            'templates' => NoteTemplateService::all(),
             'selectedLabels' => $note->labels->pluck('id')->all(),
             'selectedFiles' => $note->attachments->pluck('file_id')->all(),
             'mentionPicks' => $note->links
