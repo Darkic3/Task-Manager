@@ -1825,5 +1825,12 @@
     "hours": "ساعت",
     "minutes": "دقیقه",
     "activity": "رخداد",
-    "mood note": "جمله‌ی حس"
+    "mood note": "جمله‌ی حس",
+    "Log what you did": "چیزی که امروز انجام دادی را ثبت کن",
+    "e.g. played piano 45m…": "مثلاً: پیانو ۴۵ دقیقه…",
+    "Optional details": "جزئیات اختیاری",
+    "Suggestions": "پیشنهادها",
+    "Set time": "زمان",
+    "Short note": "یادداشت کوتاه",
+    "A mood sentence — no time, kept out of the day totals.": "یک جمله‌ی حس — بدون زمان و در جمع روز شمرده نمی‌شود."
 }

@@ -1190,97 +1190,180 @@
     .pl-avoid-history-btn:hover{border-color:#c4b5fd;color:#7c3aed;}
     .pl-avoid-last{font-size:11px;color:#8a8f98;}
 
-    /* ── Day Log (دفتر روز) — visual prototype: no persistence yet ── */
-    .lg-section{border-color:#ddd6fe;box-shadow:0 2px 12px rgba(124,58,237,.07);}
-    .lg-section .pl-section-head{background:linear-gradient(135deg,#faf5ff 0%,#f5f3ff 100%);border-bottom:1px solid #ede9fe;}
-    .lg-beta{font-size:9.5px;font-weight:800;letter-spacing:.02em;background:#ede9fe;color:#6d28d9;border-radius:20px;padding:2px 8px;text-transform:uppercase;}
-    .lg-head-sub{font-size:11px;color:#8a8f98;font-weight:600;}
-    .lg-body{padding:12px;display:flex;flex-direction:column;gap:10px;}
-    .lg-stats{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#fafbfc;border:1px dashed #e5e7eb;border-radius:10px;padding:8px 12px;font-size:11.5px;color:#64748b;font-weight:600;}
-    .lg-stats strong{color:#0f172a;font-weight:800;}
-    .lg-spark{margin-inline-start:auto;display:flex;align-items:flex-end;gap:3px;height:22px;}
-    .lg-spark b{display:block;width:7px;border-radius:2px;background:#ddd6fe;}
-    .lg-spark b.on{background:#7c3aed;}
-    .lg-spark em{font-style:normal;font-size:10px;color:#94a3b8;align-self:center;margin-inline-end:4px;}
-    .lg-nudge{border:1px solid #e0e7ff;background:linear-gradient(135deg,#f8faff 0%,#eef2ff 100%);border-radius:12px;padding:11px 13px;display:flex;gap:11px;align-items:flex-start;}
-    .lg-nudge.avoid{border-color:#fee2e2;background:linear-gradient(135deg,#fffafb 0%,#fff1f2 100%);}
-    .lg-nudge-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#e0e7ff;color:#4338ca;flex-shrink:0;}
-    .lg-nudge.avoid .lg-nudge-icon{background:#fee2e2;color:#b91c1c;}
-    .lg-nudge-text{font-size:12.5px;color:#334155;font-weight:600;line-height:1.7;flex:1;}
-    .lg-nudge-text b{color:#1e293b;font-weight:800;}
-    .lg-nudge-acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
-    .lg-nudge-acts button{font-family:inherit;font-size:11.5px;font-weight:700;border-radius:9px;padding:6px 12px;cursor:pointer;border:1px solid transparent;}
-    .lg-nudge-yes{background:var(--primary-600,#4f46e5);color:#fff;}
-    .lg-nudge-yes:hover{background:var(--primary-700,#4338ca);}
-    .lg-nudge.avoid .lg-nudge-yes{background:var(--error-600,#dc2626);}
-    .lg-nudge.avoid .lg-nudge-yes:hover{background:#b91c1c;}
-    .lg-nudge-later{background:#fff;border-color:#e5e7eb;color:#64748b;}
-    .lg-nudge-later:hover{color:#334155;border-color:#cbd5e1;}
-    .lg-capture{border:1px solid #e9e9ee;border-radius:12px;background:#fff;padding:12px;display:flex;flex-direction:column;gap:10px;}
-    .lg-capture-top{display:flex;gap:8px;align-items:center;}
-    .lg-input-wrap{position:relative;flex:1;}
-    .lg-input{width:100%;border:1.5px solid #e5e7eb;border-radius:10px;padding:9px 12px;font-size:13.5px;font-weight:600;color:#1e293b;background:#fff;outline:none;font-family:inherit;}
-    .lg-input:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.14);}
-    .lg-input::placeholder{color:#a8adb8;font-weight:500;}
-    .lg-suggest{position:absolute;top:calc(100% + 4px);inset-inline:0;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:var(--shadow-md);z-index:60;overflow-y:auto;max-height:230px;display:none;}
-    .lg-suggest.show{display:block;}
-    .lg-suggest-item{padding:8px 12px;font-size:12.5px;font-weight:600;color:#1e293b;display:flex;align-items:center;gap:8px;cursor:pointer;}
-    .lg-suggest-item:hover,.lg-suggest-item.active{background:#f5f3ff;}
-    .lg-suggest-item small{margin-inline-start:auto;color:#94a3b8;font-weight:600;font-size:11px;}
-    .lg-suggest-empty{padding:10px 12px;font-size:12px;color:#94a3b8;}
-    .lg-kind-switch{display:flex;background:#f1f5f9;border-radius:9px;padding:3px;gap:2px;flex-shrink:0;}
-    .lg-kind-btn{border:0;background:transparent;font-family:inherit;font-size:11.5px;font-weight:700;color:#64748b;padding:6px 11px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:5px;}
-    .lg-kind-btn.active{background:#fff;color:#0f172a;box-shadow:0 2px 5px rgba(0,0,0,.06);}
-    .lg-modes{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
-    .lg-mode-btn{border:1px solid #e5e7eb;background:#fff;border-radius:9px;padding:6px 12px;font-family:inherit;font-size:11.5px;font-weight:700;color:#64748b;cursor:pointer;display:flex;align-items:center;gap:6px;}
-    .lg-mode-btn:hover{border-color:#c7d2fe;color:#4338ca;background:#f8faff;}
-    .lg-mode-btn.active{background:#eef2ff;border-color:#a5b4fc;color:#4338ca;}
-    .lg-fields{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    /* ~ Day Log (دفتر روز) — journal-style capture card ~
+       Visual only: every class, id and data-attribute below is consumed by the
+       existing Day Log script, so the markup contract stays untouched. */
+    .lg-section{position:relative;border-color:#e9e4fb;box-shadow:0 1px 3px rgba(124,58,237,.05),0 16px 36px -24px rgba(124,58,237,.6);}
+    .lg-section::before{content:'';position:absolute;top:0;inset-inline:0;height:3px;z-index:3;background:linear-gradient(90deg,#8b5cf6 0%,#6366f1 45%,#e879f9 100%);}
+    .lg-section .pl-section-head{position:relative;background:linear-gradient(135deg,#fcfaff 0%,#f5f2ff 55%,#fdf6ff 100%);border-bottom:1px solid #ede9fe;padding:13px 18px;}
+    .lg-section .pl-section-head>i{width:30px;height:30px;flex-shrink:0;display:grid;place-items:center;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;font-size:15px;box-shadow:0 6px 14px -8px rgba(109,40,217,.9),inset 0 1px 0 rgba(255,255,255,.35);}
+    .lg-section .pl-section-title{font-size:14.5px;font-weight:800;color:#191426;letter-spacing:-.01em;}
+    .lg-beta{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;background:#fff;color:#6d28d9;border:1px solid #ddd6fe;border-radius:20px;padding:3px 9px;box-shadow:0 1px 2px rgba(124,58,237,.12);}
+    .lg-beta::before{content:'';width:5px;height:5px;border-radius:50%;background:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.22);}
+    .lg-section .pl-section-count{background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;font-size:11.5px;font-weight:800;padding:3px 11px;border-radius:20px;min-width:26px;text-align:center;box-shadow:0 6px 14px -9px rgba(109,40,217,.95);}
+    .lg-body{position:relative;padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px;
+        background-image:radial-gradient(rgba(124,58,237,.075) 1px,transparent 1.2px);background-size:17px 17px;background-position:6px 6px;}
+
+    /* Hero — one input, one send; the sentence and its action read as one control */
+    .lg-hero{position:relative;z-index:40;}
+    .lg-composer{display:flex;align-items:center;gap:9px;min-height:52px;border:1.5px solid #e7e3f7;border-radius:15px;background:#fff;padding-inline:14px 7px;
+        box-shadow:0 1px 2px rgba(15,23,42,.04),inset 0 1px 0 #fff;transition:border-color .18s ease,box-shadow .18s ease;}
+    .lg-composer:hover{border-color:#d9d0fa;}
+    .lg-composer:focus-within{border-color:#8b5cf6;box-shadow:0 0 0 4px rgba(139,92,246,.14),0 12px 28px -20px rgba(109,40,217,.9);}
+    .lg-composer .lg-composer-ico{flex-shrink:0;font-size:16px;color:#a78bfa;transition:color .18s ease;}
+    .lg-composer:focus-within .lg-composer-ico{color:#7c3aed;}
+    .lg-composer .lg-input{flex:1;min-width:0;height:100%;border:0;padding:0;background:transparent;font-family:inherit;font-size:14.5px;font-weight:600;color:#0f172a;outline:none;}
+    .lg-composer .lg-input::placeholder{color:#a4a9b7;font-weight:500;}
+    .lg-send{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 17px;border:0;border-radius:11px;
+        background:linear-gradient(135deg,#7c3aed 0%,#6366f1 100%);color:#fff;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;touch-action:manipulation;
+        box-shadow:0 10px 20px -12px rgba(109,40,217,.95),inset 0 1px 0 rgba(255,255,255,.28);
+        transition:transform .12s ease,box-shadow .18s ease,filter .18s ease,background .18s ease;}
+    .lg-send:hover:not(:disabled){filter:saturate(1.08) brightness(1.05);transform:translateY(-1px);box-shadow:0 14px 26px -12px rgba(109,40,217,1),inset 0 1px 0 rgba(255,255,255,.3);}
+    .lg-send:active:not(:disabled){transform:translateY(0);}
+    .lg-send:disabled{background:linear-gradient(135deg,#f1f1f6,#ebeef4);color:#a7adbd;box-shadow:none;cursor:default;}
+    .lg-send:focus-visible{outline:2px solid #312e81;outline-offset:2px;}
+
+    /* Suggestions */
+    .lg-suggest{position:absolute;top:calc(100% + 8px);inset-inline:0;max-height:264px;overflow-x:hidden;overflow-y:auto;background:#fff;border:1px solid #ece9f8;
+        border-radius:14px;box-shadow:0 24px 50px -24px rgba(15,23,42,.42),0 3px 10px rgba(15,23,42,.05);z-index:60;display:none;}
+    .lg-suggest.show{display:block;animation:lgPop .16s ease both;}
+    @keyframes lgPop{from{opacity:0;transform:translateY(-6px) scale(.985);}to{opacity:1;transform:none;}}
+    .lg-suggest-item{display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:12.5px;font-weight:700;color:#334155;cursor:pointer;touch-action:manipulation;transition:background .12s ease;}
+    .lg-suggest-item+.lg-suggest-item{border-top:1px solid #f4f4f8;}
+    .lg-suggest-item>i{width:26px;height:26px;flex-shrink:0;display:grid;place-items:center;border-radius:9px;background:#f2eeff;color:#7c3aed;font-size:12.5px;}
+    .lg-suggest-item:hover,.lg-suggest-item.active{background:#faf8ff;color:#4c1d95;}
+    .lg-suggest-item.active>i{background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;}
+    .lg-suggest-item small{margin-inline-start:auto;font-size:10.5px;font-weight:800;color:#9aa1ac;background:#f4f5f8;border-radius:20px;padding:2px 8px;}
+    .lg-suggest-empty{padding:12px 14px;font-size:12px;font-weight:600;color:#98a1b3;}
+
+    /* On-demand pills: each shows its own state */
+    .lg-pills{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+    .lg-pill{display:inline-flex;align-items:center;gap:7px;height:31px;padding:0 13px;border:1px solid #e9e9f2;background:#fff;border-radius:20px;
+        font-family:inherit;font-size:11.5px;font-weight:700;color:#767c8f;cursor:pointer;touch-action:manipulation;box-shadow:0 1px 2px rgba(15,23,42,.04);transition:all .15s ease;}
+    .lg-pill:hover{border-color:#ddd6fe;background:#fdfcff;color:#6d28d9;transform:translateY(-1px);box-shadow:0 6px 14px -10px rgba(124,58,237,.9);}
+    .lg-pill.is-on{border-color:#c4b5fd;background:linear-gradient(135deg,#f7f4ff,#f2ecff);color:#6d28d9;box-shadow:0 6px 16px -10px rgba(124,58,237,.95);}
+    .lg-pill:focus-visible{outline:2px solid #8b5cf6;outline-offset:2px;}
+    .lg-pill:disabled{opacity:.45;cursor:default;transform:none;box-shadow:none;}
+    .lg-pill:disabled:hover{border-color:#e9e9f2;background:#fff;color:#767c8f;transform:none;box-shadow:0 1px 2px rgba(15,23,42,.04);}
+    .lg-pill i{font-size:12px;}
+
+    /* Panel — the optional details live here */
+    .lg-panel{position:relative;border:1px solid #ecebf6;background:linear-gradient(135deg,#fdfcff 0%,#faf9ff 100%);border-radius:14px;padding:12px 14px;padding-inline-start:17px;
+        display:flex;gap:10px;align-items:center;flex-wrap:wrap;box-shadow:0 1px 2px rgba(15,23,42,.03);animation:lgPanelIn .18s ease both;}
+    .lg-panel[hidden]{display:none;}
+    .lg-panel::before{content:'';position:absolute;inset-inline-start:0;top:14px;bottom:14px;width:3.5px;border-radius:4px;background:linear-gradient(180deg,#a78bfa,#7c3aed);}
+    @keyframes lgPanelIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;}}
+    .lg-panel .lg-input{flex:1;min-width:180px;height:36px;border:1px solid #e3e4ec;border-radius:10px;padding:0 12px;font-family:inherit;font-size:12.5px;font-weight:600;color:#1e293b;background:#fff;outline:none;transition:border-color .15s ease,box-shadow .15s ease;}
+    .lg-panel .lg-input:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.14);}
+    .lg-num{width:64px;height:36px;border:1px solid #e3e4ec;border-radius:10px;font-family:inherit;font-size:13px;font-weight:800;color:#1e293b;background:#fff;text-align:center;font-variant-numeric:tabular-nums;outline:none;transition:border-color .15s ease,box-shadow .15s ease;}
+    .lg-sel{height:36px;border:1px solid #e3e4ec;border-radius:10px;padding:0 10px;font-family:inherit;font-size:12px;font-weight:700;color:#334155;background:#fff;outline:none;transition:border-color .15s ease,box-shadow .15s ease;}
+    .lg-time{height:36px;width:96px;border:1px solid #e3e4ec;border-radius:10px;padding:0 10px;font-family:inherit;font-size:12px;font-weight:700;color:#334155;background:#fff;outline:none;transition:border-color .15s ease,box-shadow .15s ease;}
+    .lg-num:focus,.lg-sel:focus,.lg-time:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.14);}
+    .lg-sep{color:#b7bcc8;font-weight:800;font-size:11.5px;}
+    .lg-quick{display:inline-flex;gap:3px;padding:3px;background:#f1f0f8;border-radius:20px;}
+    .lg-quick button{border:1px solid transparent;background:transparent;border-radius:20px;height:26px;padding:0 11px;font-family:inherit;font-size:11px;font-weight:800;color:#797f92;cursor:pointer;touch-action:manipulation;transition:all .14s ease;}
+    .lg-quick button:hover{color:#6d28d9;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.08);}
+    .lg-quick button.active{background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;border-color:transparent;box-shadow:0 6px 14px -8px rgba(109,40,217,.95);}
+    .lg-chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border:1px solid #e9e9f2;background:#fff;border-radius:20px;font-family:inherit;font-size:11px;font-weight:800;color:#767c8f;cursor:pointer;touch-action:manipulation;transition:all .14s ease;}
+    .lg-chip:hover{border-color:#ddd6fe;color:#6d28d9;background:#fdfcff;}
+    .lg-chip.active{border-color:#c4b5fd;background:linear-gradient(135deg,#f6f2ff,#f1eaff);color:#6d28d9;box-shadow:0 4px 12px -8px rgba(124,58,237,.9);}
+    .lg-chip i{font-size:11.5px;}
+    .lg-label{font-size:11px;font-weight:800;color:#8b90a1;}
+
+    /* Quiet summary + one suggestion at a time */
+    .lg-meta{margin:0;min-height:16px;font-size:11.5px;font-weight:700;color:#8b90a1;font-variant-numeric:tabular-nums;line-height:1.7;}
+    .lg-meta:empty{display:none;}
+    .lg-meta:not(:empty)::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,#a78bfa,#7c3aed);margin-inline-end:7px;vertical-align:1px;box-shadow:0 0 0 3px rgba(139,92,246,.14);}
+    .lg-meta b{color:#1f2937;font-weight:800;}
+    .lg-meta .lg-dot{display:inline-block;width:4px;height:4px;border-radius:50%;background:#cfd4dd;vertical-align:2px;margin:0 8px;}
+    .lg-ask{position:relative;display:flex;align-items:center;gap:11px;border:1px solid #ece8fb;background:linear-gradient(135deg,#fbfaff 0%,#f5f1ff 100%);border-radius:14px;padding:11px 13px;
+        font-size:12px;font-weight:600;color:#5a6274;line-height:1.7;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.03);animation:lgPanelIn .2s ease both;}
+    .lg-ask::before{content:'';position:absolute;inset-inline-start:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,#a78bfa,#7c3aed);}
+    .lg-ask>i{width:32px;height:32px;flex-shrink:0;display:grid;place-items:center;border-radius:11px;background:#ede9fe;color:#6d28d9;font-size:15px;box-shadow:inset 0 1px 0 rgba(255,255,255,.75);}
+    .lg-ask.quit{border-color:#fbe9e9;background:linear-gradient(135deg,#fffbfb 0%,#fff4f4 100%);}
+    .lg-ask.quit::before{background:linear-gradient(180deg,#fca5a5,#ef4444);}
+    .lg-ask.quit>i{background:#fee2e2;color:#b91c1c;}
+    .lg-ask b{color:#171426;font-weight:800;}
+    .lg-ask-acts{margin-inline-start:auto;display:flex;gap:6px;flex-shrink:0;align-items:center;}
+    .lg-ask-acts button{border:1px solid transparent;background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;font-family:inherit;font-size:11.5px;font-weight:800;padding:7px 13px;border-radius:10px;
+        cursor:pointer;touch-action:manipulation;white-space:nowrap;box-shadow:0 8px 16px -10px rgba(109,40,217,.95);transition:all .14s ease;}
+    .lg-ask-acts button:hover{filter:brightness(1.07);transform:translateY(-1px);}
+    .lg-ask-acts button.later{background:#fff;border-color:#e3e5ec;color:#7a8194;box-shadow:0 1px 2px rgba(15,23,42,.05);font-weight:700;}
+    .lg-ask-acts button.later:hover{background:#f7f8fa;color:#4b5568;filter:none;}
+    .lg-ask.quit .lg-ask-acts button{background:linear-gradient(135deg,#dc2626,#b91c1c);box-shadow:0 8px 16px -10px rgba(185,28,28,.95);}
+    .lg-ask.quit .lg-ask-acts button:hover{background:linear-gradient(135deg,#dc2626,#b91c1c);filter:brightness(1.06);}
+    .lg-ask.quit .lg-ask-acts button.later{background:#fff;border-color:#e3e5ec;color:#7a8194;box-shadow:0 1px 2px rgba(15,23,42,.05);filter:none;}
+    .lg-ask-acts button:focus-visible{outline:2px solid #8b5cf6;outline-offset:2px;}
+
+    /* Period groups + entry cards */
+    .lg-groups{display:flex;flex-direction:column;gap:6px;}
+    .lg-group-head{display:flex;align-items:center;gap:8px;padding:13px 2px 5px;font-size:11.5px;font-weight:800;color:#4b5568;}
+    .lg-group-head>i{width:24px;height:24px;flex-shrink:0;display:grid;place-items:center;border-radius:8px;font-size:12px;
+        background:#f3f0ff;background:color-mix(in srgb,currentColor 15%,#fff);box-shadow:0 1px 2px rgba(15,23,42,.06);}
+    .lg-group-head::after{content:'';order:0;flex:1;min-width:16px;height:1px;background-image:repeating-linear-gradient(to right,#e2e5ec 0 5px,transparent 5px 11px);}
+    .lg-group-head .lg-group-count{order:1;margin-inline-start:0;font-size:10.5px;font-weight:800;color:#8b90a1;background:#f3f4f8;border:1px solid #ecedf3;border-radius:20px;padding:1px 9px;font-variant-numeric:tabular-nums;}
+    .lg-row{position:relative;display:flex;align-items:stretch;gap:11px;padding:9px 11px;border-radius:13px;background:#fff;border:1px solid #eef0f5;
+        transition:background .15s ease,border-color .15s ease,box-shadow .18s ease,transform .18s ease;}
+    .lg-row:hover,.lg-row:focus-within{background:#fdfdff;border-color:#e4e0f6;box-shadow:0 12px 28px -20px rgba(15,23,42,.6);transform:translateY(-1px);}
+    .lg-row.is-new{animation:lgRowIn .9s ease;}
+    @keyframes lgRowIn{0%{background:#f5f1ff;border-color:#c4b5fd;box-shadow:0 0 0 4px rgba(139,92,246,.16);}100%{background:#fff;border-color:#eef0f5;box-shadow:none;}}
+    .lg-row-dot{align-self:stretch;width:3.5px;min-height:26px;flex-shrink:0;border-radius:4px;background:var(--c,#c4b5fd);opacity:.88;transition:opacity .15s ease;}
+    .lg-row:hover .lg-row-dot,.lg-row:focus-within .lg-row-dot{opacity:1;}
+    /* One flowing line: the title opens it, meta/note close it, actions end it.
+       When the title is long the meta block wraps onto its own line. */
+    .lg-row-main{flex:1;min-width:0;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:5px 10px;}
+    .lg-row-title{flex:1 1 auto;font-size:13.5px;font-weight:700;color:#1b2432;line-height:1.5;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lg-row-sub{display:flex;align-items:center;gap:7px;min-width:0;flex:0 1 auto;}
+    .lg-row-meta{font-size:10.5px;font-weight:800;color:#6b7280;background:#f5f6f9;border:1px solid #edeff3;border-radius:20px;padding:1.5px 9px;white-space:nowrap;flex-shrink:0;font-variant-numeric:tabular-nums;}
+    .lg-row-note{font-size:11.5px;font-weight:600;color:#9aa1ae;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lg-row.is-journal{background:linear-gradient(135deg,#fffdf6 0%,#fffbee 100%);border-color:#f3e7c9;}
+    .lg-row.is-journal:hover{background:linear-gradient(135deg,#fffcf3 0%,#fff8e4 100%);border-color:#ecd9b0;}
+    html[dir="ltr"] .lg-row.is-journal .lg-row-title{font-style:italic;font-weight:600;color:#7c6038;}
+    html[dir="rtl"] .lg-row.is-journal .lg-row-title{font-weight:700;color:#7c6038;white-space:normal;overflow:visible;overflow-wrap:anywhere;line-height:1.65;}
+    .lg-row.is-journal .lg-row-meta{background:#fdf1d8;border-color:#f6e5bf;color:#98690a;}
+    .lg-row.is-journal .lg-row-note{color:#b39a6d;}
+    .lg-row-acts{display:flex;gap:2px;flex-shrink:0;align-self:center;opacity:0;transform:scale(.94);transition:opacity .15s ease,transform .15s ease;}
+    .lg-row:hover .lg-row-acts,.lg-row:focus-within .lg-row-acts{opacity:1;transform:none;}
+    .lg-icon{width:28px;height:28px;display:grid;place-items:center;border:0;background:transparent;border-radius:9px;color:#9aa1ae;cursor:pointer;font-size:13px;touch-action:manipulation;transition:all .14s ease;}
+    .lg-icon:hover{background:#f2eeff;color:#6d28d9;}
+    .lg-icon.danger:hover{background:#fef2f2;color:#dc2626;}
+    .lg-icon:focus-visible{outline:2px solid #8b5cf6;outline-offset:1px;}
+    .lg-edit{display:block;width:100%;box-sizing:border-box;min-width:0;height:30px;border:1.5px solid #8b5cf6;border-radius:9px;padding:0 10px;font-family:inherit;font-size:13px;font-weight:700;color:#1e293b;background:#fff;outline:none;box-shadow:0 0 0 3px rgba(139,92,246,.14);}
+    .lg-row-title:has(.lg-edit){overflow:visible;}
+
+    .lg-empty{display:flex;align-items:center;justify-content:center;gap:10px;padding:24px 14px;font-size:12.5px;font-weight:700;color:#98a0af;
+        background:linear-gradient(135deg,#fbfbfe,#f7f8fc);border:1px dashed #e5e7ef;border-radius:14px;}
+    .lg-empty>i{width:34px;height:34px;display:grid;place-items:center;border-radius:12px;background:#f0ecff;color:#8b5cf6;font-size:15px;}
+    .lg-foot{margin:0;padding-top:10px;border-top:1px dashed #edeff4;font-size:10.5px;font-weight:600;color:#adb2bf;text-align:center;}
+    @media (prefers-reduced-motion:reduce){
+        .lg-row-acts,.lg-row,.lg-send,.lg-pill,.lg-composer,.lg-chip,.lg-quick button,.lg-ask-acts button{transition:none;}
+        .lg-panel,.lg-ask,.lg-suggest.show{animation:none;}
+        .lg-row.is-new{animation:none;background:#f5f1ff;border-color:#c4b5fd;}
+        .lg-row:hover,.lg-pill:hover,.lg-send:hover:not(:disabled),.lg-ask-acts button:hover{transform:none;}
+    }
+    @media (hover:none){
+        .lg-row-acts{opacity:1;transform:none;}
+    }
+    @media (max-width:576px){
+        .lg-body{padding:12px 12px 14px;}
+        .lg-section .pl-section-head{padding:12px 14px;}
+        .lg-row-title{flex:1 1 100%;}
+        .lg-row-sub{flex-wrap:wrap;gap:4px 7px;}
+        .lg-row-acts{opacity:1;transform:none;}
+        .lg-send{padding:0 13px;}
+        .lg-panel{padding:11px 13px;padding-inline-start:16px;}
+        .lg-panel .lg-label{min-width:100%;}
+        .lg-ask{flex-wrap:wrap;align-items:flex-start;}
+        .lg-ask-acts{margin-inline-start:0;width:100%;justify-content:flex-start;}
+        .lg-foot{text-align:start;}
+    }
+    .lg-fields{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .lg-panel .lg-fields{flex:1 1 100%;}
     .lg-fields[hidden]{display:none;}
-    .lg-note-row{display:flex;align-items:center;gap:8px;border-top:1px dashed #eef0f3;padding-top:10px;}
-    .lg-note-row .lg-input{flex:1;width:auto;}
-    .lg-num{width:74px;border:1px solid #e5e7eb;border-radius:9px;padding:7px 9px;font-family:inherit;font-size:12.5px;font-weight:700;color:#1e293b;text-align:center;}
-    .lg-sel,.lg-time{border:1px solid #e5e7eb;border-radius:9px;padding:7px 9px;font-family:inherit;font-size:12px;font-weight:600;color:#334155;background:#fff;}
-    .lg-time{width:96px;}
-    .lg-tilde{color:#94a3b8;font-weight:700;}
-    .lg-quick{display:flex;gap:5px;flex-wrap:wrap;}
-    .lg-quick button{border:1px solid #e5e7eb;background:#fafbfc;border-radius:20px;padding:4px 11px;font-family:inherit;font-size:11px;font-weight:700;color:#5b6472;cursor:pointer;}
-    .lg-quick button:hover{border-color:#c7d2fe;background:#f5f3ff;color:#4338ca;}
-    .lg-label{font-size:11.5px;font-weight:600;color:#8a8f98;}
+    .lg-panel .lg-label{min-width:60px;}
     .lg-chips{display:flex;gap:5px;flex-wrap:wrap;}
-    .lg-chip-btn{border:1px solid #e5e7eb;background:#fff;border-radius:20px;padding:4px 11px;font-family:inherit;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;display:flex;align-items:center;gap:5px;}
-    .lg-chip-btn.active{border-color:currentColor;background:#fafbfc;}
-    .lg-capture-bottom{display:flex;align-items:center;gap:10px;border-top:1px dashed #eef0f3;padding-top:10px;}
-    .lg-preview{font-size:11.5px;color:#8a8f98;font-weight:600;display:flex;align-items:center;gap:6px;flex:1;flex-wrap:wrap;}
-    .lg-preview em{font-style:normal;color:#4338ca;font-weight:700;}
-    .lg-save{border:0;background:var(--primary-600,#4f46e5);color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;padding:9px 18px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:7px;box-shadow:0 4px 10px rgba(79,70,229,.25);}
-    .lg-save:hover{background:var(--primary-700,#4338ca);}
-    .lg-save:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
-    .lg-group-head{display:flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;color:#64748b;padding:8px 4px 3px;}
-    .lg-group-head i{font-size:12px;}
-    .lg-group-line{flex:1;height:1px;background:#f1f5f9;}
-    .lg-rows{display:flex;flex-direction:column;gap:6px;}
-    .lg-row{display:flex;align-items:flex-start;gap:10px;border:1px solid #eceef1;border-radius:10px;padding:9px 11px;background:#fff;}
-    .lg-row:hover{border-color:#d8dae0;box-shadow:0 3px 12px rgba(0,0,0,.05);}
-    .lg-row.is-journal{background:#fffdf8;border-color:#f3e8d1;border-style:dashed;}
-    .lg-badge{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex-shrink:0;font-size:13px;font-weight:800;background:#f5f3ff;color:var(--c,#7c3aed);}
-    .lg-row-body{flex:1;min-width:0;}
-    .lg-row-title{font-size:13.5px;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:7px;flex-wrap:wrap;line-height:1.5;word-break:break-word;}
-    .lg-row.is-journal .lg-row-title{font-weight:600;font-style:italic;color:#57534e;}
-    .lg-row-note{font-size:11.5px;color:#8a8f98;margin-top:2px;line-height:1.6;}
-    .lg-tag{font-size:10.5px;font-weight:700;border-radius:20px;padding:1px 8px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
-    .lg-tag.time{background:#eef2ff;color:#4338ca;}
-    .lg-tag.amount{background:#ecfdf5;color:#047857;}
-    .lg-tag.period{background:#f5f3ff;color:#6d28d9;}
-    .lg-tag.mood{background:#fff7ed;color:#c2410c;}
-    .lg-tag.faint{background:#fafafa;color:#a8adb8;border:1px dashed #e5e7eb;}
-    .lg-row-acts{display:flex;align-items:center;gap:5px;flex-shrink:0;opacity:.5;transition:opacity .18s;align-self:center;}
-    .lg-row:hover .lg-row-acts,.lg-row:focus-within .lg-row-acts{opacity:1;}
-    .lg-act{width:27px;height:27px;display:grid;place-items:center;padding:0;border:1px solid #e3e4e8;background:#fff;color:#5b6472;border-radius:8px;cursor:pointer;font-size:12px;}
-    .lg-act:hover{border-color:#c7d2fe;color:#4338ca;background:#f8faff;}
-    .lg-act.danger:hover{border-color:#fca5a5;color:#dc2626;background:#fef2f2;}
-    .lg-inline-edit{border:1.5px solid #8b5cf6;border-radius:8px;padding:4px 8px;font-family:inherit;font-size:13px;font-weight:700;color:#1e293b;outline:none;width:min(320px,100%);}
-    .lg-foot-note{font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:6px;padding:2px 4px;}
+    .lg-clear{margin-inline-start:auto;color:#8b90a1;}
+    .lg-clear:hover{border-color:#dfe1e9;color:#64748b;background:#fff;}
 </style>
 @endpush
 
@@ -1479,115 +1562,102 @@
              browser and are NOT persisted yet (no routes, no tables). ── --}}
         <div class="pl-section lg-section" id="lgSection">
             <div class="pl-section-head">
-                <i class="bi bi-journal-text" style="color:#7c3aed;"></i>
+                <i class="bi bi-journal-text" aria-hidden="true"></i>
                 <span class="pl-section-title">{{ __('Day Log') }}</span>
-                <span class="lg-head-sub">{{ __('What you actually did today') }}</span>
-                <span class="lg-beta">{{ __('Preview') }}</span>                    <span class="pl-section-count" id="lgCount"></span>
+                <span class="lg-beta">{{ __('Preview') }}</span>
+                <span class="pl-section-count" id="lgCount"></span>
             </div>
             <div class="lg-body">
 
-                {{-- Today at a glance --}}
-                <div class="lg-stats">
-                    <i class="bi bi-hourglass-split" style="color:#7c3aed;"></i>
-                    <span>{{ __('Logged today') }} <strong id="lgTotal"></strong></span>
-                    <span>·</span>
-                    <span><strong id="lgEntriesCount"></strong> <span id="lgEntriesLabel">{{ __('activities') }}</span></span>
-                    <span id="lgJournalWrap" hidden>· <strong id="lgJournalsCount"></strong> <span id="lgJournalsLabel">{{ __('mood notes') }}</span></span>
-                    <span class="lg-spark" id="lgSpark" title="{{ __('Last 7 days') }}"></span>
-                </div>
-
-                {{-- Pattern suggestions (habit / quit-habit) --}}
-                <div id="lgNudges"></div>
-
-                {{-- Quick capture --}}
-                <div class="lg-capture">
-                    <div class="lg-capture-top">
-                        <div class="lg-input-wrap">
-                            <input type="text" class="lg-input" id="lgInput" autocomplete="off"
-                                   aria-label="{{ __('Log a new activity') }}"
-                                   placeholder="{{ __('e.g. played piano…') }}">
-                            <div class="lg-suggest" id="lgSuggest" role="listbox"></div>
-                        </div>
-                        <div class="lg-kind-switch" role="group" aria-label="{{ __('Entry type') }}">
-                            <button type="button" class="lg-kind-btn active" data-lg-kind="activity">
-                                <i class="bi bi-activity"></i> {{ __('Log entry') }}
-                            </button>
-                            <button type="button" class="lg-kind-btn" data-lg-kind="journal">
-                                <i class="bi bi-chat-quote"></i> {{ __('Mood / sentence') }}
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="lgTimeArea">
-                        <div class="lg-modes" role="group" aria-label="{{ __('How long') }}">
-                            <button type="button" class="lg-mode-btn" data-lg-mode="none"><i class="bi bi-slash-circle"></i> {{ __('Untimed') }}</button>
-                            <button type="button" class="lg-mode-btn active" data-lg-mode="duration"><i class="bi bi-stopwatch"></i> {{ __('Duration / amount') }}</button>
-                            <button type="button" class="lg-mode-btn" data-lg-mode="range"><i class="bi bi-clock-history"></i> {{ __('Clock to clock') }}</button>
-                            <button type="button" class="lg-mode-btn" data-lg-mode="period"><i class="bi bi-sunset"></i> {{ __('Time of day') }}</button>
-                        </div>
-
-                        <div class="lg-fields" id="lgFields" style="margin-top:10px;">
-                            <div class="lg-fields" id="lgFieldsDuration">
-                                <input type="number" class="lg-num" id="lgAmount" min="1" step="1" value="45" aria-label="{{ __('Amount') }}">
-                                <select class="lg-sel" id="lgUnit" aria-label="{{ __('Unit') }}">
-                                    <option>{{ __('minute') }}</option>
-                                    <option>{{ __('hour') }}</option>
-                                    <option>{{ __('page') }}</option>
-                                    <option>{{ __('verse') }}</option>
-                                    <option>{{ __('time(s)') }}</option>
-                                    <option>{{ __('km') }}</option>
-                                </select>
-                                <div class="lg-quick">
-                                    @foreach([15, 30, 45, 60, 90] as $lgQuickMinutes)
-                                        @php
-                                            $lgIsHours = $lgQuickMinutes >= 60;
-                                            $lgQuickLabel = $lgIsHours
-                                                ? rtrim(rtrim(number_format($lgQuickMinutes / 60, 1, '.', ''), '0'), '.')
-                                                : $lgQuickMinutes;
-                                        @endphp
-                                        <button type="button" data-lg-val="{{ $lgQuickMinutes }}">{{ app_num($lgQuickLabel) }}{{ $lgIsHours ? __('h') : __('m') }}</button>
-                                    @endforeach
-                                </div>
-                            </div>
-                            <div class="lg-fields" id="lgFieldsRange" hidden>
-                                <input type="time" class="lg-time" id="lgStart" value="19:30" aria-label="{{ __('From') }}">
-                                <span class="lg-tilde">{{ __('to') }}</span>
-                                <input type="time" class="lg-time" id="lgEnd" value="20:15" aria-label="{{ __('To') }}">
-                            </div>
-                        </div>
-
-                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;">
-                            <span class="lg-label">{{ __('Time of day (optional):') }}</span>
-                            <div class="lg-chips" id="lgPeriodChips"></div>
-                        </div>
-                    </div>
-
-                    <div class="lg-note-row">
-                        <i class="bi bi-pencil-square" style="color:#a8adb8;flex-shrink:0;"></i>
-                        <input type="text" class="lg-input" id="lgNote" style="font-weight:500;font-size:12.5px;"
-                               aria-label="{{ __('Short note (optional)') }}"
-                               placeholder="{{ __('Short note (optional) — e.g. read 12 pages…') }}">
-                    </div>
-
-                    <div class="lg-capture-bottom">
-                        <span class="lg-preview" id="lgPreview"></span>
-                        <button type="button" class="lg-save" id="lgSave" disabled>
-                            <i class="bi bi-plus-lg"></i> {{ __('Save to Day Log') }}
+                {{-- One input does the work: "played piano 45m evening" --}}
+                <div class="lg-hero">
+                    <div class="lg-composer">
+                        <i class="bi bi-feather lg-composer-ico" aria-hidden="true"></i>
+                        <input type="text" class="lg-input" id="lgInput" name="day_log_entry" autocomplete="off"
+                               spellcheck="false" aria-label="{{ __('Log what you did') }}"
+                               title="{{ __('e.g. played piano 45m…') }}"
+                               placeholder="{{ __('e.g. played piano 45m…') }}">
+                        <button type="button" class="lg-send" id="lgSave" disabled>
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i>{{ __('Log') }}
                         </button>
                     </div>
+                    <div class="lg-suggest" id="lgSuggest" role="listbox" aria-label="{{ __('Suggestions') }}"></div>
                 </div>
 
-                {{-- Logged entries --}}
-                <div class="lg-rows" id="lgRows" role="list"></div>
+                {{-- Optional details, closed by default; each pill shows its own state --}}
+                <div class="lg-pills" role="group" aria-label="{{ __('Optional details') }}">
+                    <button type="button" class="lg-pill" id="lgPillTime" aria-expanded="false" aria-controls="lgPanelTime">
+                        <i class="bi bi-stopwatch" aria-hidden="true"></i><span id="lgTimeLabel">{{ __('Set time') }}</span>
+                    </button>
+                    <button type="button" class="lg-pill" id="lgPillNote" aria-expanded="false" aria-controls="lgPanelNote">
+                        <i class="bi bi-pencil" aria-hidden="true"></i>{{ __('Note') }}
+                    </button>
+                    <button type="button" class="lg-pill" id="lgPillMood" aria-expanded="false" aria-controls="lgPanelMood">
+                        <i class="bi bi-chat-quote" aria-hidden="true"></i>{{ __('Mood') }}
+                    </button>
+                </div>
 
-                <div class="lg-foot-note">
-                    <i class="bi bi-info-circle"></i>
-                    {{ __('Not commitments — just a record. That is why they have no checkbox.') }}
+                {{-- No mode switch: the panel shows exactly what the day needs —
+                     time of day, then duration, and a clock range only once one
+                     has been typed in the composer. --}}
+                <div class="lg-panel" id="lgPanelTime" hidden>
+                    <div class="lg-fields">
+                        <span class="lg-label">{{ __('Time of day') }}</span>
+                        <div class="lg-chips" id="lgPeriodChips"></div>
+                    </div>
+                    <div class="lg-fields">
+                        <span class="lg-label">{{ __('How long') }}</span>
+                        <input type="number" class="lg-num" id="lgAmount" name="day_log_amount" min="1" step="1" value="45"
+                               inputmode="numeric" aria-label="{{ __('Amount') }}">
+                        <select class="lg-sel" id="lgUnit" name="day_log_unit" aria-label="{{ __('Unit') }}">
+                            <option>{{ __('minute') }}</option>
+                            <option>{{ __('hour') }}</option>
+                            <option>{{ __('page') }}</option>
+                            <option>{{ __('verse') }}</option>
+                            <option>{{ __('time(s)') }}</option>
+                            <option>{{ __('km') }}</option>
+                        </select>
+                        <span class="lg-quick">
+                            @foreach([15, 30, 45, 60, 90] as $lgQuickMinutes)
+                                @php
+                                    $lgIsHours = $lgQuickMinutes >= 60;
+                                    $lgQuickLabel = $lgIsHours
+                                        ? rtrim(rtrim(number_format($lgQuickMinutes / 60, 1, '.', ''), '0'), '.')
+                                        : $lgQuickMinutes;
+                                @endphp
+                                <button type="button" data-lg-val="{{ $lgQuickMinutes }}">{{ app_num($lgQuickLabel) }}{{ $lgIsHours ? __('h') : __('m') }}</button>
+                            @endforeach
+                        </span>
+                        <button type="button" class="lg-chip lg-clear" id="lgClearTime">
+                            <i class="bi bi-slash-circle" aria-hidden="true"></i>{{ __('Untimed') }}
+                        </button>
+                    </div>
+                    <div class="lg-fields" id="lgFieldsRange" hidden>
+                        <span class="lg-label">{{ __('Clock to clock') }}</span>
+                        <input type="time" class="lg-time" id="lgStart" name="day_log_start" value="19:30" aria-label="{{ __('From') }}">
+                        <span class="lg-sep">{{ __('to') }}</span>
+                        <input type="time" class="lg-time" id="lgEnd" name="day_log_end" value="20:15" aria-label="{{ __('To') }}">
+                    </div>
                 </div>
-                <div class="lg-foot-note" style="color:#c4b5fd;">
-                    <i class="bi bi-cone-striped"></i>
-                    {{ __('Prototype: entries stay in the browser and are not saved yet.') }}
+
+                <div class="lg-panel" id="lgPanelNote" hidden>
+                    <input type="text" class="lg-input" id="lgNote" name="day_log_note" autocomplete="off" maxlength="2000"
+                           aria-label="{{ __('Short note') }}" placeholder="{{ __('Short note (optional)') }}…">
                 </div>
+
+                <div class="lg-panel" id="lgPanelMood" hidden>
+                    <span class="lg-label">{{ __('A mood sentence — no time, kept out of the day totals.') }}</span>
+                    <select class="lg-sel" id="lgMood" name="day_log_mood" aria-label="{{ __('Mood') }}">
+                        @for($lgMood = 1; $lgMood <= 10; $lgMood++)
+                            <option value="{{ $lgMood }}" @selected($lgMood === 7)>{{ app_num($lgMood) }}/{{ app_num(10) }}</option>
+                        @endfor
+                    </select>
+                </div>
+
+                <p class="lg-meta" id="lgMeta" aria-live="polite"></p>
+                <div id="lgAsk"></div>
+                <div class="lg-groups" id="lgRows" role="list"></div>
+                <p class="lg-foot">{{ __('Prototype — entries stay in the browser and are not saved yet.') }}</p>
             </div>
         </div>
     @else
@@ -4740,12 +4810,13 @@
 </script>
 @endpush
 @push('scripts')
-<script>
-/* ── Day Log (دفتر روز) — VISUAL PROTOTYPE ───────────────────────────────────
-   Nothing here is persisted: entries live in JS memory only (no routes, no
-   tables, no migrations). It reuses plShowToast() and the real quick-add habit
-   form so the flow can be judged before the backend is built.
-   ─────────────────────────────────────────────────────────────────────────── */
+<script>    /* ── Day Log (دفترروز) — daily capture strip ───────────────────────────────────
+       One hero input does the work; everything else is an on-demand panel.
+       There is no mode switch: duration and time-of-day coexist, and the
+       panel mirrors the sentence. Nothing here is persisted: entries live in
+       JS memory only (no routes, no tables, no migrations).
+       It reuses plShowToast() and the real quick-add habit form.
+       ─────────────────────────────────────────────────────────────────────────── */
 @php
     $lgPeriods = collect(config('routines.periods', []))->map(fn ($p, $k) => [
         'key' => $k, 'label' => __($p['label']), 'icon' => $p['icon'],
@@ -4757,11 +4828,15 @@
     if (!root) { return; }   // day view only
 
     const I18N = {
+        setTime:    @json(__('Set time')),
+        untimed:    @json(__('Untimed')),
         noTitle:    @json(__('No title')),
         logged:     @json(__('Logged')),
+        moodSentence: @json(__('mood sentence')),
         removed:    @json(__('Removed from Day Log')),
-        untimed:    @json(__('No time logged yet')),
+        empty:      @json(__('Nothing logged for today yet.')),
         noPeriod:   @json(__('No specific time of day')),
+        loggedToday: @json(__('Logged today')),
         and:        @json(__('and')),
         minutes:    @json(__('minute')),
         minutesPlural: @json(__('minutes')),
@@ -4772,42 +4847,182 @@
         moodOne:    @json(__('mood note')),
         moodMany:   @json(__('mood notes')),
         moodLabel:  @json(__('Mood')),
-        week:       @json(__('Week')),
-        empty:      @json(__('Nothing logged for today yet.')),
-        emptySub:   @json(__('Log anything you did — even something small.')),
+        timesBefore: @json(__('times before')),
+        newOne:     @json(__('New one — log it as is and it will be suggested from now on.')),
         turned:     @json(__('Turned into an activity — add a time or a time of day')),
         prefilled:  @json(__('Form pre-filled from this entry')),
         habitNudge: @json(__('You logged ":name" :count times in the last 3 weeks. Make it a habit? (If not, just keep logging it.)')),
         habitYes:   @json(__('Yes, make it a habit')),
         quitNudge:  @json(__('You logged ":name" :count times this week. Define it as something you are quitting, so clean days and slips get counted?')),
         quitYes:    @json(__('Define as a quit habit')),
+        liveNudge:  @json(__('You logged ":name" three times just now. Shall we make it a habit?')),
         later:      @json(__('Later')),
         beStill:    @json(__('Okay — I will stop suggesting this.')),
+        convertHabit: @json(__('Convert to habit')),
+        intoActivity: @json(__('Turn into an activity')),
+        edit:       @json(__('Edit')),
+        delete:     @json(__('Delete')),
     };
 
-    /* Periods are pre-built in the @php block above: handing the json directive
-       a nested expression breaks Blade's parser, so we pass a plain variable. */
     const PERIODS = @json($lgPeriods);
-
-    const TIME_UNITS = [I18N.minutes, I18N.hoursUnit];
-    const CYCLE = ['#7c3aed', '#0ea5e9', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#0e7490'];
-    /* Same rule as the app_num() helper: Persian digits only for the fa locale. */
     const IS_FA = @json(app()->getLocale() === 'fa');
     const NUM = n => IS_FA ? String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]) : String(n);
     const plural = (n, one, many) => n === 1 ? one : many;
     const esc = s => String(s == null ? '' : s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const pad = n => String(n).padStart(2, '0');
     const periodOf = key => PERIODS.find(p => p.key === key) || null;
+    const periodLabel = key => { const p = periodOf(key); return p ? p.label : ''; };
+
+    /* ── inline parsing: "پیانو ۴۵ دقیقه عصر" → title + time + amount ── */
+    const toLatin = s => String(s)
+        .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+        .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+    const normText = s => toLatin(s).replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\u200c/g, ' ');
+
+    /* Period words, longest first so "بعدازظهر" wins over "ظهر". */
+    function periodWords() {
+        const aliases = {
+            morning: ['صبح', 'بامداد', 'morning'],
+            noon: ['نیمروز', 'ظهر', 'noon', 'midday'],
+            afternoon: ['بعدازظهر', 'بعد از ظهر', 'بعدازازظهر', 'afternoon'],
+            evening: ['عصر', 'غروب', 'evening'],
+            night: ['شب', 'night'],
+        };
+        const words = [];
+        PERIODS.forEach(p => {
+            (aliases[p.key] || []).forEach(w => words.push([w, p.key]));
+            if (p.label) { words.push([p.label, p.key]); }
+        });
+        return words.sort((a, b) => b[0].length - a[0].length);
+    }
+
+    const UNITS = { minute: 0, hour: 1, page: 2, verse: 3, count: 4, km: 5 };
+
+    function unitWordMap() {
+        const select = $('lgUnit');
+        const map = [];
+        const push = (idx, words) => words.forEach(w => w && map.push([w.toLowerCase(), idx]));
+        push(UNITS.minute, [select.options[0] && select.options[0].text, 'دقیقه', 'دق', 'دقیقه‌ای', 'min', 'mins', 'minute', 'minutes', 'm']);
+        push(UNITS.hour, [select.options[1] && select.options[1].text, 'ساعت', 'ساعتی', 'س', 'h', 'hr', 'hour', 'hours']);
+        push(UNITS.page, [select.options[2] && select.options[2].text, 'صفحه', 'صفحه‌ای', 'ص', 'page', 'pages', 'p']);
+        push(UNITS.verse, [select.options[3] && select.options[3].text, 'بیت', 'بیتی', 'verse']);
+        push(UNITS.count, [select.options[4] && select.options[4].text, 'بار', 'باره', 'مرتبه', 'time', 'times']);
+        push(UNITS.km, [select.options[5] && select.options[5].text, 'کیلومتر', 'کیلومتری', 'km']);
+        return map.sort((a, b) => b[0].length - a[0].length);
+    }
+
+    /**
+     * Reads the raw input and splits it into a title plus optional time/amount.
+     * Everything is best-effort: whatever it cannot recognise stays in the title,
+     * and the panel fields are synced so the user can correct it.
+     */
+    function parseInline(raw) {
+        const out = { title: '', note: null, seconds: null, amount: null, unit: null, start: null, end: null, period: null, mode: 'none' };
+        if (!raw || !raw.trim()) { return out; }
+
+        let text = normText(raw);
+        let cutFrom = raw.length;
+        const cuts = [];
+
+        /* A dash hands everything after it to the note: "پیانو ۴۵ دقیقه — قطعه‌ی جدید" */
+        const dash = text.match(/\s+(?:[—–]|--?)\s+/);
+        if (dash) {
+            const head = text.slice(0, dash.index).trim();
+            const tail = text.slice(dash.index + dash[0].length).trim();
+            if (head && tail) {
+                out.note = tail;
+                text = text.slice(0, dash.index);
+                cutFrom = dash.index;
+            }
+        }
+
+        const range = text.match(/(\d{1,2})\s*[:.٫]\s*(\d{2})\s*(?:-|–|—|تا|to)\s*(\d{1,2})\s*[:.٫]\s*(\d{2})/);
+        if (range) {
+            const [sh, sm, eh, em] = [range[1], range[2], range[3], range[4]].map(Number);
+            if (sh < 24 && eh < 24 && sm < 60 && em < 60) {
+                out.start = pad(sh) + ':' + pad(sm);
+                out.end = pad(eh) + ':' + pad(em);
+                out.mode = 'range';
+                cuts.push([range.index, range.index + range[0].length]);
+            }
+        }
+
+        const units = unitWordMap();
+        const pattern = units.map(u => u[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        const amount = pattern ? text.match(new RegExp('(\\d+(?:[.,]\\d+)?)\\s*(' + pattern + ')', 'i')) : null;
+        if (amount) {
+            const value = parseFloat(amount[1].replace(',', '.'));
+            const hit = units.find(u => u[0] === amount[2].toLowerCase());
+            if (hit && value > 0 && value <= 100000) {
+                out.amount = value;
+                out.unit = hit[1];
+                out.mode = 'duration';
+                cuts.push([amount.index, amount.index + amount[0].length]);
+            }
+        }
+
+        if (out.mode === 'none') {
+            const bare = text.match(/(\d{1,3})\s*$/);
+            const value = bare ? Number(bare[1]) : 0;
+            if (value > 0 && value <= 600) {
+                out.amount = value;
+                out.unit = UNITS.minute;
+                out.mode = 'duration';
+                cuts.push([bare.index, bare.index + bare[0].length]);
+            }
+        }
+
+        for (const [word, key] of periodWords()) {
+            const idx = text.toLowerCase().indexOf(word.toLowerCase());
+            if (idx >= 0) {
+                out.period = key;
+                if (out.mode === 'none') { out.mode = 'period'; }
+                cuts.push([idx, idx + word.length]);
+                break;
+            }
+        }
+
+        /* Remove the recognised bits from the ORIGINAL string (normalisation is
+           1:1 char-wise, so indexes line up) and collapse the leftovers. */
+        let title = raw.slice(0, cutFrom);
+        cuts.sort((a, b) => b[0] - a[0]).forEach(([start, end]) => {
+            title = title.slice(0, start) + ' ' + title.slice(end);
+        });
+        out.title = title.replace(/\s{2,}/g, ' ').replace(/^[\s\-–—,·]+|[\s\-–—,·]+$/g, '').trim();
+
+        if (out.mode === 'duration' && out.unit !== null) {
+            out.seconds = [UNITS.minute, UNITS.hour].indexOf(out.unit) >= 0
+                ? out.amount * (out.unit === UNITS.hour ? 3600 : 60)
+                : null;
+        }
+
+        return out;
+    }
+
+    /* ── state ──
+       No mode switch: an entry may carry a time of day, a duration and a clock
+       range all at once ("پیانو ۴۵ دقیقه عصر"), or none of them. */
+    const TIME_UNITS = [UNITS.minute, UNITS.hour];
+    const state = { kind: 'activity', amount: null, unit: UNITS.minute,
+                    start: null, end: null, period: null, mood: 7, actId: null };
+
+    const $ = id => document.getElementById(id);
+    const input = $('lgInput');
+    const suggestBox = $('lgSuggest');
+    const meta = $('lgMeta');
+
+    const CYCLE = ['#7c3aed', '#0ea5e9', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#0e7490'];
 
     /* Sample catalog — what this user has logged before (drives the suggestions). */
     const catalog = [
-        { name: @json(__('Playing piano')),     uses: 7,  icon: 'bi-music-note-beamed', unit: 0 },
-        { name: @json(__('Reading a book')),   uses: 12, icon: 'bi-book',              unit: 2 },
-        { name: @json(__('Working on music')), uses: 4,  icon: 'bi-soundwave',         unit: 0 },
-        { name: @json(__('Memorizing a poem')), uses: 3, icon: 'bi-vector-pen',        unit: 3 },
-        { name: @json(__('Walking')),          uses: 9,  icon: 'bi-person-walking',    unit: 0 },
-        { name: @json(__('Smoking')),          uses: 5,  icon: 'bi-fire',              unit: 4, avoid: true },
-        { name: @json(__('Meeting')),          uses: 6,  icon: 'bi-people',            unit: 0 },
+        { name: @json(__('Playing piano')),     uses: 7,  icon: 'bi-music-note-beamed', unit: UNITS.minute },
+        { name: @json(__('Reading a book')),   uses: 12, icon: 'bi-book',              unit: UNITS.page },
+        { name: @json(__('Working on music')), uses: 4,  icon: 'bi-soundwave',         unit: UNITS.minute },
+        { name: @json(__('Memorizing a poem')), uses: 3, icon: 'bi-vector-pen',        unit: UNITS.verse },
+        { name: @json(__('Walking')),          uses: 9,  icon: 'bi-person-walking',    unit: UNITS.minute },
+        { name: @json(__('Smoking')),          uses: 5,  icon: 'bi-fire',              unit: UNITS.count, quit: true },
+        { name: @json(__('Meeting')),          uses: 6,  icon: 'bi-people',            unit: UNITS.minute },
     ].map((c, i) => Object.assign(c, { id: 'lc' + i, color: CYCLE[i % CYCLE.length] }));
 
     /* Sample entries for the selected day (prototype data, memory only). */
@@ -4815,29 +5030,24 @@
     const entries = [
         { id: ++seq, actId: 'lc0', title: catalog[0].name, kind: 'activity', mode: 'range',
           start: '19:30', end: '20:15', seconds: 2700, period: 'evening',
-          note: @json(__('Practice — new piece')), icon: 'bi-music-note-beamed', color: '#7c3aed' },
+          note: @json(__('Practice — new piece')), color: '#7c3aed' },
         { id: ++seq, actId: 'lc1', title: catalog[1].name, kind: 'activity', mode: 'duration',
           amount: 12, amountUnit: @json(__('page')), period: 'afternoon',
-          note: @json(__('Chapter 4')), icon: 'bi-book', color: '#0ea5e9' },
+          note: @json(__('Chapter 4')), color: '#0ea5e9' },
         { id: ++seq, actId: 'lc3', title: catalog[3].name, kind: 'activity', mode: 'period',
-          period: 'morning', note: null, icon: 'bi-vector-pen', color: '#f59e0b' },
+          period: 'morning', note: null, color: '#f59e0b' },
         { id: ++seq, actId: 'lc2', title: catalog[2].name, kind: 'activity', mode: 'duration',
-          seconds: 5400, period: 'night', note: null, icon: 'bi-soundwave', color: '#ec4899' },
+          seconds: 5400, period: 'night', note: null, color: '#ec4899' },
         { id: ++seq, actId: null, title: @json(__('Woke up early and felt full of energy today.')),
-          kind: 'journal', mode: 'none', mood: 8, period: null, note: null,
-          icon: 'bi-chat-quote', color: '#a16207' },
+          kind: 'journal', mode: 'none', mood: 8, period: null, note: null, color: '#a16207' },
     ];
 
     const dismissed = {};
     const sessionAdds = {};
     let activeIdx = -1;
 
-    const state = { kind: 'activity', mode: 'duration', unit: I18N.minutes, period: 'evening',
-                    actId: null, amount: 45, start: '19:30', end: '20:15' };
-
-    const $ = id => document.getElementById(id);
-    const input = $('lgInput');
-    const suggestBox = $('lgSuggest');
+    /* ── helpers ── */
+    const unitLabel = idx => ($('lgUnit').options[idx] || { text: '' }).text;
 
     function humanDuration(sec) {
         const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
@@ -4846,8 +5056,14 @@
         if (h && m) { return hours + ' ' + I18N.and + ' ' + mins; }
         return h ? hours : mins;
     }
-    const clockRange = e => (e.start && e.end)
-        ? NUM(e.start) + ' ' + @json(__('to')) + ' ' + NUM(e.end) : null;
+
+    const toMinutes = t => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+
+    /* A range that ends before it starts simply crossed midnight. */
+    const secondsBetween = (from, to) => (((toMinutes(to) - toMinutes(from)) + 1440) % 1440 || 0) * 60;
+
+    const secondsOf = (value, unit) => unit === UNITS.hour ? value * 3600
+        : (unit === UNITS.minute ? value * 60 : null);
 
     function groupOf(e) {
         if (e.period) { return e.period; }
@@ -4860,44 +5076,40 @@
         return 'unscheduled';
     }
 
+    /* ── rendering ── */
+    function rowMeta(e) {
+        const bits = [];
+        if (e.start && e.end) { bits.push(NUM(e.start) + '–' + NUM(e.end)); }
+        else if (e.seconds) { bits.push(humanDuration(e.seconds)); }
+        if (e.amount && e.amountUnit) { bits.push(NUM(e.amount) + ' ' + e.amountUnit); }
+        if (e.kind === 'journal' && e.mood) { bits.push(I18N.moodLabel + ' ' + NUM(e.mood) + '/' + NUM(10)); }
+        return bits.join(' · ');
+    }
+
     function rowHtml(e) {
         const isJ = e.kind === 'journal';
-        const tags = [];
-        if (e.mode === 'range' && clockRange(e)) {
-            tags.push('<span class="lg-tag time"><i class="bi bi-clock-history"></i> ' + clockRange(e) + '</span>');
-        }
-        if (e.seconds) {
-            tags.push('<span class="lg-tag time"><i class="bi bi-stopwatch"></i> ' + humanDuration(e.seconds) + '</span>');
-        }
-        if (e.amount && e.amountUnit) {
-            tags.push('<span class="lg-tag amount"><i class="bi bi-hash"></i> ' + NUM(e.amount) + ' ' + esc(e.amountUnit) + '</span>');
-        }
-        if (e.period && periodOf(e.period)) {
-            const p = periodOf(e.period);
-            tags.push('<span class="lg-tag period"><i class="bi ' + p.icon + '"></i> ' + p.label + '</span>');
-        }
-        if (!e.seconds && !e.amount && !e.period && !isJ) {
-            tags.push('<span class="lg-tag faint">' + esc(I18N.untimed) + '</span>');
-        }
-        if (isJ && e.mood) {
-            tags.push('<span class="lg-tag mood">' + esc(I18N.moodLabel) + ' ' + NUM(e.mood) + '/' + NUM(10) + '</span>');
-        }
-
+        const meta = rowMeta(e);
+        /* Meta and note travel together: they sit at the end of the title line,
+           or wrap as a block when the title is long. */
+        const sub = (meta || e.note)
+            ? '<div class="lg-row-sub">' +
+                (meta ? '<span class="lg-row-meta">' + esc(meta) + '</span>' : '') +
+                (e.note ? '<span class="lg-row-note">' + esc(e.note) + '</span>' : '') +
+              '</div>'
+            : '';
         return '' +
             '<div class="lg-row ' + (isJ ? 'is-journal' : '') + '" data-lg-id="' + e.id + '" role="listitem">' +
-                '<span class="lg-badge" style="--c:' + e.color + '">' +
-                    (e.icon ? '<i class="bi ' + e.icon + '"></i>' : esc(e.title.trim().charAt(0))) +
-                '</span>' +
-                '<div class="lg-row-body">' +
-                    '<div class="lg-row-title" data-lg-title>' + esc(e.title) + tags.join('') + '</div>' +
-                    (e.note ? '<div class="lg-row-note"><i class="bi bi-chat-left-text"></i> ' + esc(e.note) + '</div>' : '') +
+                '<span class="lg-row-dot" style="--c:' + e.color + '" aria-hidden="true"></span>' +
+                '<div class="lg-row-main">' +
+                    '<span class="lg-row-title" data-lg-title>' + esc(e.title) + '</span>' +
+                    sub +
                 '</div>' +
                 '<div class="lg-row-acts">' +
                     (isJ
-                        ? '<button type="button" class="lg-act" data-lg-act="activity" title="' + esc(@json(__('Turn into an activity'))) + '"><i class="bi bi-arrow-left-right"></i></button>'
-                        : '<button type="button" class="lg-act" data-lg-act="habit" title="' + esc(@json(__('Convert to habit'))) + '"><i class="bi bi-arrow-repeat"></i></button>') +
-                    '<button type="button" class="lg-act" data-lg-act="edit" title="' + esc(@json(__('Edit'))) + '"><i class="bi bi-pencil"></i></button>' +
-                    '<button type="button" class="lg-act danger" data-lg-act="delete" title="' + esc(@json(__('Delete'))) + '"><i class="bi bi-trash"></i></button>' +
+                        ? '<button type="button" class="lg-icon" data-lg-act="activity" aria-label="' + esc(I18N.intoActivity) + '" title="' + esc(I18N.intoActivity) + '"><i class="bi bi-arrow-left-right" aria-hidden="true"></i></button>'
+                        : '<button type="button" class="lg-icon" data-lg-act="habit" aria-label="' + esc(I18N.convertHabit) + '" title="' + esc(I18N.convertHabit) + '"><i class="bi bi-arrow-repeat" aria-hidden="true"></i></button>') +
+                    '<button type="button" class="lg-icon" data-lg-act="edit" aria-label="' + esc(I18N.edit) + '" title="' + esc(I18N.edit) + '"><i class="bi bi-pencil" aria-hidden="true"></i></button>' +
+                    '<button type="button" class="lg-icon danger" data-lg-act="delete" aria-label="' + esc(I18N.delete) + '" title="' + esc(I18N.delete) + '"><i class="bi bi-trash" aria-hidden="true"></i></button>' +
                 '</div>' +
             '</div>';
     }
@@ -4907,131 +5119,169 @@
         entries.forEach(e => { const k = groupOf(e); (groups[k] = groups[k] || []).push(e); });
 
         const order = PERIODS.map(p => p.key).concat(['unscheduled']);
-        let html = '', shown = 0;
+        let html = '';
+        let shown = 0;
 
         order.forEach(key => {
             const rows = groups[key];
             if (!rows || !rows.length) { return; }
             const p = periodOf(key);
             html += '<div class="lg-group-head">' + (p
-                ? '<i class="bi ' + p.icon + '" style="color:' + p.color + '"></i><span>' + p.label + '</span>'
-                : '<i class="bi bi-dash-circle" style="color:#94a3b8"></i><span>' + esc(I18N.noPeriod) + '</span>') +
-                '<span class="lg-group-line"></span></div>';
-            html += '<div class="lg-rows">' + rows.map(rowHtml).join('') + '</div>';
+                ? '<i class="bi ' + p.icon + '" style="color:' + p.color + '" aria-hidden="true"></i><span>' + p.label + '</span>'
+                : '<i class="bi bi-dash-circle" style="color:#c3c8d1" aria-hidden="true"></i><span>' + esc(I18N.noPeriod) + '</span>') +
+                '<span class="lg-group-count">' + NUM(rows.length) + '</span></div>';
+            html += rows.map(rowHtml).join('');
             shown += rows.length;
         });
 
-        if (!shown) {
-            html = '<div class="pl-empty"><i class="bi bi-journal"></i>' + esc(I18N.empty) +
-                   '<br><span style="font-size:11.5px">' + esc(I18N.emptySub) + '</span></div>';
-        }
-        $('lgRows').innerHTML = html;
+        $('lgRows').innerHTML = shown
+            ? html
+            : '<div class="lg-empty"><i class="bi bi-journal" aria-hidden="true"></i>' + esc(I18N.empty) + '</div>';
     }
 
-    function renderStats() {
+    /* Quiet summary when idle; a live "exactly what will be saved" preview while
+       typing — read from the state, so manual edits and text agree. */
+    function renderMeta(parsed) {
+        if (input.value.trim()) {
+            const title = state.kind === 'journal' ? input.value.trim() : (parsed.title || input.value.trim());
+            const bits = [title || I18N.noTitle];
+            if (state.kind !== 'journal') {
+                if (state.start && state.end) { bits.push(NUM(state.start) + '–' + NUM(state.end)); }
+                else if (state.amount) { bits.push(NUM(state.amount) + ' ' + unitLabel(state.unit)); }
+                if (state.period) { bits.push(periodLabel(state.period)); }
+            } else if (state.mood) {
+                bits.push(I18N.moodLabel + ' ' + NUM(state.mood) + '/' + NUM(10));
+            }
+            const note = $('lgNote').value.trim();
+            if (note) { bits.push(note); }
+            meta.style.color = '#6d28d9';
+            meta.innerHTML = '<b>' + esc(bits[0]) + '</b>' + bits.slice(1).map(b => ' · ' + esc(b)).join('');
+            return;
+        }
+
         const secs = entries.reduce((s, e) => s + (e.seconds || 0), 0);
         const journals = entries.filter(e => e.kind === 'journal').length;
         const activities = entries.length - journals;
-        $('lgTotal').textContent = secs ? humanDuration(secs) : I18N.untimed;
-        $('lgEntriesCount').textContent = NUM(activities);
-        $('lgEntriesLabel').textContent = plural(activities, I18N.activityOne, I18N.activityMany);
-        $('lgCount').textContent = NUM(entries.length);
-        $('lgJournalWrap').hidden = journals === 0;
-        $('lgJournalsCount').textContent = NUM(journals);
-        $('lgJournalsLabel').textContent = plural(journals, I18N.moodOne, I18N.moodMany);
-    }
-
-    /* Last-7-days sparkline (sample shape — the real one will come from data). */
-    function renderSpark() {
-        const heights = [9, 16, 22, 12, 18, 8, 20];
-        $('lgSpark').innerHTML = '<em>' + esc(I18N.week) + '</em>' + heights
-            .map((h, i) => '<b class="' + (i >= 4 ? 'on' : '') + '" style="height:' + h + 'px"></b>').join('');
-    }
-
-    function nudgeCard(id, opts) {
-        return '<div class="lg-nudge ' + (opts.avoid ? 'avoid' : '') + '" data-lg-nudge="' + id + '">' +
-            '<span class="lg-nudge-icon"><i class="bi ' + (opts.avoid ? 'bi-fire' : 'bi-lightbulb') + '"></i></span>' +
-            '<div class="lg-nudge-text">' + opts.text +
-                '<div class="lg-nudge-acts">' +
-                    '<button type="button" class="lg-nudge-yes" data-lg-nudge-yes="' + id + '">' + esc(opts.yes) + '</button>' +
-                    '<button type="button" class="lg-nudge-later" data-lg-nudge-later="' + id + '">' + esc(I18N.later) + '</button>' +
-                '</div></div></div>';
-    }
-
-    function renderNudges() {
-        const cards = [];
-        if (!dismissed.piano) {
-            cards.push(nudgeCard('piano', {
-                text: esc(I18N.habitNudge).replace(':name', '<b>' + esc(catalog[0].name) + '</b>').replace(':count', '<b>' + NUM(5) + '</b>'),
-                yes: I18N.habitYes,
-            }));
-        }
-        if (!dismissed.quit) {
-            cards.push(nudgeCard('quit', {
-                avoid: true,
-                text: esc(I18N.quitNudge).replace(':name', '<b>' + esc(catalog[5].name) + '</b>').replace(':count', '<b>' + NUM(4) + '</b>'),
-                yes: I18N.quitYes,
-            }));
-        }
-        Object.keys(sessionAdds).forEach(name => {
-            const key = 'live:' + name;
-            if (dismissed[key] || sessionAdds[name] < 3) { return; }
-            cards.push(nudgeCard(key, {
-                text: esc(@json(__('You logged ":name" three times just now. Shall we make it a habit?'))).replace(':name', '<b>' + esc(name) + '</b>'),
-                yes: I18N.habitYes,
-            }));
-        });
-        $('lgNudges').innerHTML = cards.length
-            ? '<div style="display:flex;flex-direction:column;gap:8px">' + cards.join('') + '</div>'
+        meta.style.color = '';
+        meta.innerHTML = entries.length
+            ? esc(I18N.loggedToday) + ' <b>' + esc(secs ? humanDuration(secs) : I18N.untimed) + '</b>' +
+              '<span class="lg-dot"></span><b>' + NUM(activities) + '</b> ' + esc(plural(activities, I18N.activityOne, I18N.activityMany)) +
+              (journals ? '<span class="lg-dot"></span><b>' + NUM(journals) + '</b> ' + esc(plural(journals, I18N.moodOne, I18N.moodMany)) : '')
             : '';
+    }
+
+    const hasTime = () => state.kind !== 'journal' && !!(state.amount || (state.start && state.end) || state.period);
+
+    function timePillText() {
+        if (state.kind === 'journal') { return I18N.setTime; }
+        if (state.start && state.end) { return NUM(state.start) + '–' + NUM(state.end); }
+        if (state.amount) { return NUM(state.amount) + ' ' + unitLabel(state.unit); }
+        if (state.period) { return periodLabel(state.period); }
+        return I18N.setTime;
+    }
+
+    function renderPills() {
+        $('lgTimeLabel').textContent = timePillText();
+        $('lgPillTime').classList.toggle('is-on', hasTime());
+        $('lgPillMood').classList.toggle('is-on', state.kind === 'journal');
+        $('lgCount').textContent = NUM(entries.length);
+        $('lgSave').disabled = !input.value.trim();
+        document.querySelectorAll('[data-lg-val]').forEach(b =>
+            b.classList.toggle('active', Number(b.dataset.lgVal) === state.amount));
+    }
+
+    function renderAsk() {
+        const queued = [];
+        if (!dismissed.piano) { queued.push({ id: 'piano', name: catalog[0].name }); }
+        if (!dismissed.quit) { queued.push({ id: 'quit', name: catalog[5].name, quit: true }); }
+        Object.keys(sessionAdds).forEach(name => {
+            if (sessionAdds[name] >= 3 && !dismissed['live:' + name]) { queued.push({ id: 'live:' + name, name: name, live: true }); }
+        });
+
+        const ask = queued[0];
+        if (!ask) { $('lgAsk').innerHTML = ''; return; }
+
+        const text = ask.live
+            ? esc(I18N.liveNudge).replace(':name', '<b>' + esc(ask.name) + '</b>')
+            : (ask.quit
+                ? esc(I18N.quitNudge).replace(':name', '<b>' + esc(ask.name) + '</b>').replace(':count', '<b>' + NUM(4) + '</b>')
+                : esc(I18N.habitNudge).replace(':name', '<b>' + esc(ask.name) + '</b>').replace(':count', '<b>' + NUM(5) + '</b>'));
+
+        $('lgAsk').innerHTML =
+            '<div class="lg-ask ' + (ask.quit ? 'quit' : '') + '">' +
+                '<i class="bi ' + (ask.quit ? 'bi-fire' : 'bi-lightbulb') + '" aria-hidden="true"></i>' +
+                '<span>' + text + '</span>' +
+                '<span class="lg-ask-acts">' +
+                    '<button type="button" data-lg-ask-yes="' + ask.id + '">' + esc(ask.quit ? I18N.quitYes : I18N.habitYes) + '</button>' +
+                    '<button type="button" class="later" data-lg-ask-later="' + ask.id + '">' + esc(I18N.later) + '</button>' +
+                '</span>' +
+            '</div>';
     }
 
     function renderChips() {
         $('lgPeriodChips').innerHTML = PERIODS.map(p =>
-            '<button type="button" class="lg-chip-btn ' + (state.period === p.key ? 'active' : '') + '"' +
-            ' data-lg-period="' + p.key + '" style="color:' + p.color + '">' +
-            '<i class="bi ' + p.icon + '"></i> ' + p.label + '</button>').join('');
-    }
-
-    function previewText() {
-        if (state.kind === 'journal') {
-            return esc(@json(__('A mood sentence — no time, not counted in the day totals.')));
-        }
-        const parts = ['<em>' + esc(input.value.trim() || I18N.noTitle) + '</em>'];
-        if (state.mode === 'duration' && state.amount) {
-            parts.push('<em>' + NUM(state.amount) + ' ' + esc(state.unit) + '</em>');
-        }
-        if (state.mode === 'range') {
-            parts.push('<em>' + NUM(state.start) + ' ' + esc(@json(__('to'))) + ' ' + NUM(state.end) + '</em>');
-        }
-        if (state.mode === 'period') {
-            parts.push('<em>' + (periodOf(state.period) ? periodOf(state.period).label : '—') + '</em>');
-        } else if (state.period && periodOf(state.period)) {
-            parts.push('<em>' + periodOf(state.period).label + '</em>');
-        }
-        return esc(@json(__('Will be saved:'))) + ' ' + parts.join(' · ');
+            '<button type="button" class="lg-chip ' + (state.period === p.key ? 'active' : '') + '"' +
+            ' data-lg-period="' + p.key + '"><i class="bi ' + p.icon + '" aria-hidden="true"></i> ' + p.label + '</button>').join('');
     }
 
     function render() {
         renderRows();
-        renderStats();
-        renderNudges();
+        renderMeta(parseInline(input.value));
+        renderPills();
+        renderAsk();
         renderChips();
-        $('lgPreview').innerHTML = previewText();
-        $('lgSave').disabled = !input.value.trim();
     }
 
-    /* ── autocomplete over the catalog ── */
+    /* ── panels: one pill open at a time ── */
+    const PANELS = {
+        time: { panel: 'lgPanelTime', pill: 'lgPillTime' },
+        note: { panel: 'lgPanelNote', pill: 'lgPillNote' },
+        mood: { panel: 'lgPanelMood', pill: 'lgPillMood' },
+    };
+
+    function togglePanel(name) {
+        const open = $(PANELS[name].panel).hidden;
+        Object.keys(PANELS).forEach(key => {
+            const isTarget = key === name && open;
+            $(PANELS[key].panel).hidden = !isTarget;
+            $(PANELS[key].pill).setAttribute('aria-expanded', String(isTarget));
+            $(PANELS[key].pill).classList.toggle('is-on', isTarget ||
+                (key === 'time' ? hasTime() : key === 'mood' && state.kind === 'journal'));
+        });
+        if (open) {
+            const focusTarget = $(PANELS[name].panel).querySelector('input, select, button');
+            if (focusTarget && name !== 'time') { focusTarget.focus(); }
+        }
+    }
+
+    /* The panel is a view of the state — there is no mode to switch between. */
+    function syncTimeFields() {
+        const shown = state.amount === null ? '' : String(state.amount);
+        if ($('lgAmount').value !== shown) { $('lgAmount').value = shown; }
+        $('lgUnit').selectedIndex = state.unit;
+        if (state.start && state.end) { $('lgStart').value = state.start; $('lgEnd').value = state.end; }
+        $('lgFieldsRange').hidden = !(state.start && state.end);
+    }
+
+    function resetTime() {
+        state.amount = null;
+        state.period = null;
+        state.start = null;
+        state.end = null;
+        syncTimeFields();
+    }
+
+    /* ── input + suggestions ── */
     function openSuggest() {
-        const q = input.value.trim();
+        const q = (parseInline(input.value).title || '').trim();
         let list = catalog.slice().sort((a, b) => b.uses - a.uses);
         if (q) { list = list.filter(c => c.name.indexOf(q) >= 0); }
-        suggestBox.innerHTML = list.slice(0, 6).map(c =>
+        suggestBox.innerHTML = list.slice(0, 5).map(c =>
             '<div class="lg-suggest-item" data-lg-pick="' + c.id + '" role="option">' +
-                '<i class="bi ' + c.icon + '" style="color:' + c.color + '"></i>' + esc(c.name) +
-                '<small>' + NUM(c.uses) + ' ' + esc(@json(__('times before'))) + '</small>' +
+                '<i class="bi ' + c.icon + '" aria-hidden="true"></i>' + esc(c.name) +
+                '<small>' + NUM(c.uses) + ' ' + esc(I18N.timesBefore) + '</small>' +
             '</div>').join('') ||
-            '<div class="lg-suggest-empty">' + esc(@json(__('New one — log it as is and it will be suggested from now on.'))) + '</div>';
+            '<div class="lg-suggest-empty">' + esc(I18N.newOne) + '</div>';
         suggestBox.classList.add('show');
         activeIdx = -1;
     }
@@ -5042,75 +5292,97 @@
         if (!c) { return; }
         input.value = c.name;
         state.actId = c.id;
-        if (c.unit !== undefined && $('lgUnit').options[c.unit]) {
-            state.unit = $('lgUnit').options[c.unit].value;
-            $('lgUnit').selectedIndex = c.unit;
+        if (c.unit !== undefined && TIME_UNITS.indexOf(c.unit) >= 0) {
+            state.unit = c.unit;
+            syncTimeFields();
         }
         closeSuggest();
-        $('lgSave').disabled = false;
         render();
+        input.focus();
     }
 
     input.addEventListener('focus', openSuggest);
-    input.addEventListener('input', () => { state.actId = null; render(); openSuggest(); });
+    input.addEventListener('input', () => {
+        const parsed = parseInline(input.value);
+        state.actId = null;
+        /* An emptied composer is a fresh entry: nothing may leak from the last
+           sentence into the next one. */
+        if (!input.value.trim()) { resetTime(); $('lgNote').value = ''; }
+        else if (parsed.note) { $('lgNote').value = parsed.note; }
+        applyParsed(parsed);
+        render();
+        openSuggest();
+    });
+
     input.addEventListener('keydown', ev => {
         const items = Array.from(suggestBox.querySelectorAll('.lg-suggest-item'));
-        if (ev.key === 'ArrowDown' && items.length) { ev.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); }
-        else if (ev.key === 'ArrowUp' && items.length) { ev.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); }
-        else if (ev.key === 'Enter') {
+        if (ev.key === 'ArrowDown' && items.length) {
+            ev.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1);
+        } else if (ev.key === 'ArrowUp' && items.length) {
+            ev.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0);
+        } else if (ev.key === 'Enter') {
             ev.preventDefault();
-            if (suggestBox.classList.contains('show') && items[Math.max(activeIdx, 0)]) {
-                pick(items[Math.max(activeIdx, 0)].dataset.lgPick);
-            } else if (input.value.trim()) {
-                $('lgSave').click();
+            if (suggestBox.classList.contains('show') && activeIdx >= 0 && items[activeIdx]) {
+                pick(items[activeIdx].dataset.lgPick);
+            } else {
+                save();
             }
             return;
-        } else if (ev.key === 'Escape') { closeSuggest(); return; }
-        else { activeIdx = -1; }
+        } else if (ev.key === 'Escape') {
+            if (suggestBox.classList.contains('show')) { closeSuggest(); }
+            else if (input.value) { resetComposer(); render(); }
+            return;
+        } else {
+            activeIdx = -1;
+        }
         items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
     });
+
     suggestBox.addEventListener('mousedown', ev => {
         const item = ev.target.closest('[data-lg-pick]');
         if (!item) { return; }
         ev.preventDefault();
         pick(item.dataset.lgPick);
     });
+
     document.addEventListener('click', ev => {
-        if (!ev.target.closest('.lg-capture-top')) { closeSuggest(); }
+        if (!ev.target.closest('.lg-hero')) { closeSuggest(); }
     });
 
-    /* ── kind switch: activity vs mood sentence ── */
-    root.querySelectorAll('[data-lg-kind]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            root.querySelectorAll('[data-lg-kind]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            state.kind = btn.dataset.lgKind;
-            $('lgTimeArea').style.display = state.kind === 'journal' ? 'none' : '';
-            input.placeholder = state.kind === 'journal'
-                ? @json(__('What did you feel today? One sentence…'))
-                : @json(__('e.g. played piano…'));
-            render();
-        });
+    /* Text wins wherever it says something; the panel keeps what it was told. */
+    function applyParsed(parsed) {
+        if (state.kind === 'journal') { return; }
+        if (parsed.period) { state.period = parsed.period; }
+        if (parsed.start && parsed.end) { state.start = parsed.start; state.end = parsed.end; }
+        if (parsed.amount) { state.amount = parsed.amount; state.unit = parsed.unit; }
+        syncTimeFields();
+    }
+
+    /* ── pills ── */
+    $('lgPillTime').addEventListener('click', () => togglePanel('time'));
+    $('lgPillNote').addEventListener('click', () => togglePanel('note'));
+    $('lgPillMood').addEventListener('click', () => {
+        state.kind = state.kind === 'journal' ? 'activity' : 'journal';
+        input.placeholder = state.kind === 'journal'
+            ? @json(__('What did you feel today? One sentence…'))
+            : @json(__('e.g. played piano 45m…'));
+        /* Dimmed, never hidden: the row must not jump under the finger. */
+        $('lgPillTime').disabled = state.kind === 'journal';
+        if (state.kind === 'journal' && $('lgPanelTime').hidden === false) { togglePanel('time'); }
+        togglePanel('mood');
+        render();
     });
 
-    /* ── four time modes ── */
-    root.querySelectorAll('[data-lg-mode]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            root.querySelectorAll('[data-lg-mode]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            state.mode = btn.dataset.lgMode;
-            $('lgFieldsDuration').hidden = state.mode !== 'duration';
-            $('lgFieldsRange').hidden = state.mode !== 'range';
-            $('lgFields').hidden = state.mode === 'none';
-            render();
-        });
-    });
-
-    $('lgAmount').addEventListener('input', e => { state.amount = Number(e.target.value) || 0; render(); });
-    $('lgUnit').addEventListener('change', e => { state.unit = e.target.value; render(); });
-    root.querySelectorAll('[data-lg-val]').forEach(b => b.addEventListener('click', () => {
-        $('lgAmount').value = b.dataset.lgVal;
-        state.amount = Number(b.dataset.lgVal);
+    /* Panel edits are as real as the sentence: both feed the same state. */
+    $('lgAmount').addEventListener('input', e => { state.amount = Number(e.target.value) || null; render(); });
+    $('lgUnit').addEventListener('change', e => { state.unit = e.target.selectedIndex; render(); });
+    document.querySelectorAll('[data-lg-val]').forEach(b => b.addEventListener('click', () => {
+        const minutes = Number(b.dataset.lgVal);
+        const isHour = minutes >= 60 && minutes % 60 === 0;
+        const same = state.amount !== null && state.amount * (state.unit === UNITS.hour ? 60 : 1) === minutes;
+        state.amount = same ? null : (isHour ? minutes / 60 : minutes);
+        if (!same) { state.unit = isHour ? UNITS.hour : UNITS.minute; }
+        syncTimeFields();
         render();
     }));
     $('lgStart').addEventListener('input', e => { state.start = e.target.value; render(); });
@@ -5118,63 +5390,88 @@
     $('lgPeriodChips').addEventListener('click', ev => {
         const b = ev.target.closest('[data-lg-period]');
         if (!b) { return; }
-        state.period = (state.mode === 'period' || state.period !== b.dataset.lgPeriod)
-            ? b.dataset.lgPeriod : null;
+        state.period = state.period === b.dataset.lgPeriod ? null : b.dataset.lgPeriod;   // tap again to clear
         render();
     });
+    $('lgClearTime').addEventListener('click', () => { resetTime(); render(); });
+    $('lgMood').addEventListener('change', e => { state.mood = Number(e.target.value); render(); });
 
-    /* ── save (memory only) ── */
-    $('lgSave').addEventListener('click', () => {
-        const name = input.value.trim();
-        if (!name) { return; }
+    /* One place decides what an entry is: the sentence first, the panel second. */
+    function buildEntry(parsed) {
+        const isJournal = state.kind === 'journal';
+        const title = isJournal ? input.value.trim() : (parsed.title || input.value.trim());
+        const entry = { id: ++seq, actId: state.actId, title: title, kind: state.kind,
+                        note: $('lgNote').value.trim() || null };
 
-        const entry = {
-            id: ++seq, actId: state.actId, title: name, kind: state.kind,
-            mode: state.mode,
-            period: state.kind === 'journal' ? null : state.period,
-            note: $('lgNote').value.trim() || null,
-        };
+        if (isJournal) {
+            return Object.assign(entry, { mode: 'none', mood: state.mood, period: null, color: '#a16207' });
+        }
 
-        if (state.kind === 'journal') {
-            Object.assign(entry, { icon: 'bi-chat-quote', color: '#a16207', mode: 'none', mood: 7 });
+        const period = parsed.period || state.period || null;
+
+        if (state.start && state.end) {
+            Object.assign(entry, { mode: 'range', start: state.start, end: state.end,
+                                  seconds: secondsBetween(state.start, state.end) });
+        } else if (state.amount) {
+            entry.mode = 'duration';
+            const seconds = secondsOf(state.amount, state.unit);
+            if (seconds) { entry.seconds = seconds; }
+            else { entry.amount = state.amount; entry.amountUnit = unitLabel(state.unit); }
         } else {
-            let c = catalog.find(x => x.id === state.actId) || catalog.find(x => x.name === name);
+            entry.mode = period ? 'period' : 'none';
+        }
+
+        /* A clock range already implies a time of day — fill it, never overwrite. */
+        entry.period = period || (entry.mode === 'range' ? groupOf(entry) : null);
+        return entry;
+    }
+
+    /* ── save (memory only) — Enter keeps focus for rapid logging ── */
+    function save() {
+        const entry = buildEntry(parseInline(input.value));
+        if (!entry.title) { return; }
+
+        if (entry.kind === 'journal') {
+            entry.actId = null;
+        } else {
+            /* Keep the catalog honest so the next suggestion is a real one. */
+            let c = catalog.find(x => x.id === state.actId) || catalog.find(x => x.name === entry.title);
             if (!c) {
-                c = { id: 'lc' + catalog.length, name: name, uses: 0, icon: null,
-                      color: CYCLE[catalog.length % CYCLE.length], unit: 0 };
+                c = { id: 'lc' + catalog.length, name: entry.title, uses: 0, unit: UNITS.minute,
+                      color: CYCLE[catalog.length % CYCLE.length] };
                 catalog.push(c);
             }
             c.uses += 1;
-            entry.icon = c.icon;
+            entry.actId = c.id;
             entry.color = c.color;
             sessionAdds[c.name] = (sessionAdds[c.name] || 0) + 1;
-
-            if (state.mode === 'duration') {
-                if (TIME_UNITS.indexOf(state.unit) >= 0) {
-                    entry.seconds = state.amount * (state.unit === I18N.hoursUnit ? 3600 : 60);
-                } else {
-                    entry.amount = state.amount;
-                    entry.amountUnit = state.unit;
-                }
-            } else if (state.mode === 'range') {
-                const [sh, sm] = state.start.split(':').map(Number);
-                const [eh, em] = state.end.split(':').map(Number);
-                let mins = (eh * 60 + em) - (sh * 60 + sm);
-                if (mins <= 0) { mins += 24 * 60; }
-                entry.seconds = mins * 60;
-                entry.start = state.start;
-                entry.end = state.end;
-                if (!entry.period) { entry.period = groupOf(entry); }
-            }
         }
 
         entries.push(entry);
+        resetComposer();
+        render();
+        flashRow(entry.id);
+        input.focus();
+        plShowToast(I18N.logged + ': ' + (entry.kind === 'journal' ? I18N.moodSentence : entry.title));
+    }
+
+    function resetComposer() {
         input.value = '';
         $('lgNote').value = '';
         state.actId = null;
-        render();
-        plShowToast(I18N.logged + ': ' + (state.kind === 'journal' ? @json(__('mood sentence')) : entry.title));
-    });
+        resetTime();
+        closeSuggest();
+    }
+
+    /* Land the eye on the new row without moving the page. */
+    function flashRow(id) {
+        const row = $('lgRows').querySelector('.lg-row[data-lg-id="' + id + '"]');
+        if (!row) { return; }
+        row.classList.add('is-new');
+        setTimeout(() => row.classList.remove('is-new'), 1100);
+    }
+
+    $('lgSave').addEventListener('click', save);
 
     /* ── row actions ── */
     $('lgRows').addEventListener('click', ev => {
@@ -5193,10 +5490,9 @@
             openHabitForm(entry);
         } else if (btn.dataset.lgAct === 'activity') {
             entry.kind = 'activity';
-            entry.icon = null;
-            entry.color = '#7c3aed';
             entry.mode = 'period';
             entry.period = state.period || 'evening';
+            entry.color = '#7c3aed';
             delete entry.mood;
             render();
             plShowToast(I18N.turned);
@@ -5214,10 +5510,13 @@
 
     function inlineEdit(row, entry) {
         const titleEl = row.querySelector('[data-lg-title]');
-        const tags = Array.from(titleEl.querySelectorAll('.lg-tag')).map(t => t.outerHTML).join(' ');
-        titleEl.innerHTML = '<input class="lg-inline-edit" value="' + esc(entry.title) + '" aria-label="' +
-            esc(@json(__('Edit'))) + '">' + tags;
-        const field = titleEl.querySelector('input');
+        const previous = titleEl.textContent;
+        const field = document.createElement('input');
+        field.type = 'text';
+        field.className = 'lg-edit';
+        field.value = entry.title;
+        field.setAttribute('aria-label', I18N.edit);
+        titleEl.replaceChildren(field);
         field.focus();
         field.select();
         let done = false;
@@ -5229,7 +5528,7 @@
         };
         field.addEventListener('keydown', e => {
             if (e.key === 'Enter') { commit(); }
-            if (e.key === 'Escape') { done = true; render(); }
+            if (e.key === 'Escape') { done = true; titleEl.textContent = previous; }
         });
         field.addEventListener('blur', commit);
     }
@@ -5247,33 +5546,28 @@
         plShowToast(I18N.prefilled);
     }
 
-    /* ── pattern nudges ── */
-    $('lgNudges').addEventListener('click', ev => {
-        const yes = ev.target.closest('[data-lg-nudge-yes]');
-        const later = ev.target.closest('[data-lg-nudge-later]');
+    /* ── one suggestion at a time ── */
+    $('lgAsk').addEventListener('click', ev => {
+        const later = ev.target.closest('[data-lg-ask-later]');
+        const yes = ev.target.closest('[data-lg-ask-yes]');
 
         if (later) {
-            dismissed[later.dataset.lgNudgeLater] = true;
-            renderNudges();
+            dismissed[later.dataset.lgAskLater] = true;
+            renderAsk();
             plShowToast(I18N.beStill);
             return;
         }
         if (!yes) { return; }
 
-        const id = yes.dataset.lgNudgeYes;
-        if (id === 'quit') {
-            dismissed.quit = true;
-            renderNudges();
-            openHabitForm({ title: catalog[5].name, period: state.period });
-            return;
-        }
-        const name = id === 'piano' ? catalog[0].name : id.slice(5);
-        dismissed['live:' + name] = true;
-        renderNudges();
-        openHabitForm({ title: name, period: state.period });
+        const id = yes.dataset.lgAskYes;
+        const quit = id === 'quit';
+        dismissed[id] = true;
+        renderAsk();
+        openHabitForm({ title: quit ? catalog[5].name : (id === 'piano' ? catalog[0].name : id.slice(5)), period: state.period });
     });
 
-    renderSpark();
+    /* Nothing is set until the user says so: the panel starts empty, not at 45. */
+    syncTimeFields();
     render();
 })();
 </script>
