@@ -42,7 +42,7 @@
             <span class="cu-chapter-count" title="{{ __(':done of :total done', ['done' => $secDone, 'total' => $secTotal]) }}">{{ $secDone }}/{{ $secTotal }}</span>
         </span>
         <span class="cu-col-count cu-chapter-open" title="{{ __('Unfinished') }}">{{ $secOpen }} {{ __('open') }}</span>
-        @if($quickProjectId)
+        @if(!is_null($quickProjectId))
             <button type="button" class="cu-ch-add"
                     data-ch-quickadd="{{ $quickProjectId }}" data-section="{{ $sectionId }}"
                     title="{{ __('Quick add task to this project') }} (A)">
@@ -51,7 +51,7 @@
         @endif
     </div>
     <div class="cu-chapter-body" id="{{ $bodyId }}">
-        @if($quickProjectId)
+        @if(!is_null($quickProjectId))
             <div class="cu-ch-quickform" data-ch-quickform="{{ $sectionId }}" hidden>
                 <i class="bi bi-plus-lg"></i>
                 <input type="text" data-ch-quickinput maxlength="255" autocomplete="off"

@@ -336,13 +336,13 @@
     /* ─── Chapters view ─── */    .cu-chapters-view{display:none;flex-direction:column;gap:10px;}
     .cu-chapter{background:white;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}
     .cu-chapter-head{
-        display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none;
+        display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;user-select:none;
     }
     .cu-chapter-head:hover{background:#fafbfc;}
     .cu-chapter.collapsed .cu-chapter-body{display:none;}
     .cu-chapter-head:hover .cu-chapter-title{color:#7c3aed;}
     .cu-ch-heading{display:flex;align-items:center;gap:4px;flex:1;min-width:0;}
-    .cu-chapter-title{font-size:13.5px;font-weight:600;color:#1f2328;text-decoration:none;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .12s;}
+    .cu-chapter-title{font-size:13px;font-weight:600;color:#1f2328;text-decoration:none;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .12s;}
     .cu-ch-chevron{
         width:28px;height:28px;flex-shrink:0;padding:0;border:1px solid #e5e7eb;border-radius:7px;
         background:white;color:#6b6f78;font-size:13px;cursor:pointer;
@@ -364,8 +364,8 @@
     .cu-chapter-head:hover .cu-ch-open{color:#6b7280;}
     .cu-ch-open:hover{background:#f7f5ff;color:#7c3aed;}
     .cu-ch-open:active{transform:scale(.88);}
-    .cu-chapter-progress{display:flex;align-items:center;gap:8px;min-width:150px;}
-    .cu-chapter-pb{flex:1;height:5px;background:#eef0f2;border-radius:4px;overflow:hidden;}
+    .cu-chapter-progress{display:flex;align-items:center;gap:8px;flex:1;}
+    .cu-chapter-pb{flex:1;height:4px;background:#eef0f2;border-radius:2px;overflow:hidden;}
     .cu-chapter-pb-fill{display:block;height:100%;background:#30a46c;border-radius:4px;transition:width .2s;}
     .cu-chapter-count{font-size:11px;font-weight:600;color:#6b6f78;white-space:nowrap;}
     .cu-chapter-open{flex-shrink:0;}
@@ -514,10 +514,10 @@
         background:#fff;border:1px solid #bfe6cd;border-bottom-width:2px;border-radius:5px;color:#1d7a44;
     }
     .cu-ch-add{
-        display:inline-flex;align-items:center;gap:5px;flex-shrink:0;
-        height:26px;padding:0 9px 0 8px;border-radius:999px;cursor:pointer;white-space:nowrap;
+        display:inline-flex;align-items:center;gap:4px;flex-shrink:0;
+        height:24px;padding:0 8px 0 7px;border-radius:999px;cursor:pointer;white-space:nowrap;
         border:1px solid #cfe8d6;background:linear-gradient(180deg,#f4fbf6,#e7f6ed);
-        color:#1d7a44;font-size:11px;font-weight:700;
+        color:#1d7a44;font-size:10px;font-weight:700;
         opacity:0;transform:translateY(1px);transition:opacity .15s, transform .15s, box-shadow .15s, background .15s;
     }
     .cu-ch-add i.bi{font-size:12px;line-height:1;}
@@ -833,10 +833,11 @@
                 @include('tasks._chapter-section', [
                     'sectionId'    => 'p-none',
                     'sectionTitle' => 'No project',
-                    'sectionUrl'   => null,
+                    'sectionUrl'   => route('tasks.index'),
                     'tasks'        => $orphanTasks->filter(fn ($t) => $t->parent_id === null)->values(),
                     'grouped'      => $orphanTasks->groupBy('parent_id'),
                     'collapsed'    => true,
+                    'quickProjectId' => 0,
                 ])
             @endif
             @foreach($projectsWithTasks as $proj)
