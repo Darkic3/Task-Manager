@@ -3,9 +3,12 @@
      markdown, model badges, timestamps, copy, logging
      ═══════════════════════════════════════════════════ --}}
 
-{{-- marked.js for markdown rendering --}}
+{{-- DOMPurify must load before LinaMd; marked.js feeds it. All AI markdown
+     goes through window.LinaMd.render() — never marked.parse() -> innerHTML. --}}
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>if(typeof marked!=='undefined') marked.setOptions({ breaks: true, gfm: true });</script>
+<script src="{{ asset('js/lina-markdown.js') }}"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
@@ -469,9 +472,9 @@ html[dir="rtl"] #aiDrawer.open {
             // Final markdown render
             streamBubbleEl.classList.remove('ai-streaming');
             if (accumulatedText) {
-                streamBubbleEl.innerHTML = typeof marked !== 'undefined'
-                    ? marked.parse(accumulatedText)
-                    : accumulatedText.replace(/\n/g, '<br>');
+                streamBubbleEl.innerHTML = (typeof LinaMd !== 'undefined')
+                    ? LinaMd.render(accumulatedText)
+                    : document.createTextNode(accumulatedText).textContent;
                 applyCodeEnhancements(streamBubbleEl);
                 const actions = document.createElement('div');
                 actions.className = 'ai-msg-actions';
@@ -531,8 +534,8 @@ html[dir="rtl"] #aiDrawer.open {
 
         const bubble = document.createElement('div');
         bubble.className = 'ai-msg ' + (role === 'user' ? 'user' : 'bot');
-        if (role !== 'user' && typeof marked !== 'undefined') {
-            bubble.innerHTML = marked.parse(content);
+        if (role !== 'user' && typeof LinaMd !== 'undefined') {
+            bubble.innerHTML = LinaMd.render(content);
             applyCodeEnhancements(bubble);
         } else {
             bubble.textContent = content;

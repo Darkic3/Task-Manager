@@ -3,8 +3,12 @@
 @section('title', __('Lina AI'))
 
 @push('styles')
+{{-- DOMPurify must load before LinaMd; marked.js feeds it. All AI markdown
+     goes through window.LinaMd.render() — never marked.parse() -> innerHTML. --}}
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>if(typeof marked!=='undefined') marked.setOptions({ breaks: true, gfm: true });</script>
+<script src="{{ asset('js/lina-markdown.js') }}"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <style>
@@ -652,10 +656,19 @@ footer, .topnav { display: none !important; }
         if (!blocked) return;
         if (chatMode === 'agent' && agentReady === false) {
             blocked.style.display = '';
-            const reason = agentBlockReason === 'no_provider'
+            // Built with DOM APIs: agentResolvedLabel is a provider/model string
+            // (and custom-provider labels are user-editable), so it must never
+            // be interpolated into an innerHTML assignment.
+            const text = agentBlockReason === 'no_provider'
                 ? 'هیچ پروایدر فعالی تنظیم نشده — لینا فقط حالت آفلاین خواندنی است و چیزی نمی‌سازد.'
                 : 'پروایدر فعلی (' + agentResolvedLabel + ') function-calling ندارد — ایجنت فقط با پروایدر OpenAI-compatible (مثل OpenRouter) کار می‌کند و چیزی ساخته نمی‌شود.';
-            blocked.innerHTML = '⚠️ ایجنت آماده نیست: ' + reason + ' <a href="{{ route('ai.settings') }}" style="font-weight:700;text-decoration:underline;">رفتن به AI Settings</a>';
+            blocked.textContent = '⚠️ ایجنت آماده نیست: ' + text + ' ';
+            const link = document.createElement('a');
+            link.href = '{{ route('ai.settings') }}';
+            link.style.fontWeight = '700';
+            link.style.textDecoration = 'underline';
+            link.textContent = 'رفتن به AI Settings';
+            blocked.appendChild(link);
         } else {
             blocked.style.display = 'none';
             blocked.innerHTML = '';
@@ -749,7 +762,7 @@ footer, .topnav { display: none !important; }
             item.innerHTML = `
                 <i class="bi bi-chat-left-text"></i>
                 <span class="lina-conv-label">${escHtml(conv.label || @json(__('New Chat')))}</span>
-                <button class="lina-conv-del" onclick="deleteConv(${conv.id}, event)" title="Delete"><i class="bi bi-x"></i></button>
+                <button class="lina-conv-del" onclick="deleteConv(${escHtml(conv.id)}, event)" title="Delete"><i class="bi bi-x"></i></button>
             `;
             item.addEventListener('click', () => switchConversation(conv.id));
             convList.appendChild(item);
@@ -834,8 +847,8 @@ footer, .topnav { display: none !important; }
         // Bubble
         const bubble = document.createElement('div');
         bubble.className = 'lina-msg ' + (role === 'user' ? 'user' : 'bot');
-        if (role !== 'user' && typeof marked !== 'undefined') {
-            bubble.innerHTML = marked.parse(content);
+        if (role !== 'user' && typeof LinaMd !== 'undefined') {
+            bubble.innerHTML = LinaMd.render(content);
             applyCodeEnhancements(bubble);
         } else {
             bubble.textContent = content;
@@ -1104,9 +1117,9 @@ footer, .topnav { display: none !important; }
             streamBubbleEl.classList.remove('lina-streaming');
             if (accumulatedText.trim()) {
                 accumulatedText = accumulatedText.trim();
-                streamBubbleEl.innerHTML = typeof marked !== 'undefined'
-                    ? marked.parse(accumulatedText)
-                    : accumulatedText.replace(/\n/g, '<br>');
+                streamBubbleEl.innerHTML = (typeof LinaMd !== 'undefined')
+                    ? LinaMd.render(accumulatedText)
+                    : document.createTextNode(accumulatedText).textContent;
                 applyCodeEnhancements(streamBubbleEl);
                 const actions = document.createElement('div');
                 actions.className = 'lina-msg-actions';
@@ -1430,8 +1443,8 @@ footer, .topnav { display: none !important; }
                 card.querySelector('.lina-tool-actions')?.remove();
                 const done = document.createElement('div');
                 done.style.cssText = 'font-size:12.5px;color:#16a34a;font-weight:600;margin-top:8px;white-space:pre-wrap;';
-                if (p.tool === 'report_generate' && typeof marked !== 'undefined') {
-                    done.innerHTML = marked.parse(res.message || @json(__('Done')));
+                if (p.tool === 'report_generate' && typeof LinaMd !== 'undefined') {
+                    done.innerHTML = LinaMd.render(res.message || @json(__('Done')));
                 } else {
                     done.textContent = '✅ ' + (res.message || @json(__('Done')));
                 }
@@ -1551,7 +1564,15 @@ footer, .topnav { display: none !important; }
                 hint.remove();
                 const done = document.createElement('div');
                 done.style.cssText = 'font-size:13px;color:#16a34a;font-weight:700;margin-top:10px;background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;';
-                done.innerHTML = `✅ ${res.message || @json(__('Workout imported. New movements were added to your exercise library.'))} <div class="mt-2"><a href="${res.plan?.url || '/workouts/plans'}" class="btn btn-sm btn-success px-3 rounded-pill fw-bold" style="font-size:12px;"><i class="bi bi-calendar-check me-1"></i> ${@json(__('View plan in Workouts'))}</a></div>`;
+                const msg = res.message || @json(__('Workout imported. New movements were added to your exercise library.'));
+                const planUrl = res.plan?.url || '/workouts/plans';
+                const planLabel = @json(__('View plan in Workouts'));
+                // Interpolated values go through the shared escaper so this
+                // stays safe even if a future server response carries text.
+                done.innerHTML = '✅ ' + escHtml(msg)
+                    + ' <div class="mt-2"><a href="' + escHtml(planUrl)
+                    + '" class="btn btn-sm btn-success px-3 rounded-pill fw-bold" style="font-size:12px;"><i class="bi bi-calendar-check me-1"></i> '
+                    + escHtml(planLabel) + '</a></div>';
                 card.appendChild(done);
             } catch (e) {
                 confirmBtn.disabled = false;

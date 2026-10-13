@@ -115,7 +115,10 @@ final class ToolSchema
             'project_add_member' => [
                 'project_id' => $id,
                 'project' => $optStr(255),
-                'user' => $reqStr(255),
+                // Server-resolved id persisted on a pending action; the model
+                // only ever sends `user`, so the schema must accept either.
+                'member_id' => $id,
+                'user' => $optStr(255),
                 'role' => ['type' => 'string', 'enum' => ['member', 'viewer', 'editor']],
             ],
             'note_link' => [

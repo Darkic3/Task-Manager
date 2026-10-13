@@ -21,6 +21,12 @@ use Illuminate\Support\Facades\Validator;
 
 class AiToolService
 {
+    /**
+     * Max collaborator candidates returned for an ambiguous name. Bounded so
+     * the reference can never be used to enumerate the whole user table.
+     */
+    public const MEMBER_CANDIDATE_LIMIT = 5;
+
     public const TOOLS = [
         'task_create', 'task_update', 'task_complete', 'task_delete',
         'reminder_create', 'reminder_complete', 'reminder_delete',
@@ -1150,7 +1156,10 @@ class AiToolService
         $v = Validator::make($args, [
             'project_id' => 'nullable|integer',
             'project' => 'nullable|string|max:255',
-            'user' => 'required|string|max:255',
+            // `member_id` is the server-resolved id persisted on a pending
+            // action; the model still only ever sends `user`.
+            'member_id' => 'nullable|integer',
+            'user' => 'required_without:member_id|nullable|string|max:255',
             'role' => 'nullable|in:member,viewer,editor',
         ]);
         if ($v->fails()) {
@@ -1176,8 +1185,28 @@ class AiToolService
             return $this->fail('Tell me which project to add the member to.');
         }
 
-        $member = $this->resolveMemberUser($args['user']);
+        $member = null;
+        $candidates = collect();
+        if (! empty($args['member_id'])) {
+            // Already resolved at proposal time; re-validated fresh here.
+            $member = User::find((int) $args['member_id']);
+        } else {
+            $resolvedMember = $this->resolveMemberUser((string) $args['user']);
+            $member = $resolvedMember['user'];
+            $candidates = $resolvedMember['candidates'];
+        }
+
         if (! $member) {
+            if ($candidates->isNotEmpty()) {
+                $options = $this->memberCandidateList($candidates);
+                $names = implode(', ', array_map(fn ($c) => "'{$c['name']}'", $options));
+
+                return $this->fail(
+                    "More than one person matches '{$args['user']}': {$names}. Ask the user which one they mean — never guess. Each option can carry their user id.",
+                    ToolError::AMBIGUOUS_TARGET
+                ) + ['candidates' => $options];
+            }
+
             return $this->fail("User '{$args['user']}' not found. Use their email, name, or user ID.");
         }
         if ((int) $member->id === (int) $user->id) {
@@ -1195,22 +1224,74 @@ class AiToolService
     }
 
     /**
-     * Find any user by ID, exact email, or name fragment.
+     * Resolve a collaborator reference to a SINGLE unambiguous user.
+     *
+     * Returns ['user' => ?User, 'candidates' => Collection]. `user` is only
+     * set when the reference maps to exactly one person, so a partial-name
+     * match can never silently attach the wrong collaborator:
+     *
+     *   - numeric        → exact user id
+     *   - contains '@'   → exact email
+     *   - otherwise      → exact full name must match exactly one row; a
+     *                     partial match is only accepted when unambiguous,
+     *                     otherwise bounded candidates are returned.
+     *
+     * Candidates are capped (never a full user dump) and expose id + name
+     * only, so the caller can turn them into an explicit user choice
+     * (`ask_user_choice`) instead of an information-disclosure oracle.
      */
-    private function resolveMemberUser(string $ref): ?User
+    private function resolveMemberUser(string $ref): array
     {
         $ref = trim($ref);
         if ($ref === '') {
-            return null;
-        }
-        if (is_numeric($ref)) {
-            return User::find((int) $ref);
-        }
-        if (str_contains($ref, '@')) {
-            return User::where('email', $ref)->first();
+            return ['user' => null, 'candidates' => collect()];
         }
 
-        return User::where('name', 'like', "%{$ref}%")->orderBy('id')->first();
+        if (is_numeric($ref)) {
+            return ['user' => User::find((int) $ref), 'candidates' => collect()];
+        }
+
+        if (str_contains($ref, '@')) {
+            return ['user' => User::where('email', $ref)->first(), 'candidates' => collect()];
+        }
+
+        // Exact full name: unambiguous, resolves directly.
+        $exact = User::where('name', $ref)->get();
+        if ($exact->count() === 1) {
+            return ['user' => $exact->first(), 'candidates' => collect()];
+        }
+        if ($exact->count() > 1) {
+            return ['user' => null, 'candidates' => $exact->take(self::MEMBER_CANDIDATE_LIMIT)];
+        }
+
+        // Partial name: only usable when it points at exactly one person.
+        $partial = User::where('name', 'like', "%{$ref}%")
+            ->orderBy('name')
+            ->limit(self::MEMBER_CANDIDATE_LIMIT + 1)
+            ->get();
+
+        if ($partial->count() === 1) {
+            return ['user' => $partial->first(), 'candidates' => collect()];
+        }
+
+        return [
+            'user' => null,
+            'candidates' => $partial->take(self::MEMBER_CANDIDATE_LIMIT),
+        ];
+    }
+
+    /** Candidate rows for an ambiguous collaborator (id + display name only). */
+    private function memberCandidateList(iterable $users): array
+    {
+        $out = [];
+        foreach ($users as $u) {
+            $out[] = [
+                'id' => (int) $u->id,
+                'name' => (string) $u->name,
+            ];
+        }
+
+        return $out;
     }
 
     /**
@@ -2396,12 +2477,17 @@ class AiToolService
                         'attached' => ! empty($root['project_id']),
                     ];
                     foreach (($root['members'] ?? []) as $ref) {
-                        $member = $this->resolveMemberUser($ref);
+                        ['user' => $member, 'candidates' => $memberCandidates] =
+                            $this->resolveMemberUser((string) $ref);
                         if ($member && (int) $member->id !== (int) $user->id) {
                             $project->users()->syncWithoutDetaching([$member->id => ['role' => 'member']]);
                             $membersAdded++;
                         } else {
-                            $membersSkipped[] = $ref;
+                            // Never guess a collaborator inside a plan build:
+                            // ambiguity and absence are both reported, skipped.
+                            $membersSkipped[] = $memberCandidates->isNotEmpty()
+                                ? $ref.' (ambiguous)'
+                                : $ref;
                         }
                     }
                 }
@@ -2855,7 +2941,18 @@ class AiToolService
     private function execProjectAddMember(array $r, $user): array
     {
         $project = Project::where('id', $r['project_id'])->where('user_id', $user->id)->firstOrFail();
-        $member = User::findOrFail($r['member_id']);
+
+        // Re-validate the selected collaborator server-side: the id was chosen
+        // at proposal time and the account may be gone by execution time.
+        $member = User::find((int) ($r['member_id'] ?? 0));
+        if (! $member) {
+            return [
+                'ok' => false,
+                'code' => ToolError::NOT_FOUND,
+                'message' => __('The selected member no longer exists — confirm again and pick someone else.'),
+                'id' => null,
+            ];
+        }
 
         $already = $project->users()->where('users.id', $member->id)->exists();
         // syncWithoutDetaching keeps existing pivot rows (dedupe-safe).

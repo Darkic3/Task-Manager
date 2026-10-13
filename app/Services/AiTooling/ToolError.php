@@ -33,6 +33,14 @@ final class ToolError
      */
     public const DUPLICATE_TARGET = 'duplicate_target';
 
+    /**
+     * A reference (e.g. a collaborator name) matches more than one real
+     * record, so picking one would be a guess. The error carries `candidates`
+     * so the agent can ask the user which one they meant — the action is never
+     * proposed against a guessed record.
+     */
+    public const AMBIGUOUS_TARGET = 'ambiguous_target';
+
     /** Pending action expired (or already resolved to a terminal state). */
     public const EXPIRED_ACTION = 'expired_action';
 
