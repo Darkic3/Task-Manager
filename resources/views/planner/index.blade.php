@@ -141,6 +141,65 @@
         .pl-duo{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-bottom:16px;}
         .pl-duo-single{grid-template-columns:1fr;}
         .pl-duo > *{margin-bottom:0 !important;min-width:0;}
+        /* Priority grids: tasks slightly wider than routines, day-log wider than side rail */
+        .pl-main-grid{grid-template-columns:1.12fr .88fr;}
+        .pl-lower-grid{grid-template-columns:1.55fr .85fr;}
+    }
+
+    /* ══ Planner hierarchy v2 — priority: NextUp hero > Overdue urgent > Tasks/Routines > DayLog + Workout rail ══ */
+    /* Top command zone: slimmer banner + sticky toolbar + compact KPIs */
+    .pl-header{padding:14px 20px;margin-bottom:12px;border-radius:14px;}
+    .pl-header-title{font-size:20px;}
+    .pl-header-sub{font-size:12.5px;}
+    .pl-toolbar{position:sticky;top:0;z-index:60;backdrop-filter:blur(10px);background:rgba(255,255,255,.92);margin-bottom:12px;}
+    .pl-stats{margin-bottom:12px;gap:8px;}
+    .pl-stat{padding:7px 13px;border-radius:11px;font-size:12px;}
+    .pl-stat i{width:26px;height:26px;display:grid;place-items:center;border-radius:8px;background:#f1f5f9;color:#64748b;font-size:13px;}
+    .pl-stat.overdue{border-color:#fecaca;background:#fff5f5;}
+    .pl-stat.overdue i{background:#fee2e2;color:#dc2626;}
+    .pl-daybar{margin:0 0 16px;}
+    .pl-daybar-track{height:6px;}
+    .pl-daybar-label{font-size:11px;min-width:44px;}
+    /* Hero Next-Up: full-width, unmissable, owns the first viewport */
+    .pl-hero{margin-bottom:14px;}
+    .pl-hero .pl-next-wrap{margin-bottom:0;}
+    .pl-hero .pl-next-card{
+        padding:18px 22px;border-width:2px;border-color:#c4b5fd;
+        background:linear-gradient(135deg,#ffffff 0%,#faf5ff 40%,#f0eaff 100%);
+        box-shadow:0 12px 32px -10px rgba(124,58,237,.28),0 2px 8px rgba(15,23,42,.05);
+    }
+    .pl-hero .pl-next-card::before{
+        content:'';position:absolute;inset-inline-start:0;top:0;bottom:0;width:5px;border-radius:18px 0 0 18px;
+        background:linear-gradient(180deg,#7c3aed,#a78bfa);
+    }
+    html[dir="rtl"] .pl-hero .pl-next-card::before{border-radius:0 18px 18px 0;}
+    .pl-hero .pl-next-title{font-size:18px;}
+    .pl-hero .pl-action-btn{padding:10px 22px;font-size:13px;}
+    /* Urgent overdue: full-width alert strip directly under hero */
+    .pl-urgent{margin-bottom:16px !important;border:1.5px solid #fecaca !important;border-inline-start:5px solid #dc2626 !important;
+        box-shadow:0 8px 24px -12px rgba(220,38,38,.35) !important;}
+    .pl-urgent .pl-section-head{padding:10px 16px;}
+    .pl-urgent-dot{width:8px;height:8px;border-radius:50%;background:#dc2626;flex-shrink:0;animation:plUrgentPulse 1.6s ease infinite;}
+    @keyframes plUrgentPulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.4);}50%{box-shadow:0 0 0 6px rgba(220,38,38,0);}}
+    /* Section priority tints: tasks = primary work, routines = habits */
+    .pl-section-primary{border-color:#c7d2fe;box-shadow:0 4px 16px -8px rgba(79,70,229,.25);}
+    .pl-section-primary > .pl-section-head{background:linear-gradient(135deg,#eef2ff 0%,#f5f3ff 100%);border-bottom-color:#e0e7ff;}
+    .pl-section-habit > .pl-section-head{background:linear-gradient(135deg,#faf5ff 0%,#f5f3ff 100%);}
+    .pl-section-head .pl-head-sub{font-size:11px;font-weight:600;color:#8a8f98;}
+    /* Workout as secondary rail card — never competes with hero */
+    .pl-workout-mini{border:1px solid #e9e4fb !important;background:linear-gradient(180deg,#fff 0%,#faf8ff 100%) !important;}
+    .pl-workout-mini > .pl-section-head{background:transparent !important;border-bottom:1px dashed #e9e4fb !important;padding:10px 14px !important;}
+    .pl-workout-mini .pl-section-body{padding:12px 14px !important;}
+    .pl-workout-mini h6{font-size:13.5px !important;}
+    .pl-workout-chip{font-size:10.5px !important;padding:3px 8px !important;}
+    .pl-side-stack{display:flex;flex-direction:column;gap:16px;min-width:0;}
+    .pl-side-stack > *{margin-bottom:0 !important;}
+    @media (max-width:991.98px){
+        .pl-toolbar{position:static;}
+        .pl-hero .pl-next-card{padding:14px 16px;}
+        .pl-hero .pl-next-title{font-size:16px;}
+        .pl-hero .pl-next-actions{width:100%;}
+        .pl-hero .pl-action-btn{flex:1;justify-content:center;}
     }
 
     /* ── Done as a collapsed archive + ultra-wide container cap ── */
@@ -1739,39 +1798,42 @@
             <span class="pl-daybar-label" id="plDayProgressLabel"></span>
         </div>
 
-        {{-- Duo A: Next Up + Workout side by side on desktop --}}
-        @if(! empty($nextUp ?? null) || isset($todayWorkoutDay))
-        <div class="pl-duo{{ empty($nextUp ?? null) || ! isset($todayWorkoutDay) ? ' pl-duo-single' : '' }}">
+        {{-- HERO: Next Up owns the full width — single most important box on the page --}}
+        @if(! empty($nextUp ?? null))
+        <div class="pl-hero">
             @include('planner._next-up', ['nextUp' => $nextUp ?? null, 'date' => $date])
-
-            {{-- Today's Workout Session Block --}}
-            @include('planner._workout-card')
         </div>
         @endif
 
-        {{-- Duo B: Routines + Today's Tasks side by side on desktop --}}
-        <div class="pl-duo">
-        {{-- Routines for the selected day --}}
-        <div class="pl-section">
-            <div class="pl-section-head">
-                <i class="bi bi-arrow-repeat" style="color:#7c3aed;"></i>
-                <span class="pl-section-title">{{ $isToday ? __("Today's Routines") : __('Routines') }}</span>
-                <span class="pl-section-count" id="plRoutineSectionCount">{{ $routineTotal }}</span>
+        {{-- URGENT: Overdue sits directly under the hero, full-width alert --}}
+        @if($overdue->count())
+            <div class="pl-section pl-urgent">
+                <div class="pl-section-head" style="background: linear-gradient(135deg, #fffafb 0%, #fff1f2 100%); border-bottom: 1px solid #fee2e2;">
+                    <span class="pl-urgent-dot" aria-hidden="true"></span>
+                    <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;"></i>
+                    <span class="pl-section-title" style="color:#991b1b;">{{ __('Overdue — clear first') }}</span>
+                    <span class="pl-head-sub">{{ __('From previous days') }}</span>
+                    <span class="pl-section-count" id="plOverdueCount" style="background:#fee2e2;color:#b91c1c;">{{ $overdue->count() }}</span>
+                    <button type="button" class="pl-overdue-all" id="plPostponeAll" title="{{ __('Move every overdue task to tomorrow') }}">
+                        <i class="bi bi-arrow-90deg-down"></i> {{ __('Postpone all to tomorrow') }}
+                    </button>
+                </div>
+                <div class="pl-section-body" id="plOverdueBody">
+                    @foreach($overdue as $task)
+                        @include('planner._task-row', ['task' => $task, 'count' => false, 'postpone' => 'today'])
+                    @endforeach
+                </div>
             </div>
-            <div class="pl-section-body" id="plRoutinesBody">
-                @forelse($routines as $routine)
-                    @include('planner._routine-row', ['routine' => $routine, 'routineDate' => $date, 'count' => true])
-                @empty
-                    <div class="pl-empty"><i class="bi bi-arrow-repeat"></i>{{ __('No routines scheduled for this day.') }}</div>
-                @endforelse
-            </div>
-        </div>
+        @endif
 
-        {{-- Today's tasks (Overdue moved down next to Day Log for Duo C) --}}
-        <div class="pl-section">
+        {{-- MAIN WORK: Today's Tasks (primary) + Routines (habits) side by side --}}
+        <div class="pl-duo pl-main-grid">
+        {{-- Today's tasks first: the day's real workload --}}
+        <div class="pl-section pl-section-primary">
             <div class="pl-section-head">
-                <i class="bi bi-check2-square" style="color:#7c3aed;"></i>
+                <i class="bi bi-check2-square" style="color:#4f46e5;"></i>
                 <span class="pl-section-title">{{ $isToday ? __("Today's Tasks") : __('Tasks') }}</span>
+                <span class="pl-head-sub">{{ __('Do the work') }}</span>
                 <span class="pl-section-count" id="plTodaySectionCount">{{ $pending->count() }}</span>
             </div>
             <div class="pl-section-body" id="plPendingBody">
@@ -1817,10 +1879,27 @@
                 @endif
             </div>
         </div>
-        </div>{{-- /Duo B --}}
 
-        {{-- Duo C: Day Log + Overdue side by side on desktop --}}
-        <div class="pl-duo">
+        {{-- Routines second: repeating habits, visually calmer than tasks --}}
+        <div class="pl-section pl-section-habit">
+            <div class="pl-section-head">
+                <i class="bi bi-arrow-repeat" style="color:#7c3aed;"></i>
+                <span class="pl-section-title">{{ $isToday ? __("Today's Routines") : __('Routines') }}</span>
+                <span class="pl-head-sub">{{ __('Habits & repeats') }}</span>
+                <span class="pl-section-count" id="plRoutineSectionCount">{{ $routineTotal }}</span>
+            </div>
+            <div class="pl-section-body" id="plRoutinesBody">
+                @forelse($routines as $routine)
+                    @include('planner._routine-row', ['routine' => $routine, 'routineDate' => $date, 'count' => true])
+                @empty
+                    <div class="pl-empty"><i class="bi bi-arrow-repeat"></i>{{ __('No routines scheduled for this day.') }}</div>
+                @endforelse
+            </div>
+        </div>
+        </div>{{-- /Main work grid --}}
+
+        {{-- LOWER: Day Log (wide) + side rail (workout, secondary) --}}
+        <div class="pl-duo pl-lower-grid">
         {{-- ── Day Log (دفتر روز) — persisted via the day-logs API. --}}
         <div class="pl-section lg-section" id="lgSection" data-date="{{ $date->toDateString() }}">
             <div class="pl-section-head">
@@ -1990,25 +2069,15 @@
             </div>
         </div>
 
-        {{-- Overdue (paired with Day Log on desktop, stacked below it on mobile) --}}
-        @if($overdue->count())
-            <div class="pl-section" style="border-color: #fecaca; box-shadow: 0 2px 10px rgba(220, 38, 38, 0.05);">
-                <div class="pl-section-head" style="background: linear-gradient(135deg, #fffafb 0%, #fff1f2 100%); border-bottom: 1px solid #fee2e2;">
-                    <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;"></i>
-                    <span class="pl-section-title" style="color:#991b1b;">{{ __('Overdue') }}</span>
-                    <span class="pl-section-count" id="plOverdueCount" style="background:#fee2e2;color:#b91c1c;">{{ $overdue->count() }}</span>
-                    <button type="button" class="pl-overdue-all" id="plPostponeAll" title="{{ __('Move every overdue task to tomorrow') }}">
-                        <i class="bi bi-arrow-90deg-down"></i> {{ __('Postpone all to tomorrow') }}
-                    </button>
+        {{-- Side rail: workout is secondary context, compact next to the day log --}}
+        <div class="pl-side-stack">
+            @if(isset($todayWorkoutDay))
+                <div class="pl-workout-mini-wrap">
+                    @include('planner._workout-card')
                 </div>
-                <div class="pl-section-body" id="plOverdueBody">
-                    @foreach($overdue as $task)
-                        @include('planner._task-row', ['task' => $task, 'count' => false, 'postpone' => 'today'])
-                    @endforeach
-                </div>
-            </div>
-        @endif
-        </div>{{-- /Duo C --}}
+            @endif
+        </div>
+        </div>{{-- /Lower grid --}}
 
         {{-- Done: archival reference, collapsed at the very bottom to keep the work area tight --}}
         @if($done->count())
