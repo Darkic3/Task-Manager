@@ -70,7 +70,7 @@
 
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Lina is analyzing & optimizing…';
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> ' + @json(__('Lina is analyzing & optimizing…'));
         }
 
         try {
@@ -96,7 +96,7 @@
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-check-lg"></i> Schedule Optimized!';
+                btn.innerHTML = '<i class="bi bi-check-lg"></i> ' + @json(__('Schedule Optimized!'));
             }
         }
     }

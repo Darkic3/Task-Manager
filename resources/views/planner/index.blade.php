@@ -1688,6 +1688,156 @@
         .lg-row-time{min-width:48px;padding-inline-end:8px;}
         .lg-row-time b{font-size:12.5px;}
     }
+
+    /* ══ Mobile responsive layer (≤768px): single column, thumb-friendly, no overflow ══ */
+    @media (max-width:767.98px){
+        .main-content{padding:12px 12px 96px;}
+        /* Header slimmer */
+        .pl-header{padding:12px 14px;margin-bottom:10px;border-radius:12px;}
+        .pl-header-title{font-size:17px;}
+        .pl-header-sub{font-size:12px;}
+        /* Toolbar stacks: full-width Day/Week segment, scrollable actions, spread nav */
+        .pl-toolbar{flex-direction:column;align-items:stretch;padding:10px;gap:8px;position:static;}
+        .pl-toggle{width:100%;}
+        .pl-toggle-btn{flex:1;justify-content:center;padding:8px 10px;}
+        .pl-toolbar-right{width:100%;flex-wrap:wrap;}
+        .pl-toolbar-actions{max-width:100%;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
+        .pl-toolbar-actions::-webkit-scrollbar{display:none;}
+        .pl-toolbar-actions .btn{flex-shrink:0;white-space:nowrap;}
+        .pl-nav{width:100%;justify-content:space-between;}
+        .pl-today-btn{flex:1;text-align:center;}
+        /* Stats become a 2×2 grid; overdue spans full width */
+        .pl-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+        .pl-stat{padding:8px 10px;font-size:11.5px;}
+        .pl-stat strong{font-size:14px;}
+        .pl-stat.overdue{grid-column:1 / -1;justify-content:center;}
+        .pl-daybar{margin:0 0 12px;}
+        /* Hero Next-Up stacks vertically with big tap targets */
+        .pl-hero{margin-bottom:12px;}
+        .pl-hero .pl-next-card{flex-direction:column;align-items:stretch;gap:12px;padding:14px;}
+        .pl-next-body{min-width:0;width:100%;}
+        .pl-next-title-row{gap:10px;}
+        .pl-hero .pl-next-title{font-size:15px;}
+        .pl-next-prompt-pill{display:flex;flex-wrap:wrap;width:100%;font-size:12px;}
+        .pl-next-top-badge{flex-wrap:wrap;}
+        .pl-next-actions{width:100%;margin:0;display:flex;flex-wrap:wrap;gap:8px;}
+        .pl-next-actions .pl-action-btn{flex:1 1 40%;justify-content:center;min-height:44px;padding:10px 12px;font-size:13px;}
+        .pl-next-actions .pl-action-btn-primary{flex:1 1 100%;}
+        /* Sections: wrap heads, full-width overdue action */
+        .pl-section{border-radius:12px;margin-bottom:12px;}
+        .pl-section-head{flex-wrap:wrap;gap:8px;padding:10px 12px;row-gap:6px;}
+        .pl-section-title{font-size:13px;}
+        .pl-overdue-all{flex:1 1 100%;justify-content:center;padding:8px;}
+        .pl-section-body{padding:6px;}
+        /* Task rows: actions drop to their own full-width row, 34px+ targets */
+        .pl-task{flex-wrap:wrap;padding:10px;}
+        .pl-task-title{font-size:13px;}
+        .pl-task-actions{flex:1 1 100%;opacity:1;justify-content:flex-start;flex-wrap:wrap;gap:6px;margin-top:4px;}
+        .pl-task-act{width:34px;height:34px;font-size:14px;border-radius:9px;}
+        .pl-task-open{height:34px;flex:1;justify-content:center;}
+        .pl-task-meta{row-gap:6px;}
+        /* Routine steps: always-visible skip, taller chips for thumbs */
+        .pl-steps{gap:5px;}
+        .pl-step{font-size:11px;min-height:32px;}
+        .pl-step-wrap .pl-step-skip{opacity:1;width:24px;height:24px;font-size:9px;}
+        .pl-log{flex-direction:column;align-items:stretch;}
+        .pl-log input{width:100%;}
+        .pl-logset input{height:34px;}
+        .pl-avoid-panel input[name=note]{flex:1 1 100%;min-width:0;}
+        /* Day Log: 16px input kills iOS zoom, tighter timeline indent */
+        .lg-composer{min-height:52px !important;}
+        .lg-composer .lg-input{font-size:16px !important;}
+        .lg-type-seg button{font-size:11px;height:40px;}
+        .lg-card{padding:12px;}
+        .lg-tools{gap:6px;}
+        .lg-filter{max-width:100%;flex-wrap:nowrap;overflow-x:auto;}
+        .lg-filter button{flex-shrink:0;}
+        .lg-merge{width:100%;justify-content:center;margin:0;}
+        #lgSection .lg-row{margin-inline-start:30px !important;}
+        #lgSection .lg-groups::before{inset-inline-start:15px;}
+        #lgSection .lg-row::before{inset-inline-start:-19px;}
+        .lg-row-time{min-width:44px;}
+        /* Floating bar + FAB respect safe-area and stay compact */
+        .pl-floating-focus-bar{bottom:calc(12px + env(safe-area-inset-bottom));width:calc(100vw - 24px);}
+        .pl-ffb-container{padding:10px 12px;gap:8px;}
+        .pl-ffb-info{min-width:0;flex:1;}
+        .pl-ffb-title{max-width:38vw;}
+        .pl-ffb-clock{font-size:17px;}
+        .pl-ffb-btn{min-height:36px;}
+        .pl-fab{bottom:calc(12px + env(safe-area-inset-bottom));right:12px;width:48px;height:48px;}
+        #plToast{bottom:calc(70px + env(safe-area-inset-bottom));max-width:calc(100vw - 24px);white-space:normal;text-align:center;}
+        /* Modals become bottom sheets with breathing room */
+        .pl-qa{padding:12px;align-items:flex-end;}
+        .pl-qa-dialog{width:100%;}
+        .pl-qa-modal{padding:12px;align-items:flex-end;}
+        .pl-qa-modal-dialog{width:100%;}
+        .pl-modal-foot{flex-wrap:wrap;}
+        .pl-modal-foot-btn{flex:1;justify-content:center;min-height:42px;}
+    }
+    @media (max-width:575.98px){
+        .pl-stat{font-size:11px;}
+        .pl-head-sub{display:none;}
+        .pl-section-head{padding:10px 12px;}
+        .pl-next-meta{gap:5px;}
+        .pl-meta-tag,.pl-priority-pill,.pl-period-pill{font-size:10.5px;}
+        .pl-qa-row{flex-direction:column;}
+        .pl-qa-row select,.pl-qa-row input[type="time"]{width:100%;min-height:38px;}
+        .pw-day{min-height:0;}
+    }
+
+    /* ══ Planner beauty layer v3 — cohesive, calm, premium ── */
+    .main-content{background:linear-gradient(180deg,#f8fafc 0%,#f4f3fb 100%);}
+    /* Header: deep gradient, glass date pill */
+    .pl-header{background:linear-gradient(135deg,#4f46e5 0%,#6d28d9 55%,#7c3aed 100%);box-shadow:0 12px 28px -10px rgba(99,102,241,.5),inset 0 1px 0 rgba(255,255,255,.22);}
+    .pl-header-title{text-shadow:0 1px 8px rgba(0,0,0,.25);}
+    .pl-header-sub{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:3px 12px;margin-top:8px;font-size:12px;backdrop-filter:blur(4px);}
+    /* Section heads: tinted icon tile + refined count */
+    .pl-section{border-radius:16px;}
+    .pl-section-head{padding:11px 16px;}
+    .pl-section-head > i:first-child{width:28px;height:28px;flex-shrink:0;display:grid;place-items:center;border-radius:9px;background:#f1edff;color:#6d28d9;font-size:14px;box-shadow:inset 0 0 0 1px #e4dafa;}
+    .pl-section-primary > .pl-section-head > i:first-child{background:#e7edff;color:#4f46e5;box-shadow:inset 0 0 0 1px #ccd8ff;}
+    .pl-urgent .pl-section-head > i:first-child,.pl-section-head > i.bi-exclamation-triangle-fill{background:#fee2e2;color:#dc2626;box-shadow:inset 0 0 0 1px #fecaca;}
+    .pl-section-count{box-shadow:inset 0 0 0 1px rgba(15,23,42,.05);font-variant-numeric:tabular-nums;}
+    /* Task rows: softer, lift on hover, tinted done state */
+    .pl-task{border-radius:12px;border-color:#edf0f4;}
+    .pl-task:hover{transform:translateY(-1px);}
+    .pl-task.is-done{background:#fafdf9;}
+    .pl-check-box{width:22px;height:22px;}
+    .pl-check:hover .pl-check-box{box-shadow:0 0 0 4px rgba(124,58,237,.12);}
+    .pl-check input:checked + .pl-check-box{box-shadow:0 2px 8px rgba(22,163,74,.4);}
+    .pl-task:focus-within{border-color:#c4b5fd;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    /* Hero: glow + slow shine sweep */
+    .pl-hero .pl-next-card{overflow:hidden;}
+    .pl-hero .pl-next-card::after{content:'';position:absolute;top:-60%;bottom:-60%;width:44px;inset-inline-start:-70px;transform:skewX(-18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.7),transparent);animation:plHeroShine 5.5s ease-in-out infinite;pointer-events:none;}
+    @keyframes plHeroShine{0%,55%{inset-inline-start:-70px;}90%,100%{inset-inline-start:130%;}}
+    .pl-next-icon-wrap{box-shadow:0 4px 12px -4px rgba(15,23,42,.25);}
+    .pl-action-btn-primary{box-shadow:0 6px 16px -6px rgba(124,58,237,.6),inset 0 1px 0 rgba(255,255,255,.25);}
+    .pl-action-btn:active{transform:scale(.97);}
+    /* Stats: clean cards, tabular numbers */
+    .pl-stat{font-variant-numeric:tabular-nums;}
+    .pl-stat strong{font-variant-numeric:tabular-nums;}
+    /* Toolbar: refined segment + glow add */
+    .pl-toggle{box-shadow:inset 0 1px 3px rgba(15,23,42,.08);}
+    .pl-add-btn{box-shadow:0 4px 12px -4px rgba(124,58,237,.55),inset 0 1px 0 rgba(255,255,255,.25);}
+    /* Daybar: glowing fill */
+    .pl-daybar-fill{box-shadow:0 0 12px rgba(124,58,237,.55);}
+    .pl-daybar-fill.is-full{box-shadow:0 0 12px rgba(22,163,74,.55);}
+    /* Overdue: alert presence without noise */
+    .pl-urgent .pl-section-count{box-shadow:none;}
+    /* Routine steps: pill polish */
+    .pl-step{box-shadow:0 1px 2px rgba(15,23,42,.04);}
+    .pl-step.done{box-shadow:none;}
+    /* Empty states: friendlier */
+    .pl-empty{border:1.5px dashed #e5e8ef;border-radius:12px;margin:4px;background:#fbfcfe;}
+    .pl-empty i{color:#b9c0cf;}
+    /* Persian: no latin letter-spacing, roomier line-height */
+    html[dir="rtl"] .pl-priority,html[dir="rtl"] .pw-today-pill,html[dir="rtl"] .pw-group-head,html[dir="rtl"] .pl-period-head{letter-spacing:0;}
+    html[dir="rtl"] .pl-task-title{line-height:1.7;}
+    html[dir="rtl"] .pl-next-title{line-height:1.6;}
+    @media (prefers-reduced-motion:reduce){
+        .pl-hero .pl-next-card::after{animation:none;display:none;}
+        .pl-task:hover{transform:none;}
+    }
 </style>
 @endpush
 
@@ -1741,7 +1891,7 @@
         </div>
         <div class="pl-toolbar-right">
             @if($view === 'day')
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 pl-toolbar-actions">
                     <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-semibold d-inline-flex align-items-center gap-1" onclick="openMorningKickoff()" title="{{ __('Morning kickoff ritual') }}">
                         <i class="bi bi-sunrise-fill text-warning"></i> {{ __('Kickoff') }}
                     </button>
@@ -1783,11 +1933,11 @@
     @if($view === 'day')
         {{-- Stats --}}
         <div class="pl-stats">
-            <div class="pl-stat"><i class="bi bi-arrow-repeat"></i> {{ __('Routines') }} <strong><span id="plRoutineDone">{{ $routineDone }}</span><span style="color:#adb0b8;font-weight:600;">/{{ $routineTotal }}</span></strong></div>
-            <div class="pl-stat"><i class="bi bi-list-check"></i> {{ __('Pending') }} <strong id="plPendingCount">{{ $pending->count() }}</strong></div>
-            <div class="pl-stat"><i class="bi bi-check-circle"></i> {{ __('Completed') }} <strong id="plDoneCount">{{ $done->count() }}</strong></div>
+            <div class="pl-stat"><i class="bi bi-arrow-repeat"></i> {{ __('Routines') }} <strong><span id="plRoutineDone">{{ app_num($routineDone) }}</span><span style="color:#adb0b8;font-weight:600;">/{{ app_num($routineTotal) }}</span></strong></div>
+            <div class="pl-stat"><i class="bi bi-list-check"></i> {{ __('Pending') }} <strong id="plPendingCount">{{ app_num($pending->count()) }}</strong></div>
+            <div class="pl-stat"><i class="bi bi-check-circle"></i> {{ __('Completed') }} <strong id="plDoneCount">{{ app_num($done->count()) }}</strong></div>
             @if($overdue->count())
-                <div class="pl-stat overdue"><i class="bi bi-exclamation-triangle"></i> {{ __('Overdue') }} <strong id="plOverdueStat">{{ $overdue->count() }}</strong></div>
+                <div class="pl-stat overdue"><i class="bi bi-exclamation-triangle"></i> {{ __('Overdue') }} <strong id="plOverdueStat">{{ app_num($overdue->count()) }}</strong></div>
             @endif
         </div>
 
@@ -1813,7 +1963,7 @@
                     <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;"></i>
                     <span class="pl-section-title" style="color:#991b1b;">{{ __('Overdue — clear first') }}</span>
                     <span class="pl-head-sub">{{ __('From previous days') }}</span>
-                    <span class="pl-section-count" id="plOverdueCount" style="background:#fee2e2;color:#b91c1c;">{{ $overdue->count() }}</span>
+                    <span class="pl-section-count" id="plOverdueCount" style="background:#fee2e2;color:#b91c1c;">{{ app_num($overdue->count()) }}</span>
                     <button type="button" class="pl-overdue-all" id="plPostponeAll" title="{{ __('Move every overdue task to tomorrow') }}">
                         <i class="bi bi-arrow-90deg-down"></i> {{ __('Postpone all to tomorrow') }}
                     </button>
@@ -1834,7 +1984,7 @@
                 <i class="bi bi-check2-square" style="color:#4f46e5;"></i>
                 <span class="pl-section-title">{{ $isToday ? __("Today's Tasks") : __('Tasks') }}</span>
                 <span class="pl-head-sub">{{ __('Do the work') }}</span>
-                <span class="pl-section-count" id="plTodaySectionCount">{{ $pending->count() }}</span>
+                <span class="pl-section-count" id="plTodaySectionCount">{{ app_num($pending->count()) }}</span>
             </div>
             <div class="pl-section-body" id="plPendingBody">
                 @php $groups = $pending->groupBy(fn ($t) => $t->time_period ?: 'anytime'); @endphp
@@ -1886,7 +2036,7 @@
                 <i class="bi bi-arrow-repeat" style="color:#7c3aed;"></i>
                 <span class="pl-section-title">{{ $isToday ? __("Today's Routines") : __('Routines') }}</span>
                 <span class="pl-head-sub">{{ __('Habits & repeats') }}</span>
-                <span class="pl-section-count" id="plRoutineSectionCount">{{ $routineTotal }}</span>
+                <span class="pl-section-count" id="plRoutineSectionCount">{{ app_num($routineTotal) }}</span>
             </div>
             <div class="pl-section-body" id="plRoutinesBody">
                 @forelse($routines as $routine)
@@ -2152,7 +2302,7 @@
                     <div class="pl-modal-title" id="plModalTitle" data-modal-title></div>
                     <div class="pl-modal-sub" data-modal-sub></div>
                 </div>
-                <button type="button" class="pl-modal-x" data-modal-close aria-label="Close">&times;</button>
+                <button type="button" class="pl-modal-x" data-modal-close aria-label="{{ __('Close') }}">&times;</button>
             </div>
             <div class="pl-modal-body" data-modal-body></div>
             <div class="pl-modal-foot" data-modal-foot hidden>
@@ -2309,6 +2459,20 @@
         mark: @json(__('Mark as failed')),
         undo: @json(__('Undo fail')),
     };
+    /* Locale-aware UI numbers + strings (Persian digits when <html lang="fa">). */
+    const PL_IS_FA = (document.documentElement.lang || '').toLowerCase().startsWith('fa');
+    function plNum(v) {
+        if (v === null || v === undefined) return '';
+        const s = String(v);
+        return PL_IS_FA ? s.replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]) : s;
+    }
+    const PL_I18N_EXTRA = {
+        showDetails: @json(__('Show details')),
+        hideDetails: @json(__('Hide details')),
+        anytime: @json(__('Anytime')),
+        progressOf: @json(__('{done} of {total} done')),
+        pctSuffix: PL_IS_FA ? '٪' : '%',
+    };
     const plRawFetch = window.fetch.bind(window);
 
     /* One POST wrapper for the whole page: sends the live CSRF token and, when
@@ -2402,9 +2566,9 @@
         const p = document.getElementById('plPendingCount');
         const d = document.getElementById('plDoneCount');
         const t = document.getElementById('plTodaySectionCount');
-        if (p) p.textContent = pending;
-        if (d) d.textContent = done;
-        if (t) t.textContent = pending;
+        if (p) p.textContent = plNum(pending);
+        if (d) d.textContent = plNum(done);
+        if (t) t.textContent = plNum(pending);
         if (window.plRefreshDayProgress) window.plRefreshDayProgress();
     }
     window.refreshCounters = refreshCounters;
@@ -2777,7 +2941,7 @@
             const done = [...steps].filter(s => s.classList.contains('done')).length;
             const badge = row.querySelector('.steps-count');
             if (badge) {
-                badge.textContent = done + '/' + steps.length;
+                badge.textContent = plNum(done) + '/' + plNum(steps.length);
                 badge.classList.toggle('all', done === steps.length);
             }
             /* Partial-fail badge: how many steps are marked "not done". */
@@ -3454,7 +3618,7 @@
         const chev = row.querySelector('.pl-expand');
         if (chev) {
             chev.classList.toggle('open', open);
-            chev.title = open ? 'Hide details' : 'Show details';
+            chev.title = open ? PL_I18N_EXTRA.hideDetails : PL_I18N_EXTRA.showDetails;
         }
     }
 
@@ -3564,7 +3728,7 @@
         if (details && !details.classList.contains('open')) {
             details.classList.add('open');
             const chev = row.querySelector('.pl-expand');
-            if (chev) { chev.classList.add('open'); chev.title = 'Hide details'; }
+            if (chev) { chev.classList.add('open'); chev.title = PL_I18N_EXTRA.hideDetails; }
         }
     }
 
@@ -3593,7 +3757,7 @@
                 if (hideIfZero) fl.remove();
                 return;
             }
-            fl.textContent = '🔥' + streak;
+            fl.textContent = '🔥' + plNum(streak);
         });
     }
 
@@ -3658,8 +3822,8 @@
         });
         const rd = document.getElementById('plRoutineDone');
         const rs = document.getElementById('plRoutineSectionCount');
-        if (rd) rd.textContent = done;
-        if (rs) rs.textContent = total;
+        if (rd) rd.textContent = plNum(done);
+        if (rs) rs.textContent = plNum(total);
         if (window.plRefreshDayProgress) window.plRefreshDayProgress();
 
         // per-day counters in week view
@@ -3669,7 +3833,7 @@
             let d = 0;
             routines.forEach(r => { if (r.dataset.completed === '1') d++; });
             const countEl = dayEl.querySelector('.pl-day-count');
-            if (countEl) countEl.textContent = d + '/' + routines.length;
+            if (countEl) countEl.textContent = plNum(d) + '/' + plNum(routines.length);
         });
     }
 
@@ -4119,7 +4283,7 @@
         document.querySelectorAll(sel).forEach(row => {
             const badge = row.querySelector('.steps-count');
             if (badge) {
-                badge.textContent = done + '/' + total;
+                badge.textContent = plNum(done) + '/' + plNum(total);
                 badge.classList.toggle('all', total > 0 && done === total);
             }
             if (kind === 'routine' && ownerCompleted !== undefined) {
@@ -4532,6 +4696,8 @@
 /* ── My Day: period groups, drag & drop reordering, postpone actions ── */
 (function () {
     const PL_PERIODS = @json(config('routines.periods', []));
+    const PL_PERIOD_LABELS = @json(collect(config('routines.periods', []))->mapWithKeys(fn ($p, $k) => [$k => __($p['label'])])->all());
+    const plPeriodLabel = key => key === 'anytime' ? PL_I18N_EXTRA.anytime : (PL_PERIOD_LABELS[key] || (PL_PERIODS[key]?.label || key));
     const POSTPONE_URL = id => `{{ route('planner.tasks.postpone', ['task' => '__ID__']) }}`.replace('__ID__', id);
     const REORDER_URL = '{{ route('planner.tasks.reorder') }}';
     const body = document.getElementById('plPendingBody');
@@ -4543,8 +4709,8 @@
         let gb = body.querySelector(`[data-period-body="${key}"]`);
         if (gb) { return gb; }
         const def = key === 'anytime'
-            ? { label: 'Anytime', icon: 'bi-inbox', color: '#64748b' }
-            : (PL_PERIODS[key] || { label: key, icon: 'bi-clock', color: '#64748b' });
+            ? { label: PL_I18N_EXTRA.anytime, icon: 'bi-inbox', color: '#64748b' }
+            : (PL_PERIODS[key] ? { ...PL_PERIODS[key], label: plPeriodLabel(key) } : { label: key, icon: 'bi-clock', color: '#64748b' });
         const group = document.createElement('div');
         group.className = 'pl-period-group';
         group.dataset.periodGroup = key;
@@ -4572,7 +4738,7 @@
         chip.style.color = color;
         chip.style.background = color + '1a';
         chip.style.textTransform = 'none';
-        chip.innerHTML = `<i class="bi ${def.icon || 'bi-clock'}"></i> ${def.label || key}`;
+        chip.innerHTML = `<i class="bi ${def.icon || 'bi-clock'}"></i> ${plPeriodLabel(key)}`;
     }
 
     function groupItems(groupBody) {
@@ -4712,13 +4878,13 @@
             let overdueLeft = -1;
             if (overdueCount) {
                 overdueLeft = document.querySelectorAll('#plOverdueBody [data-task-item]').length;
-                overdueCount.textContent = overdueLeft;
+                overdueCount.textContent = plNum(overdueLeft);
                 if (overdueLeft === 0) {
                     document.getElementById('plOverdueBody')?.closest('.pl-section')?.remove();
                     document.querySelector('.pl-stat.overdue')?.remove();
                 } else {
                     const stat = document.getElementById('plOverdueStat');
-                    if (stat) stat.textContent = overdueLeft;
+                    if (stat) stat.textContent = plNum(overdueLeft);
                 }
             }
             
@@ -4764,7 +4930,7 @@
         fill.style.width = pct + '%';
         fill.classList.toggle('is-full', pct === 100 && total > 0);
         const lbl = document.getElementById('plDayProgressLabel');
-        if (lbl) { lbl.textContent = total ? pct + '%' : ''; lbl.title = done + ' of ' + total + ' done'; }
+        if (lbl) { lbl.textContent = total ? plNum(pct) + PL_I18N_EXTRA.pctSuffix : ''; lbl.title = PL_I18N_EXTRA.progressOf.replace('{done}', plNum(done)).replace('{total}', plNum(total)); }
     };
     window.plRefreshDayProgress();
 

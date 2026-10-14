@@ -82,7 +82,7 @@
                 @if($hasSteps)
                     <span class="pl-next-step-indicator {{ $stepsDone === $stepsTotal ? 'all-done' : '' }}">
                         <i class="bi bi-check2-all"></i>
-                        {{ $stepsDone }}/{{ $stepsTotal }}
+                        {{ app_num($stepsDone) }}/{{ app_num($stepsTotal) }}
                     </span>
                 @endif
             </div>
@@ -129,8 +129,8 @@
                                 @endif
 
                                 @if(!empty($nextRoutine->ringStreak) && $nextRoutine->ringStreak > 1)
-                                    <span class="pl-streak-tag">
-                                        <i class="bi bi-fire"></i> {{ $nextRoutine->ringStreak }}
+                                    <span class="pl-streak-tag" title="{{ __(':count in a row', ['count' => app_num($nextRoutine->ringStreak)]) }}">
+                                        <i class="bi bi-fire"></i> {{ app_num($nextRoutine->ringStreak) }}
                                     </span>
                                 @endif
                             @endif

@@ -108,6 +108,7 @@ class Task extends Model
 
     /**
      * Human label like "1h 30m", "45m" or "2h" (null when unset).
+     * Persian locale gets "۱ ساعت ۳۰ دقیقه" style labels.
      */
     public function estimatedLabel(): ?string
     {
@@ -117,6 +118,19 @@ class Task extends Model
         [$h, $m] = static::splitHours($this->estimated_hours);
         $h = (int) $h;
         $m = (int) $m;
+        if (app()->getLocale() === 'fa') {
+            if ($h > 0 && $m > 0) {
+                return app_num($h).' '.__('hour').' '.app_num($m).' '.__('minute');
+            }
+            if ($h > 0) {
+                return app_num($h).' '.__('hour');
+            }
+            if ($m > 0) {
+                return app_num($m).' '.__('minute');
+            }
+
+            return null;
+        }
         if ($h > 0 && $m > 0) {
             return "{$h}h {$m}m";
         }
@@ -329,7 +343,9 @@ class Task extends Model
             return null;
         }
 
-        return config("routines.periods.{$this->time_period}.label") ?? ucfirst((string) $this->time_period);
+        $label = config("routines.periods.{$this->time_period}.label");
+
+        return $label ? __($label) : __(ucfirst((string) $this->time_period));
     }
 
     public function periodIcon(): ?string
@@ -372,7 +388,7 @@ class Task extends Model
         }
 
         try {
-            return Carbon::parse($this->due_time)->format('g:i A');
+            return app_time($this->due_time) ?: null;
         } catch (\Exception $e) {
             return null;
         }

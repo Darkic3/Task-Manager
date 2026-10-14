@@ -36,7 +36,7 @@
     /* Big or tracked routines are easier to fill in a modal than an accordion. */
     $stepCount   = ! empty($routine->ringSteps) ? count($routine->ringSteps) : 0;
     $useModal    = $hasDetails && ($stepCount > 5 || $trackMode !== 'none');
-    $modalSub    = ($toggleable ? ucfirst($routine->frequency) : $routine->recurrenceLabel());
+    $modalSub    = $routine->recurrenceLabel();
     if ($stepCount > 0) {
         $modalSub .= ' · ' . $stepCount . ' steps';
     }
@@ -74,11 +74,11 @@
         @if($isAvoid)
             {{-- Avoid habits are never checked: shield shows clean vs slipped. --}}
             <span class="pl-avoid-shield {{ $avoidBad ? 'bad' : 'ok' }}"
-                  title="{{ $avoidBad ? 'Slip logged today' : 'Clean so far' }}{{ $ringRate !== null ? ' · ' . $ringRate . '% clean (30d)' : '' }}">
+                  title="{{ $avoidBad ? __('Slip logged today') : __('Clean so far') }}{{ $ringRate !== null ? ' · ' . __(':rate% clean (30d)', ['rate' => app_num($ringRate)]) : '' }}">
                 <i class="bi {{ $avoidBad ? 'bi-shield-fill-exclamation' : 'bi-shield-fill-check' }}"></i>
             </span>
         @else
-        <label class="pl-habit {{ $checkLocked ? 'is-locked' : '' }}" title="{{ $failedDay ? __('Failed for today — reopen a step to continue') : ($settledPartial ? __('Settled for today') : ($isDone ? 'Mark as not done' : 'Mark as done')) }}{{ $ringRate !== null ? ' · ' . $ringRate . '% adherence (30d)' : '' }}">
+        <label class="pl-habit {{ $checkLocked ? 'is-locked' : '' }}" title="{{ $failedDay ? __('Failed for today — reopen a step to continue') : ($settledPartial ? __('Settled for today') : ($isDone ? __('Mark as not done') : __('Mark as done'))) }}{{ $ringRate !== null ? ' · ' . __(':rate% adherence (30d)', ['rate' => app_num($ringRate)]) : '' }}">
             <input type="checkbox"
                    {{ ($isDone || $settledPartial) ? 'checked' : '' }}
                    {{ $checkLocked ? 'disabled' : '' }}
@@ -101,7 +101,7 @@
         </label>
         @endif
     @else
-        <span class="pl-routine-static" title="Scheduled for another day">
+        <span class="pl-routine-static" title="{{ __('Scheduled for another day') }}">
             <i class="bi bi-calendar3"></i>
         </span>
     @endif
@@ -110,40 +110,40 @@
         <div class="pl-task-title">
             {{ $routine->title }}
             @if($isAvoid)
-                <span class="pl-avoid-tag" title="Forbidden habit — staying clean is the goal">🚫 ترک‌کردنی</span>
+                <span class="pl-avoid-tag" title="{{ __('Forbidden habit — staying clean is the goal') }}">🚫 {{ __('Quit') }}</span>
             @endif
             @if($isDone && $toggleable && $ringStreak !== null && $ringStreak > 0)
-                <span class="flame" title="{{ $ringStreak }} in a row">🔥{{ $ringStreak }}</span>
+                <span class="flame" title="{{ __(':count in a row', ['count' => app_num($ringStreak)]) }}">🔥{{ app_num($ringStreak) }}</span>
             @endif
             @if($isAvoid && $toggleable && ($ringStreak ?? 0) > 0)
-                <span class="flame" title="{{ $ringStreak }} clean days in a row">🛡️{{ $ringStreak }}</span>
+                <span class="flame" title="{{ __(':count clean days in a row', ['count' => app_num($ringStreak)]) }}">🛡️{{ app_num($ringStreak) }}</span>
             @endif
             @if($toggleable && ! empty($routine->ringSteps) && $routine->ringSteps->count() > 0)
                 @if($isAvoid)
                     @php $slipped = $routine->ringSteps->where('violated', true)->count(); @endphp
                     @if($slipped > 0)
-                        <span class="steps-count bad" title="Steps with a slip today">{{ $slipped }}/{{ $routine->ringSteps->count() }} slips</span>
+                        <span class="steps-count bad" title="{{ __('Steps with a slip today') }}">{{ app_num($slipped) }}/{{ app_num($routine->ringSteps->count()) }} {{ __('Slip logged') }}</span>
                     @endif
                 @else
                     @php
                         $stepsDone = $routine->ringSteps->where('completed', true)->count();
                         $stepsSkipped = $routine->ringSteps->where('skipped', true)->count();
                     @endphp
-                    <span class="steps-count {{ $stepsDone === $routine->ringSteps->count() ? 'all' : '' }}">
-                        {{ $stepsDone }}/{{ $routine->ringSteps->count() }}
+                    <span class="steps-count {{ $stepsDone === $routine->ringSteps->count() ? 'all' : '' }}" title="{{ __(':count steps', ['count' => app_num($routine->ringSteps->count())]) }}">
+                        {{ app_num($stepsDone) }}/{{ app_num($routine->ringSteps->count()) }}
                     </span>
                     @if($stepsSkipped > 0)
-                        <span class="steps-skipped" data-skip-count title="{{ $stepsSkipped }} step(s) marked as not done">✗{{ $stepsSkipped }}</span>
+                        <span class="steps-skipped" data-skip-count title="{{ __(':count step(s) marked as not done', ['count' => app_num($stepsSkipped)]) }}">✗{{ app_num($stepsSkipped) }}</span>
                     @endif
                 @endif
             @endif
             @if($hasDetails)
                 @if($useModal)
-                    <button type="button" class="pl-expand pl-expand-modal" onclick="openRoutineModal(this)" title="Open details">
+                    <button type="button" class="pl-expand pl-expand-modal" onclick="openRoutineModal(this)" title="{{ __('Open details') }}">
                         <i class="bi bi-arrows-angle-expand"></i>
                     </button>
                 @else
-                    <button type="button" class="pl-expand" onclick="toggleRoutineDetails(this)" title="Show details">
+                    <button type="button" class="pl-expand" onclick="toggleRoutineDetails(this)" title="{{ __('Show details') }}">
                         <i class="bi bi-chevron-down"></i>
                     </button>
                 @endif
@@ -178,11 +178,11 @@
             @if($isAvoid)
                 @if($avoidBad)
                     <span class="pl-priority" style="color:#b91c1c;background:#fee2e2;text-transform:none;">
-                        <i class="bi bi-exclamation-triangle"></i> لغزش ثبت شد{{ $countMode ? ' · ×'.$avoidQty : '' }}
+                        <i class="bi bi-exclamation-triangle"></i> {{ __('Slip logged') }}{{ $countMode ? ' · ×'.app_num($avoidQty) : '' }}
                     </span>
                 @else
                     <span class="pl-priority" style="color:#15803d;background:#dcfce7;text-transform:none;">
-                        <i class="bi bi-shield-check"></i> پاک تا الان
+                        <i class="bi bi-shield-check"></i> {{ __('Clean so far') }}
                     </span>
                 @endif
                 @php
@@ -199,7 +199,7 @@
                 @endphp
                 @if($lastEntry)
                     <span class="pl-avoid-last" title="{{ __('Last entry') }}">
-                        {{ $lastEntry['at']->format('m/d H:i') }}{{ $lastEntry['x'] ? ' · ' . \Illuminate\Support\Str::limit($lastEntry['x'], 18) : '' }}
+                        {{ app()->getLocale() === 'fa' ? app_num($lastEntry['at']->format('m/d H:i')) : $lastEntry['at']->format('m/d H:i') }}{{ $lastEntry['x'] ? ' · ' . \Illuminate\Support\Str::limit($lastEntry['x'], 18) : '' }}
                     </span>
                 @endif
                 @if($toggleable)
@@ -210,7 +210,7 @@
             @endif
             @if($active)
                 <span class="pl-priority" style="color:{{ $accent }};background:{{ $accent }}1a;text-transform:none;">
-                    <i class="bi {{ $active['period_icon'] ?: 'bi-clock' }}"></i> {{ $active['period_label'] ?: $active['time_label'] }}
+                    <i class="bi {{ $active['period_icon'] ?: 'bi-clock' }}"></i> {{ $active['period_label'] ? __($active['period_label']) : $active['time_label'] }}
                 </span>
             @elseif($routine->time_period)
                 <span class="pl-priority" style="color:{{ $accent }};background:{{ $accent }}1a;text-transform:none;">
@@ -218,17 +218,17 @@
                 </span>
             @else
                 <span class="pl-priority" style="color:{{ $fc }};background:{{ $fc }}1a;text-transform:none;">
-                    <i class="bi {{ $fi }}"></i> {{ $toggleable ? ucfirst($routine->frequency) : $routine->recurrenceLabel() }}
+                    <i class="bi {{ $fi }}"></i> {{ $routine->recurrenceLabel() }}
                 </span>
                 @if($routine->timeLabel())
                     <span class="pl-due"><i class="bi bi-clock"></i> {{ $routine->timeLabel() }}</span>
                 @endif
             @endif
             @if($isDone && $doneAt)
-                <span class="pl-due" style="color:#16a34a;"><i class="bi bi-check2"></i> {{ $doneAt->format('g:i A') }}</span>
+                <span class="pl-due" style="color:#16a34a;"><i class="bi bi-check2"></i> {{ app_time($doneAt) }}</span>
             @endif
             @if($ringLast7 !== null && $toggleable)
-                <span class="last7" title="Last 7 days">
+                <span class="last7" title="{{ __('Last 7 days') }}">
                     @foreach($ringLast7 as $sq)
                         <i class="sq sq-{{ $sq['state'] }}"></i>
                     @endforeach
@@ -253,17 +253,17 @@
                             @if(!empty($step['period_label']) || !empty($step['time_label']))
                                 <span class="pl-step-schedule" style="color:{{ $step['period_color'] ?: '#64748b' }};">
                                     <i class="bi {{ $step['period_icon'] ?: 'bi-clock' }}"></i>
-                                    {{ $step['period_label'] ?: $step['time_label'] }}
+                                    {{ $step['period_label'] ? __($step['period_label']) : $step['time_label'] }}
                                 </span>
                             @endif
                             @if(!empty($step['violated']))
-                                <span class="pl-step-slipcount" title="Slips in this slot today">×{{ $step['violation_qty'] }}</span>
+                                <span class="pl-step-slipcount" title="{{ __('Slips in this slot today') }}">×{{ app_num($step['violation_qty']) }}</span>
                             @endif
                             <button type="button" class="pl-step-slipbtn" data-avoid-step-slip
                                     data-slip-url="{{ route('planner.check-items.slip', $step['id']) }}"
                                     data-date="{{ $routineDate->toDateString() }}"
                                     data-count-mode="{{ $countMode ? '1' : '0' }}"
-                                    title="Log a slip in this slot">لغزش</button>
+                                    title="{{ __('Log a slip in this slot') }}">{{ __('Slip') }}</button>
                         </div>
                         <div class="pl-avoid-panel" data-step-slip-panel hidden>
                             <form data-step-slip-form
@@ -456,8 +456,8 @@
                             @endif
                         </span>
                         @for($s = 1; $s <= $target; $s++)
-                            <input type="number" step="any" min="0" data-set="{{ $s }}" placeholder="S{{ $s }}"
-                                   value="{{ $logged[$s] ?? '' }}" aria-label="{{ __($step['name']) }} {{ __('Set') }} {{ $s }}">
+                            <input type="number" step="any" min="0" data-set="{{ $s }}" placeholder="{{ __('Set :n', ['n' => app_num($s)]) }}"
+                                   value="{{ $logged[$s] ?? '' }}" aria-label="{{ __($step['name']) }} {{ __('Set :n', ['n' => app_num($s)]) }}">
                         @endfor
                         <button type="button" onclick="logRoutineSets(this)">{{ __('Log') }}</button>
                     </div>

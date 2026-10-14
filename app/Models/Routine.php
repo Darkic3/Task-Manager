@@ -132,6 +132,10 @@ class Routine extends Model
         if (! $amPm || $time === null) {
             return $time ?? '';
         }
+        // Persian locale reads 24h clocks natively — no AM/PM suffix.
+        if (app()->getLocale() === 'fa') {
+            return app_num($time);
+        }
         [$h, $mi] = explode(':', $time);
         $h = (int) $h;
         $suffix = $h >= 12 ? 'PM' : 'AM';
@@ -143,8 +147,8 @@ class Routine extends Model
     public function trackingLabel(): string
     {
         return match ($this->tracking_mode) {
-            self::TRACKING_VALUE => trim(($this->value_label ?: 'Value') . ($this->value_unit ? " ({$this->value_unit})" : '')),
-            self::TRACKING_SETS => 'Sets',
+            self::TRACKING_VALUE => trim(($this->value_label ?: __('Value')) . ($this->value_unit ? " ({$this->value_unit})" : '')),
+            self::TRACKING_SETS => __('Sets'),
             default => '',
         };
     }
@@ -205,41 +209,67 @@ class Routine extends Model
     }
 
     /**
-     * Human-readable recurrence summary for display.
+     * Human-readable recurrence summary for display (localized).
      */
     public function recurrenceLabel(): string
     {
+        $isFa = app()->getLocale() === 'fa';
+
         switch ($this->frequency) {
             case 'daily':
-                return 'Every day';
+                return __('Every day');
 
             case 'weekly':
                 $days = $this->decodedDays();
 
                 if (! $days) {
-                    return 'No days selected';
+                    return __('No days selected');
                 }
 
                 return collect($days)
-                    ->map(fn ($d) => ucfirst(substr($d, 0, 3)))
-                    ->implode(', ');
+                    ->map(fn ($d) => $isFa
+                        ? self::faWeekdayShort((string) $d)
+                        : ucfirst(substr((string) $d, 0, 3)))
+                    ->implode($isFa ? '، ' : ', ');
 
             case 'monthly':
                 $monthDays = $this->decodedMonthDays();
 
                 if (! $monthDays) {
-                    return 'No days selected';
+                    return __('No days selected');
                 }
 
-                return 'Day '.implode(', ', $monthDays);
+                return __('Day :days', ['days' => app_num(implode(', ', $monthDays))]);
 
             case 'every_n_days':
                 $n = max(2, (int) $this->every_n_days);
 
-                return $n === 2 ? 'Every other day' : "Every {$n} days";
+                return $n === 2 ? __('Every other day') : __('Every :n days', ['n' => app_num($n)]);
         }
 
-        return ucfirst((string) $this->frequency);
+        return match ($this->frequency) {
+            'daily' => __('Daily'),
+            'weekly' => __('Weekly'),
+            'monthly' => __('Monthly'),
+            default => ucfirst((string) $this->frequency),
+        };
+    }
+
+    /**
+     * Short Persian weekday name from an English day key.
+     */
+    public static function faWeekdayShort(string $day): string
+    {
+        return match (strtolower(substr($day, 0, 3))) {
+            'sat' => 'شنبه',
+            'sun' => 'یکشنبه',
+            'mon' => 'دوشنبه',
+            'tue' => 'سه‌شنبه',
+            'wed' => 'چهارشنبه',
+            'thu' => 'پنجشنبه',
+            'fri' => 'جمعه',
+            default => $day,
+        };
     }
 
     public function timeLabel(): string
@@ -252,8 +282,7 @@ class Routine extends Model
             return '';
         }
 
-        return Carbon::parse($this->start_time)->format('g:i A')
-            .' – '.Carbon::parse($this->end_time)->format('g:i A');
+        return app_time($this->start_time).' – '.app_time($this->end_time);
     }
 
     /**
@@ -265,7 +294,9 @@ class Routine extends Model
             return null;
         }
 
-        return config("routines.periods.{$this->time_period}.label") ?? ucfirst($this->time_period);
+        $label = config("routines.periods.{$this->time_period}.label");
+
+        return $label ? __($label) : __(ucfirst((string) $this->time_period));
     }
 
     public function periodIcon(): ?string

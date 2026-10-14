@@ -72,7 +72,7 @@
             @if($due && empty($hideDue))
                 <span class="pl-due {{ $isOverdue ? 'overdue' : '' }}">
                     <i class="bi bi-calendar-event"></i>
-                    {{ $due->format('M d') }}
+                    {{ app_date($due, 'j F') }}
                     @if($isOverdue) · {{ __('Overdue') }} @endif
                 </span>
             @endif

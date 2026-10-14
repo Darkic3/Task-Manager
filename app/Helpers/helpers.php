@@ -82,6 +82,30 @@ if (!function_exists('app_human_date')) {
     }
 }
 
+if (!function_exists('app_time')) {
+    /**
+     * Format a time for display (24h with Persian digits for "fa", 12h AM/PM otherwise).
+     */
+    function app_time($value): string
+    {
+        if (!$value) {
+            return '';
+        }
+
+        try {
+            $carbon = $value instanceof Carbon ? $value : Carbon::parse($value);
+
+            if (app()->getLocale() === 'fa') {
+                return app_num($carbon->format('H:i'));
+            }
+
+            return $carbon->format('g:i A');
+        } catch (\Throwable $e) {
+            return (string) $value;
+        }
+    }
+}
+
 if (!function_exists('app_diff_for_humans')) {
     /**
      * Relative time ago.

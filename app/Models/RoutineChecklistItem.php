@@ -168,7 +168,9 @@ class RoutineChecklistItem extends Model
             return null;
         }
 
-        return config("routines.periods.{$this->time_period}.label") ?? ucfirst((string) $this->time_period);
+        $label = config("routines.periods.{$this->time_period}.label");
+
+        return $label ? __($label) : __(ucfirst((string) $this->time_period));
     }
 
     public function periodIcon(): ?string
@@ -199,7 +201,7 @@ class RoutineChecklistItem extends Model
         }
 
         try {
-            return Carbon::parse($this->scheduled_time)->format('g:i A');
+            return app_time($this->scheduled_time) ?: null;
         } catch (\Exception $e) {
             return null;
         }
