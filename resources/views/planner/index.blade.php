@@ -75,6 +75,24 @@
     .pl-empty{padding:26px 16px;text-align:center;color:#94a3b8;font-size:12.5px;font-weight:500;}
     .pl-empty i{display:block;font-size:26px;margin-bottom:8px;color:#cbd5e1;}
 
+    /* ── Desktop duo: side-by-side pairs, day view only (≥992px). Below that, normal stack. ── */
+    @media (min-width: 992px) {
+        .pl-duo{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-bottom:16px;}
+        .pl-duo-single{grid-template-columns:1fr;}
+        .pl-duo > *{margin-bottom:0 !important;min-width:0;}
+    }
+
+    /* ── Done as a collapsed archive + ultra-wide container cap ── */
+    .pl-done > summary{list-style:none;cursor:pointer;}
+    .pl-done > summary::-webkit-details-marker{display:none;}
+    .pl-done > summary::marker{content:'';}
+    .pl-done > summary:focus-visible{outline:2px solid #16a34a;outline-offset:-2px;}
+    .pl-done-chev{color:#9aa1b5;font-size:12px;transition:transform .15s ease;}
+    .pl-done[open] .pl-done-chev{transform:rotate(180deg);}
+    @media (min-width: 1600px) {
+        .main-content{max-width:1500px;margin-inline:auto;}
+    }
+
     /* Task row */
     .pl-task{
         display:flex;align-items:flex-start;gap:10px;background:white;border:1px solid #eceef1;
@@ -1521,6 +1539,10 @@
         border-radius:20px;padding:1px 9px;font-variant-numeric:tabular-nums;animation:lgPulse 1.2s ease infinite;}
     @keyframes lgPulse{0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.35);}50%{box-shadow:0 0 0 4px rgba(22,163,74,0);}}
     .lg-icon.is-running{background:#e9f9f0;color:#16a34a;animation:lgPulse 1.2s ease infinite;}
+    .lg-icon.is-quit-on{background:#fef3c7;color:#b45309;}
+    .lg-icon.is-quit-on:hover{background:#fde68a;color:#92400e;}
+    .lg-loading>i{animation:lgSpin 1s linear infinite;}
+    @keyframes lgSpin{to{transform:rotate(360deg);}}
     /* Nightly nudge inside the shutdown modal */
     .lg-shutdown-nudge{display:flex;align-items:center;gap:10px;border:1px solid #e6dcfb;border-radius:13px;padding:10px 13px;margin-bottom:14px;
         background:linear-gradient(135deg,#faf7ff,#f5f0ff);font-size:12.5px;font-weight:600;color:#4b4566;line-height:1.7;}
@@ -1656,12 +1678,18 @@
             <span class="pl-daybar-label" id="plDayProgressLabel"></span>
         </div>
 
-        {{-- Next Up --}}
-        @include('planner._next-up', ['nextUp' => $nextUp ?? null, 'date' => $date])
+        {{-- Duo A: Next Up + Workout side by side on desktop --}}
+        @if(! empty($nextUp ?? null) || isset($todayWorkoutDay))
+        <div class="pl-duo{{ empty($nextUp ?? null) || ! isset($todayWorkoutDay) ? ' pl-duo-single' : '' }}">
+            @include('planner._next-up', ['nextUp' => $nextUp ?? null, 'date' => $date])
 
-        {{-- Today's Workout Session Block --}}
-        @include('planner._workout-card')
+            {{-- Today's Workout Session Block --}}
+            @include('planner._workout-card')
+        </div>
+        @endif
 
+        {{-- Duo B: Routines + Today's Tasks side by side on desktop --}}
+        <div class="pl-duo">
         {{-- Routines for the selected day --}}
         <div class="pl-section">
             <div class="pl-section-head">
@@ -1678,26 +1706,7 @@
             </div>
         </div>
 
-        {{-- Overdue --}}
-        @if($overdue->count())
-            <div class="pl-section" style="border-color: #fecaca; box-shadow: 0 2px 10px rgba(220, 38, 38, 0.05);">
-                <div class="pl-section-head" style="background: linear-gradient(135deg, #fffafb 0%, #fff1f2 100%); border-bottom: 1px solid #fee2e2;">
-                    <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;"></i>
-                    <span class="pl-section-title" style="color:#991b1b;">{{ __('Overdue') }}</span>
-                    <span class="pl-section-count" id="plOverdueCount" style="background:#fee2e2;color:#b91c1c;">{{ $overdue->count() }}</span>
-                    <button type="button" class="pl-overdue-all" id="plPostponeAll" title="{{ __('Move every overdue task to tomorrow') }}">
-                        <i class="bi bi-arrow-90deg-down"></i> {{ __('Postpone all to tomorrow') }}
-                    </button>
-                </div>
-                <div class="pl-section-body" id="plOverdueBody">
-                    @foreach($overdue as $task)
-                        @include('planner._task-row', ['task' => $task, 'count' => false, 'postpone' => 'today'])
-                    @endforeach
-                </div>
-            </div>
-        @endif
-
-        {{-- Today's tasks --}}
+        {{-- Today's tasks (Overdue moved down next to Day Log for Duo C) --}}
         <div class="pl-section">
             <div class="pl-section-head">
                 <i class="bi bi-check2-square" style="color:#7c3aed;"></i>
@@ -1708,6 +1717,30 @@
                 @php $groups = $pending->groupBy(fn ($t) => $t->time_period ?: 'anytime'); @endphp
                 @forelse($pending as $task)@empty
                     <div class="pl-empty"><i class="bi bi-cup-hot"></i>{{ __('Nothing scheduled for this day. Enjoy!') }}</div>
+                    <div class="pl-qadd" id="plBacklogAdd">
+                        <button type="button" class="pl-qadd-btn" id="plBacklogToggle"
+                                aria-expanded="false" aria-controls="plBacklogPanel">
+                            <span class="pl-qadd-glow" aria-hidden="true"></span>
+                            <span class="pl-qadd-ico"><i class="bi bi-inboxes" aria-hidden="true"></i></span>
+                            <span class="pl-qadd-txt">
+                                <b>{{ __('Pull an existing task into today') }}</b>
+                                <small>{{ __('Pick from your unscheduled tasks — nothing gets created') }}</small>
+                            </span>
+                            <span class="pl-qadd-arrow"><i class="bi bi-chevron-down" aria-hidden="true"></i></span>
+                        </button>
+                        <div class="pl-qadd-panel" id="plBacklogPanel" hidden>
+                            <div class="pl-qadd-search">
+                                <i class="bi bi-search" aria-hidden="true"></i>
+                                <input type="search" id="plBacklogSearch" autocomplete="off"
+                                       placeholder="{{ __('Search your unscheduled tasks…') }}"
+                                       aria-label="{{ __('Search your unscheduled tasks') }}">
+                                <button type="button" class="pl-qadd-clear" id="plBacklogClear" hidden
+                                        aria-label="{{ __('Close') }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                            </div>
+                            <div class="pl-qadd-list" id="plBacklogList" role="listbox"
+                                 aria-label="{{ __('Unscheduled tasks') }}"></div>
+                        </div>
+                    </div>
                 @endforelse
                 @foreach(config('routines.periods', []) as $key => $period)
                     @if($groups->has($key))
@@ -1723,32 +1756,17 @@
                 @endif
             </div>
         </div>
+        </div>{{-- /Duo B --}}
 
-        {{-- Done --}}
-        @if($done->count())
-            <div class="pl-section">
-                <div class="pl-section-head">
-                    <i class="bi bi-check-circle-fill" style="color:#16a34a;"></i>
-                    <span class="pl-section-title">{{ __('Completed') }}</span>
-                    <span class="pl-section-count">{{ $done->count() }}</span>
-                </div>
-                <div class="pl-section-body">
-                    @foreach($done as $task)
-                        @include('planner._task-row', ['task' => $task, 'count' => true])
-                    @endforeach
-                </div>
-            </div>
-        @endif
-
-        {{-- ── Day Log (دفتر روز) — visual prototype only: entries live in the
-             browser and are NOT persisted yet (no routes, no tables). ── --}}
-        <div class="pl-section lg-section" id="lgSection">
+        {{-- Duo C: Day Log + Overdue side by side on desktop --}}
+        <div class="pl-duo">
+        {{-- ── Day Log (دفتر روز) — persisted via the day-logs API. --}}
+        <div class="pl-section lg-section" id="lgSection" data-date="{{ $date->toDateString() }}">
             <div class="pl-section-head">
                 <span class="lg-head-icon"><i class="bi bi-journal-text" aria-hidden="true"></i></span>
                 <span class="lg-head-text">
                     <span class="d-inline-flex align-items-center gap-2">
                         <span class="pl-section-title">{{ __('Day Log') }}</span>
-                        <span class="lg-beta">{{ __('Preview') }}</span>
                     </span>
                     <span class="lg-head-sub">{{ __('One line per moment — time, amount and note are detected automatically') }}</span>
                 </span>
@@ -1822,12 +1840,12 @@
                         <input type="number" class="lg-num" id="lgAmount" name="day_log_amount" min="1" step="1" value="45"
                                inputmode="numeric" aria-label="{{ __('Amount') }}">
                         <select class="lg-sel" id="lgUnit" name="day_log_unit" aria-label="{{ __('Unit') }}">
-                            <option>{{ __('minute') }}</option>
-                            <option>{{ __('hour') }}</option>
-                            <option>{{ __('page') }}</option>
-                            <option>{{ __('verse') }}</option>
-                            <option>{{ __('time(s)') }}</option>
-                            <option>{{ __('km') }}</option>
+                            <option data-lg-unit="minute">{{ __('minute') }}</option>
+                            <option data-lg-unit="hour">{{ __('hour') }}</option>
+                            <option data-lg-unit="page">{{ __('page') }}</option>
+                            <option data-lg-unit="verse">{{ __('verse') }}</option>
+                            <option data-lg-unit="count">{{ __('time(s)') }}</option>
+                            <option data-lg-unit="km">{{ __('km') }}</option>
                         </select>
                         <span class="lg-quick">
                             @foreach([15, 30, 45, 60, 90] as $lgQuickMinutes)
@@ -1907,9 +1925,46 @@
                     </div>
                     <div id="lgAsk"></div>
                 </section>
-                <p class="lg-foot"><i class="bi bi-shield-check" aria-hidden="true"></i>{{ __('Prototype — entries stay in the browser and are not saved yet.') }}</p>
+                <p class="lg-foot"><i class="bi bi-check" aria-hidden="true"></i>{{ __('Saved to your day log.') }}</p>
             </div>
         </div>
+
+        {{-- Overdue (paired with Day Log on desktop, stacked below it on mobile) --}}
+        @if($overdue->count())
+            <div class="pl-section" style="border-color: #fecaca; box-shadow: 0 2px 10px rgba(220, 38, 38, 0.05);">
+                <div class="pl-section-head" style="background: linear-gradient(135deg, #fffafb 0%, #fff1f2 100%); border-bottom: 1px solid #fee2e2;">
+                    <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;"></i>
+                    <span class="pl-section-title" style="color:#991b1b;">{{ __('Overdue') }}</span>
+                    <span class="pl-section-count" id="plOverdueCount" style="background:#fee2e2;color:#b91c1c;">{{ $overdue->count() }}</span>
+                    <button type="button" class="pl-overdue-all" id="plPostponeAll" title="{{ __('Move every overdue task to tomorrow') }}">
+                        <i class="bi bi-arrow-90deg-down"></i> {{ __('Postpone all to tomorrow') }}
+                    </button>
+                </div>
+                <div class="pl-section-body" id="plOverdueBody">
+                    @foreach($overdue as $task)
+                        @include('planner._task-row', ['task' => $task, 'count' => false, 'postpone' => 'today'])
+                    @endforeach
+                </div>
+            </div>
+        @endif
+        </div>{{-- /Duo C --}}
+
+        {{-- Done: archival reference, collapsed at the very bottom to keep the work area tight --}}
+        @if($done->count())
+            <details class="pl-section pl-done">
+                <summary class="pl-section-head">
+                    <i class="bi bi-check-circle-fill" style="color:#16a34a;"></i>
+                    <span class="pl-section-title">{{ __('Completed') }}</span>
+                    <span class="pl-section-count">{{ $done->count() }}</span>
+                    <i class="bi bi-chevron-down pl-done-chev" aria-hidden="true"></i>
+                </summary>
+                <div class="pl-section-body">
+                    @foreach($done as $task)
+                        @include('planner._task-row', ['task' => $task, 'count' => true])
+                    @endforeach
+                </div>
+            </details>
+        @endif
     @else
         {{-- Week view: clean day columns with period sections + inline add --}}
         @php
@@ -5060,12 +5115,12 @@
 </script>
 @endpush
 @push('scripts')
-<script>    /* ── Day Log (دفترروز) — daily capture strip ───────────────────────────────────
+<script>    /* ── Day Log (دفترروز) — daily capture ───────────────────────────────────────
        One hero input does the work; everything else is an on-demand panel.
-       There is no mode switch: duration and time-of-day coexist, and the
-       panel mirrors the sentence. Nothing here is persisted: entries live in
-       JS memory only (no routes, no tables, no migrations).
-       It reuses plShowToast() and the real quick-add habit form.
+       Entries are persisted per user per day via the day-logs API
+       (DayLogController) with full validation; the catalog and the Insights
+       candidates are computed server-side. It reuses plFetch(), plShowToast()
+       and the real quick-add habit form.
        ─────────────────────────────────────────────────────────────────────────── */
 @php
     $lgPeriods = collect(config('routines.periods', []))->map(fn ($p, $k) => [
@@ -5076,6 +5131,16 @@
 (function () {
     const root = document.getElementById('lgSection');
     if (!root) { return; }   // day view only
+
+    const LG_DATE = root.dataset.date || '';
+    const LG_ROUTES = {
+        index: @json(route('day-logs.index')),
+        store: @json(route('day-logs.store')),
+        candidates: @json(route('day-logs.candidates')),
+        merge: @json(route('day-logs.merge')),
+        update: id => @json(url('/planner/day-logs')) + '/' + id,
+        destroy: id => @json(url('/planner/day-logs')) + '/' + id,
+    };
 
     const I18N = {
         setTime:    @json(__('Set time')),
@@ -5123,6 +5188,15 @@
         logsToday:  @json(__('You have :count logs today.')),
         unloggedQ:  @json(__('Anything left unlogged today?')),
         quickLog:   @json(__('Quick log')),
+        loading:    @json(__('Loading…')),
+        loadFail:   @json(__('Could not load the day log.')),
+        saveFail:   @json(__('Could not save the entry.')),
+        updateFail: @json(__('Could not update the entry.')),
+        deleteFail: @json(__('Could not delete the entry.')),
+        markQuit:   @json(__('Mark as quit-tracked')),
+        unmarkQuit: @json(__('Stop tracking quit')),
+        quitMarked: @json(__('Marked for quit tracking')),
+        quitUnmarked: @json(__('Removed from quit tracking')),
     };
 
     const PERIODS = @json($lgPeriods);
@@ -5274,36 +5348,110 @@
     const meta = $('lgMeta');
 
     const CYCLE = ['#7c3aed', '#0ea5e9', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#0e7490'];
+    const ICON_POOL = ['bi-music-note-beamed', 'bi-book', 'bi-soundwave', 'bi-vector-pen', 'bi-person-walking',
+                       'bi-fire', 'bi-people', 'bi-brush', 'bi-cup-hot', 'bi-bicycle', 'bi-camera', 'bi-controller'];
+    const UNIT_KEYS = ['minute', 'hour', 'page', 'verse', 'count', 'km'];
 
-    /* Sample catalog — what this user has logged before (drives the suggestions). */
-    const catalog = [
-        { name: @json(__('Playing piano')),     uses: 7,  icon: 'bi-music-note-beamed', unit: UNITS.minute },
-        { name: @json(__('Reading a book')),   uses: 12, icon: 'bi-book',              unit: UNITS.page },
-        { name: @json(__('Working on music')), uses: 4,  icon: 'bi-soundwave',         unit: UNITS.minute },
-        { name: @json(__('Memorizing a poem')), uses: 3, icon: 'bi-vector-pen',        unit: UNITS.verse },
-        { name: @json(__('Walking')),          uses: 9,  icon: 'bi-person-walking',    unit: UNITS.minute },
-        { name: @json(__('Smoking')),          uses: 5,  icon: 'bi-fire',              unit: UNITS.count, quit: true },
-        { name: @json(__('Meeting')),          uses: 6,  icon: 'bi-people',            unit: UNITS.minute },
-    ].map((c, i) => Object.assign(c, { id: 'lc' + i, color: CYCLE[i % CYCLE.length] }));
+    /* Deterministic presentation per title so an activity keeps its color/icon across reloads. */
+    const hashStr = s => { let h = 0; const t = String(s || ''); for (let i = 0; i < t.length; i++) { h = (h * 31 + t.charCodeAt(i)) >>> 0; } return h; };
+    const colorFor = name => CYCLE[hashStr(name) % CYCLE.length];
+    const iconFor = name => ICON_POOL[hashStr(name) % ICON_POOL.length];
 
-    /* Sample entries for the selected day (prototype data, memory only). */
-    let seq = 100;
-    const entries = [
-        { id: ++seq, actId: 'lc0', title: catalog[0].name, kind: 'activity', mode: 'range',
-          start: '19:30', end: '20:15', seconds: 2700, period: 'evening', loggedAt: '20:20',
-          note: @json(__('Practice — new piece')), color: '#7c3aed' },
-        { id: ++seq, actId: 'lc1', title: catalog[1].name, kind: 'activity', mode: 'duration',
-          amount: 12, amountUnit: @json(__('page')), period: 'afternoon', loggedAt: '16:40',
-          note: @json(__('Chapter 4')), color: '#0ea5e9' },
-        { id: ++seq, actId: 'lc3', title: catalog[3].name, kind: 'activity', mode: 'period',
-          period: 'morning', loggedAt: '08:15', note: null, color: '#f59e0b' },
-        { id: ++seq, actId: 'lc2', title: catalog[2].name, kind: 'activity', mode: 'duration',
-          seconds: 5400, period: 'night', loggedAt: '23:10', note: null, color: '#ec4899' },
-        { id: ++seq, actId: null, title: @json(__('Woke up early and felt full of energy today.')),
-          kind: 'journal', mode: 'none', mood: 8, moodPicked: false, period: null, loggedAt: '07:50', note: null, color: '#a16207' },
-        { id: ++seq, actId: null, title: @json(__('A calm evening — grateful and a little tired.')),
-          kind: 'journal', mode: 'none', mood: 6, moodPicked: true, period: null, loggedAt: '22:30', note: null, color: '#7c3aed' },
-    ];
+    /* Entries + repeat catalog live on the server; loaded per viewed day. */
+    let catalog = [];   // { id, name, uses, unitKey, quit, icon, color }
+    let entries = [];   // client shapes mapped from the API (see mapServerEntry)
+    let lgLoading = true;
+
+    const unitKeyOf = idx => (($('lgUnit').options[idx] || {}).dataset || {}).lgUnit || UNIT_KEYS[idx] || 'minute';
+    const unitIdxOf = key => { const i = UNIT_KEYS.indexOf(key); return i >= 0 ? i : 0; };
+    const unitLabelOf = key => {
+        const sel = $('lgUnit');
+        for (let i = 0; i < sel.options.length; i++) {
+            if (((sel.options[i].dataset || {}).lgUnit || '') === key) { return sel.options[i].text; }
+        }
+        return (sel.options[unitIdxOf(key)] || { text: key }).text;
+    };
+
+    function mapServerEntry(s) {
+        return {
+            id: s.id, title: s.title, note: s.note, kind: s.kind, mode: s.mode,
+            period: s.period || null,
+            seconds: s.duration_seconds != null ? Number(s.duration_seconds) : null,
+            amount: s.amount != null ? Number(s.amount) : null,
+            amountUnit: (s.amount != null && s.amount_unit) ? unitLabelOf(s.amount_unit) : null,
+            unitKey: s.amount_unit || null,
+            start: s.start_time || null, end: s.end_time || null,
+            loggedAt: s.logged_at || null,
+            mood: s.mood != null ? Number(s.mood) : null,
+            moodPicked: !!s.mood_picked, isQuit: !!s.is_quit,
+            timeEntryId: s.time_entry_id || null,
+            color: colorFor(s.title),
+        };
+    }
+
+    /* POST/PATCH/DELETE with JSON; throws { status, messages } on failure. */
+    async function lgApi(url, method, body) {
+        const res = await plFetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: body === undefined ? undefined : JSON.stringify(body),
+        });
+        let json = null;
+        try { json = await res.json(); } catch (e) { /* non-JSON */ }
+        if (!res.ok) { throw { status: res.status, messages: json && json.errors ? json.errors : null }; }
+        return json;
+    }
+    function apiErr(err, fallback) {
+        if (err && err.messages) {
+            const first = Object.values(err.messages).flat()[0];
+            if (first) { return first; }
+        }
+        return fallback;
+    }
+
+    /* Plain server-shape snapshot of a client entry (for payloads + undo). */
+    function snapshotEntry(e) {
+        return { title: e.title, note: e.note, kind: e.kind, period: e.period, seconds: e.seconds,
+                 amount: e.amount, unitKey: e.unitKey, start: e.start, end: e.end, loggedAt: e.loggedAt,
+                 mood: e.mood, moodPicked: e.moodPicked, isQuit: e.isQuit, timeEntryId: e.timeEntryId };
+    }
+    function snapshotToPayload(s) {
+        const isJ = s.kind === 'journal';
+        return { date: LG_DATE, kind: s.kind, title: s.title, note: s.note || null,
+            period: isJ ? null : (s.period || null),
+            duration_seconds: isJ ? null : (s.seconds || null),
+            amount: isJ ? null : (s.amount != null ? s.amount : null),
+            amount_unit: (!isJ && s.amount != null) ? (s.unitKey || 'minute') : null,
+            start_time: isJ ? null : (s.start || null), end_time: isJ ? null : (s.end || null),
+            logged_at: s.loggedAt || null, mood: isJ ? (s.mood != null ? s.mood : 7) : null,
+            mood_picked: isJ ? !!s.moodPicked : null, is_quit: !isJ && !!s.isQuit,
+            time_entry_id: s.timeEntryId || null };
+    }
+    const entryToPayload = e => snapshotToPayload(snapshotEntry(e));
+
+    async function loadDay() {
+        lgLoading = true;
+        renderRows();
+        try {
+            const res = await plFetch(LG_ROUTES.index + '?date=' + encodeURIComponent(LG_DATE), {
+                headers: { 'Accept': 'application/json' },
+            });
+            if (!res.ok) { throw new Error('HTTP ' + res.status); }
+            const j = await res.json();
+            entries = (j.entries || []).map(mapServerEntry);
+            catalog = (j.catalog || []).map((c, i) => ({
+                id: 'srv' + i, name: c.name, uses: Number(c.uses || 0),
+                unitKey: c.unit || 'minute', quit: !!c.quit,
+                icon: iconFor(c.name), color: colorFor(c.name),
+            }));
+            refreshAsk();
+        } catch (err) {
+            console.error('[DayLog] load failed', err);
+            plShowToast(I18N.loadFail);
+        }
+        lgLoading = false;
+        render();
+    }
 
     const dismissed = {};
     const sessionAdds = {};
@@ -5387,6 +5535,7 @@
                 '</div>' +
                 '<div class="lg-row-acts">' +
                     (!isJ ? '<button type="button" class="lg-icon' + (timing ? ' is-running' : '') + '" data-lg-act="timer" aria-label="' + esc(timing ? I18N.stopTimer : I18N.startTimer) + '" title="' + esc(timing ? I18N.stopTimer : I18N.startTimer) + '"><i class="bi ' + (timing ? 'bi-stop-fill' : 'bi-stopwatch') + '" aria-hidden="true"></i></button>' : '') +
+                    (!isJ ? '<button type="button" class="lg-icon' + (e.isQuit ? ' is-quit-on' : '') + '" data-lg-act="quit" aria-label="' + esc(e.isQuit ? I18N.unmarkQuit : I18N.markQuit) + '" title="' + esc(e.isQuit ? I18N.unmarkQuit : I18N.markQuit) + '"><i class="bi ' + (e.isQuit ? 'bi-flag-fill' : 'bi-flag') + '" aria-hidden="true"></i></button>' : '') +
                     (isJ
                         ? '<button type="button" class="lg-icon" data-lg-act="activity" aria-label="' + esc(I18N.intoActivity) + '" title="' + esc(I18N.intoActivity) + '"><i class="bi bi-arrow-left-right" aria-hidden="true"></i></button>'
                         : '<button type="button" class="lg-icon" data-lg-act="habit" aria-label="' + esc(I18N.convertHabit) + '" title="' + esc(I18N.convertHabit) + '"><i class="bi bi-arrow-repeat" aria-hidden="true"></i></button>') +
@@ -5400,6 +5549,10 @@
        No group headers — each row carries its own period chip.
        The type filter only hides rows, never deletes them. */
     function renderRows() {
+        if (lgLoading) {
+            $('lgRows').innerHTML = '<div class="lg-empty lg-loading"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>' + esc(I18N.loading) + '</div>';
+            return;
+        }
         const pIdx = key => { const i = PERIODS.findIndex(p => p.key === key); return i >= 0 ? i : PERIODS.length; };
         const rows = entries.slice().sort((a, b) =>
             (pIdx(a.period || groupOf(a)) - pIdx(b.period || groupOf(b))) ||
@@ -5464,24 +5617,48 @@
             b.classList.toggle('active', Number(b.dataset.lgVal) === state.amount));
     }
 
+    /* Insights candidates come from the server (repeat counts); the live
+       session nudge stays client-side. One suggestion at a time. */
+    let srvAsk = { habit: [], quit: [] };
+    const askCache = {};
+    async function refreshAsk() {
+        try {
+            const res = await plFetch(LG_ROUTES.candidates + '?date=' + encodeURIComponent(LG_DATE), {
+                headers: { 'Accept': 'application/json' },
+            });
+            if (!res.ok) { throw new Error('HTTP ' + res.status); }
+            const j = await res.json();
+            srvAsk = { habit: j.habit || [], quit: j.quit || [] };
+        } catch (err) {
+            console.error('[DayLog] candidates failed', err);
+            srvAsk = { habit: [], quit: [] };
+        }
+        renderAsk();
+    }
+
     function renderAsk() {
         const queued = [];
-        if (!dismissed.piano) { queued.push({ id: 'piano', name: catalog[0].name }); }
-        if (!dismissed.quit) { queued.push({ id: 'quit', name: catalog[5].name, quit: true }); }
         Object.keys(sessionAdds).forEach(name => {
             if (sessionAdds[name] >= 3 && !dismissed['live:' + name]) { queued.push({ id: 'live:' + name, name: name, live: true }); }
+        });
+        srvAsk.habit.forEach(h => {
+            if (!dismissed['srv:' + h.name]) { queued.push({ id: 'srv:' + h.name, name: h.name, count: h.count }); }
+        });
+        srvAsk.quit.forEach(q => {
+            if (!dismissed['srv:' + q.name]) { queued.push({ id: 'srv:' + q.name, name: q.name, count: q.count, quit: true }); }
         });
 
         const ask = queued[0];
         const insights = document.getElementById('lgInsights');
         if (!ask) { $('lgAsk').innerHTML = ''; if (insights) { insights.hidden = true; } return; }
         if (insights) { insights.hidden = false; }
+        askCache[ask.id] = ask;
 
         const text = ask.live
             ? esc(I18N.liveNudge).replace(':name', '<b>' + esc(ask.name) + '</b>')
             : (ask.quit
-                ? esc(I18N.quitNudge).replace(':name', '<b>' + esc(ask.name) + '</b>').replace(':count', '<b>' + NUM(4) + '</b>')
-                : esc(I18N.habitNudge).replace(':name', '<b>' + esc(ask.name) + '</b>').replace(':count', '<b>' + NUM(5) + '</b>'));
+                ? esc(I18N.quitNudge).replace(':name', '<b>' + esc(ask.name) + '</b>').replace(':count', '<b>' + NUM(ask.count || 4) + '</b>')
+                : esc(I18N.habitNudge).replace(':name', '<b>' + esc(ask.name) + '</b>').replace(':count', '<b>' + NUM(ask.count || 5) + '</b>'));
 
         $('lgAsk').innerHTML =
             '<div class="lg-ask ' + (ask.quit ? 'quit' : '') + '">' +
@@ -5589,36 +5766,28 @@
         render();
     }));
 
-    $('lgMerge').addEventListener('click', () => {
+    $('lgMerge').addEventListener('click', async () => {
         const groups = dupGroups();
         if (!groups.length) { return; }
-        const removed = [];
-        const prev = {};
-        groups.forEach(g => {
-            const keep = g.slice().sort((a, b) => a.id - b.id)[0];
-            prev[keep.id] = { seconds: keep.seconds, mode: keep.mode, note: keep.note,
-                              amount: keep.amount, amountUnit: keep.amountUnit,
-                              start: keep.start, end: keep.end };
-            g.forEach(x => {
-                if (x.id === keep.id) { return; }
-                keep.seconds = (keep.seconds || 0) + (x.seconds || 0);
-                if (x.note && x.note !== keep.note) { keep.note = keep.note ? keep.note + ' · ' + x.note : x.note; }
-                removed.push({ entry: x, index: entries.indexOf(x) });
-            });
-            delete keep.amount; delete keep.amountUnit; delete keep.start; delete keep.end;
-            keep.mode = 'duration';
-        });
-        removed.sort((a, b) => b.index - a.index).forEach(r => entries.splice(r.index, 1));
-        render();
-        plShowToast(I18N.merged, () => {
-            Object.keys(prev).forEach(id => {
-                const e = entries.find(x => x.id === Number(id));
-                if (e) { Object.assign(e, prev[id]); }
-            });
-            removed.slice().sort((a, b) => a.index - b.index)
-                .forEach(r => entries.splice(Math.min(r.index, entries.length), 0, r.entry));
+        try {
+            for (const g of groups) {
+                const j = await lgApi(LG_ROUTES.merge, 'POST', { ids: g.map(x => x.id) });
+                const surv = mapServerEntry(j.survivor);
+                (j.merged_ids || []).forEach(id => {
+                    const i = entries.findIndex(x => x.id === id);
+                    if (i > -1) { entries.splice(i, 1); }
+                });
+                const local = entries.find(x => x.id === surv.id);
+                if (local) { Object.assign(local, surv); }
+            }
             render();
-        });
+            refreshAsk();
+            plShowToast(I18N.merged);
+        } catch (err) {
+            console.error('[DayLog] merge failed', err);
+            plShowToast(apiErr(err, I18N.updateFail));
+            loadDay();
+        }
     });
 
     /* Editable logged hour: the clock becomes a time field. */
@@ -5633,13 +5802,27 @@
         cell.replaceChildren(field);
         field.focus();
         let done = false;
-        const commit = () => {
+        const commit = async () => {
             if (done) { return; }
             done = true;
             const v = field.value || '';
             const m = v.match(/^(\d{2}):(\d{2})$/);
-            if (m && Number(m[1]) < 24 && Number(m[2]) < 60) { entry.loggedAt = v; render(); }
-            else { render(); plShowToast(I18N.invalidTime); }
+            if (!m || Number(m[1]) >= 24 || Number(m[2]) >= 60) { render(); plShowToast(I18N.invalidTime); return; }
+            if (v === entry.loggedAt) { render(); return; }
+            const prev = entry.loggedAt;
+            entry.loggedAt = v;
+            render();
+            try {
+                const j = await lgApi(LG_ROUTES.update(entry.id), 'PATCH', { logged_at: v });
+                Object.assign(entry, mapServerEntry(j.entry));
+                entry.color = colorFor(entry.title);
+                render();
+            } catch (err) {
+                console.error('[DayLog] time update failed', err);
+                entry.loggedAt = prev;
+                render();
+                plShowToast(apiErr(err, I18N.updateFail));
+            }
         };
         const cancel = () => { if (done) { return; } done = true; render(); };
         field.addEventListener('keydown', ev => {
@@ -5662,6 +5845,11 @@
         }
         if (!snap.entry) { flushLgTimer(); }
     }
+    function snapshotTimeFields(s) {
+        return { duration_seconds: s.seconds || null, amount: s.amount != null ? s.amount : null,
+                 amount_unit: s.amount != null ? (s.unitKey || 'minute') : null,
+                 start_time: s.start || null, end_time: s.end || null, period: s.period || null };
+    }
     function flushLgTimer() {
         if (!lgTimer) { return; }
         const t = lgTimer;
@@ -5669,14 +5857,33 @@
         const e = entries.find(x => x.id === t.lgId);
         const secs = Math.max(0, Math.floor(t.lastElapsed || 0));
         if (e && secs > 0) {
-            const prev = { seconds: e.seconds, mode: e.mode, amount: e.amount, amountUnit: e.amountUnit,
-                           start: e.start, end: e.end, period: e.period };
-            delete e.amount; delete e.amountUnit; delete e.start; delete e.end;
+            const prev = snapshotEntry(e);
+            delete e.amount; delete e.amountUnit; e.unitKey = null; delete e.start; delete e.end;
             e.seconds = secs;
             e.mode = 'duration';
             if (!e.period) { e.period = periodForHour(new Date().getHours()); }
             render();
-            plShowToast(I18N.timerSaved + ': ' + humanDuration(secs), () => { Object.assign(e, prev); render(); });
+            const payload = { duration_seconds: secs, amount: null, amount_unit: null,
+                              start_time: null, end_time: null, period: e.period };
+            lgApi(LG_ROUTES.update(e.id), 'PATCH', payload).then(j => {
+                Object.assign(e, mapServerEntry(j.entry));
+                e.color = colorFor(e.title);
+                render();
+                refreshAsk();
+                plShowToast(I18N.timerSaved + ': ' + humanDuration(secs), async () => {
+                    try {
+                        const r = await lgApi(LG_ROUTES.update(e.id), 'PATCH', snapshotTimeFields(prev));
+                        Object.assign(e, mapServerEntry(r.entry));
+                        e.color = colorFor(e.title);
+                        render();
+                        refreshAsk();
+                    } catch (err) { plShowToast(apiErr(err, I18N.updateFail)); }
+                });
+            }).catch(err => {
+                console.error('[DayLog] timer save failed', err);
+                plShowToast(apiErr(err, I18N.updateFail));
+                loadDay();
+            });
         } else {
             render();
         }
@@ -5788,8 +5995,8 @@
         if (!c) { return; }
         input.value = c.name;
         state.actId = c.id;
-        if (c.unit !== undefined && TIME_UNITS.indexOf(c.unit) >= 0) {
-            state.unit = c.unit;
+        if (c.unitKey) {
+            state.unit = unitIdxOf(c.unitKey);
             syncTimeFields();
         }
         closeSuggest();
@@ -5897,8 +6104,8 @@
     function buildEntry(parsed) {
         const isJournal = state.kind === 'journal';
         const title = isJournal ? input.value.trim() : (parsed.title || input.value.trim());
-        const entry = { id: ++seq, actId: state.actId, title: title, kind: state.kind,
-                        note: $('lgNote').value.trim() || null };
+        const entry = { id: 'tmp' + Date.now(), actId: state.actId, title: title, kind: state.kind,
+                        note: $('lgNote').value.trim() || null, unitKey: unitKeyOf(state.unit) };
         const now = new Date();
         entry.loggedAt = pad(now.getHours()) + ':' + pad(now.getMinutes());
 
@@ -5925,33 +6132,31 @@
         return entry;
     }
 
-    /* ── save (memory only) — Enter keeps focus for rapid logging ── */
-    function save() {
+    /* ── save via API — Enter keeps focus for rapid logging ── */
+    async function save() {
         const entry = buildEntry(parseInline(input.value));
         if (!entry.title) { return; }
-
-        if (entry.kind === 'journal') {
-            entry.actId = null;
-        } else {
-            /* Keep the catalog honest so the next suggestion is a real one. */
-            let c = catalog.find(x => x.id === state.actId) || catalog.find(x => x.name === entry.title);
-            if (!c) {
-                c = { id: 'lc' + catalog.length, name: entry.title, uses: 0, unit: UNITS.minute,
-                      color: CYCLE[catalog.length % CYCLE.length] };
-                catalog.push(c);
+        $('lgSave').disabled = true;
+        try {
+            const j = await lgApi(LG_ROUTES.store, 'POST', entryToPayload(entry));
+            const saved = mapServerEntry(j.entry);
+            entries.push(saved);
+            if (saved.kind !== 'journal') {
+                sessionAdds[saved.title] = (sessionAdds[saved.title] || 0) + 1;
+                const hit = catalog.find(x => x.name === saved.title);
+                if (hit) { hit.uses += 1; }
             }
-            c.uses += 1;
-            entry.actId = c.id;
-            entry.color = c.color;
-            sessionAdds[c.name] = (sessionAdds[c.name] || 0) + 1;
+            resetComposer();
+            render();
+            refreshAsk();
+            flashRow(saved.id);
+            input.focus();
+            plShowToast(I18N.logged + ': ' + (saved.kind === 'journal' ? I18N.moodSentence : saved.title));
+        } catch (err) {
+            console.error('[DayLog] save failed', err);
+            plShowToast(apiErr(err, I18N.saveFail));
+            render();
         }
-
-        entries.push(entry);
-        resetComposer();
-        render();
-        flashRow(entry.id);
-        input.focus();
-        plShowToast(I18N.logged + ': ' + (entry.kind === 'journal' ? I18N.moodSentence : entry.title));
     }
 
     function resetComposer() {
@@ -5982,19 +6187,58 @@
 
         if (btn.dataset.lgAct === 'delete') {
             const idx = entries.indexOf(entry);
+            const snap = snapshotEntry(entry);
             entries.splice(idx, 1);
             render();
-            plShowToast(I18N.removed, () => { entries.splice(idx, 0, entry); render(); });
+            lgApi(LG_ROUTES.destroy(entry.id), 'DELETE').then(() => refreshAsk()).catch(err => {
+                console.error('[DayLog] delete failed', err);
+                entries.splice(Math.min(idx, entries.length), 0, entry);
+                render();
+                plShowToast(I18N.deleteFail);
+            });
+            plShowToast(I18N.removed, async () => {
+                try {
+                    const j = await lgApi(LG_ROUTES.store, 'POST', snapshotToPayload(snap));
+                    entries.splice(Math.min(idx, entries.length), 0, mapServerEntry(j.entry));
+                    render();
+                    refreshAsk();
+                } catch (err) { plShowToast(apiErr(err, I18N.saveFail)); }
+            });
         } else if (btn.dataset.lgAct === 'habit') {
             openHabitForm(entry);
+        } else if (btn.dataset.lgAct === 'quit') {
+            const next = !entry.isQuit;
+            entry.isQuit = next;
+            render();
+            lgApi(LG_ROUTES.update(entry.id), 'PATCH', { is_quit: next }).then(() => {
+                refreshAsk();
+                plShowToast(next ? I18N.quitMarked : I18N.quitUnmarked);
+            }).catch(err => {
+                console.error('[DayLog] quit flag failed', err);
+                entry.isQuit = !next;
+                render();
+                plShowToast(apiErr(err, I18N.updateFail));
+            });
         } else if (btn.dataset.lgAct === 'activity') {
+            const period = state.period || 'evening';
             entry.kind = 'activity';
             entry.mode = 'period';
-            entry.period = state.period || 'evening';
+            entry.period = period;
             entry.color = '#7c3aed';
-            delete entry.mood;
+            entry.mood = null;
+            entry.moodPicked = false;
             render();
-            plShowToast(I18N.turned);
+            lgApi(LG_ROUTES.update(entry.id), 'PATCH', { kind: 'activity', period, mood: null, mood_picked: false }).then(j => {
+                Object.assign(entry, mapServerEntry(j.entry));
+                entry.color = colorFor(entry.title);
+                render();
+                refreshAsk();
+                plShowToast(I18N.turned);
+            }).catch(err => {
+                console.error('[DayLog] convert failed', err);
+                plShowToast(apiErr(err, I18N.updateFail));
+                loadDay();
+            });
         } else if (btn.dataset.lgAct === 'edit') {
             inlineEdit(row, entry);
         } else if (btn.dataset.lgAct === 'time') {
@@ -6023,11 +6267,28 @@
         field.focus();
         field.select();
         let done = false;
-        const commit = () => {
+        const commit = async () => {
             if (done) { return; }
             done = true;
-            if (field.value.trim()) { entry.title = field.value.trim(); }
+            const next = field.value.trim();
+            if (!next || next === entry.title) { render(); return; }
+            const prev = entry.title;
+            entry.title = next;
+            entry.color = colorFor(next);
             render();
+            try {
+                const j = await lgApi(LG_ROUTES.update(entry.id), 'PATCH', { title: next });
+                Object.assign(entry, mapServerEntry(j.entry));
+                entry.color = colorFor(entry.title);
+                render();
+                refreshAsk();
+            } catch (err) {
+                console.error('[DayLog] title update failed', err);
+                entry.title = prev;
+                entry.color = colorFor(prev);
+                render();
+                plShowToast(apiErr(err, I18N.updateFail));
+            }
         };
         field.addEventListener('keydown', e => {
             if (e.key === 'Enter') { commit(); }
@@ -6063,15 +6324,16 @@
         if (!yes) { return; }
 
         const id = yes.dataset.lgAskYes;
-        const quit = id === 'quit';
+        const ask = askCache[id];
         dismissed[id] = true;
         renderAsk();
-        openHabitForm({ title: quit ? catalog[5].name : (id === 'piano' ? catalog[0].name : id.slice(5)), period: state.period });
+        openHabitForm({ title: ask ? ask.name : '', period: state.period });
     });
 
     /* Nothing is set until the user says so: the panel starts empty, not at 45. */
     syncTimeFields();
     render();
+    loadDay();
 })();
 </script>
 @endpush

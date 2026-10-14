@@ -176,4 +176,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(TimeEntry::class);
     }
+
+    public function dayLogs()
+    {
+        return $this->hasMany(DayLog::class);
+    }
 }

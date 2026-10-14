@@ -19,6 +19,7 @@ use App\Http\Controllers\NoteQuickCaptureController;
 use App\Http\Controllers\PlannerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\DayLogController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\TaskController;
@@ -175,6 +176,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/planner/tasks/postpone-all', [PlannerController::class, 'postponeAllOverdue'])->name('planner.tasks.postpone-all');
     Route::post('/planner/ai-optimize', [PlannerController::class, 'aiOptimize'])->name('planner.ai-optimize');
     Route::get('/planner/next-up', [PlannerController::class, 'nextUp'])->name('planner.next-up');
+    Route::get('/planner/day-logs', [DayLogController::class, 'index'])->name('day-logs.index');
+    Route::post('/planner/day-logs', [DayLogController::class, 'store'])->name('day-logs.store');
+    Route::get('/planner/day-logs/candidates', [DayLogController::class, 'candidates'])->name('day-logs.candidates');
+    Route::post('/planner/day-logs/merge', [DayLogController::class, 'merge'])->name('day-logs.merge');
+    Route::patch('/planner/day-logs/{dayLog}', [DayLogController::class, 'update'])->name('day-logs.update');
+    Route::delete('/planner/day-logs/{dayLog}', [DayLogController::class, 'destroy'])->name('day-logs.destroy');
 
     // Time tracking
     Route::get('/time/active', [TimeTrackingController::class, 'active'])->name('time.active');

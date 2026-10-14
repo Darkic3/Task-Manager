@@ -1859,5 +1859,16 @@
     "Invalid time": "ساعت نامعتبر است",
     "You have :count logs today.": "امروز :count ثبت داری.",
     "Anything left unlogged today?": "امروز چیزی مانده که ثبت نکرده‌ای؟",
-    "Quick log": "ثبت سریع"
+    "Quick log": "ثبت سریع",
+    "Could not load the day log.": "بارگذاری دفتر روز ممکن نشد.",
+    "Could not save the entry.": "ذخیره ثبت ممکن نشد.",
+    "Could not update the entry.": "به‌روزرسانی ثبت ممکن نشد.",
+    "Could not delete the entry.": "حذف ثبت ممکن نشد.",
+    "Mark as quit-tracked": "علامت‌گذاری برای ترک",
+    "Stop tracking quit": "توقف پیگیری ترک",
+    "Marked for quit tracking": "برای پیگیری ترک علامت خورد",
+    "Removed from quit tracking": "از پیگیری ترک خارج شد",
+    "Saved to your day log.": "در دفتر روزت ذخیره شد.",
+    "Day log sentences cannot carry time info.": "ثبت جمله نمی‌تواند اطلاعات زمانی داشته باشد.",
+    "Day log entries cannot be merged.": "این ثبت‌ها قابل ادغام نیستند."
 }
