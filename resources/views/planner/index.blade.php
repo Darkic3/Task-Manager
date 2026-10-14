@@ -1364,6 +1364,188 @@
     .lg-chips{display:flex;gap:5px;flex-wrap:wrap;}
     .lg-clear{margin-inline-start:auto;color:#8b90a1;}
     .lg-clear:hover{border-color:#dfe1e9;color:#64748b;background:#fff;}
+
+    /* ══ Day Log — Pro redesign layer (overrides prototype look, same markup/JS contract) ══ */
+    .lg-section{--lg-ink:#181430;--lg-violet:#7c3aed;--lg-indigo:#4f46e5;--lg-gold:#f59e0b;
+        border:1px solid #e4defc;border-radius:20px;overflow:hidden;background:#fff;
+        box-shadow:0 1px 2px rgba(23,20,48,.05),0 12px 32px -18px rgba(76,29,149,.28);}
+    .lg-section::before{display:none;}
+    #lgSection .pl-section-head{position:relative;gap:13px;padding:16px 20px 15px;border-bottom:0;color:#fff;
+        background:linear-gradient(135deg,#171231 0%,#2d1b69 42%,#5b21b6 78%,#7c3aed 100%);overflow:hidden;}
+    #lgSection .pl-section-head::after{content:'';position:absolute;inset:0;pointer-events:none;opacity:.9;
+        background:
+            radial-gradient(220px 130px at 88% -30%,rgba(232,121,249,.45),transparent 65%),
+            radial-gradient(260px 150px at 8% 130%,rgba(99,102,241,.5),transparent 62%),
+            radial-gradient(rgba(255,255,255,.16) 1px,transparent 1.4px);
+        background-size:auto,auto,18px 18px;}
+    #lgSection .pl-section-head>*{position:relative;z-index:1;}
+    .lg-head-icon{width:42px;height:42px;flex-shrink:0;display:grid;place-items:center;border-radius:14px;color:#fff;font-size:19px;
+        background:linear-gradient(135deg,rgba(255,255,255,.22),rgba(255,255,255,.06));
+        border:1px solid rgba(255,255,255,.28);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 8px 18px -8px rgba(0,0,0,.5);}
+    .lg-head-text{display:flex;flex-direction:column;gap:2px;min-width:0;}
+    #lgSection .pl-section-title{color:#fff;font-size:15.5px;font-weight:800;letter-spacing:-.01em;line-height:1.3;}
+    .lg-head-sub{font-size:11.5px;font-weight:600;color:rgba(255,255,255,.72);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .lg-beta{background:rgba(245,158,11,.16);color:#fde68a;border:1px solid rgba(253,230,138,.4);box-shadow:none;backdrop-filter:blur(4px);}
+    .lg-beta::before{background:#fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.25);}
+    #lgSection .pl-section-count{margin-inline-start:auto;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.25);
+        font-size:12px;font-weight:800;padding:5px 13px;box-shadow:none;backdrop-filter:blur(6px);font-variant-numeric:tabular-nums;}
+    .lg-body{gap:13px !important;padding:16px 18px 15px !important;background:linear-gradient(180deg,#fff 0%,#faf8ff 60%,#f6f1ff 100%) !important;}
+    .lg-intro{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:600;color:#5b5470;line-height:1.8;
+        background:linear-gradient(135deg,#f6f2ff,#fdf4ff);border:1px solid #e9e2fb;border-radius:13px;padding:9px 13px;}
+    .lg-intro>i{width:30px;height:30px;flex-shrink:0;display:grid;place-items:center;border-radius:10px;background:#fff;color:#7c3aed;
+        border:1px solid #e6defc;font-size:14px;box-shadow:0 2px 6px rgba(124,58,237,.12);}
+    .lg-intro b{color:#3b2d6e;font-weight:800;}
+    .lg-intro code{font-family:inherit;font-size:11px;font-weight:800;color:#6d28d9;background:#fff;border:1px solid #e2d9fb;border-radius:7px;padding:1px 7px;white-space:nowrap;}
+    .lg-hero{z-index:40;}
+    .lg-composer{min-height:58px !important;border-radius:18px !important;border:1.5px solid #e2d9fb !important;
+        background:linear-gradient(180deg,#fff,#fcfbff) !important;padding-inline:16px 8px !important;
+        box-shadow:0 1px 2px rgba(23,20,48,.05),0 10px 26px -18px rgba(76,29,149,.35) !important;}
+    .lg-composer:hover{border-color:#c9b8fa !important;}
+    .lg-composer:focus-within{border-color:#7c3aed !important;box-shadow:0 0 0 4px rgba(124,58,237,.13),0 18px 36px -20px rgba(76,29,149,.55) !important;}
+    .lg-composer .lg-input{font-size:15px !important;}
+    .lg-send{height:42px !important;padding:0 20px !important;border-radius:13px !important;font-size:13px !important;position:relative;overflow:hidden;}
+    .lg-send::after{content:'';position:absolute;top:0;bottom:0;width:36px;left:-46px;transform:skewX(-18deg);
+        background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);transition:left .5s ease;}
+    .lg-send:hover:not(:disabled)::after{left:130%;}
+    .lg-kbd{flex-shrink:0;font-size:10px;font-weight:800;color:#a5adbe;background:#f3f4f7;border:1px solid #e5e7ee;border-bottom-width:2px;
+        border-radius:7px;padding:3px 8px;font-variant-numeric:tabular-nums;}
+    .lg-suggest{border-radius:16px !important;overflow:hidden;}
+    .lg-suggest-item{padding:11px 14px !important;}
+    .lg-pills{background:#f5f2ff;border:1px solid #e9e2fb;border-radius:14px;padding:7px 9px;}
+    .lg-pills-bar-label{font-size:10.5px;font-weight:800;color:#8b84a8;margin-inline:6px 2px;letter-spacing:.02em;}
+    .lg-pill{border-radius:13px !important;height:34px !important;background:#fff !important;}
+    .lg-pill.is-on{background:linear-gradient(135deg,#fff,#f3edff) !important;box-shadow:0 4px 12px -8px rgba(109,40,217,.7) !important;}
+    .lg-pill .lg-chev{font-size:9px;color:#b6b0cc;transition:transform .15s ease;}
+    .lg-pill[aria-expanded="true"] .lg-chev{transform:rotate(180deg);}
+    .lg-panel{border-radius:16px !important;border:1px solid #e9e2fb !important;
+        background:linear-gradient(135deg,#fff 0%,#faf8ff 100%) !important;box-shadow:0 6px 18px -14px rgba(76,29,149,.4) !important;
+        padding:13px 15px !important;}
+    .lg-panel-head{display:flex;align-items:center;gap:8px;flex:1 1 100%;margin-bottom:2px;}
+    .lg-panel-head>i{width:26px;height:26px;display:grid;place-items:center;border-radius:9px;background:#f1eafe;color:#6d28d9;font-size:13px;}
+    .lg-panel-head b{font-size:12px;font-weight:800;color:#2d2450;}
+    .lg-panel-head small{font-size:11px;font-weight:600;color:#9893ad;}
+    .lg-panel .lg-input,.lg-num,.lg-sel,.lg-time{border-radius:11px !important;box-shadow:0 1px 2px rgba(23,20,48,.04);}
+    .lg-quick{background:#efeafd !important;border:1px solid #e2d7fb;}
+    .lg-chip{border-radius:12px !important;}
+    #lgMeta{background:#f7f5ff;border:1px solid #eee9fc;border-radius:12px;padding:8px 13px;font-size:12px !important;}
+    #lgMeta:empty{display:none;}
+    .lg-groups{gap:8px !important;}
+    .lg-group-head{position:sticky;top:0;z-index:2;background:linear-gradient(180deg,#faf8ff 70%,rgba(250,248,255,0));padding:14px 4px 7px !important;}
+    .lg-group-head>span:nth-of-type(1){font-size:12.5px;color:#2d2450;}
+    .lg-row{border-radius:15px !important;padding:11px 13px !important;box-shadow:0 1px 2px rgba(23,20,48,.04);}
+    .lg-row:hover{box-shadow:0 14px 30px -20px rgba(35,20,90,.45) !important;transform:translateY(-1px);}
+    .lg-row-dot{width:4px !important;}
+    .lg-row.is-journal{background:linear-gradient(135deg,#fffdf4 0%,#fff7df 100%) !important;border:1px dashed #e8cf96 !important;}
+    .lg-empty{border-radius:16px !important;padding:30px 16px !important;background:radial-gradient(400px 120px at 50% 0%,#f3edff,transparent),linear-gradient(135deg,#fbfbfe,#f5f3ff) !important;}
+    .lg-empty>i{width:46px;height:46px !important;font-size:20px !important;border-radius:15px !important;
+        background:linear-gradient(135deg,#7c3aed,#6366f1) !important;color:#fff !important;box-shadow:0 10px 20px -10px rgba(109,40,217,.8);}
+    .lg-foot{display:flex;align-items:center;justify-content:center;gap:7px;font-size:11px !important;color:#a3a8b8 !important;}
+    .lg-ask{border-radius:16px !important;padding:13px 15px !important;box-shadow:0 10px 26px -18px rgba(76,29,149,.5) !important;}
+    @media (max-width:576px){
+        #lgSection .pl-section-head{padding:14px 15px 13px !important;}
+        .lg-head-sub{display:none;}
+        .lg-body{padding:13px 13px 12px !important;}
+        .lg-kbd{display:none;}
+        .lg-intro{font-size:11.5px;}
+        .lg-pills{padding:6px;}
+    }
+
+    /* ══ Day Log v2 — three calm layers: capture / timeline / insights ══ */
+    #lgSection .lg-body{gap:14px !important;}
+    .lg-card{background:#fff;border:1px solid #e9e4fa;border-radius:18px;padding:14px 15px;
+        box-shadow:0 1px 2px rgba(23,20,48,.04);position:relative;}
+    .lg-card-head{display:flex;align-items:center;gap:10px;margin-bottom:11px;}
+    .lg-card-head>i{width:30px;height:30px;flex-shrink:0;display:grid;place-items:center;border-radius:10px;font-size:14px;
+        background:#f2edff;color:#6d28d9;border:1px solid #e6dcfb;}
+    .lg-card-head b{font-size:13px;font-weight:800;color:#241d4b;}
+    .lg-card-head small{display:block;font-size:11px;font-weight:600;color:#9893ad;}
+    .lg-card-head .lg-card-side{margin-inline-start:auto;font-size:11px;font-weight:800;color:#8b84a8;
+        background:#f5f2ff;border:1px solid #e9e2fb;border-radius:20px;padding:3px 11px;font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .lg-capture{background:linear-gradient(180deg,#fff 0%,#fbf9ff 100%);}
+    .lg-capture .lg-intro{margin-bottom:11px;padding:8px 12px;font-size:11.5px;}
+    /* Type segment — mirrors state.kind (wired in JS, visual only) */
+    .lg-type-seg{display:flex;background:#f1edfd;border:1px solid #e4dbfa;border-radius:14px;padding:4px;gap:4px;margin-bottom:11px;}
+    .lg-type-seg button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;border:0;border-radius:10px;
+        background:transparent;font-family:inherit;font-size:12.5px;font-weight:800;color:#7a7396;cursor:pointer;transition:all .15s ease;white-space:nowrap;}
+    .lg-type-seg button i{font-size:13px;}
+    .lg-type-seg button:hover{color:#5b21b6;background:rgba(255,255,255,.6);}
+    .lg-type-seg button.active{background:#fff;color:#4c1d95;box-shadow:0 2px 8px rgba(76,29,149,.18),inset 0 0 0 1px #e2d6fb;}
+    .lg-type-seg button:focus-visible{outline:2px solid #8b5cf6;outline-offset:2px;}
+    /* Timeline */
+    .lg-timeline{background:#fff;padding-bottom:8px !important;}
+    #lgSection .lg-groups{position:relative;gap:0 !important;}
+    #lgSection .lg-groups::before{content:'';position:absolute;top:12px;bottom:12px;inset-inline-start:23px;width:2px;border-radius:2px;
+        background:linear-gradient(180deg,#ddd0fa,#f0eafa 60%,#e9e2fb);}
+    html[dir="rtl"] #lgSection .lg-groups::before{inset-inline-start:auto;}
+    #lgSection .lg-group-head{position:sticky;top:0;z-index:3;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);
+        border-radius:12px;margin:0;padding:12px 4px 8px 0 !important;}
+    #lgSection .lg-group-head>i{width:30px;height:30px;font-size:13px;border-radius:10px;background:#fff !important;
+        border:1px solid #e9e2fb;box-shadow:0 2px 6px rgba(76,29,149,.12);position:relative;z-index:1;}
+    #lgSection .lg-group-head>span:nth-of-type(1){font-size:13px;color:#241d4b;font-weight:800;}
+    #lgSection .lg-group-head .lg-group-count{background:#241d4b;color:#fff;border:0;font-size:10.5px;padding:2px 10px;}
+    #lgSection .lg-row{margin-inline-start:42px !important;margin-bottom:8px;position:relative;}
+    #lgSection .lg-row::before{content:'';position:absolute;inset-inline-start:-26px;top:50%;width:9px;height:9px;border-radius:50%;
+        background:#fff;border:2.5px solid var(--c,#c4b5fd);transform:translateY(-50%);box-shadow:0 0 0 3px #f4f0ff;}
+    #lgSection .lg-row.is-journal::before{border-color:#d9a441;box-shadow:0 0 0 3px #fdf3d9;}
+    #lgSection .lg-row.is-mood{background:linear-gradient(135deg,#faf5ff 0%,#f3edff 100%) !important;border-color:#ddd0fa !important;}
+    #lgSection .lg-row.is-mood::before{border-color:#8b5cf6;box-shadow:0 0 0 3px #ede8ff;}
+    .lg-mood-badge{font-size:10px;font-weight:800;color:#6d28d9;background:#ede8ff;border:1px solid #d9ccfb;border-radius:20px;
+        padding:1.5px 9px;white-space:nowrap;font-variant-numeric:tabular-nums;}
+    /* Row clock — logged hour + part of day, scannable at a glance */
+    .lg-row-time{flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:58px;
+        padding-inline-end:10px;border-inline-end:1px dashed #e7e2f4;cursor:pointer;background:transparent;
+        border-top:0;border-bottom:0;border-inline-start:0;font-family:inherit;text-align:center;}
+    .lg-row-time b{font-size:13.5px;font-weight:800;color:#241d4b;font-variant-numeric:tabular-nums;line-height:1.2;white-space:nowrap;}
+    .lg-row-time:hover b{color:#6d28d9;text-decoration:underline dotted;text-underline-offset:3px;}
+    .lg-row-time.is-flat b{color:#9aa1b5;}
+    .lg-row-time small{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:800;white-space:nowrap;line-height:1.4;}
+    .lg-row-time small i{font-size:9px;}
+    .lg-time-edit{width:78px;height:30px;border:1.5px solid #8b5cf6;border-radius:9px;font-family:inherit;font-size:12.5px;
+        font-weight:800;color:#1e293b;text-align:center;outline:none;box-shadow:0 0 0 3px rgba(139,92,246,.14);font-variant-numeric:tabular-nums;}
+    /* Timeline tools — type filter + merge */
+    .lg-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+    .lg-filter{display:flex;background:#f1edfd;border:1px solid #e4dbfa;border-radius:12px;padding:3px;gap:3px;flex-wrap:wrap;}
+    .lg-filter button{border:0;background:transparent;border-radius:8px;height:30px;padding:0 12px;font-family:inherit;font-size:11.5px;
+        font-weight:800;color:#7a7396;cursor:pointer;white-space:nowrap;transition:all .14s ease;display:inline-flex;align-items:center;}
+    .lg-filter button:hover{color:#5b21b6;}
+    .lg-filter button.active{background:#fff;color:#4c1d95;box-shadow:0 2px 8px rgba(76,29,149,.16),inset 0 0 0 1px #e2d6fb;}
+    .lg-fcount{font-size:10px;font-weight:800;background:#e7e0fb;color:#5b21b6;border-radius:12px;padding:0 7px;margin-inline-start:5px;font-variant-numeric:tabular-nums;}
+    .lg-filter button.active .lg-fcount{background:#5b21b6;color:#fff;}
+    .lg-merge{margin-inline-start:auto;display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;cursor:pointer;
+        border:1px dashed #d9a441;background:#fffdf4;border-radius:11px;font-family:inherit;font-size:11.5px;font-weight:800;color:#92600a;transition:all .14s ease;}
+    .lg-merge:hover{background:#fdf3d9;border-style:solid;}
+    .lg-merge[hidden]{display:none;}
+    .lg-merge-count{background:#92600a;color:#fff;border-radius:20px;font-size:10px;font-weight:800;padding:1px 8px;font-variant-numeric:tabular-nums;}
+    /* Live timer pill inside the row clock */
+    .lg-live{display:inline-block;font-size:10px;font-weight:800;color:#15803d;background:#e9f9f0;border:1px solid #bbf7d0;
+        border-radius:20px;padding:1px 9px;font-variant-numeric:tabular-nums;animation:lgPulse 1.2s ease infinite;}
+    @keyframes lgPulse{0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.35);}50%{box-shadow:0 0 0 4px rgba(22,163,74,0);}}
+    .lg-icon.is-running{background:#e9f9f0;color:#16a34a;animation:lgPulse 1.2s ease infinite;}
+    /* Nightly nudge inside the shutdown modal */
+    .lg-shutdown-nudge{display:flex;align-items:center;gap:10px;border:1px solid #e6dcfb;border-radius:13px;padding:10px 13px;margin-bottom:14px;
+        background:linear-gradient(135deg,#faf7ff,#f5f0ff);font-size:12.5px;font-weight:600;color:#4b4566;line-height:1.7;}
+    .lg-shutdown-nudge>i{width:32px;height:32px;flex-shrink:0;display:grid;place-items:center;border-radius:10px;font-size:15px;color:#fff;
+        background:linear-gradient(135deg,#7c3aed,#6366f1);box-shadow:0 6px 14px -8px rgba(109,40,217,.9);}
+    .lg-shutdown-nudge b{color:#2d2450;font-weight:800;}
+    .lg-shutdown-nudge button{margin-inline-start:auto;flex-shrink:0;border:0;border-radius:10px;padding:8px 15px;cursor:pointer;white-space:nowrap;
+        background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;font-family:inherit;font-size:11.5px;font-weight:800;
+        box-shadow:0 8px 16px -10px rgba(109,40,217,.95);}
+    .lg-shutdown-nudge button:hover{filter:brightness(1.07);}
+    /* Insights card — hidden when no suggestion (JS renders empty) */
+    .lg-insights{background:linear-gradient(135deg,#fffdf4 0%,#fffaf0 55%,#fdf6ff 100%);border:1px solid #f0e3b8;}
+    .lg-insights .lg-card-head>i{background:#fef3c7;color:#b45309;border-color:#f9e2a8;}
+    .lg-insights:has(#lgAsk:empty){display:none;}
+    #lgSection .lg-ask{margin:0;}
+    #lgSection .lg-meta{margin-top:11px !important;}
+    @media (max-width:576px){
+        .lg-card{padding:12px 12px;}
+        #lgSection .lg-row{margin-inline-start:34px !important;}
+        #lgSection .lg-groups::before{inset-inline-start:18px;}
+        #lgSection .lg-row::before{inset-inline-start:-22px;}
+        .lg-type-seg button{font-size:11.5px;height:34px;}
+        .lg-row-time{min-width:48px;padding-inline-end:8px;}
+        .lg-row-time b{font-size:12.5px;}
+    }
 </style>
 @endpush
 
@@ -1562,12 +1744,35 @@
              browser and are NOT persisted yet (no routes, no tables). ── --}}
         <div class="pl-section lg-section" id="lgSection">
             <div class="pl-section-head">
-                <i class="bi bi-journal-text" aria-hidden="true"></i>
-                <span class="pl-section-title">{{ __('Day Log') }}</span>
-                <span class="lg-beta">{{ __('Preview') }}</span>
+                <span class="lg-head-icon"><i class="bi bi-journal-text" aria-hidden="true"></i></span>
+                <span class="lg-head-text">
+                    <span class="d-inline-flex align-items-center gap-2">
+                        <span class="pl-section-title">{{ __('Day Log') }}</span>
+                        <span class="lg-beta">{{ __('Preview') }}</span>
+                    </span>
+                    <span class="lg-head-sub">{{ __('One line per moment — time, amount and note are detected automatically') }}</span>
+                </span>
                 <span class="pl-section-count" id="lgCount"></span>
             </div>
             <div class="lg-body">
+                {{-- LAYER 1 — capture: one input + details + live preview --}}
+                <section class="lg-card lg-capture" aria-label="{{ __('Log a moment') }}">
+                <div class="lg-intro">
+                    <i class="bi bi-stars" aria-hidden="true"></i>
+                    <span>{!! __('Try: <code>:sample</code> — then press Enter', ['sample' => __('played piano 45m evening')]) !!}</span>
+                </div>
+
+                <div class="lg-type-seg" role="tablist" aria-label="{{ __('Entry type') }}">
+                    <button type="button" data-lg-kind="activity" role="tab" aria-selected="true">
+                        <i class="bi bi-lightning-charge" aria-hidden="true"></i>{{ __('Activity') }}
+                    </button>
+                    <button type="button" data-lg-kind="journal" role="tab" aria-selected="false">
+                        <i class="bi bi-pen" aria-hidden="true"></i>{{ __('Sentence') }}
+                    </button>
+                    <button type="button" data-lg-kind="mood" role="tab" aria-selected="false">
+                        <i class="bi bi-emoji-smile" aria-hidden="true"></i>{{ __('Mood') }}
+                    </button>
+                </div>
 
                 {{-- One input does the work: "played piano 45m evening" --}}
                 <div class="lg-hero">
@@ -1577,6 +1782,7 @@
                                spellcheck="false" aria-label="{{ __('Log what you did') }}"
                                title="{{ __('e.g. played piano 45m…') }}"
                                placeholder="{{ __('e.g. played piano 45m…') }}">
+                        <kbd class="lg-kbd" title="Enter">⏎</kbd>
                         <button type="button" class="lg-send" id="lgSave" disabled>
                             <i class="bi bi-plus-lg" aria-hidden="true"></i>{{ __('Log') }}
                         </button>
@@ -1586,14 +1792,15 @@
 
                 {{-- Optional details, closed by default; each pill shows its own state --}}
                 <div class="lg-pills" role="group" aria-label="{{ __('Optional details') }}">
+                    <span class="lg-pills-bar-label">{{ __('Details') }}</span>
                     <button type="button" class="lg-pill" id="lgPillTime" aria-expanded="false" aria-controls="lgPanelTime">
-                        <i class="bi bi-stopwatch" aria-hidden="true"></i><span id="lgTimeLabel">{{ __('Set time') }}</span>
+                        <i class="bi bi-stopwatch" aria-hidden="true"></i><span id="lgTimeLabel">{{ __('Set time') }}</span><i class="bi bi-chevron-down lg-chev" aria-hidden="true"></i>
                     </button>
                     <button type="button" class="lg-pill" id="lgPillNote" aria-expanded="false" aria-controls="lgPanelNote">
-                        <i class="bi bi-pencil" aria-hidden="true"></i>{{ __('Note') }}
+                        <i class="bi bi-pencil" aria-hidden="true"></i>{{ __('Note') }}<i class="bi bi-chevron-down lg-chev" aria-hidden="true"></i>
                     </button>
                     <button type="button" class="lg-pill" id="lgPillMood" aria-expanded="false" aria-controls="lgPanelMood">
-                        <i class="bi bi-chat-quote" aria-hidden="true"></i>{{ __('Mood') }}
+                        <i class="bi bi-emoji-smile" aria-hidden="true"></i>{{ __('Mood') }}<i class="bi bi-chevron-down lg-chev" aria-hidden="true"></i>
                     </button>
                 </div>
 
@@ -1601,6 +1808,11 @@
                      time of day, then duration, and a clock range only once one
                      has been typed in the composer. --}}
                 <div class="lg-panel" id="lgPanelTime" hidden>
+                    <div class="lg-panel-head">
+                        <i class="bi bi-stopwatch" aria-hidden="true"></i>
+                        <b>{{ __('When & how long') }}</b>
+                        <small>{{ __('Pick a part of day, a duration, or both') }}</small>
+                    </div>
                     <div class="lg-fields">
                         <span class="lg-label">{{ __('Time of day') }}</span>
                         <div class="lg-chips" id="lgPeriodChips"></div>
@@ -1641,12 +1853,22 @@
                 </div>
 
                 <div class="lg-panel" id="lgPanelNote" hidden>
+                    <div class="lg-panel-head">
+                        <i class="bi bi-pencil" aria-hidden="true"></i>
+                        <b>{{ __('Add a note') }}</b>
+                        <small>{{ __('One short sentence, saved with this entry') }}</small>
+                    </div>
                     <input type="text" class="lg-input" id="lgNote" name="day_log_note" autocomplete="off" maxlength="2000"
                            aria-label="{{ __('Short note') }}" placeholder="{{ __('Short note (optional)') }}…">
                 </div>
 
                 <div class="lg-panel" id="lgPanelMood" hidden>
-                    <span class="lg-label">{{ __('A mood sentence — no time, kept out of the day totals.') }}</span>
+                    <div class="lg-panel-head">
+                        <i class="bi bi-emoji-smile" aria-hidden="true"></i>
+                        <b>{{ __('Mood note') }}</b>
+                        <small>{{ __('A mood sentence — no time, kept out of the day totals.') }}</small>
+                    </div>
+                    <span class="lg-label">{{ __('Mood') }}</span>
                     <select class="lg-sel" id="lgMood" name="day_log_mood" aria-label="{{ __('Mood') }}">
                         @for($lgMood = 1; $lgMood <= 10; $lgMood++)
                             <option value="{{ $lgMood }}" @selected($lgMood === 7)>{{ app_num($lgMood) }}/{{ app_num(10) }}</option>
@@ -1655,9 +1877,37 @@
                 </div>
 
                 <p class="lg-meta" id="lgMeta" aria-live="polite"></p>
-                <div id="lgAsk"></div>
-                <div class="lg-groups" id="lgRows" role="list"></div>
-                <p class="lg-foot">{{ __('Prototype — entries stay in the browser and are not saved yet.') }}</p>
+                </section>
+
+                {{-- LAYER 2 — timeline: today sorted by time, no grouping --}}
+                <section class="lg-card lg-timeline" aria-label="{{ __("Today's timeline") }}">
+                    <div class="lg-card-head">
+                        <i class="bi bi-clock-history" aria-hidden="true"></i>
+                        <span><b>{{ __("Today's timeline") }}</b><small>{{ __('Sorted by time') }}</small></span>
+                    </div>
+                    <div class="lg-tools">
+                        <div class="lg-filter" role="group" aria-label="{{ __('Filter') }}">
+                            <button type="button" class="active" data-lg-filter="all">{{ __('All') }}</button>
+                            <button type="button" data-lg-filter="activity">{{ __('Activity') }}</button>
+                            <button type="button" data-lg-filter="journal">{{ __('Sentence') }}</button>
+                            <button type="button" data-lg-filter="mood">{{ __('Mood') }}</button>
+                        </div>
+                        <button type="button" class="lg-merge" id="lgMerge" hidden>
+                            <i class="bi bi-union" aria-hidden="true"></i>{{ __('Merge duplicates') }}<span class="lg-merge-count" id="lgMergeCount"></span>
+                        </button>
+                    </div>
+                    <div class="lg-groups" id="lgRows" role="list"></div>
+                </section>
+
+                {{-- LAYER 3 — insights: habit / quit suggestions live here, never inline --}}
+                <section class="lg-card lg-insights" id="lgInsights" aria-label="{{ __('Smart suggestions') }}">
+                    <div class="lg-card-head">
+                        <i class="bi bi-stars" aria-hidden="true"></i>
+                        <span><b>{{ __('Smart suggestions') }}</b><small>{{ __('Repeated logs can become habits — reviewed here') }}</small></span>
+                    </div>
+                    <div id="lgAsk"></div>
+                </section>
+                <p class="lg-foot"><i class="bi bi-shield-check" aria-hidden="true"></i>{{ __('Prototype — entries stay in the browser and are not saved yet.') }}</p>
             </div>
         </div>
     @else
@@ -4862,6 +5112,17 @@
         intoActivity: @json(__('Turn into an activity')),
         edit:       @json(__('Edit')),
         delete:     @json(__('Delete')),
+        filterEmpty: @json(__('Nothing in this filter.')),
+        startTimer: @json(__('Start timer')),
+        stopTimer:  @json(__('Stop timer')),
+        timerStarted: @json(__('Timer started')),
+        timerSaved: @json(__('Timer stopped — time saved')),
+        timerFail:  @json(__('Could not start the timer.')),
+        merged:     @json(__('Merged')),
+        invalidTime: @json(__('Invalid time')),
+        logsToday:  @json(__('You have :count logs today.')),
+        unloggedQ:  @json(__('Anything left unlogged today?')),
+        quickLog:   @json(__('Quick log')),
     };
 
     const PERIODS = @json($lgPeriods);
@@ -5029,17 +5290,19 @@
     let seq = 100;
     const entries = [
         { id: ++seq, actId: 'lc0', title: catalog[0].name, kind: 'activity', mode: 'range',
-          start: '19:30', end: '20:15', seconds: 2700, period: 'evening',
+          start: '19:30', end: '20:15', seconds: 2700, period: 'evening', loggedAt: '20:20',
           note: @json(__('Practice — new piece')), color: '#7c3aed' },
         { id: ++seq, actId: 'lc1', title: catalog[1].name, kind: 'activity', mode: 'duration',
-          amount: 12, amountUnit: @json(__('page')), period: 'afternoon',
+          amount: 12, amountUnit: @json(__('page')), period: 'afternoon', loggedAt: '16:40',
           note: @json(__('Chapter 4')), color: '#0ea5e9' },
         { id: ++seq, actId: 'lc3', title: catalog[3].name, kind: 'activity', mode: 'period',
-          period: 'morning', note: null, color: '#f59e0b' },
+          period: 'morning', loggedAt: '08:15', note: null, color: '#f59e0b' },
         { id: ++seq, actId: 'lc2', title: catalog[2].name, kind: 'activity', mode: 'duration',
-          seconds: 5400, period: 'night', note: null, color: '#ec4899' },
+          seconds: 5400, period: 'night', loggedAt: '23:10', note: null, color: '#ec4899' },
         { id: ++seq, actId: null, title: @json(__('Woke up early and felt full of energy today.')),
-          kind: 'journal', mode: 'none', mood: 8, period: null, note: null, color: '#a16207' },
+          kind: 'journal', mode: 'none', mood: 8, moodPicked: false, period: null, loggedAt: '07:50', note: null, color: '#a16207' },
+        { id: ++seq, actId: null, title: @json(__('A calm evening — grateful and a little tired.')),
+          kind: 'journal', mode: 'none', mood: 6, moodPicked: true, period: null, loggedAt: '22:30', note: null, color: '#7c3aed' },
     ];
 
     const dismissed = {};
@@ -5082,29 +5345,48 @@
         if (e.start && e.end) { bits.push(NUM(e.start) + '–' + NUM(e.end)); }
         else if (e.seconds) { bits.push(humanDuration(e.seconds)); }
         if (e.amount && e.amountUnit) { bits.push(NUM(e.amount) + ' ' + e.amountUnit); }
-        if (e.kind === 'journal' && e.mood) { bits.push(I18N.moodLabel + ' ' + NUM(e.mood) + '/' + NUM(10)); }
+        if (e.kind === 'journal' && e.mood && !e.moodPicked) { bits.push(I18N.moodLabel + ' ' + NUM(e.mood) + '/' + NUM(10)); }
         return bits.join(' · ');
     }
 
     function rowHtml(e) {
         const isJ = e.kind === 'journal';
+        const isMood = isJ && !!e.moodPicked;
         const meta = rowMeta(e);
+        /* Clock block: the hour it was logged + which part of day it belongs to.
+           Activity ranges stay in the meta chips; this block always answers
+           "when was this logged, morning or night?". */
+        const p = periodOf(e.period || groupOf(e));
+        const clock = e.loggedAt || e.start || null;
+        const timing = !!(typeof lgTimer !== 'undefined' && lgTimer && lgTimer.lgId === e.id);
+        const timeHtml = clock
+            ? '<button type="button" class="lg-row-time' + (p ? '' : ' is-flat') + '" data-lg-act="time"' +
+              ' aria-label="' + esc(I18N.edit) + '" title="' + esc(I18N.logged + ' ' + clock) + '">' +
+                '<b>' + NUM(clock) + '</b>' +
+                (p ? '<small style="color:' + p.color + '"><i class="bi ' + p.icon + '" aria-hidden="true"></i>' + p.label + '</small>' : '') +
+                (timing ? '<span class="lg-live" data-lg-live="' + e.id + '">' + NUM(fmtLive(lgTimer.lastElapsed)) + '</span>' : '') +
+              '</button>'
+            : '';
         /* Meta and note travel together: they sit at the end of the title line,
            or wrap as a block when the title is long. */
         const sub = (meta || e.note)
             ? '<div class="lg-row-sub">' +
-                (meta ? '<span class="lg-row-meta">' + esc(meta) + '</span>' : '') +
-                (e.note ? '<span class="lg-row-note">' + esc(e.note) + '</span>' : '') +
+                (isMood ? '<span class="lg-mood-badge">' + esc(I18N.moodLabel) + ' ' + NUM(e.mood) + '/' + NUM(10) + '</span>' : '') +
+                (meta && !isMood ? '<span class="lg-row-meta">' + esc(meta) + '</span>' : '') +
+                (isMood && e.note ? '<span class="lg-row-note">' + esc(e.note) + '</span>' : '') +
+                (!isMood && e.note ? '<span class="lg-row-note">' + esc(e.note) + '</span>' : '') +
               '</div>'
             : '';
         return '' +
-            '<div class="lg-row ' + (isJ ? 'is-journal' : '') + '" data-lg-id="' + e.id + '" role="listitem">' +
+            '<div class="lg-row ' + (isJ ? 'is-journal' : '') + (isMood ? ' is-mood' : '') + '" data-lg-id="' + e.id + '" role="listitem">' +
                 '<span class="lg-row-dot" style="--c:' + e.color + '" aria-hidden="true"></span>' +
+                timeHtml +
                 '<div class="lg-row-main">' +
                     '<span class="lg-row-title" data-lg-title>' + esc(e.title) + '</span>' +
                     sub +
                 '</div>' +
                 '<div class="lg-row-acts">' +
+                    (!isJ ? '<button type="button" class="lg-icon' + (timing ? ' is-running' : '') + '" data-lg-act="timer" aria-label="' + esc(timing ? I18N.stopTimer : I18N.startTimer) + '" title="' + esc(timing ? I18N.stopTimer : I18N.startTimer) + '"><i class="bi ' + (timing ? 'bi-stop-fill' : 'bi-stopwatch') + '" aria-hidden="true"></i></button>' : '') +
                     (isJ
                         ? '<button type="button" class="lg-icon" data-lg-act="activity" aria-label="' + esc(I18N.intoActivity) + '" title="' + esc(I18N.intoActivity) + '"><i class="bi bi-arrow-left-right" aria-hidden="true"></i></button>'
                         : '<button type="button" class="lg-icon" data-lg-act="habit" aria-label="' + esc(I18N.convertHabit) + '" title="' + esc(I18N.convertHabit) + '"><i class="bi bi-arrow-repeat" aria-hidden="true"></i></button>') +
@@ -5114,29 +5396,21 @@
             '</div>';
     }
 
+    /* Flat timeline, sorted by time of day (period order, then clock, then id).
+       No group headers — each row carries its own period chip.
+       The type filter only hides rows, never deletes them. */
     function renderRows() {
-        const groups = {};
-        entries.forEach(e => { const k = groupOf(e); (groups[k] = groups[k] || []).push(e); });
+        const pIdx = key => { const i = PERIODS.findIndex(p => p.key === key); return i >= 0 ? i : PERIODS.length; };
+        const rows = entries.slice().sort((a, b) =>
+            (pIdx(a.period || groupOf(a)) - pIdx(b.period || groupOf(b))) ||
+            ((a.start ? toMinutes(a.start) : 1e9) - (b.start ? toMinutes(b.start) : 1e9)) ||
+            (a.id - b.id)).filter(filterMatch);
 
-        const order = PERIODS.map(p => p.key).concat(['unscheduled']);
-        let html = '';
-        let shown = 0;
-
-        order.forEach(key => {
-            const rows = groups[key];
-            if (!rows || !rows.length) { return; }
-            const p = periodOf(key);
-            html += '<div class="lg-group-head">' + (p
-                ? '<i class="bi ' + p.icon + '" style="color:' + p.color + '" aria-hidden="true"></i><span>' + p.label + '</span>'
-                : '<i class="bi bi-dash-circle" style="color:#c3c8d1" aria-hidden="true"></i><span>' + esc(I18N.noPeriod) + '</span>') +
-                '<span class="lg-group-count">' + NUM(rows.length) + '</span></div>';
-            html += rows.map(rowHtml).join('');
-            shown += rows.length;
-        });
-
-        $('lgRows').innerHTML = shown
-            ? html
-            : '<div class="lg-empty"><i class="bi bi-journal" aria-hidden="true"></i>' + esc(I18N.empty) + '</div>';
+        $('lgRows').innerHTML = rows.length
+            ? rows.map(rowHtml).join('')
+            : (entries.length
+                ? '<div class="lg-empty"><i class="bi bi-funnel" aria-hidden="true"></i>' + esc(I18N.filterEmpty) + '</div>'
+                : '<div class="lg-empty"><i class="bi bi-journal" aria-hidden="true"></i>' + esc(I18N.empty) + '</div>');
     }
 
     /* Quiet summary when idle; a live "exactly what will be saved" preview while
@@ -5199,7 +5473,9 @@
         });
 
         const ask = queued[0];
-        if (!ask) { $('lgAsk').innerHTML = ''; return; }
+        const insights = document.getElementById('lgInsights');
+        if (!ask) { $('lgAsk').innerHTML = ''; if (insights) { insights.hidden = true; } return; }
+        if (insights) { insights.hidden = false; }
 
         const text = ask.live
             ? esc(I18N.liveNudge).replace(':name', '<b>' + esc(ask.name) + '</b>')
@@ -5230,7 +5506,227 @@
         renderPills();
         renderAsk();
         renderChips();
+        renderSeg();
+        renderTools();
+        hookShutdown();
     }
+
+    /* ── v2: explicit entry-type segment (activity / sentence / mood).
+       Thin mirror over the existing state.kind — no logic change. */
+    let segMoodArmed = false;
+    function renderSeg() {
+        const kind = state.kind === 'journal' ? (segMoodArmed ? 'mood' : 'journal') : 'activity';
+        document.querySelectorAll('[data-lg-kind]').forEach(b => {
+            const on = b.dataset.lgKind === kind;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-selected', String(on));
+        });
+    }
+    document.querySelectorAll('[data-lg-kind]').forEach(b => b.addEventListener('click', () => {
+        const kind = b.dataset.lgKind;
+        if (kind === 'activity' && state.kind === 'journal') { $('lgPillMood').click(); segMoodArmed = false; }
+        else if (kind === 'journal') {
+            if (state.kind !== 'journal') { $('lgPillMood').click(); }
+            segMoodArmed = false;
+            if (!$('lgPanelMood').hidden) { togglePanel('mood'); }
+        } else if (kind === 'mood') {
+            if (state.kind !== 'journal') { $('lgPillMood').click(); }
+            segMoodArmed = true;
+            if ($('lgPanelMood').hidden) { togglePanel('mood'); }
+        }
+        render();
+        input.focus();
+    }));
+
+    /* ── v2 features: filter · merge · editable clock · floating-timer link · shutdown nudge ── */
+    let lgFilter = 'all';
+    let lgTimer = null;   // { lgId, entryId, lastElapsed }
+
+    const fmtLive = s => {
+        s = Math.max(0, Math.floor(s || 0));
+        return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    };
+    const periodForHour = h => {
+        let best = null;
+        PERIODS.forEach(p => { if (h >= p.at - 3) { best = p.key; } });
+        return best || (PERIODS.length ? PERIODS[0].key : null);
+    };
+    const filterMatch = e => lgFilter === 'all' ? true
+        : lgFilter === 'activity' ? e.kind === 'activity'
+        : lgFilter === 'mood' ? (e.kind === 'journal' && !!e.moodPicked)
+        : (e.kind === 'journal' && !e.moodPicked);
+
+    /* Mergeable = same activity title (case-insensitive) logged 2+ times, all time-based. */
+    function dupGroups() {
+        const map = {};
+        entries.forEach(e => {
+            if (e.kind !== 'activity') { return; }
+            const k = String(e.title || '').trim().toLowerCase();
+            if (!k) { return; }
+            (map[k] = map[k] || []).push(e);
+        });
+        return Object.values(map).filter(g => g.length > 1 && g.every(x => x.seconds));
+    }
+
+    function renderTools() {
+        const counts = { all: entries.length, activity: 0, journal: 0, mood: 0 };
+        entries.forEach(e => { counts[e.kind === 'journal' ? (e.moodPicked ? 'mood' : 'journal') : 'activity']++; });
+        document.querySelectorAll('[data-lg-filter]').forEach(b => {
+            const k = b.dataset.lgFilter;
+            b.classList.toggle('active', k === lgFilter);
+            if (!b.dataset.lgBase) { b.dataset.lgBase = b.textContent.trim(); }
+            b.innerHTML = esc(b.dataset.lgBase) + ' <span class="lg-fcount">' + NUM(counts[k] || 0) + '</span>';
+        });
+        const dups = dupGroups();
+        const mergeBtn = $('lgMerge');
+        if (mergeBtn) {
+            mergeBtn.hidden = !dups.length;
+            $('lgMergeCount').textContent = NUM(dups.reduce((s, g) => s + g.length, 0));
+        }
+    }
+    document.querySelectorAll('[data-lg-filter]').forEach(b => b.addEventListener('click', () => {
+        lgFilter = b.dataset.lgFilter;
+        render();
+    }));
+
+    $('lgMerge').addEventListener('click', () => {
+        const groups = dupGroups();
+        if (!groups.length) { return; }
+        const removed = [];
+        const prev = {};
+        groups.forEach(g => {
+            const keep = g.slice().sort((a, b) => a.id - b.id)[0];
+            prev[keep.id] = { seconds: keep.seconds, mode: keep.mode, note: keep.note,
+                              amount: keep.amount, amountUnit: keep.amountUnit,
+                              start: keep.start, end: keep.end };
+            g.forEach(x => {
+                if (x.id === keep.id) { return; }
+                keep.seconds = (keep.seconds || 0) + (x.seconds || 0);
+                if (x.note && x.note !== keep.note) { keep.note = keep.note ? keep.note + ' · ' + x.note : x.note; }
+                removed.push({ entry: x, index: entries.indexOf(x) });
+            });
+            delete keep.amount; delete keep.amountUnit; delete keep.start; delete keep.end;
+            keep.mode = 'duration';
+        });
+        removed.sort((a, b) => b.index - a.index).forEach(r => entries.splice(r.index, 1));
+        render();
+        plShowToast(I18N.merged, () => {
+            Object.keys(prev).forEach(id => {
+                const e = entries.find(x => x.id === Number(id));
+                if (e) { Object.assign(e, prev[id]); }
+            });
+            removed.slice().sort((a, b) => a.index - b.index)
+                .forEach(r => entries.splice(Math.min(r.index, entries.length), 0, r.entry));
+            render();
+        });
+    });
+
+    /* Editable logged hour: the clock becomes a time field. */
+    function timeEdit(row, entry) {
+        const cell = row.querySelector('.lg-row-time');
+        if (!cell || cell.querySelector('input')) { return; }
+        const field = document.createElement('input');
+        field.type = 'time';
+        field.className = 'lg-time-edit';
+        field.value = entry.loggedAt || '';
+        field.setAttribute('aria-label', I18N.edit);
+        cell.replaceChildren(field);
+        field.focus();
+        let done = false;
+        const commit = () => {
+            if (done) { return; }
+            done = true;
+            const v = field.value || '';
+            const m = v.match(/^(\d{2}):(\d{2})$/);
+            if (m && Number(m[1]) < 24 && Number(m[2]) < 60) { entry.loggedAt = v; render(); }
+            else { render(); plShowToast(I18N.invalidTime); }
+        };
+        const cancel = () => { if (done) { return; } done = true; render(); };
+        field.addEventListener('keydown', ev => {
+            ev.stopPropagation();
+            if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+            if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+        });
+        field.addEventListener('change', commit);
+        field.addEventListener('blur', commit);
+    }
+
+    /* ── Floating-timer link: start from a row, duration lands back on stop. ── */
+    function lgTimerTick(snap) {
+        if (!lgTimer) { return; }
+        if (snap.entry && snap.entry.id === lgTimer.entryId) {
+            lgTimer.lastElapsed = snap.elapsed || 0;
+            const el = document.querySelector('[data-lg-live="' + lgTimer.lgId + '"]');
+            if (el) { el.textContent = NUM(fmtLive(lgTimer.lastElapsed)); }
+            return;
+        }
+        if (!snap.entry) { flushLgTimer(); }
+    }
+    function flushLgTimer() {
+        if (!lgTimer) { return; }
+        const t = lgTimer;
+        lgTimer = null;
+        const e = entries.find(x => x.id === t.lgId);
+        const secs = Math.max(0, Math.floor(t.lastElapsed || 0));
+        if (e && secs > 0) {
+            const prev = { seconds: e.seconds, mode: e.mode, amount: e.amount, amountUnit: e.amountUnit,
+                           start: e.start, end: e.end, period: e.period };
+            delete e.amount; delete e.amountUnit; delete e.start; delete e.end;
+            e.seconds = secs;
+            e.mode = 'duration';
+            if (!e.period) { e.period = periodForHour(new Date().getHours()); }
+            render();
+            plShowToast(I18N.timerSaved + ': ' + humanDuration(secs), () => { Object.assign(e, prev); render(); });
+        } else {
+            render();
+        }
+    }
+    function lgTimerToggle(entry) {
+        if (!window.TM || !window.TM.start) { return; }
+        if (lgTimer && lgTimer.lgId === entry.id) {
+            window.TM.stop().catch(() => {});
+            return;
+        }
+        if (lgTimer) { flushLgTimer(); }
+        window.TM.start({ description: entry.title || '', category: 'other' }).then(j => {
+            if (!j) { return; }
+            lgTimer = { lgId: entry.id, entryId: j.id, lastElapsed: 0 };
+            render();
+            plShowToast(I18N.timerStarted + ': ' + entry.title);
+        }).catch(() => plShowToast(I18N.timerFail));
+    }
+    if (window.TM && window.TM.subscribe) { try { window.TM.subscribe(lgTimerTick); } catch (err) { /* no timer */ } }
+
+    /* ── Nightly nudge: hook the shutdown ritual, offer one-tap quick log. ── */
+    function hookShutdown() {
+        if (typeof window.openEveningShutdown !== 'function') { return; }
+        if (window.openEveningShutdown.__lgHooked) { return; }
+        const orig = window.openEveningShutdown;
+        window.openEveningShutdown = function () { orig(); setTimeout(lgShutdownNudge, 350); };
+        window.openEveningShutdown.__lgHooked = true;
+    }
+    function lgShutdownNudge() {
+        const body = document.querySelector('#eveningShutdownModal .modal-body');
+        if (!body) { return; }
+        let box = body.querySelector('[data-lg-nudge]');
+        if (!box) {
+            box = document.createElement('div');
+            box.className = 'lg-shutdown-nudge';
+            box.setAttribute('data-lg-nudge', '');
+            body.prepend(box);
+        }
+        box.innerHTML = '<i class="bi bi-journal-text" aria-hidden="true"></i>' +
+            '<span><b>' + esc(I18N.logsToday.replace(':count', NUM(entries.length))) + '</b> ' + esc(I18N.unloggedQ) + '</span>' +
+            '<button type="button" data-lg-nudge-log>' + esc(I18N.quickLog) + '</button>';
+    }
+    document.addEventListener('click', ev => {
+        if (!ev.target.closest('[data-lg-nudge-log]')) { return; }
+        const m = document.getElementById('eveningShutdownModal');
+        if (m && typeof bootstrap !== 'undefined') { try { bootstrap.Modal.getInstance(m).hide(); } catch (err) { /* noop */ } }
+        const sec = document.getElementById('lgSection');
+        if (sec) { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        setTimeout(() => { input.focus(); }, 450);
+    });
 
     /* ── panels: one pill open at a time ── */
     const PANELS = {
@@ -5363,6 +5859,7 @@
     $('lgPillNote').addEventListener('click', () => togglePanel('note'));
     $('lgPillMood').addEventListener('click', () => {
         state.kind = state.kind === 'journal' ? 'activity' : 'journal';
+        segMoodArmed = false;
         input.placeholder = state.kind === 'journal'
             ? @json(__('What did you feel today? One sentence…'))
             : @json(__('e.g. played piano 45m…'));
@@ -5402,9 +5899,11 @@
         const title = isJournal ? input.value.trim() : (parsed.title || input.value.trim());
         const entry = { id: ++seq, actId: state.actId, title: title, kind: state.kind,
                         note: $('lgNote').value.trim() || null };
+        const now = new Date();
+        entry.loggedAt = pad(now.getHours()) + ':' + pad(now.getMinutes());
 
         if (isJournal) {
-            return Object.assign(entry, { mode: 'none', mood: state.mood, period: null, color: '#a16207' });
+            return Object.assign(entry, { mode: 'none', mood: state.mood, moodPicked: segMoodArmed, period: null, color: '#a16207' });
         }
 
         const period = parsed.period || state.period || null;
@@ -5498,6 +5997,10 @@
             plShowToast(I18N.turned);
         } else if (btn.dataset.lgAct === 'edit') {
             inlineEdit(row, entry);
+        } else if (btn.dataset.lgAct === 'time') {
+            timeEdit(row, entry);
+        } else if (btn.dataset.lgAct === 'timer') {
+            lgTimerToggle(entry);
         }
     });
 
