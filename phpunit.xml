@@ -33,5 +33,8 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <!-- AI trace events go to an in-memory sink so test runs never
+             pollute the operational storage/logs/ai-*.log files. -->
+        <env name="AI_LOG_CHANNEL" value="ai_memory"/>
     </php>
 </phpunit>

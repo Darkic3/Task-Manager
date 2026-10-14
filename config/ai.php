@@ -122,4 +122,9 @@ return [
     // Outbound TLS verification for provider traffic. NEVER disable in
     // production — the payload carries API keys + workspace data.
     'tls_verify' => env('AI_TLS_VERIFY', true),
+
+    // Trace / observability channel. Production keeps the daily `ai` file
+    // channel; tests switch to `ai_memory` so a test run never writes to the
+    // operational log (see phpunit.xml + App\Logging\AiTraceHandler).
+    'log_channel' => env('AI_LOG_CHANNEL', 'ai'),
 ];

@@ -73,6 +73,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Test-only sink: AI trace events go to an in-memory ring buffer
+        // instead of the operational log files. Selected with
+        // AI_LOG_CHANNEL=ai_memory (phpunit.xml).
+        'ai_memory' => [
+            'driver' => 'monolog',
+            'handler' => App\Logging\AiTraceHandler::class,
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),

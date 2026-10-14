@@ -447,6 +447,7 @@ class AiProviderService
             'temperature' => 0.7,
         ];
         if ($stream) $payload['stream'] = true;
+        if ($stream) $payload['stream_options'] = ['include_usage' => true];
         if (! empty($tools)) {
             $payload['tools'] = $tools;
             $payload['tool_choice'] = 'auto';

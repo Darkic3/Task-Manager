@@ -12,6 +12,7 @@ use App\Models\Task;
 use App\Services\AiLogger;
 use App\Services\AiSecurity;
 use App\Services\AiToolService;
+use App\Support\AiTrace;
 
 /**
  * Shared server-side validation pipeline for every Lina tool call.
@@ -44,6 +45,9 @@ final class ToolPipeline
      * When set, a tool outside the list is rejected with
      * NOT_ALLOWED_FOR_INTENT — this is visibility enforcement, NOT
      * authorization (ownership/confirmation still run afterwards).
+     *
+     * $options may also carry trace correlation ('run_id', 'rid',
+     * 'conversation_id') so the `tool.capability_denied` event joins the run.
      */
     public static function validateForProposal($user, string $tool, $rawArgs, array $options = []): array
     {
@@ -54,7 +58,7 @@ final class ToolPipeline
 
         if (array_key_exists('allowed_tools', $options) && is_array($options['allowed_tools'])) {
             if (! ToolCapabilityRegistry::isAllowed($tool, $options['allowed_tools'])) {
-                AiLogger::log('tool.capability_denied', ['tool' => $tool, 'user_id' => $user->id ?? null]);
+                AiLogger::log('tool.capability_denied', AiTrace::ids($options['run_id'] ?? null, $options['rid'] ?? null, $user->id ?? null, $options['conversation_id'] ?? null) + ['tool' => $tool, 'stage' => 'propose']);
 
                 return ToolError::fail(
                     ToolError::NOT_ALLOWED_FOR_INTENT,
@@ -134,7 +138,7 @@ final class ToolPipeline
 
         if (array_key_exists('allowed_tools', $options) && is_array($options['allowed_tools'])) {
             if (! ToolCapabilityRegistry::isAllowed($tool, $options['allowed_tools'])) {
-                AiLogger::log('tool.capability_denied', ['tool' => $tool, 'user_id' => $user->id ?? null, 'stage' => 'execute']);
+                AiLogger::log('tool.capability_denied', AiTrace::ids($options['run_id'] ?? null, $options['rid'] ?? null, $user->id ?? null, $options['conversation_id'] ?? null) + ['tool' => $tool, 'stage' => 'execute']);
 
                 return ToolError::fail(
                     ToolError::NOT_ALLOWED_FOR_INTENT,

@@ -18,6 +18,7 @@ use App\Services\AiLogger;
 use App\Services\AiProviderService;
 use App\Services\AiToolService;
 use App\Services\LinaFallbackBrain;
+use App\Support\AiTrace;
 use GuzzleHttp\Client;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -139,26 +140,30 @@ class AiChatController extends Controller
         // Server is the only authority: tools only in agent mode.
         $agentMode = $request->input('mode', 'chat') === 'agent';
         $rid = AiLogger::newRequestId();
-        AiLogger::log('request.received', ['rid' => $rid, 'endpoint' => 'chat', 'user_id' => $user->id, 'mode' => $agentMode ? 'agent' : 'chat', 'message_preview' => $request->message, 'message_len' => mb_strlen($request->message ?? '')]);
+        // One logical run per user message. Kept stable across the whole
+        // message -> proposal -> confirm -> execute chain (see App\Support\AiTrace).
+        $runId = AiTrace::newRunId();
+        $startedAt = microtime(true);
+        AiLogger::log('request.received', AiTrace::ids($runId, $rid, $user->id) + ['endpoint' => 'chat', 'mode' => $agentMode ? 'agent' : 'chat', 'message_preview' => $request->message, 'message_len' => mb_strlen($request->message ?? '')]);
 
         // Intent Router (advisory only): picks the context budget and the
         // tool subset BEFORE anything heavy is built. Never an authorization.
         $route = \App\Services\AiIntentRouter::route((string) $request->message);
         $contextProfile = \App\Services\AiIntentRouter::profileFor($agentMode ? 'agent' : 'chat', $route);
-        AiLogger::log('intent.routed', ['rid' => $rid, 'intent' => $route['intent'], 'confidence' => $route['confidence'], 'profile' => $contextProfile, 'requires_clarification' => $route['requires_clarification']]);
+        AiLogger::log('intent.routed', AiTrace::ids($runId, $rid, $user->id) + ['rid' => $rid, 'intent' => $route['intent'], 'confidence' => $route['confidence'], 'profile' => $contextProfile, 'requires_clarification' => $route['requires_clarification']]);
 
         if (! $resolved) {
-            AiLogger::log('request.no_provider', ['rid' => $rid, 'user_id' => $user->id, 'mode' => $agentMode ? 'agent' : 'chat']);
+            AiLogger::log('request.no_provider', AiTrace::ids($runId, $rid, $user->id) + ['mode' => $agentMode ? 'agent' : 'chat']);
 
             return response()->json(['reply' => __('No AI provider is configured. Go to AI Settings and add an API key for OpenAI, Gemini, Claude, DeepSeek or Meta.')], 200);
         }
-        AiLogger::log('request.resolved', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? 'openai']);
+        AiLogger::log('request.resolved', AiTrace::ids($runId, $rid, $user->id) + ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? 'openai']);
 
         // Client-supplied history is accepted (backward compat) but NEVER trusted:
         // the Context Engine builds history server-side. Log if a client sent any.
         $clientHistoryCount = is_array($request->input('history')) ? count($request->input('history')) : 0;
         if ($clientHistoryCount > 0) {
-            AiLogger::log('request.client_history_ignored', ['rid' => $rid, 'user_id' => $user->id, 'count' => $clientHistoryCount]);
+            AiLogger::log('request.client_history_ignored', AiTrace::ids($runId, $rid, $user->id) + ['count' => $clientHistoryCount]);
         }
 
         // No conversation on this endpoint → server history is empty by design.
@@ -166,10 +171,10 @@ class AiChatController extends Controller
             $ctx = app(\App\Services\AiContextEngine::class)->build($user, (string) $request->message, $contextProfile, ['intent' => $route['intent']]);
             $context = $ctx['text'];
             $history = $ctx['history'];
-            AiLogger::log('context.built', ['rid' => $rid, 'user_id' => $user->id] + $ctx['meta']);
+            AiLogger::log('context.built', AiTrace::ids($runId, $rid, $user->id) + $ctx['meta']);
         } catch (\Exception $e) {
             \Log::error('AI buildContext error', ['user_id' => $user->id, 'error' => $e->getMessage()]);
-            AiLogger::error('context.failed', ['rid' => $rid, 'user_id' => $user->id, 'error' => $e->getMessage()]);
+            AiLogger::error('context.failed', AiTrace::ids($runId, $rid, $user->id) + ['error' => $e->getMessage()]);
             $context = '(Could not load user data)';
             $history = [];
         }
@@ -177,10 +182,40 @@ class AiChatController extends Controller
         $messages = $this->buildMessages($user, $context, $history, $request->message, $agentMode ? 'agent' : 'chat', $route);
 
         try {
-            $result = $this->callProviderSyncWithTools($resolved, $messages, $user, $agentMode, $rid, $route);
+            $result = $this->callProviderSyncWithTools($resolved, $messages, $user, $agentMode, $runId, $rid, $route);
             \Log::info('AI chat response', ['user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'mode' => $agentMode ? 'agent' : 'chat']);
             $toolNames = collect($result['proposals'] ?? [])->map(fn ($p) => $p['tool'] ?? (isset($p['plan']) ? 'plan_propose' : (isset($p['import']) ? 'workout_plan_propose' : null)))->filter()->all();
-            AiLogger::log('request.completed', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'mode' => $agentMode ? 'agent' : 'chat', 'has_reply' => isset($result['reply']), 'proposals' => count($result['proposals'] ?? []), 'tools' => $toolNames, 'context_chars' => mb_strlen($context ?? ''), 'history_count' => count($history ?? [])]);
+            $proposalCount = count($result['proposals'] ?? []);
+            AiLogger::log('request.completed', AiTrace::ids($runId, $rid, $user->id) + [
+                'endpoint' => 'chat',
+                'provider' => $resolved['provider'],
+                'model' => $resolved['model'],
+                'mode' => $agentMode ? 'agent' : 'chat',
+                'status' => 'ok',
+                'outcome' => $proposalCount > 0 ? AiTrace::OUTCOME_CONFIRMATION_REQUESTED : AiTrace::OUTCOME_REPLIED,
+                'has_reply' => isset($result['reply']),
+                'proposal_count' => $proposalCount,
+                'tools' => $toolNames,
+                'context_chars' => mb_strlen($context ?? ''),
+                'history_count' => count($history ?? []),
+                'latency_ms' => AiTrace::elapsedMs($startedAt),
+                // Verbatim when the provider reports usage, null otherwise.
+                'token_usage' => $result['token_usage'] ?? null,
+            ]);
+            // This endpoint delivers proposals inside the JSON response — the
+            // response IS the confirmation-card delivery. Log one
+            // confirmation.requested per pending card so the stream and the
+            // chat transport both produce the same trace chain.
+            foreach ($result['proposals'] ?? [] as $proposal) {
+                if (! isset($proposal['action_id'])) {
+                    continue;
+                }
+                AiLogger::log(AiTrace::CONFIRMATION_REQUESTED, AiTrace::ids($runId, $rid, $user->id) + [
+                    'tool' => $proposal['tool'] ?? null,
+                    'action_id' => (int) $proposal['action_id'],
+                    'status' => 'awaiting_confirmation',
+                ]);
+            }
             $payload = ['model' => $resolved['model'], 'provider' => $resolved['provider']];
             if (isset($result['reply'])) {
                 $payload['reply'] = $result['reply'];
@@ -195,12 +230,35 @@ class AiChatController extends Controller
             return response()->json($payload);
         } catch (AiProviderException $e) {
             \Log::warning('AI provider failed', ['provider' => $e->provider, 'endpoint' => $e->endpoint, 'status' => $e->httpStatus, 'error' => $e->getMessage()]);
-            AiLogger::error('request.failed', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'error_type' => 'provider', 'endpoint' => $e->endpoint, 'http_status' => $e->httpStatus, 'error' => $e->getMessage()]);
+            // The single attempt failed, so it is recorded as an attempt (with
+            // the detail) and the terminal event then states the outcome.
+            AiLogger::error('provider.attempt_failed', AiTrace::ids($runId, $rid, $user->id) + [
+                'provider' => $e->provider, 'error_type' => 'provider', 'http_status' => $e->httpStatus, 'error' => $e->getMessage(),
+            ]);
+            AiLogger::error('request.failed', AiTrace::ids($runId, $rid, $user->id) + [
+                'endpoint' => 'chat',
+                'provider' => $resolved['provider'],
+                'model' => $resolved['model'],
+                'status' => AiTrace::OUTCOME_PROVIDER_ERROR,
+                'error_type' => 'provider',
+                'endpoint_url' => $e->endpoint,
+                'http_status' => $e->httpStatus,
+                'error' => $e->getMessage(),
+                'latency_ms' => AiTrace::elapsedMs($startedAt),
+            ]);
 
             return response()->json(['reply' => $this->formatProviderError($e, $resolved), 'error_type' => 'provider', 'provider' => $e->provider, 'endpoint' => $e->endpoint, 'http_status' => $e->httpStatus], 200);
         } catch (\Exception $e) {
             \Log::error('AI chat failed', ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'error' => $e->getMessage()]);
-            AiLogger::error('request.failed', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'error_type' => 'system', 'error' => $e->getMessage()]);
+            AiLogger::error('request.failed', AiTrace::ids($runId, $rid, $user->id) + [
+                'endpoint' => 'chat',
+                'provider' => $resolved['provider'],
+                'model' => $resolved['model'],
+                'status' => AiTrace::OUTCOME_SYSTEM_ERROR,
+                'error_type' => 'system',
+                'error' => $e->getMessage(),
+                'latency_ms' => AiTrace::elapsedMs($startedAt),
+            ]);
 
             return response()->json(['reply' => $this->formatSystemError($e), 'error_type' => 'system'], 200);
         }
@@ -209,6 +267,12 @@ class AiChatController extends Controller
     /* ── Streaming ── */
     public function stream(Request $request)
     {
+        // Trace identifiers exist from the very first line so that even a
+        // validation failure belongs to a reconstructable run.
+        $rid = AiLogger::newRequestId();
+        $runId = AiTrace::newRunId();
+        $startedAt = microtime(true);
+
         // This endpoint is consumed by fetch() as SSE. Always answer validation
         // problems as JSON (never a 302 redirect), otherwise fetch follows the
         // redirect to an HTML page and the UI can only say "No response received."
@@ -225,7 +289,8 @@ class AiChatController extends Controller
             'attach_file_ids.*' => 'integer|min:1',
         ]);
         if ($validator->fails()) {
-            AiLogger::log('request.invalid', ['endpoint' => 'stream', 'user_id' => Auth::id(), 'errors' => $validator->errors()->toArray()]);
+            AiLogger::log('request.invalid', AiTrace::ids($runId, $rid, Auth::id()) + ['endpoint' => 'stream', 'errors' => $validator->errors()->toArray()]);
+            AiLogger::error('request.failed', AiTrace::ids($runId, $rid, Auth::id()) + ['endpoint' => 'stream', 'status' => AiTrace::OUTCOME_INVALID_REQUEST, 'error' => $validator->errors()->first(), 'latency_ms' => AiTrace::elapsedMs($startedAt)]);
 
             return response()->json([
                 'message' => __('Invalid request: :details', ['details' => $validator->errors()->first()]),
@@ -240,13 +305,12 @@ class AiChatController extends Controller
         $user = Auth::user();
         $resolved = $this->ai->resolve($user);
         $agentMode = $request->input('mode', 'chat') === 'agent';
-        $rid = AiLogger::newRequestId();
-        AiLogger::log('request.received', ['rid' => $rid, 'endpoint' => 'stream', 'user_id' => $user->id, 'mode' => $agentMode ? 'agent' : 'chat', 'message_preview' => $request->message, 'message_len' => mb_strlen($request->message ?? ''), 'has_provider' => (bool) $resolved, 'provider' => $resolved['provider'] ?? null, 'model' => $resolved['model'] ?? null, 'type' => $resolved['type'] ?? null, 'client_history_ignored' => $clientHistoryCount]);
+        AiLogger::log('request.received', AiTrace::ids($runId, $rid, $user->id) + ['endpoint' => 'stream', 'mode' => $agentMode ? 'agent' : 'chat', 'message_preview' => $request->message, 'message_len' => mb_strlen($request->message ?? ''), 'has_provider' => (bool) $resolved, 'provider' => $resolved['provider'] ?? null, 'model' => $resolved['model'] ?? null, 'type' => $resolved['type'] ?? null, 'client_history_ignored' => $clientHistoryCount]);
 
         // Intent Router (advisory only) — see chat().
         $route = \App\Services\AiIntentRouter::route((string) $request->message);
         $contextProfile = \App\Services\AiIntentRouter::profileFor($agentMode ? 'agent' : 'chat', $route);
-        AiLogger::log('intent.routed', ['rid' => $rid, 'intent' => $route['intent'], 'confidence' => $route['confidence'], 'profile' => $contextProfile, 'requires_clarification' => $route['requires_clarification']]);
+        AiLogger::log('intent.routed', AiTrace::ids($runId, $rid, $user->id) + ['intent' => $route['intent'], 'confidence' => $route['confidence'], 'profile' => $contextProfile, 'requires_clarification' => $route['requires_clarification']]);
 
         // Resolve or create conversation.
         // Security Boundary: a foreign conversation_id is NEVER silently
@@ -255,7 +319,8 @@ class AiChatController extends Controller
         if ($convId) {
             $conversation = AiConversation::where('id', $convId)->where('user_id', $user->id)->first();
             if (! $conversation) {
-                AiLogger::log('request.forbidden_conversation', ['endpoint' => 'stream', 'user_id' => $user->id, 'conversation_id' => $convId]);
+                AiLogger::log('request.forbidden_conversation', AiTrace::ids($runId, $rid, $user->id, (int) $convId) + ['endpoint' => 'stream']);
+                AiLogger::error('request.failed', AiTrace::ids($runId, $rid, $user->id, (int) $convId) + ['endpoint' => 'stream', 'status' => AiTrace::OUTCOME_FORBIDDEN, 'error' => 'conversation_not_owned', 'latency_ms' => AiTrace::elapsedMs($startedAt)]);
 
                 return response()->json([
                     'message' => __('Conversation not found.'),
@@ -278,12 +343,12 @@ class AiChatController extends Controller
 
         // No provider -> offline fallback (read-only, never creates anything)
         if (! $resolved) {
-            AiLogger::log('request.offline_fallback', ['rid' => $rid, 'user_id' => $user->id, 'conversation_id' => $conversation->id, 'reason' => 'no_provider_configured']);
+            AiLogger::log('request.offline_fallback', AiTrace::ids($runId, $rid, $user->id, $conversation->id) + ['reason' => 'no_provider_configured']);
             $fallbackText = (new LinaFallbackBrain($user, $request->message))->respond();
             $offlineConvId = $conversation->id;
             $sseFlush = $this->sseFlushClosure();
 
-            return response()->stream(function () use ($sseFlush, $offlineConvId, $fallbackText) {
+            return response()->stream(function () use ($sseFlush, $offlineConvId, $fallbackText, $runId, $rid, $user, $startedAt) {
                 echo 'data: '.json_encode(['model' => 'lina-offline', 'provider' => 'offline', 'conversation_id' => $offlineConvId])."\n\n";
                 $sseFlush();
                 foreach (mb_str_split($fallbackText, 4) as $chunk) {
@@ -296,6 +361,16 @@ class AiChatController extends Controller
                     AiConversation::where('id', $offlineConvId)->touch();
                 } catch (\Exception $e) {
                 }
+                AiLogger::log('request.completed', AiTrace::ids($runId, $rid, $user->id, $offlineConvId) + [
+                    'endpoint' => 'stream',
+                    'provider' => 'offline',
+                    'status' => 'ok',
+                    'outcome' => AiTrace::OUTCOME_OFFLINE_FALLBACK,
+                    'reply_chars' => mb_strlen($fallbackText),
+                    'proposal_count' => 0,
+                    'token_usage' => null,
+                    'latency_ms' => AiTrace::elapsedMs($startedAt),
+                ]);
                 echo "data: [DONE]\n\n";
                 $sseFlush();
             }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
@@ -316,9 +391,10 @@ class AiChatController extends Controller
             );
             $context = $ctx['text'];
             $history = $ctx['history'];
-            AiLogger::log('context.built', ['rid' => $rid, 'user_id' => $user->id] + $ctx['meta']);
+            AiLogger::log('context.built', AiTrace::ids($runId, $rid, $user->id, $conversation->id) + $ctx['meta']);
         } catch (\Exception $e) {
             \Log::error('AI stream buildContext error', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+            AiLogger::error('context.failed', AiTrace::ids($runId, $rid, $user->id, $conversation->id) + ['error' => $e->getMessage()]);
             $context = '(Could not load user data)';
             $history = [];
         }
@@ -327,14 +403,14 @@ class AiChatController extends Controller
 
         // Agent mode needs function-calling: only OpenAI-compatible providers.
         if ($agentMode && ($resolved['type'] ?? 'openai') !== 'openai') {
-            AiLogger::log('agent.blocked_non_openai', ['rid' => $rid, 'user_id' => $user->id, 'conversation_id' => $conversation->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? null]);
+            AiLogger::log('agent.blocked_non_openai', AiTrace::ids($runId, $rid, $user->id, $conversation->id) + ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? null]);
             $msg = __('Agent mode needs an OpenAI-compatible provider (e.g. OpenRouter custom provider). Switch to chat mode, or pick an OpenAI-compatible model in AI Settings — nothing was changed.');
             $conversationId = $conversation->id;
             $model = $resolved['model'];
             $provider = $resolved['provider'];
             $sseFlush = $this->sseFlushClosure();
 
-            return response()->stream(function () use ($sseFlush, $conversationId, $msg, $model, $provider) {
+            return response()->stream(function () use ($sseFlush, $conversationId, $msg, $model, $provider, $runId, $rid, $user, $startedAt) {
                 echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
                 $sseFlush();
                 echo 'data: '.json_encode(['choices' => [['delta' => ['content' => $msg]]]])."\n\n";
@@ -351,26 +427,31 @@ class AiChatController extends Controller
 
         // For OpenAI-compatible providers, do true streaming. For Gemini/Anthropic, do sync then chunk.
         if (($resolved['type'] ?? 'openai') === 'openai') {
-            AiLogger::log('stream.openai_start', ['rid' => $rid, 'user_id' => $user->id, 'conversation_id' => $conversation->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'agent_mode' => $agentMode]);
+            AiLogger::log('stream.openai_start', AiTrace::ids($runId, $rid, $user->id, $conversation->id) + ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'agent_mode' => $agentMode]);
 
-            return $this->streamOpenAi($resolved, $messages, $conversation, $agentMode, $rid, $route, [
+            return $this->streamOpenAi($resolved, $messages, $conversation, $agentMode, $runId, $rid, $route, [
                 'note_count' => count((array) $request->input('attach_note_ids', [])),
                 'file_count' => count((array) $request->input('attach_file_ids', [])),
             ]);
         }
-        AiLogger::log('stream.sync_fallback_provider', ['rid' => $rid, 'user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? null]);
+        AiLogger::log('stream.sync_fallback_provider', AiTrace::ids($runId, $rid, $user->id, $conversation->id) + ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? null]);
 
-        // Non-OpenAI: sync call then simulate streaming
+        // Non-OpenAI: sync call then simulate streaming. The sync failure is a
+        // NON-terminal provider attempt; the terminal event below carries the
+        // request's real outcome.
+        $syncOutcome = AiTrace::OUTCOME_REPLIED;
         try {
             $fullText = $this->callProviderSync($resolved, $messages);
         } catch (AiProviderException $e) {
             \Log::warning('AI stream provider failed', ['provider' => $e->provider, 'endpoint' => $e->endpoint, 'status' => $e->httpStatus, 'error' => $e->getMessage()]);
-            AiLogger::error('stream.failed', ['rid' => $rid, 'provider' => $e->provider, 'error_type' => 'provider', 'error' => $e->getMessage()]);
+            AiLogger::error('provider.attempt_failed', AiTrace::ids($runId, $rid, $user->id, $conversation->id) + ['provider' => $e->provider, 'error_type' => 'provider', 'http_status' => $e->httpStatus, 'error' => $e->getMessage()]);
             $fullText = $this->formatProviderError($e, $resolved);
+            $syncOutcome = AiTrace::OUTCOME_PROVIDER_ERROR;
         } catch (\Exception $e) {
             \Log::error('AI stream sync failed', ['provider' => $resolved['provider'], 'error' => $e->getMessage()]);
-            AiLogger::error('stream.failed', ['rid' => $rid, 'provider' => $resolved['provider'], 'error_type' => 'system', 'error' => $e->getMessage()]);
+            AiLogger::error('provider.attempt_failed', AiTrace::ids($runId, $rid, $user->id, $conversation->id) + ['provider' => $resolved['provider'], 'error_type' => 'system', 'error' => $e->getMessage()]);
             $fullText = $this->formatSystemError($e);
+            $syncOutcome = AiTrace::OUTCOME_SYSTEM_ERROR;
         }
 
         $conversationId = $conversation->id;
@@ -378,7 +459,7 @@ class AiChatController extends Controller
         $provider = $resolved['provider'];
         $sseFlush = $this->sseFlushClosure();
 
-        return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $model, $provider) {
+        return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $model, $provider, $runId, $rid, $user, $startedAt, $syncOutcome) {
             echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
             $sseFlush();
             foreach (mb_str_split($fullText, 5) as $chunk) {
@@ -391,6 +472,18 @@ class AiChatController extends Controller
                 AiConversation::where('id', $conversationId)->touch();
             } catch (\Exception $e) {
             }
+            AiLogger::log('request.completed', AiTrace::ids($runId, $rid, $user->id, $conversationId) + [
+                'endpoint' => 'stream',
+                'provider' => $provider,
+                'model' => $model,
+                'status' => $syncOutcome === AiTrace::OUTCOME_REPLIED ? 'ok' : 'error',
+                'outcome' => $syncOutcome,
+                'reply_chars' => mb_strlen($fullText),
+                'proposal_count' => 0,
+                'token_usage' => null,
+                'connection_aborted' => connection_aborted() ? true : null,
+                'latency_ms' => AiTrace::elapsedMs($startedAt),
+            ]);
             echo "data: [DONE]\n\n";
             $sseFlush();
         }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
@@ -447,34 +540,46 @@ class AiChatController extends Controller
         $text = trim($msg['content'] ?? '');
         $toolCalls = $msg['tool_calls'] ?? [];
 
-        return ['text' => $text, 'tool_calls' => is_array($toolCalls) ? $toolCalls : []];
+        return ['text' => $text, 'tool_calls' => is_array($toolCalls) ? $toolCalls : [], 'usage' => $response->json('usage')];
+    }
+
+    /**
+     * Provider token usage, only when the provider actually reports it.
+     * Returns null for anything absent — never a chars/4 estimate, because a
+     * fabricated number is worse than an honest gap.
+     */
+    private function readTokenUsage(array $raw): ?array
+    {
+        $usage = $raw['usage'] ?? null;
+
+        return is_array($usage) && $usage !== [] ? $usage : null;
     }
 
     /**
      * Sync dispatch that also supports tool proposals for OpenAI-compatible providers.
      * Returns ['reply'=>string] or ['reply'=>string,'proposal'=>array].
      */
-    private function callProviderSyncWithTools(array $resolved, array $messages, $user, bool $withTools = true, ?string $rid = null, ?array $route = null, array $toolContext = []): array
+    private function callProviderSyncWithTools(array $resolved, array $messages, $user, bool $withTools = true, ?string $runId = null, ?string $rid = null, ?array $route = null, array $toolContext = []): array
     {
         $type = $resolved['type'] ?? 'openai';
         if ($type !== 'openai' || ! $withTools) {
             if ($withTools && $type !== 'openai') {
-                AiLogger::log('agent.blocked_non_openai', ['rid' => $rid, 'user_id' => $user->id ?? null, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $type]);
+                AiLogger::log('agent.blocked_non_openai', AiTrace::ids($runId, $rid, $user->id ?? null) + ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $type]);
             }
 
             return ['reply' => $this->callProviderSync($resolved, $messages)];
         }
-
-        $tools = $withTools ? $this->toolsForResolved($resolved, $route, ['agent_mode' => $withTools] + $toolContext) : null;
+        $tools = $withTools ? $this->toolsForResolved($resolved, $route, ['agent_mode' => $withTools] + $toolContext, $runId, $rid, $user) : null;
         // Visibility set: exactly what was sent to the model. Enforcement below
         // rejects anything outside it (server-side, not prompt).
         $allowedNames = $tools === null ? null : collect($tools)->map(fn ($d) => $d['function']['name'] ?? null)->filter()->all();
         $raw = $this->callOpenAiSyncRaw($resolved['key'], $resolved['config']['base_url'], $messages, $resolved['model'], $tools);
-        AiLogger::log('provider.tool_calls', ['rid' => $rid, 'user_id' => $user->id ?? null, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'tool_call_count' => count($raw['tool_calls'] ?? []), 'tool_names' => collect($raw['tool_calls'] ?? [])->map(fn ($tc) => $tc['function']['name'] ?? '?')->all(), 'reply_len' => mb_strlen($raw['text'] ?? '')]);
+        $tokenUsage = $this->readTokenUsage($raw);
+        AiLogger::log('provider.tool_calls', AiTrace::ids($runId, $rid, $user->id ?? null) + ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'tool_call_count' => count($raw['tool_calls'] ?? []), 'tool_names' => collect($raw['tool_calls'] ?? [])->map(fn ($tc) => $tc['function']['name'] ?? '?')->all(), 'reply_len' => mb_strlen($raw['text'] ?? ''), 'token_usage' => $tokenUsage]);
 
         if (empty($raw['tool_calls'])) {
             if ($raw['text'] === '') {
-                AiLogger::error('provider.empty_response', ['rid' => $rid, 'user_id' => $user->id ?? null, 'provider' => $resolved['provider'], 'model' => $resolved['model']]);
+                AiLogger::error('provider.empty_response', AiTrace::ids($runId, $rid, $user->id ?? null) + ['provider' => $resolved['provider'], 'model' => $resolved['model']]);
                 throw new AiProviderException('Empty response from provider', $resolved['provider'], $resolved['config']['base_url'] ?? null, null);
             }
 
@@ -489,7 +594,7 @@ class AiChatController extends Controller
                 }
             }
             if ($userMessage !== '' && $this->isWorkoutIntent($userMessage)) {
-                $fallback = $this->buildWorkoutFallbackProposal($user, null, $userMessage, $raw['text']);
+                $fallback = $this->buildWorkoutFallbackProposal($user, null, $userMessage, $raw['text'], $runId, $rid);
                 if (isset($fallback['import'])) {
                     $out['proposals'] = [$fallback];
                     $out['proposal'] = $fallback;
@@ -501,7 +606,7 @@ class AiChatController extends Controller
             // Fallback for bulk task creation when proxy drops tool_calls or model hallucinates "✅ created"
             // e.g. user pastes "1. task ... 2. task ..." + project name, but stream shows no tool_calls.
             if ($userMessage !== '' && $this->isTaskCreationIntent($userMessage, $raw['text'])) {
-                $taskFallbacks = $this->buildTaskCreationFallbackProposals($user, $userMessage, $raw['text']);
+                $taskFallbacks = $this->buildTaskCreationFallbackProposals($user, $userMessage, $raw['text'], $runId, $rid);
                 if (!empty($taskFallbacks)) {
                     $out['proposals'] = array_merge($out['proposals'] ?? [], $taskFallbacks);
                     // Keep first as 'proposal' for backward compat
@@ -540,7 +645,8 @@ class AiChatController extends Controller
             $name = $tc['function']['name'] ?? '';
             if ($allowedNames !== null && ! \App\Services\AiTooling\ToolCapabilityRouter::isAllowed($name, $allowedNames)) {
                 $offRoute[] = $name;
-                AiLogger::log('tool.not_routed', ['rid' => $rid, 'user_id' => $user->id ?? null, 'tool' => \App\Services\AiToolService::normalizeToolName((string) $name)]);
+                // The chat endpoint has no conversation: conversation_id is null here.
+                AiLogger::log('tool.not_routed', AiTrace::ids($runId, $rid, $user->id, null) + ['tool' => \App\Services\AiToolService::normalizeToolName((string) $name)]);
                 continue;
             }
             $routedCalls[] = $tc;
@@ -558,7 +664,9 @@ class AiChatController extends Controller
                 $user, null,
                 $tc['function']['name'] ?? '',
                 $tc['function']['arguments'] ?? '{}',
-                $allowedNames
+                $allowedNames,
+                $runId,
+                $rid
             );
             if (count($proposals) >= AiPendingAction::MAX_OPEN) {
                 break; // matches the per-user pending cap
@@ -577,8 +685,31 @@ class AiChatController extends Controller
             // never renders an empty proposal list as success.
             $proposals[] = ['error' => __('This action is not available for the current request. Please rephrase or clarify.'), 'code' => \App\Services\AiTooling\ToolError::NOT_ROUTED];
         }
+
+        // The chat transport has no SSE emitter, so it emits the same
+        // confirmation-requested event itself: one contract for both paths.
+        foreach ($proposals as $proposal) {
+            if (isset($proposal['error'])) {
+                continue;
+            }
+            AiLogger::log(AiTrace::CONFIRMATION_REQUESTED, AiTrace::ids(
+                $runId,
+                $rid,
+                $user->id ?? null,
+                null,
+                $proposal['action_id'] ?? null,
+                $proposal['plan']['id'] ?? null
+            ) + [
+                'tool' => $proposal['tool'] ?? null,
+                'packet' => isset($proposal['plan']) ? 'plan_proposal' : 'tool_proposal',
+                'status' => 'awaiting_confirmation',
+            ]);
+        }
+
         $out['proposals'] = $proposals;
         $out['proposal'] = $proposals[0];
+        // Verbatim provider usage when reported; the caller records it as-is.
+        $out['token_usage'] = $tokenUsage;
 
         return $out;
     }
@@ -591,7 +722,7 @@ class AiChatController extends Controller
      * rejected server-side. Null = no routing restriction (server-generated
      * fallbacks and legacy callers).
      */
-    private function createPendingFromToolCall($user, $conversationId, string $tool, $argsJson, ?array $allowedTools = null): array
+    private function createPendingFromToolCall($user, $conversationId, string $tool, $argsJson, ?array $allowedTools = null, ?string $runId = null, ?string $rid = null): array
     {
         $tool = AiToolService::normalizeToolName($tool);
 
@@ -601,16 +732,16 @@ class AiChatController extends Controller
             is_string($argsJson) ? $argsJson : (array) $argsJson
         );
         if (! ($env['ok'] ?? false)) {
-            AiLogger::log('tool.proposal_invalid', ['user_id' => $user->id, 'tool' => $tool, 'code' => $env['code'] ?? null, 'error' => $env['error'] ?? 'Invalid action.']);
+            AiLogger::log('tool.proposal_invalid', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['tool' => $tool, 'code' => $env['code'] ?? null, 'error' => $env['error'] ?? 'Invalid action.']);
 
             return ['error' => $env['error'] ?? __('Invalid action.'), 'code' => $env['code'] ?? 'validation_error'];
         }
 
         if ($tool === 'plan_propose') {
-            return $this->createPlanFromToolCall($user, $conversationId, $argsJson);
+            return $this->createPlanFromToolCall($user, $conversationId, $argsJson, $runId, $rid);
         }
         if ($tool === 'workout_plan_propose') {
-            return $this->createWorkoutImportFromToolCall($user, $conversationId, $argsJson);
+            return $this->createWorkoutImportFromToolCall($user, $conversationId, $argsJson, $runId, $rid);
         }
 
         $service = new AiToolService;
@@ -622,7 +753,7 @@ class AiChatController extends Controller
             ->limit(AiPendingAction::MAX_OPEN)
             ->get(['id', 'tool', 'preview']);
         if ($openActions->count() >= AiPendingAction::MAX_OPEN) {
-            AiLogger::log('tool.proposal_capped', ['user_id' => $user->id, 'tool' => $tool, 'reason' => 'too_many_pending']);
+            AiLogger::log('tool.proposal_capped', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['tool' => $tool, 'reason' => 'too_many_pending']);
 
             return [
                 'error' => __('Too many pending confirmations. Confirm or cancel one first.'),
@@ -639,10 +770,10 @@ class AiChatController extends Controller
         // Shared pipeline: capability allowlist → schema → security →
         // normalize → business → ownership → state → policy.
         $check = \App\Services\AiTooling\ToolPipeline::validateForProposal(
-            $user, $tool, $env['args'], ['conversation_id' => $conversationId] + ($allowedTools !== null ? ['allowed_tools' => $allowedTools] : [])
+            $user, $tool, $env['args'], ['conversation_id' => $conversationId, 'run_id' => $runId, 'rid' => $rid] + ($allowedTools !== null ? ['allowed_tools' => $allowedTools] : [])
         );
         if (! ($check['ok'] ?? false)) {
-            AiLogger::log('tool.proposal_invalid', ['user_id' => $user->id, 'tool' => $tool, 'code' => $check['code'] ?? null, 'error' => $check['error'] ?? 'Invalid action.']);
+            AiLogger::log('tool.proposal_invalid', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['tool' => $tool, 'code' => $check['code'] ?? null, 'error' => $check['error'] ?? 'Invalid action.']);
 
             $out = ['error' => $check['error'] ?? __('Invalid action.'), 'code' => $check['code'] ?? 'validation_error'];
             // Bounded candidates let the agent ask the user which existing
@@ -658,7 +789,7 @@ class AiChatController extends Controller
         // reuses the live pending instead of stacking a duplicate.
         $duplicate = \App\Services\AiTooling\ToolPipeline::findLivePendingByKey($user->id, $check['idempotency_key']);
         if ($duplicate) {
-            AiLogger::log('tool.proposal_deduped', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $duplicate->id]);
+            AiLogger::log('tool.proposal_deduped', AiTrace::ids($runId, $rid, $user->id, $conversationId, $duplicate->id));
 
             return [
                 'action_id' => $duplicate->id,
@@ -673,7 +804,7 @@ class AiChatController extends Controller
         // surface the executed action, never build a second task.
         $executed = \App\Services\AiTooling\ToolPipeline::findRecentlyExecutedPending($user->id, $check['idempotency_key']);
         if ($executed) {
-            AiLogger::log('tool.proposal_already_executed', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $executed->id]);
+            AiLogger::log('tool.proposal_already_executed', AiTrace::ids($runId, $rid, $user->id, $conversationId, $executed->id));
 
             return [
                 'action_id' => $executed->id,
@@ -685,10 +816,9 @@ class AiChatController extends Controller
             ];
         }
 
-        [$action, $raceReused] = $this->insertPendingIdempotent($user, $conversationId, $tool, $check, $service->preview($tool, $check['resolved'], $user));
+        [$action, $raceReused] = $this->insertPendingIdempotent($user, $conversationId, $tool, $check, $service->preview($tool, $check['resolved'], $user), $runId, $rid);
 
-        \Log::info('ai.tool.proposed', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $action->id]);
-        AiLogger::log('tool.proposed', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $action->id, 'conversation_id' => $conversationId, 'resolved' => $check['resolved']]);
+        AiLogger::log(AiTrace::TOOL_PROPOSED, AiTrace::ids($runId, $rid, $user->id, $conversationId, $action->id) + ['tool' => $tool, 'status' => 'awaiting_confirmation', 'expires_at' => $action->expires_at?->toIso8601String(), 'resolved' => $check['resolved']]);
 
         $out = [
             'action_id' => $action->id,
@@ -708,14 +838,20 @@ class AiChatController extends Controller
      * the option the user picked through the exact same pipeline as a
      * model-emitted call (schema → security → business → ownership → policy
      * → own confirmation card). The chosen action is NEVER executed directly.
+     *
+     * $runId/$rid come from the clarification's stored trace: answering a
+     * clarification is still the SAME logical run, never a new one.
      */
-    public function proposeChosenOption($user, ?int $conversationId, string $tool, array $args): array
+    public function proposeChosenOption($user, ?int $conversationId, string $tool, array $args, ?string $runId = null, ?string $rid = null): array
     {
         return $this->createPendingFromToolCall(
             $user,
             $conversationId,
             $tool,
-            json_encode($args, JSON_UNESCAPED_UNICODE)
+            json_encode($args, JSON_UNESCAPED_UNICODE),
+            null,
+            $runId,
+            $rid
         );
     }
 
@@ -727,10 +863,15 @@ class AiChatController extends Controller
      *   anew (a legitimate later repeat must never 500 on the UNIQUE
      *   constraint). Bounded retries; anything else rethrows.
      */
-    private function insertPendingIdempotent($user, $conversationId, string $tool, array $check, array $preview): array
+    private function insertPendingIdempotent($user, $conversationId, string $tool, array $check, array $preview, ?string $runId = null, ?string $rid = null): array
     {
         $pipeline = \App\Services\AiTooling\ToolPipeline::class;
         $key = $check['idempotency_key'];
+        // Trace ids ride inside `preview` (never `args`): `args` is re-validated
+        // and feeds the idempotency key, so mutating it would weaken dedupe.
+        // `preview` is display-only and ignored by the pipeline. No migration:
+        // the existing JSON column is enough and stays backward compatible.
+        $preview = $preview + ['_trace' => AiTrace::ids($runId, $rid, $user->id, $conversationId)];
 
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
@@ -752,12 +893,12 @@ class AiChatController extends Controller
                 if (isset($decision['reuse'])) {
                     /** @var AiPendingAction $winner */
                     $winner = $decision['reuse'];
-                    AiLogger::log('tool.proposal_race_reused', ['user_id' => $user->id, 'tool' => $tool, 'action_id' => $winner->id]);
+                    AiLogger::log('tool.proposal_race_reused', AiTrace::ids($runId, $rid, $user->id, $conversationId, $winner->id) + ['tool' => $tool]);
 
                     return [$winner, true];
                 }
                 $key = $decision['key'];
-                AiLogger::log('tool.proposal_key_rotated', ['user_id' => $user->id, 'tool' => $tool, 'attempt' => $attempt + 1]);
+                AiLogger::log('tool.proposal_key_rotated', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['tool' => $tool, 'attempt' => $attempt + 1]);
             }
         }
 
@@ -781,7 +922,7 @@ class AiChatController extends Controller
      * Cost optimization only — execution is still gated by ToolPipeline +
      * user confirmation either way.
      */
-    private function toolsForResolved(array $resolved, ?array $route = null, array $toolContext = []): ?array
+    private function toolsForResolved(array $resolved, ?array $route = null, array $toolContext = [], ?string $runId = null, ?string $rid = null, $user = null): ?array
     {
         if (($resolved['type'] ?? 'openai') !== 'openai') {
             return null;
@@ -793,7 +934,7 @@ class AiChatController extends Controller
             );
             if ($defs !== null) {
                 $cmp = \App\Services\AiTooling\ToolCapabilityRouter::tokenComparison($route, new AiToolService, $ctx);
-                AiLogger::log('tools.routed', [
+                AiLogger::log('tools.routed', AiTrace::ids($runId, $rid, $user->id ?? null) + [
                     'intent' => $route['intent'] ?? null,
                     'confidence' => $route['confidence'] ?? null,
                     'sent_tools' => \App\Services\AiTooling\ToolCapabilityRegistry::namesFromDefinitions($defs),
@@ -857,7 +998,7 @@ class AiChatController extends Controller
      * Validate + store a plan_propose call as an AiPlan (no execution).
      * Returns a plan_proposal packet for the structure card.
      */
-    private function createPlanFromToolCall($user, $conversationId, $argsJson): array
+    private function createPlanFromToolCall($user, $conversationId, $argsJson, ?string $runId = null, ?string $rid = null): array
     {
         $service = new AiToolService;
         $args = is_string($argsJson) ? (json_decode($argsJson, true) ?? []) : (array) $argsJson;
@@ -871,15 +1012,14 @@ class AiChatController extends Controller
             ->where('expires_at', '>', now())
             ->count();
         if ($open >= 3) {
-            AiLogger::log('plan.proposal_capped', ['user_id' => $user->id, 'reason' => 'too_many_open_plans']);
+            AiLogger::log('plan.proposal_capped', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['reason' => 'too_many_open_plans']);
 
             return ['error' => __('Too many open plans. Finish or cancel one first.')];
         }
 
         $check = $service->validateCall('plan_propose', $args, $user);
         if (! ($check['ok'] ?? false)) {
-            AiLogger::log('plan.proposal_invalid', [
-                'user_id' => $user->id,
+            AiLogger::log('plan.proposal_invalid', AiTrace::ids($runId, $rid, $user->id, $conversationId) + [
                 'error' => $check['error'] ?? 'Invalid plan.',
                 'code' => $check['code'] ?? null,
                 'args_keys' => is_array($args) ? array_keys($args) : null,
@@ -903,7 +1043,7 @@ class AiChatController extends Controller
         // Retry/reconnect safe: reuse the live plan instead of stacking one.
         $duplicate = $pipeline::findLivePlanByKey($user->id, $key);
         if ($duplicate) {
-            AiLogger::log('plan.proposal_deduped', ['user_id' => $user->id, 'plan_id' => $duplicate->id]);
+            AiLogger::log('plan.proposal_deduped', AiTrace::ids($runId, $rid, $user->id, $conversationId, null, $duplicate->id));
 
             return ['plan' => $controller->serialize($duplicate)] + ['expires_at' => $duplicate->expires_at->toIso8601String(), 'deduped' => true];
         }
@@ -912,6 +1052,11 @@ class AiChatController extends Controller
             'user_id' => $user->id,
             'conversation_id' => $conversationId,
             'title' => $check['resolved']['title'],
+            // Deliberately NO trace key inside `structure`: the plan
+            // idempotency key is derived from title + structure
+            // (ToolPipeline::derivePlanKey), so mutating it would break
+            // dedupe. Plans correlate through `plan_id` →
+            // `plan.proposed` (which carries the run_id) instead.
             'structure' => $check['resolved']['structure'],
             'phases' => $service->buildPlanPhases($check['resolved']['structure']),
             'status' => AiPlan::STATUS_PROPOSED,
@@ -933,10 +1078,10 @@ class AiChatController extends Controller
                 if (isset($decision['reuse'])) {
                     $plan = $decision['reuse'];
                     $raceReused = true;
-                    AiLogger::log('plan.proposal_race_reused', ['user_id' => $user->id, 'plan_id' => $plan->id]);
+                    AiLogger::log('plan.proposal_race_reused', AiTrace::ids($runId, $rid, $user->id, $conversationId, null, $plan->id));
                 } else {
                     $attrs['idempotency_key'] = $decision['key'];
-                    AiLogger::log('plan.proposal_key_rotated', ['user_id' => $user->id, 'attempt' => $attempt + 1]);
+                    AiLogger::log('plan.proposal_key_rotated', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['attempt' => $attempt + 1]);
                 }
             }
         }
@@ -945,8 +1090,7 @@ class AiChatController extends Controller
             $plan = AiPlan::create($attrs);
         }
 
-        \Log::info('ai.plan.proposed', ['user_id' => $user->id, 'plan_id' => $plan->id]);
-        AiLogger::log('plan.proposed', ['user_id' => $user->id, 'plan_id' => $plan->id, 'conversation_id' => $conversationId, 'title' => $plan->title, 'totals' => $check['resolved']['totals'] ?? []]);
+        AiLogger::log(AiTrace::PLAN_PROPOSED, AiTrace::ids($runId, $rid, $user->id, $conversationId, null, $plan->id) + ['title' => $plan->title, 'status' => 'awaiting_confirmation', 'expires_at' => $plan->expires_at?->toIso8601String(), 'totals' => $check['resolved']['totals'] ?? []]);
 
         $out = ['plan' => $controller->serialize($plan)] + ['expires_at' => $plan->expires_at->toIso8601String()];
         if ($raceReused) {
@@ -961,7 +1105,7 @@ class AiChatController extends Controller
      * preview (no WorkoutPlan is created yet). Returns a
      * workout_import_proposal packet for the import review card.
      */
-    private function createWorkoutImportFromToolCall($user, $conversationId, string $argsJson): array
+    private function createWorkoutImportFromToolCall($user, $conversationId, string $argsJson, ?string $runId = null, ?string $rid = null): array
     {
         $service = new AiToolService;
         $args = is_string($argsJson) ? (json_decode($argsJson, true) ?? []) : (array) $argsJson;
@@ -993,7 +1137,7 @@ class AiChatController extends Controller
             ->get()
             ->first(fn ($row) => hash('sha256', \App\Services\AiTooling\ToolPipeline::canonicalJson((array) $row->structure)) === $structHash);
         if ($existing) {
-            AiLogger::log('workout.proposal_deduped', ['user_id' => $user->id, 'import_id' => $existing->id]);
+            AiLogger::log('workout.proposal_deduped', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['import_id' => $existing->id]);
 
             return [
                 'import' => [
@@ -1017,7 +1161,7 @@ class AiChatController extends Controller
             'expires_at' => now()->addMinutes(30),
         ]);
 
-        \Log::info('ai.workout.proposed', ['user_id' => $user->id, 'import_id' => $import->id]);
+        AiLogger::log(AiTrace::TOOL_PROPOSED, AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['tool' => 'workout_plan_propose', 'status' => 'awaiting_confirmation', 'import_id' => $import->id, 'expires_at' => $import->expires_at?->toIso8601String()]);
 
         return [
             'import' => [
@@ -1120,7 +1264,7 @@ class AiChatController extends Controller
         return mb_strtolower($t);
     }
 
-    private function buildTaskCreationFallbackProposals($user, string $userMessage, string $assistantText): array
+    private function buildTaskCreationFallbackProposals($user, string $userMessage, string $assistantText, ?string $runId = null, ?string $rid = null): array
     {
         $titles = $this->extractTaskTitles($userMessage);
         if (empty($titles)) return [];
@@ -1134,19 +1278,17 @@ class AiChatController extends Controller
         foreach ($titles as $title) {
             $norm = $this->normalizeTitleForCompare($title);
             if (in_array($norm, $existing, true)) {
-                \Log::info('ai.task.fallback_skip_exists', ['user_id'=>$user->id,'title'=>$title,'project_id'=>$projectId]);
                 continue;
             }
             $args = ['title' => $title];
             if ($projectId) $args['project_id'] = $projectId;
             // Reuse existing pending creation logic (handles cap, validation)
-            $proposal = $this->createPendingFromToolCall($user, null, 'task_create', json_encode($args, JSON_UNESCAPED_UNICODE));
+            $proposal = $this->createPendingFromToolCall($user, null, 'task_create', json_encode($args, JSON_UNESCAPED_UNICODE), null, $runId, $rid);
             // If we hit pending cap, stop
             if (isset($proposal['code']) && $proposal['code']==='too_many_pending') {
                 break;
             }
             if (isset($proposal['error']) && !isset($proposal['action_id'])) {
-                \Log::warning('ai.task.fallback_error', ['user_id'=>$user->id,'title'=>$title,'error'=>$proposal['error']]);
                 continue;
             }
             $proposals[] = $proposal;
@@ -1154,8 +1296,7 @@ class AiChatController extends Controller
             if (count($proposals) >= \App\Models\AiPendingAction::MAX_OPEN) break;
         }
         if (!empty($proposals)) {
-            \Log::info('ai.task.fallback_created', ['user_id'=>$user->id,'project_id'=>$projectId,'project_name'=>$project?->name,'count'=>count($proposals),'titles'=>$titles]);
-            AiLogger::log('task.fallback_created', ['user_id'=>$user->id,'project_id'=>$projectId,'count'=>count($proposals)]);
+            AiLogger::log('task.fallback_created', AiTrace::ids($runId, $rid, $user->id) + ['project_id' => $projectId, 'count' => count($proposals)]);
         }
         return $proposals;
     }
@@ -1199,7 +1340,7 @@ class AiChatController extends Controller
      * hash so streaming retries never create duplicates.
      * Returns a workout_import_proposal packet (import or error key).
      */
-    private function buildWorkoutFallbackProposal($user, $conversationId, string $userMessage, string $assistantText): array
+    private function buildWorkoutFallbackProposal($user, $conversationId, string $userMessage, string $assistantText, ?string $runId = null, ?string $rid = null): array
     {
         $hash = md5($userMessage);
         $recent = \App\Models\WorkoutImport::where('user_id', $user->id)
@@ -1210,6 +1351,7 @@ class AiChatController extends Controller
             ->first();
         if ($recent) {
             $structure = $recent->structure;
+            AiLogger::log('workout.proposal_deduped', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['import_id' => $recent->id]);
 
             return [
                 'import' => [
@@ -1240,7 +1382,7 @@ class AiChatController extends Controller
             try {
                 $structure = $imports->parseWithAi($user, mb_substr($userMessage, 0, 30000), $anchor);
             } catch (\Throwable $e) {
-                \Log::warning('ai.workout.fallback_failed', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+                AiLogger::error('workout.fallback_failed', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['stage' => 'parse', 'error' => $e->getMessage()]);
 
                 return ['error' => 'نتونستم ساختار برنامه را استخراج کنم. از مسیر Workouts → Import with AI متن را بده تا همان‌جا parse شود.'];
             }
@@ -1258,7 +1400,7 @@ class AiChatController extends Controller
             'expires_at' => now()->addMinutes(30),
         ]);
 
-        \Log::info('ai.workout.fallback_proposed', ['user_id' => $user->id, 'import_id' => $import->id]);
+        AiLogger::log(AiTrace::TOOL_PROPOSED, AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['tool' => 'workout_plan_propose', 'status' => 'awaiting_confirmation', 'import_id' => $import->id, 'via' => 'text_fallback', 'expires_at' => $import->expires_at?->toIso8601String()]);
 
         return [
             'import' => [
@@ -1387,33 +1529,40 @@ class AiChatController extends Controller
     }
 
     /* ── OpenAI streaming ── */
-    private function streamOpenAi(array $resolved, array $messages, AiConversation $conversation, bool $agentMode = true, ?string $rid = null, ?array $route = null, array $toolContext = [])
+    private function streamOpenAi(array $resolved, array $messages, AiConversation $conversation, bool $agentMode = true, ?string $runId = null, ?string $rid = null, ?array $route = null, array $toolContext = [])
     {
         $key = $resolved['key'];
         $cfg = $resolved['config'];
         $model = $resolved['model'];
         $provider = $resolved['provider'];
-        $tools = $agentMode ? $this->toolsForResolved($resolved, $route, ['agent_mode' => $agentMode] + $toolContext) : null;
+        $startedAt = microtime(true);
+        $tools = $agentMode ? $this->toolsForResolved($resolved, $route, ['agent_mode' => $agentMode] + $toolContext, $runId, $rid, $conversation->user) : null;
         // Names actually sent to the model — the enforcement allowlist.
         // Null (chat mode) means "nothing visible": emitToolProposals gets [].
         $allowedNames = $tools === null ? ($agentMode ? null : []) : collect($tools)->map(fn ($d) => $d['function']['name'] ?? null)->filter()->all();
 
-        $client = new Client(['verify' => (bool) config('ai.tls_verify', true), 'timeout' => 60]);
+        // Uses the Laravel HTTP client instead of a raw Guzzle instance so the
+        // SSE transport is observable: Http::fake() intercepts it in tests and
+        // the main production path stops making real network calls under test.
+        // Behaviour is otherwise identical (same TLS/timeout/http_errors and
+        // the same streaming body read below).
+        $client = \Illuminate\Support\Facades\Http::withHeaders([
+            'Authorization' => 'Bearer '.$key,
+            'Content-Type' => 'application/json',
+            'HTTP-Referer' => (string) config('app.url'),
+            'X-Title' => (string) config('app.name', 'Task Manager'),
+        ])->withOptions([
+            'verify' => (bool) config('ai.tls_verify', true),
+            'timeout' => 60,
+            'http_errors' => false,
+            'stream' => true,
+        ]);
+
         $response = null;
         $endpoint = $this->ai->endpointFor($cfg['base_url'], 'openai');
 
         try {
-            $response = $client->post($endpoint, [
-                'http_errors' => false,
-                'headers' => [
-                    'Authorization' => 'Bearer '.$key,
-                    'Content-Type' => 'application/json',
-                    'HTTP-Referer' => (string) config('app.url'),
-                    'X-Title' => (string) config('app.name', 'Task Manager'),
-                ],
-                'json' => $this->ai->openAiPayload($messages, $model, true, $endpoint, $tools),
-                'stream' => true,
-            ]);
+            $response = $client->post($endpoint, $this->ai->openAiPayload($messages, $model, true, $endpoint, $tools))->toPsrResponse();
             $status = $response->getStatusCode();
             if ($status !== 200) {
                 $body = (string) $response->getBody();
@@ -1425,7 +1574,7 @@ class AiChatController extends Controller
             }
         } catch (AiProviderException $e) {
             \Log::warning('AI stream provider failed, falling back to sync', ['provider' => $e->provider, 'endpoint' => $e->endpoint, 'status' => $e->httpStatus, 'error' => $e->getMessage()]);
-            AiLogger::error('stream.fallback_provider', ['rid' => $rid, 'provider' => $e->provider, 'error_type' => 'provider', 'error' => $e->getMessage()]);
+            AiLogger::error('provider.attempt_failed', AiTrace::ids($runId, $rid, $conversation->user_id, $conversation->id) + ['provider' => $e->provider, 'error_type' => 'provider', 'stage' => 'sync_fallback', 'error' => $e->getMessage()]);
             $conversationId = $conversation->id;
             $userId = Auth::id();
             $sseFlush = $this->sseFlushClosure();
@@ -1443,7 +1592,7 @@ class AiChatController extends Controller
                 $fallbackTools = [];
             }
 
-            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $rid) {
+            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $runId, $rid, $startedAt) {
                 echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
                 $sseFlush();
                 foreach (mb_str_split($fullText, 5) as $chunk) {
@@ -1467,19 +1616,32 @@ class AiChatController extends Controller
                                 : json_encode($tc['function']['arguments'] ?? []),
                         ];
                     }
-                    $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush, $rid, $allowedNames);
-                    $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
-                    $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
-                    $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
+                    $emitted = $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush, $rid, $allowedNames, $runId);
+                    $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush, $runId, $rid);
+                    $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush, $runId, $rid);
+                    $controller->emitToolMissedNotice($fullText, $accum, $sseFlush, $rid, $runId, $userId, $conversationId);
                 }
                 echo "data: [DONE]\n\n";
                 $sseFlush();
+                AiLogger::log('request.completed', AiTrace::ids($runId, $rid, $userId, $conversationId) + [
+                    'endpoint' => 'stream',
+                    'provider' => $provider,
+                    'model' => $model,
+                    'status' => 'ok',
+                    'outcome' => empty($accum) ? AiTrace::OUTCOME_REPLIED : AiTrace::OUTCOME_CONFIRMATION_REQUESTED,
+                    'reply_chars' => mb_strlen($fullText),
+                    'proposal_count' => count($accum),
+                    'token_usage' => null,
+                    'connection_aborted' => connection_aborted() ? true : null,
+                    'latency_ms' => AiTrace::elapsedMs($startedAt),
+                    'recovered' => 'sync_fallback',
+                ]);
             }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
         } catch (\Exception $e) {
             if ($this->isProviderConnectionError($e)) {
                 $pe = new AiProviderException($e->getMessage(), parse_url($endpoint, PHP_URL_HOST) ?: $provider, $endpoint, null, 0, $e);
                 \Log::warning('AI stream provider connection failed, falling back to sync', ['provider' => $pe->provider, 'endpoint' => $pe->endpoint, 'error' => $pe->getMessage()]);
-                AiLogger::error('stream.fallback_provider', ['rid' => $rid, 'provider' => $pe->provider, 'error_type' => 'provider', 'error' => $pe->getMessage()]);
+                AiLogger::error('provider.attempt_failed', AiTrace::ids($runId, $rid, $conversation->user_id, $conversation->id) + ['provider' => $pe->provider, 'error_type' => 'provider', 'stage' => 'sync_fallback', 'error' => $pe->getMessage()]);
                 $conversationId = $conversation->id;
                 $userId = Auth::id();
                 $sseFlush = $this->sseFlushClosure();
@@ -1496,7 +1658,7 @@ class AiChatController extends Controller
                     $fullText = $this->isProviderConnectionError($e2) ? $this->formatProviderError(new AiProviderException($e2->getMessage(), parse_url($endpoint, PHP_URL_HOST) ?: $provider, $endpoint, null, 0, $e2), $resolvedForError) : $this->formatSystemError($e2);
                     $fallbackTools = [];
                 }
-                return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $rid) {
+                return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $runId, $rid, $startedAt) {
                     echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
                     $sseFlush();
                     foreach (mb_str_split($fullText, 5) as $chunk) {
@@ -1520,17 +1682,30 @@ class AiChatController extends Controller
                                     : json_encode($tc['function']['arguments'] ?? []),
                             ];
                         }
-                        $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush, $rid, $allowedNames);
-                        $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
-                    $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
-                        $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
+                        $emitted = $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush, $rid, $allowedNames, $runId);
+                        $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush, $runId, $rid);
+                    $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush, $runId, $rid);
+                        $controller->emitToolMissedNotice($fullText, $accum, $sseFlush, $rid, $runId, $userId, $conversationId);
                     }
                     echo "data: [DONE]\n\n";
                     $sseFlush();
+                    AiLogger::log('request.completed', AiTrace::ids($runId, $rid, $userId, $conversationId) + [
+                        'endpoint' => 'stream',
+                        'provider' => $provider,
+                        'model' => $model,
+                        'status' => 'ok',
+                        'outcome' => empty($accum) ? AiTrace::OUTCOME_REPLIED : AiTrace::OUTCOME_CONFIRMATION_REQUESTED,
+                        'reply_chars' => mb_strlen($fullText),
+                        'proposal_count' => count($accum),
+                        'token_usage' => null,
+                        'connection_aborted' => connection_aborted() ? true : null,
+                        'latency_ms' => AiTrace::elapsedMs($startedAt),
+                        'recovered' => 'sync_fallback',
+                    ]);
                 }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
             }
             \Log::error('AI stream system failed, falling back to sync', ['provider' => $provider, 'error' => $e->getMessage()]);
-            AiLogger::error('stream.fallback_system', ['rid' => $rid, 'provider' => $provider, 'error_type' => 'system', 'error' => $e->getMessage()]);
+            AiLogger::error('provider.attempt_failed', AiTrace::ids($runId, $rid, $conversation->user_id, $conversation->id) + ['provider' => $provider, 'error_type' => 'system', 'stage' => 'sync_fallback', 'error' => $e->getMessage()]);
             $conversationId = $conversation->id;
             $userId = Auth::id();
             $sseFlush = $this->sseFlushClosure();
@@ -1548,7 +1723,7 @@ class AiChatController extends Controller
                 $fallbackTools = [];
             }
 
-            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $rid) {
+            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $runId, $rid, $startedAt) {
                 echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
                 $sseFlush();
                 foreach (mb_str_split($fullText, 5) as $chunk) {
@@ -1572,13 +1747,26 @@ class AiChatController extends Controller
                                 : json_encode($tc['function']['arguments'] ?? []),
                         ];
                     }
-                    $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush, $rid, $allowedNames);
-                    $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
-                    $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush);
-                    $controller->emitToolMissedNotice($fullText, $accum, $sseFlush);
+                    $emitted = $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush, $rid, $allowedNames, $runId);
+                    $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush, $runId, $rid);
+                    $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fullText, $sseFlush, $runId, $rid);
+                    $controller->emitToolMissedNotice($fullText, $accum, $sseFlush, $rid, $runId, $userId, $conversationId);
                 }
                 echo "data: [DONE]\n\n";
                 $sseFlush();
+                AiLogger::log('request.completed', AiTrace::ids($runId, $rid, $userId, $conversationId) + [
+                    'endpoint' => 'stream',
+                    'provider' => $provider,
+                    'model' => $model,
+                    'status' => 'ok',
+                    'outcome' => empty($accum) ? AiTrace::OUTCOME_REPLIED : AiTrace::OUTCOME_CONFIRMATION_REQUESTED,
+                    'reply_chars' => mb_strlen($fullText),
+                    'proposal_count' => count($accum),
+                    'token_usage' => null,
+                    'connection_aborted' => connection_aborted() ? true : null,
+                    'latency_ms' => AiTrace::elapsedMs($startedAt),
+                    'recovered' => 'sync_fallback',
+                ]);
             }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
         }
 
@@ -1587,12 +1775,51 @@ class AiChatController extends Controller
         $userId = Auth::id();
         $sseFlush = $this->sseFlushClosure();
 
-        return response()->stream(function () use ($body, $model, $provider, $userId, $conversationId, $sseFlush, $agentMode, $key, $endpoint, $messages, $tools, $allowedNames, $rid) {
+        return response()->stream(function () use ($body, $model, $provider, $userId, $conversationId, $sseFlush, $agentMode, $key, $endpoint, $messages, $tools, $allowedNames, $runId, $rid, $startedAt) {
+            // Terminal emitter: exactly one request.completed / request.failed
+            // per run, no matter which exit path this closure takes. The
+            // outcome is decided by what really happened, never by "the loop
+            // ended", and a disconnect is reported as such.
+            $trace = ['finished' => false, 'outcome' => null, 'proposals' => 0, 'errors' => 0];
+
+            $finish = function (string $status, string $outcome, array $extra = []) use (&$trace, $runId, $rid, $userId, $conversationId, $model, $provider, $startedAt) {
+                if ($trace['finished']) {
+                    return;
+                }
+                $trace['finished'] = true;
+                $trace['outcome'] = $outcome;
+
+                $fields = AiTrace::ids($runId, $rid, $userId, $conversationId) + [
+                    'endpoint' => 'stream',
+                    'provider' => $provider,
+                    'model' => $model,
+                    'status' => $status,
+                    'outcome' => $outcome,
+                    'proposal_count' => $trace['proposals'],
+                    'error_count' => $trace['errors'],
+                    // Provider-reported token counts when the stream carried
+                    // a usage chunk, else an honest null (never estimated).
+                    'token_usage' => $extra['token_usage'] ?? null,
+                    'connection_aborted' => connection_aborted() ? true : null,
+                    'latency_ms' => AiTrace::elapsedMs($startedAt),
+                ] + $extra;
+
+                if ($status === 'ok') {
+                    AiLogger::log('request.completed', $fields);
+                } else {
+                    AiLogger::error('request.failed', $fields);
+                }
+            };
+
             echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
             $sseFlush();
             $buffer = '';
             $accumulatedText = '';
             $toolAccum = [];
+            // Provider-reported token counts: OpenAI-compatible streams send
+            // a final `usage` chunk when stream_options.include_usage is set.
+            // Absent → stays null (never estimated).
+            $streamUsage = null;
             $controller = $this;
             try {
                 while (! $body->eof()) {
@@ -1615,13 +1842,20 @@ class AiChatController extends Controller
                                 AiConversation::where('id', $conversationId)->touch();
                             }
                             if ($agentMode) {
-                                $controller->emitToolProposals($toolAccum, $userId, $conversationId, $sseFlush, $rid, $allowedNames);
-                                $controller->emitWorkoutFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
-                $controller->emitTaskCreationFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
-                                $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush);
+                                $trace['proposals'] += $controller->emitToolProposals($toolAccum, $userId, $conversationId, $sseFlush, $rid, $allowedNames, $runId);
+                                $controller->emitWorkoutFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush, $runId, $rid);
+                $controller->emitTaskCreationFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush, $runId, $rid);
+                                $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush, $rid, $runId, $userId, $conversationId);
                             }
                             echo "data: [DONE]\n\n";
                             $sseFlush();
+
+                            $finish('ok', empty($toolAccum) ? AiTrace::OUTCOME_NO_TOOLS : AiTrace::OUTCOME_CONFIRMATION_REQUESTED, [
+                                'reply_chars' => mb_strlen(trim($accumulatedText)),
+                                'tool_calls' => count($toolAccum),
+                                'done_marker' => true,
+                                'token_usage' => $streamUsage,
+                            ]);
 
                             return;
                         }
@@ -1638,13 +1872,16 @@ class AiChatController extends Controller
                                     $raw = $this->callOpenAiSyncRaw($key, $endpoint, $messages, $model, $tools);
                                     $fallbackText = trim($raw['text'] ?? '') !== '' ? $raw['text'] : null;
                                     $fallbackTools = $raw['tool_calls'] ?? [];
+                                    $fallbackUsage = (isset($raw['usage']) && is_array($raw['usage']) && $raw['usage'] !== []) ? $raw['usage'] : null;
                                 } catch (AiProviderException $e2) {
                                     $fallbackText = null;
                                     $fallbackTools = [];
+                                    $fallbackUsage = null;
                                     \Log::warning('AI stream sync fallback also failed (provider)', ['provider' => $e2->provider, 'error' => $e2->getMessage(), 'error_type' => 'provider']);
                                 } catch (\Exception $e2) {
                                     $fallbackText = null;
                                     $fallbackTools = [];
+                                    $fallbackUsage = null;
                                     \Log::warning('AI stream sync fallback also failed (system)', ['provider' => $provider, 'error' => $e2->getMessage(), 'error_type' => 'system']);
                                 }
                                 if ($fallbackText !== null && trim($fallbackText) !== '') {
@@ -1670,13 +1907,22 @@ class AiChatController extends Controller
                                                         : json_encode($tc['function']['arguments'] ?? []),
                                                 ];
                                             }
-                                            $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush, $rid, $allowedNames);
-                                            $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fallbackText, $sseFlush);
-                                            $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fallbackText, $sseFlush);
-                                            $controller->emitToolMissedNotice($fallbackText, $accum, $sseFlush);
+                                            $trace['proposals'] += $controller->emitToolProposals($accum, $userId, $conversationId, $sseFlush, $rid, $allowedNames, $runId);
+                                            $controller->emitWorkoutFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fallbackText, $sseFlush, $runId, $rid);
+                                            $controller->emitTaskCreationFallbackIfNeeded($accum, $userId, $conversationId, $messages, $fallbackText, $sseFlush, $runId, $rid);
+                                            $controller->emitToolMissedNotice($fallbackText, $accum, $sseFlush, $rid, $runId, $userId, $conversationId);
                                         }
                                     echo "data: [DONE]\n\n";
                                     $sseFlush();
+
+                                    // Recovered through the sync fallback.
+                                    $finish('ok', empty($accum) ? AiTrace::OUTCOME_REPLIED : AiTrace::OUTCOME_CONFIRMATION_REQUESTED, [
+                                        'reply_chars' => mb_strlen(trim($fallbackText)),
+                                        'tool_calls' => count($accum),
+                                        'done_marker' => true,
+                                        'recovered' => 'sync_fallback',
+                                        'token_usage' => $fallbackUsage ?? $streamUsage,
+                                    ]);
 
                                     return;
                                 }
@@ -1685,14 +1931,26 @@ class AiChatController extends Controller
                                 AiMessage::create(['conversation_id' => $conversationId, 'role' => 'assistant', 'content' => trim($accumulatedText), 'model' => $model]);
                                 AiConversation::where('id', $conversationId)->touch();
                             }
+                            $trace['errors']++;
                             echo 'data: '.json_encode(['error' => $providerError, 'error_type' => 'provider', 'provider' => $provider, 'endpoint' => $endpoint])."\n\n";
                             $sseFlush();
                             echo "data: [DONE]\n\n";
                             $sseFlush();
 
+                            $finish('error', AiTrace::OUTCOME_PROVIDER_ERROR, [
+                                'error' => $providerError,
+                                'error_type' => 'provider',
+                                'reply_chars' => mb_strlen(trim($accumulatedText)),
+                                'tool_calls' => count($toolAccum),
+                                'done_marker' => true,
+                            ]);
+
                             return;
                         }
                         $delta = $decoded['choices'][0]['delta'] ?? [];
+                        if (isset($decoded['usage']) && is_array($decoded['usage']) && $decoded['usage'] !== []) {
+                            $streamUsage = $decoded['usage'];
+                        }
                         $token = $delta['content'] ?? '';
                         if ($token) {
                             $accumulatedText .= $token;
@@ -1709,6 +1967,7 @@ class AiChatController extends Controller
                 }
             } catch (\Exception $e) {
                 \Log::error('AI stream read error', ['model' => $model, 'provider' => $provider, 'user_id' => $userId, 'error' => $e->getMessage()]);
+                $trace['errors']++;
                 echo 'data: '.json_encode(['error' => __('Stream interrupted.')])."\n\n";
                 $sseFlush();
             }
@@ -1733,14 +1992,29 @@ class AiChatController extends Controller
                     AiConversation::where('id', $conversationId)->touch();
                 } catch (\Exception $e) {}
             }
-            $controller->emitToolProposals($agentMode ? $toolAccum : [], $userId, $conversationId, $sseFlush, $rid, $allowedNames);
+            $trace['proposals'] += $controller->emitToolProposals($agentMode ? $toolAccum : [], $userId, $conversationId, $sseFlush, $rid, $allowedNames, $runId);
             if ($agentMode) {
-                $controller->emitWorkoutFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
-                $controller->emitTaskCreationFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush);
-                $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush);
+                $controller->emitWorkoutFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush, $runId, $rid);
+                $controller->emitTaskCreationFallbackIfNeeded($toolAccum, $userId, $conversationId, $messages, $accumulatedText, $sseFlush, $runId, $rid);
+                $controller->emitToolMissedNotice($accumulatedText, $toolAccum, $sseFlush, $rid, $runId, $userId, $conversationId);
             }
             echo "data: [DONE]\n\n";
             $sseFlush();
+
+            // The provider closed the body without its own [DONE] (truncation),
+            // or the client vanished. Both are reported as their own outcome.
+            $aborted = connection_aborted();
+            $finish(
+                $aborted || $trace['errors'] > 0 ? 'error' : 'ok',
+                $aborted ? AiTrace::OUTCOME_STREAM_INTERRUPTED : ($trace['errors'] > 0 ? AiTrace::OUTCOME_PROVIDER_ERROR : AiTrace::OUTCOME_STREAM_TRUNCATED),
+                [
+                    'reply_chars' => mb_strlen($accumulatedText),
+                    'tool_calls' => $toolCount,
+                    'done_marker' => false,
+                    'stream_errors' => $trace['errors'],
+                    'token_usage' => $streamUsage,
+                ]
+            );
         }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
     }
 
@@ -1749,7 +2023,7 @@ class AiChatController extends Controller
      * but the user pasted a training plan, build the import preview from the
      * raw text and emit it as a workout_import_proposal packet.
      */
-    public function emitWorkoutFallbackIfNeeded(array $toolAccum, int $userId, int $conversationId, array $messages, string $assistantText, callable $sseFlush): void
+    public function emitWorkoutFallbackIfNeeded(array $toolAccum, int $userId, int $conversationId, array $messages, string $assistantText, callable $sseFlush, ?string $runId = null, ?string $rid = null): void
     {
         if (! empty($toolAccum)) {
             return;
@@ -1768,12 +2042,12 @@ class AiChatController extends Controller
         if (! $user) {
             return;
         }
-        $packet = $this->buildWorkoutFallbackProposal($user, $conversationId, $userMessage, $assistantText);
+        $packet = $this->buildWorkoutFallbackProposal($user, $conversationId, $userMessage, $assistantText, $runId, $rid);
         echo 'data: '.json_encode(['type' => 'workout_import_proposal'] + $packet)."\n\n";
         $sseFlush();
     }
 
-    public function emitTaskCreationFallbackIfNeeded(array $toolAccum, int $userId, int $conversationId, array $messages, string $assistantText, callable $sseFlush): void
+    public function emitTaskCreationFallbackIfNeeded(array $toolAccum, int $userId, int $conversationId, array $messages, string $assistantText, callable $sseFlush, ?string $runId = null, ?string $rid = null): void
     {
         if (!empty($toolAccum)) return;
         $userMessage = '';
@@ -1786,7 +2060,7 @@ class AiChatController extends Controller
         if ($userMessage === '' || !$this->isTaskCreationIntent($userMessage, $assistantText)) return;
         $user = User::find($userId);
         if (!$user) return;
-        $proposals = $this->buildTaskCreationFallbackProposals($user, $userMessage, $assistantText);
+        $proposals = $this->buildTaskCreationFallbackProposals($user, $userMessage, $assistantText, $runId, $rid);
         foreach ($proposals as $proposal) {
             echo 'data: '.json_encode(['type' => 'tool_proposal'] + $proposal)."\n\n";
             $sseFlush();
@@ -1802,19 +2076,24 @@ class AiChatController extends Controller
      * Turn accumulated tool_calls into pending actions and emit SSE proposals.
      * $allowedNames (null = no visibility check, e.g. legacy callers) enforces
      * server-side that the model only proposed visible tools.
+     *
+     * Returns the number of proposal packets actually emitted, so the
+     * terminal request event can report a real proposal_count instead of
+     * the raw tool-call count.
      */
-    public function emitToolProposals(array $toolAccum, int $userId, int $conversationId, callable $sseFlush, ?string $rid = null, ?array $allowedNames = null): void
+    public function emitToolProposals(array $toolAccum, int $userId, int $conversationId, callable $sseFlush, ?string $rid = null, ?array $allowedNames = null, ?string $runId = null): int
     {
         if (empty($toolAccum)) {
-            AiLogger::log('stream.no_tool_calls', ['user_id' => $userId, 'conversation_id' => $conversationId, 'rid' => $rid]);
+            AiLogger::log('stream.no_tool_calls', AiTrace::ids($runId, $rid, $userId, $conversationId));
 
-            return;
+            return 0;
         }
         $user = User::find($userId);
         if (! $user) {
-            return;
+            return 0;
         }
-        AiLogger::log('stream.tool_calls_received', ['rid' => $rid, 'user_id' => $userId, 'conversation_id' => $conversationId, 'count' => count($toolAccum), 'names' => collect(array_values($toolAccum))->map(fn ($tc) => $tc['name'] ?? '?')->all()]);
+        $emitted = 0;
+        AiLogger::log('stream.tool_calls_received', AiTrace::ids($runId, $rid, $userId, $conversationId) + ['count' => count($toolAccum), 'names' => collect(array_values($toolAccum))->map(fn ($tc) => $tc['name'] ?? '?')->all()]);
         // Turn guard: per-turn cap + identical-call loop cut (order preserved).
         $indexed = [];
         foreach (array_values($toolAccum) as $i => $tc) {
@@ -1827,9 +2106,10 @@ class AiChatController extends Controller
         $guard = \App\Services\AiTooling\ToolPipeline::filterTurnCalls($indexed);
         $keptIdx = collect($guard['kept'])->map(fn ($k) => $k['index'])->all();
         foreach ($guard['dropped'] as $dropped) {
-            AiLogger::log('stream.proposal_dropped', ['rid' => $rid, 'user_id' => $userId, 'conversation_id' => $conversationId, 'tool' => $dropped['name'], 'code' => $dropped['code']]);
+            AiLogger::log('stream.proposal_dropped', AiTrace::ids($runId, $rid, $userId, $conversationId) + ['tool' => $dropped['name'], 'code' => $dropped['code']]);
             echo 'data: '.json_encode(['type' => 'tool_proposal', 'error' => $dropped['error'], 'code' => $dropped['code'], 'tool' => $dropped['name']])."\n\n";
             $sseFlush();
+            $emitted++;
         }
         foreach (array_values($toolAccum) as $i => $tc) {
             if (! in_array($i, $keptIdx, true)) {
@@ -1841,20 +2121,30 @@ class AiChatController extends Controller
             }
             if ($allowedNames !== null && ! \App\Services\AiTooling\ToolCapabilityRouter::isAllowed($name, $allowedNames)) {
                 $norm = AiToolService::normalizeToolName((string) $name);
-                AiLogger::log('stream.proposal_not_routed', ['rid' => $rid, 'user_id' => $userId, 'conversation_id' => $conversationId, 'tool' => $norm]);
+                AiLogger::log('stream.proposal_not_routed', AiTrace::ids($runId, $rid, $userId, $conversationId) + ['tool' => $norm]);
                 echo 'data: '.json_encode(['type' => 'tool_proposal', 'error' => "Tool '{$norm}' is not available for this request and was rejected.", 'code' => \App\Services\AiTooling\ToolError::NOT_ROUTED, 'tool' => $norm])."\n\n";
                 $sseFlush();
+                $emitted++;
                 continue;
             }
-            $proposal = $this->createPendingFromToolCall($user, $conversationId, $name, $tc['arguments'] ?? '{}', $allowedNames);
-            $normalizedName = AiToolService::normalizeToolName($name);
+            $proposal = $this->createPendingFromToolCall($user, $conversationId, $name, $tc['arguments'] ?? '{}', $allowedNames, $runId, $rid);
+            $normalizedName = AiToolService::normalizeToolName((string) $name);
             $packetType = $normalizedName === 'plan_propose'
                 ? 'plan_proposal'
                 : ($normalizedName === 'workout_plan_propose' ? 'workout_import_proposal' : 'tool_proposal');
-            AiLogger::log('stream.proposal_emitted', ['rid' => $rid, 'user_id' => $userId, 'conversation_id' => $conversationId, 'tool' => $normalizedName, 'packet' => $packetType, 'has_error' => isset($proposal['error']), 'action_id' => $proposal['action_id'] ?? null, 'plan_id' => $proposal['plan']['id'] ?? null]);
+            AiLogger::log(AiTrace::CONFIRMATION_REQUESTED, AiTrace::ids($runId, $rid, $userId, $conversationId, $proposal['action_id'] ?? null, $proposal['plan']['id'] ?? null) + [
+                'tool' => $normalizedName,
+                'packet' => $packetType,
+                'status' => isset($proposal['error']) ? 'error' : 'awaiting_confirmation',
+                'error' => $proposal['error'] ?? null,
+                'code' => $proposal['code'] ?? null,
+            ]);
             echo 'data: '.json_encode(['type' => $packetType] + $proposal)."\n\n";
             $sseFlush();
+            $emitted++;
         }
+
+        return $emitted;
     }
 
     /**
@@ -1862,7 +2152,7 @@ class AiChatController extends Controller
      * tool JSON (no real function call): tell the user nothing was created
      * instead of leaving raw JSON on screen. No pending action is stored.
      */
-    public function emitToolMissedNotice(string $text, array $toolAccum, callable $sseFlush, ?string $rid = null): void
+    public function emitToolMissedNotice(string $text, array $toolAccum, callable $sseFlush, ?string $rid = null, ?string $runId = null, int $userId = 0, int $conversationId = 0): void
     {
         if (! empty($toolAccum) || trim($text) === '') {
             return;
@@ -1870,11 +2160,11 @@ class AiChatController extends Controller
         // At least two tool-shaped keys -> likely a pasted tool call, not a code example.
         $hits = preg_match_all('/"(title|description|due_date|project_id|projectId|dueDate)"\s*:/', $text);
         if ($hits < 2 || ! str_contains($text, '{')) {
-            AiLogger::log('stream.text_only_no_tools', ['rid' => $rid, 'reply_len' => mb_strlen($text)]);
+            AiLogger::log('stream.text_only_no_tools', AiTrace::ids($runId, $rid, $userId, $conversationId) + ['reply_len' => mb_strlen($text)]);
 
             return;
         }
-        AiLogger::log('stream.tool_missed_text_json', ['rid' => $rid, 'reply_preview' => $text]);
+        AiLogger::log('stream.tool_missed_text_json', AiTrace::ids($runId, $rid, $userId, $conversationId) + ['reply_preview' => $text]);
         $notice = '⚠️ I answered in text instead of creating anything — nothing was saved. Please send the request again (or pick a model with function-calling support).';
         echo 'data: '.json_encode(['choices' => [['delta' => ['content' => "\n\n".$notice]]]])."\n\n";
         $sseFlush();

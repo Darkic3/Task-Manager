@@ -6,6 +6,7 @@ use App\Models\AiMessage;
 use App\Models\AiPlan;
 use App\Services\AiLogger;
 use App\Services\AiToolService;
+use App\Support\AiTrace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -19,6 +20,27 @@ class AiPlanController extends Controller
         $this->tools = $tools;
     }
 
+    /**
+     * Trace ids for a plan event.
+     *
+     * Deliberately no run_id here: the plan idempotency key is derived from
+     * title + structure (ToolPipeline::derivePlanKey), so any stored trace
+     * inside `structure` would break dedupe — and a new column was not
+     * justified. Plans therefore correlate by `plan_id` to
+     * `plan.proposed`, which carries the run that produced them.
+     */
+    private function traceFor(AiPlan $plan, ?string $rid = null): array
+    {
+        return AiTrace::ids(
+            null,
+            $rid,
+            $plan->user_id,
+            $plan->conversation_id,
+            null,
+            $plan->id
+        );
+    }
+
     public function confirmStructure(AiPlan $plan)
     {
         abort_if($plan->user_id !== Auth::id(), 403);
@@ -26,7 +48,10 @@ class AiPlanController extends Controller
         // Row lock: the status check and the proposed → confirmed flip must
         // be atomic, otherwise two concurrent clicks both confirm and both
         // append the "Structure approved" note.
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($plan) {
+        // One rid per HTTP request.
+        $rid = AiLogger::newRequestId();
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($plan, $rid) {
             /** @var AiPlan $locked */
             $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->firstOrFail();
             abort_if($locked->user_id !== Auth::id(), 403);
@@ -36,7 +61,7 @@ class AiPlanController extends Controller
             }
             if (! $locked->isActionable()) {
                 $this->expire($locked);
-                AiLogger::log('plan.structure_expired', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'status' => $locked->status]);
+                AiLogger::log('plan.structure_expired', $this->traceFor($locked, $rid) + ['status' => $locked->status]);
 
                 return response()->json(['ok' => false, 'error' => __('This plan has expired. Ask Lina to propose it again.')], 422);
             }
@@ -48,7 +73,7 @@ class AiPlanController extends Controller
             $locked->save();
 
             Log::info('ai.plan.structure_confirmed', ['user_id' => Auth::id(), 'plan_id' => $locked->id]);
-            AiLogger::log('plan.structure_confirmed', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'title' => $locked->title, 'note' => 'structure approved only — nothing created yet until confirm-phase']);
+            AiLogger::log('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'proposed→confirmed', 'title' => $locked->title, 'status' => $locked->status, 'note' => 'structure approved only — nothing created yet until confirm-phase']);
             $this->note($locked, __('📋 Structure approved (nothing created yet — run the phases below to build): :title', ['title' => $locked->title]));
 
             return response()->json(['ok' => true, 'plan' => $this->serialize($locked->fresh())]);
@@ -66,7 +91,10 @@ class AiPlanController extends Controller
 
         // Row lock: the phase-pointer check and the phase execution must be
         // atomic, otherwise two concurrent run_all calls interleave phases.
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $plan) {
+        // One rid per HTTP request.
+        $rid = AiLogger::newRequestId();
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $plan, $rid) {
             /** @var AiPlan $locked */
             $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->firstOrFail();
             abort_if($locked->user_id !== Auth::id(), 403);
@@ -93,7 +121,7 @@ class AiPlanController extends Controller
                 $result = $this->tools->executePlanPhase($locked->fresh(), Auth::user());
                 if (! ($result['ok'] ?? false)) {
                     \Illuminate\Support\Facades\Log::warning('ai.plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'error' => $result['message'] ?? null]);
-                    AiLogger::error('plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'phase' => $locked->fresh()->current_phase, 'error' => $result['message'] ?? null, 'completed_phases' => $messages]);
+                    AiLogger::error('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'phase_failed', 'phase' => $locked->fresh()->current_phase, 'status' => 'failed', 'error' => $result['message'] ?? null, 'completed_phases' => $messages]);
                     // Partial failure is reported, never swallowed: what already
                     // ran stays (by design, no rollback) and is listed both in
                     // the response and in the conversation history.
@@ -119,8 +147,7 @@ class AiPlanController extends Controller
                 $locked = $locked->fresh();
             } while ($request->boolean('run_all') && $locked->status !== AiPlan::STATUS_DONE);
 
-            \Illuminate\Support\Facades\Log::info('ai.plan.phase_executed', ['user_id' => Auth::id(), 'plan_id' => $locked->id]);
-            AiLogger::log('plan.phase_executed', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'phases_run' => $phasesRun, 'run_all' => $request->boolean('run_all'), 'status' => $locked->status, 'messages' => implode(' ', $messages)]);
+            AiLogger::log('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'phase_executed', 'phases_run' => $phasesRun, 'run_all' => $request->boolean('run_all'), 'status' => $locked->status, 'messages' => implode(' ', $messages)]);
             $this->note($locked, '✅ ' . implode(' ', $messages));
 
             return response()->json(['ok' => true, 'plan' => $this->serialize($locked->fresh())]);
@@ -135,7 +162,10 @@ class AiPlanController extends Controller
         // A concurrent confirmStructure/confirmPhase that already flipped the
         // plan to confirmed/executing/done wins — the conditional update below
         // makes the loser a deduped no-op instead of clobbering the winner.
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($plan) {
+        // One rid per HTTP request.
+        $rid = AiLogger::newRequestId();
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($plan, $rid) {
             /** @var AiPlan|null $locked */
             $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->first();
             if (! $locked || (int) $locked->user_id !== (int) Auth::id()) {
@@ -151,7 +181,7 @@ class AiPlanController extends Controller
             $locked->status = AiPlan::STATUS_CANCELLED;
             $locked->save();
             Log::info('ai.plan.cancelled', ['user_id' => Auth::id(), 'plan_id' => $locked->id]);
-            AiLogger::log('plan.cancelled', ['user_id' => Auth::id(), 'plan_id' => $locked->id]);
+            AiLogger::log('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'cancelled', 'status' => $locked->status]);
 
             return response()->json(['ok' => true, 'message' => __('Plan cancelled — already-created items stay.')]);
         });

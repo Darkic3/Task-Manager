@@ -104,13 +104,15 @@ class TaskController extends Controller
     {
         $data = $request->validate([
             'title' => 'required|string|max:255',
-            'project_id' => ['nullable', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
+            'project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
             'status' => 'nullable|in:to_do,in_progress,on_hold,in_review,completed',
         ]);
 
+        $projectId = ($data['project_id'] ?? null) === 0 ? null : ($data['project_id'] ?? null);
+
         $task = Task::create([
             'title' => $data['title'],
-            'project_id' => $data['project_id'] ?? null,
+            'project_id' => $projectId,
             'user_id' => Auth::id(),
             'priority' => 'medium',
             'status' => $data['status'] ?? 'to_do',

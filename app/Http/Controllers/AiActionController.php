@@ -6,6 +6,7 @@ use App\Models\AiMessage;
 use App\Models\AiPendingAction;
 use App\Services\AiLogger;
 use App\Services\AiToolService;
+use App\Support\AiTrace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +18,36 @@ class AiActionController extends Controller
     public function __construct(AiToolService $tools)
     {
         $this->tools = $tools;
+    }
+
+    /**
+     * The run an executing action belongs to.
+     *
+     * `args` is never used for this: it feeds the idempotency key and is
+     * re-validated, so mutating it would weaken dedupe. The trace rides in the
+     * display-only `preview` JSON. Old rows have no `_trace` — run_id is then
+     * null and the action still executes; only the correlation is missing.
+     */
+    private function traceFor(AiPendingAction $action, ?string $rid = null): array
+    {
+        $t = $action->preview['_trace'] ?? [];
+
+        return AiTrace::ids(
+            isset($t['run_id']) ? (string) $t['run_id'] : null,
+            $rid,
+            $action->user_id,
+            $action->conversation_id,
+            $action->id
+        );
+    }
+
+    private function runIdOf(AiPendingAction $action): ?string
+    {
+        $t = $action->preview['_trace'] ?? null;
+
+        return isset($t['run_id']) && is_string($t['run_id']) && $t['run_id'] !== ''
+            ? $t['run_id']
+            : null;
     }
 
     public function confirm(Request $request, AiPendingAction $action)
@@ -46,8 +77,10 @@ class AiActionController extends Controller
     {
         abort_if($action->user_id !== Auth::id(), 403);
         $user = Auth::user();
+        // One rid per HTTP request.
+        $rid = AiLogger::newRequestId();
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($action, $user) {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($action, $user, $rid) {
             /** @var AiPendingAction|null $fresh */
             $fresh = AiPendingAction::where('id', $action->id)->lockForUpdate()->first();
             if (! $fresh || (int) $fresh->user_id !== (int) $user->id) {
@@ -77,8 +110,7 @@ class AiActionController extends Controller
             $fresh->undone_at = now();
             $fresh->save();
 
-            \Illuminate\Support\Facades\Log::info('ai.tool.undone', ['user_id' => $user->id, 'tool' => $fresh->tool, 'action_id' => $fresh->id]);
-            AiLogger::log('action.undone', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool]);
+            AiLogger::log('action.undone', $this->traceFor($fresh, $rid) + ['tool' => $fresh->tool, 'status' => 'undone']);
 
             if ($fresh->conversation_id) {
                 AiMessage::create([
@@ -99,6 +131,8 @@ class AiActionController extends Controller
     public function confirmAll(Request $request)
     {
         $user = Auth::user();
+        // One rid per HTTP request: shared by every event of this batch.
+        $rid = AiLogger::newRequestId();
         $pending = AiPendingAction::where('user_id', $user->id)
             ->where('status', AiPendingAction::STATUS_PENDING)
             ->orderBy('id')
@@ -109,7 +143,7 @@ class AiActionController extends Controller
         $failed = [];
         $expired = 0;
         foreach ($pending as $action) {
-            $result = $this->runAction($action, $user);
+            $result = $this->runAction($action, $user, $rid);
             if ($result['ok'] ?? false) {
                 if (! ($result['deduped'] ?? false)) {
                     $done[] = $result['message'] ?? $action->tool;
@@ -121,7 +155,7 @@ class AiActionController extends Controller
             }
         }
 
-        AiLogger::log('action.confirm_all', ['user_id' => $user->id, 'done' => count($done), 'failed' => count($failed), 'expired' => $expired]);
+        AiLogger::log('action.confirm_all', AiTrace::ids(null, $rid, $user->id) + ['done' => count($done), 'failed' => count($failed), 'expired' => $expired, 'action_ids' => $pending->pluck('id')->all()]);
 
         $parts = [];
         if ($done) {
@@ -146,6 +180,8 @@ class AiActionController extends Controller
     public function rejectAll(Request $request)
     {
         $user = Auth::user();
+        // One rid per HTTP request.
+        $rid = AiLogger::newRequestId();
         // Collect candidate IDs first (a concurrent confirm may resolve some
         // between the read and the write — the conditional flip below makes
         // that safe: only still-pending rows are ever cancelled).
@@ -177,7 +213,7 @@ class AiActionController extends Controller
                 ->update(['status' => AiPendingAction::STATUS_REJECTED]) > 0);
         }
 
-        AiLogger::log('action.reject_all', ['user_id' => $user->id, 'cancelled' => $count, 'expired' => $expired]);
+        AiLogger::log('action.reject_all', AiTrace::ids(null, $rid, $user->id) + ['cancelled' => $count, 'expired' => $expired]);
 
         return response()->json(['ok' => true, 'message' => $count > 0 ? __(':count pending action(s) cancelled — nothing changed.', ['count' => $count]) : __('Nothing pending.')]);
     }
@@ -197,12 +233,14 @@ class AiActionController extends Controller
     {
         $user = Auth::user();
         $data = $request->validate(['option_index' => 'required|integer|min:0|max:9']);
+        // One rid per HTTP request.
+        $rid = AiLogger::newRequestId();
 
-        $result = \Illuminate\Support\Facades\DB::transaction(function () use ($action, $user, $data) {
+        $result = \Illuminate\Support\Facades\DB::transaction(function () use ($action, $user, $data, $rid) {
             /** @var AiPendingAction|null $fresh */
             $fresh = AiPendingAction::where('id', $action->id)->lockForUpdate()->first();
             if (! $fresh || (int) $fresh->user_id !== (int) $user->id) {
-                AiLogger::log('action.choice_forbidden', ['user_id' => $user->id ?? null, 'action_id' => $action->id]);
+                AiLogger::log('action.choice_forbidden', AiTrace::ids(null, $rid, $user->id ?? null, null, $action->id));
 
                 return ['error' => __('Not allowed.'), 'status' => 403];
             }
@@ -247,17 +285,27 @@ class AiActionController extends Controller
             // Normal proposal path for the chosen option: envelope, security
             // screen, business validation, ownership, policy and its own
             // confirmation card — identical to a model-emitted call.
+            // The chosen proposal keeps the ORIGINAL run_id: answering a
+            // clarification is the same logical run, not a new one.
             $proposal = app(\App\Http\Controllers\AiChatController::class)
-                ->proposeChosenOption($user, $fresh->conversation_id, (string) ($opt['tool'] ?? ''), (array) ($opt['args'] ?? []));
+                ->proposeChosenOption($user, $fresh->conversation_id, (string) ($opt['tool'] ?? ''), (array) ($opt['args'] ?? []), $this->runIdOf($fresh), $rid);
 
-            AiLogger::log('action.choice_picked', [
-                'user_id' => $user->id,
-                'action_id' => $fresh->id,
+            AiLogger::log('action.choice_picked', $this->traceFor($fresh, $rid) + [
                 'option_index' => $idx,
                 'tool' => $opt['tool'] ?? null,
                 'proposal_action_id' => $proposal['action_id'] ?? null,
                 'error' => $proposal['error'] ?? null,
+                'status' => isset($proposal['error']) ? 'error' : 'awaiting_confirmation',
             ]);
+            // The chosen option reaches the user as a confirmation card.
+            if (isset($proposal['action_id'])) {
+                AiLogger::log(AiTrace::CONFIRMATION_REQUESTED, $this->traceFor($fresh, $rid) + [
+                    'tool' => $opt['tool'] ?? null,
+                    'action_id' => (int) $proposal['action_id'],
+                    'status' => 'awaiting_confirmation',
+                    'via' => 'choice',
+                ]);
+            }
 
             // Same packet typing as the SSE emitter so the frontend can reuse
             // its existing renderers.
@@ -286,9 +334,12 @@ class AiActionController extends Controller
      * (schema → security → business → ownership → state) on fresh reads
      * before anything executes.
      */
-    private function runAction(AiPendingAction $action, $user): array
+    private function runAction(AiPendingAction $action, $user, ?string $rid = null): array
     {
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($action, $user) {
+        // One rid for this whole HTTP request (a batch shares it too).
+        $rid = $rid ?: AiLogger::newRequestId();
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($action, $user, $rid) {
             /** @var AiPendingAction|null $fresh */
             $fresh = AiPendingAction::where('id', $action->id)->lockForUpdate()->first();
             if (! $fresh) {
@@ -296,7 +347,7 @@ class AiActionController extends Controller
             }
             // Ownership of the pending action itself (confirmation ≠ authorization).
             if ((int) $fresh->user_id !== (int) $user->id) {
-                AiLogger::log('action.confirm_forbidden', ['user_id' => $user->id, 'action_id' => $fresh->id, 'owner' => $fresh->user_id]);
+                AiLogger::log('action.confirm_forbidden', $this->traceFor($fresh, $rid) + ['owner' => $fresh->user_id, 'status' => 'forbidden']);
 
                 return ['ok' => false, 'code' => \App\Services\AiTooling\ToolError::AUTHORIZATION_ERROR, 'error' => __('Not allowed.')];
             }
@@ -305,7 +356,7 @@ class AiActionController extends Controller
             if ($fresh->conversation_id) {
                 $conv = \App\Models\AiConversation::where('id', $fresh->conversation_id)->first(['id', 'user_id']);
                 if (! $conv || (int) $conv->user_id !== (int) $user->id) {
-                    AiLogger::log('action.confirm_invalid', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'error' => 'conversation ownership mismatch']);
+                    AiLogger::log('action.confirm_invalid', $this->traceFor($fresh, $rid) + ['tool' => $fresh->tool, 'status' => 'forbidden', 'error' => 'conversation_ownership_mismatch']);
 
                     return ['ok' => false, 'code' => \App\Services\AiTooling\ToolError::AUTHORIZATION_ERROR, 'error' => __('No longer valid.')];
                 }
@@ -323,7 +374,7 @@ class AiActionController extends Controller
                 if ($fresh->isPending() && $fresh->isExpired()) {
                     $fresh->markExpired();
                 }
-                AiLogger::log('action.confirm_expired', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'status' => $fresh->status]);
+                AiLogger::log('action.confirm_expired', $this->traceFor($fresh, $rid) + ['tool' => $fresh->tool, 'status' => $fresh->status]);
 
                 if ($fresh->status === AiPendingAction::STATUS_REJECTED) {
                     return ['ok' => false, 'code' => \App\Services\AiTooling\ToolError::CANCELLED, 'error' => __('This confirmation was cancelled — nothing changed.')];
@@ -340,7 +391,7 @@ class AiActionController extends Controller
             // never execute blindly.
             $check = \App\Services\AiTooling\ToolPipeline::revalidateForExecute($user, $fresh->tool, (array) $fresh->args);
             if (! ($check['ok'] ?? false)) {
-                AiLogger::log('action.confirm_invalid', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'code' => $check['code'] ?? null, 'error' => $check['error'] ?? 'No longer valid.']);
+                AiLogger::log('action.confirm_invalid', $this->traceFor($fresh, $rid) + ['tool' => $fresh->tool, 'status' => 'invalid', 'code' => $check['code'] ?? null, 'error' => $check['error'] ?? 'No longer valid.']);
 
                 return ['ok' => false, 'code' => $check['code'] ?? 'invalid', 'error' => $check['error'] ?? __('No longer valid.')];
             }
@@ -354,6 +405,15 @@ class AiActionController extends Controller
                 return ['ok' => true, 'code' => \App\Services\AiTooling\ToolError::OK, 'deduped' => true, 'message' => __('Already executed.')];
             }
             $fresh->status = AiPendingAction::STATUS_EXECUTING;
+
+            // Claim won: this process is the one that runs the tool. Emitted
+            // after the claim so a concurrent loser never logs a fake exec.
+            AiLogger::log(AiTrace::ACTION_EXECUTING, $this->traceFor($fresh, $rid) + [
+                'tool' => $fresh->tool,
+                'status' => 'executing',
+                'claimed_at' => now()->toIso8601String(),
+            ]);
+            $execStartedAt = microtime(true);
 
             // Before-image for limited undo (reversible tools only).
             $undo = \App\Services\AiUndoService::supports($fresh->tool)
@@ -370,14 +430,14 @@ class AiActionController extends Controller
                 // terminal FAILED with the reason stored, never retryable blindly.
                 $fresh->markFailed($e->getMessage());
                 \Illuminate\Support\Facades\Log::error('ai.tool.exception', ['user_id' => $user->id, 'tool' => $fresh->tool, 'action_id' => $fresh->id, 'error' => $e->getMessage()]);
-                AiLogger::error('action.execute_failed', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'code' => \App\Services\AiTooling\ToolError::EXECUTION_ERROR, 'error' => $e->getMessage()]);
+                AiLogger::error(AiTrace::ACTION_FAILED, $this->traceFor($fresh, $rid) + ['tool' => $fresh->tool, 'status' => 'failed', 'stage' => 'execute', 'code' => \App\Services\AiTooling\ToolError::EXECUTION_ERROR, 'error' => $e->getMessage()]);
 
                 return ['ok' => false, 'code' => \App\Services\AiTooling\ToolError::EXECUTION_ERROR, 'error' => __('Execution failed: :details', ['details' => $e->getMessage()])];
             }
 
             if (! ($result['ok'] ?? false)) {
                 $fresh->markFailed($result['message'] ?? 'Execution failed.');
-                AiLogger::error('action.execute_failed', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'code' => $result['code'] ?? null, 'error' => $result['message'] ?? 'Execution failed.']);
+                AiLogger::error(AiTrace::ACTION_FAILED, $this->traceFor($fresh, $rid) + ['tool' => $fresh->tool, 'status' => 'failed', 'stage' => 'execute', 'code' => $result['code'] ?? null, 'error' => $result['message'] ?? 'Execution failed.']);
 
                 return ['ok' => false, 'code' => $result['code'] ?? 'execute_failed', 'error' => $result['message'] ?? __('Execution failed.')];
             }
@@ -388,10 +448,7 @@ class AiActionController extends Controller
             $fresh->undo_data = $undo;
             $fresh->save();
 
-            \Illuminate\Support\Facades\Log::info('ai.tool.executed', [
-                'user_id' => $user->id, 'tool' => $fresh->tool, 'action_id' => $fresh->id,
-            ]);
-            AiLogger::log('action.executed', ['user_id' => $user->id, 'action_id' => $fresh->id, 'tool' => $fresh->tool, 'message' => $result['message'] ?? null, 'created_id' => $result['id'] ?? null, 'undoable' => $undo !== null]);
+            AiLogger::log(AiTrace::ACTION_EXECUTED, $this->traceFor($fresh, $rid) + ['tool' => $fresh->tool, 'status' => 'executed', 'created_id' => $result['id'] ?? null, 'undoable' => $undo !== null, 'message' => $result['message'] ?? null, 'exec_ms' => AiTrace::elapsedMs($execStartedAt)]);
 
             if ($fresh->conversation_id) {
                 AiMessage::create([
@@ -414,6 +471,8 @@ class AiActionController extends Controller
     public function reject(AiPendingAction $action)
     {
         abort_if($action->user_id !== Auth::id(), 403);
+        // One rid per HTTP request.
+        $rid = AiLogger::newRequestId();
 
         // Atomic conditional flip: a concurrent confirm that already claimed
         // or executed this action can never be clobbered back to rejected.
@@ -431,7 +490,7 @@ class AiActionController extends Controller
         Log::info('ai.tool.rejected', [
             'user_id' => Auth::id(), 'tool' => $action->tool, 'action_id' => $action->id,
         ]);
-        AiLogger::log('action.rejected', ['user_id' => Auth::id(), 'action_id' => $action->id, 'tool' => $action->tool]);
+        AiLogger::log('action.rejected', $this->traceFor($action, $rid) + ['tool' => $action->tool, 'status' => 'rejected']);
 
         return response()->json(['ok' => true, 'message' => __('Cancelled — nothing changed.')]);
     }

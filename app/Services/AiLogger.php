@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Logging\AiTraceHandler;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -14,13 +15,29 @@ use Illuminate\Support\Str;
  * logged to a dedicated storage/logs/ai.log channel with the same fields:
  * user, mode, provider, model, message preview, tools, errors.
  *
+ * Tracing: every event also carries the execution-trace identifiers from
+ * App\Support\AiTrace — run_id (the logical run), rid (this HTTP request),
+ * user_id, conversation_id and action_id/plan_id when known — plus an
+ * occurred_at timestamp injected here, so one event line is self-describing.
+ *
  * Usage: AiLogger::log('request.received', [...]);
  */
 class AiLogger
 {
+    /**
+     * Default channel. Overridden per environment with AI_LOG_CHANNEL
+     * (phpunit.xml points tests at the in-memory `ai_memory` sink so test
+     * runs never touch the operational log files).
+     */
     public const CHANNEL = 'ai';
 
     public const MAX_MESSAGE_PREVIEW = 300;
+
+    /** The channel this process actually writes to. */
+    public static function channel(): string
+    {
+        return (string) config('ai.log_channel', self::CHANNEL);
+    }
 
     public static function newRequestId(): string
     {
@@ -34,7 +51,7 @@ class AiLogger
     public static function log(string $event, array $context = []): void
     {
         try {
-            Log::channel(self::CHANNEL)->info($event, self::sanitize($context));
+            Log::channel(self::channel())->info($event, self::sanitize(self::stamp($context)));
         } catch (\Throwable $e) {
             // Last resort: default channel so the event is not fully lost.
             try {
@@ -47,13 +64,22 @@ class AiLogger
     public static function error(string $event, array $context = []): void
     {
         try {
-            Log::channel(self::CHANNEL)->error($event, self::sanitize($context));
+            Log::channel(self::channel())->error($event, self::sanitize(self::stamp($context)));
         } catch (\Throwable $e) {
             try {
                 Log::error('[ai-logger-fallback] '.$event, ['error' => $e->getMessage()]);
             } catch (\Throwable $ignored) {
             }
         }
+    }
+
+    /**
+     * occurred_at is part of the trace contract: an event line must state when
+     * it happened without depending on the Monolog prefix.
+     */
+    private static function stamp(array $context): array
+    {
+        return ['occurred_at' => now()->toIso8601String()] + $context;
     }
 
     /**
@@ -64,6 +90,11 @@ class AiLogger
     {
         foreach ($context as $k => $v) {
             $lk = strtolower((string) $k);
+            // Trace fields that merely look secret-ish but are not:
+            // `token_usage` carries provider token COUNTS, never a token.
+            if (in_array($lk, ['token_usage', 'token_usage_input', 'token_usage_output'], true)) {
+                continue;
+            }
             if (str_contains($lk, 'api_key')
                 || str_contains($lk, 'apikey')
                 || $lk === 'key'
@@ -127,6 +158,11 @@ class AiLogger
     public static function tail(int $lines = 80): array
     {
         try {
+            // In-memory sink (tests): same line shape, no filesystem at all.
+            if (self::channel() === AiTraceHandler::CHANNEL) {
+                return AiTraceHandler::lines(max($lines * 5, 200));
+            }
+
             // `daily` driver layout (ai-YYYY-MM-DD.log) is primary;
             // legacy `single` file (ai.log) is a fallback for old installs.
             $dated = storage_path('logs/ai-' . now()->format('Y-m-d') . '.log');
