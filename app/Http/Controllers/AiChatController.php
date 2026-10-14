@@ -1671,19 +1671,35 @@ class AiChatController extends Controller
             $sseFlush = $this->sseFlushClosure();
             $controller = $this;
             $resolvedForError = $resolved;
+            // Whether the sync fallback truly recovered: only a non-empty
+            // provider reply counts. Formatted error text is streamed to the
+            // user either way, but the TERMINAL event must report the real
+            // outcome — never completed/ok for a failed request.
+            $syncOk = false;
+            $syncError = null;
+            $syncErrorType = null;
             try {
                 $raw = $this->callOpenAiSyncRaw($key, $cfg['base_url'], $messages, $model, $tools);
                 $fullText = $raw['text'] !== '' ? $raw['text'] : $this->formatProviderError(new AiProviderException('Empty response from provider', $provider, $endpoint), $resolvedForError);
                 $fallbackTools = $raw['tool_calls'];
+                $syncOk = trim($raw['text'] ?? '') !== '';
+                if (! $syncOk) {
+                    $syncError = 'Empty response from provider';
+                    $syncErrorType = 'provider';
+                }
             } catch (AiProviderException $e2) {
                 $fullText = $this->formatProviderError($e2, $resolvedForError);
                 $fallbackTools = [];
+                $syncError = $e2->getMessage();
+                $syncErrorType = 'provider';
             } catch (\Exception $e2) {
                 $fullText = $this->isProviderConnectionError($e2) ? $this->formatProviderError(new AiProviderException($e2->getMessage(), parse_url($endpoint, PHP_URL_HOST) ?: $provider, $endpoint, null, 0, $e2), $resolvedForError) : $this->formatSystemError($e2);
                 $fallbackTools = [];
+                $syncError = $e2->getMessage();
+                $syncErrorType = $this->isProviderConnectionError($e2) ? 'provider' : 'system';
             }
 
-            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $runId, $rid, $startedAt) {
+            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $runId, $rid, $startedAt, $syncOk, $syncError, $syncErrorType) {
                 echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
                 $sseFlush();
                 foreach (mb_str_split($fullText, 5) as $chunk) {
@@ -1714,19 +1730,30 @@ class AiChatController extends Controller
                 }
                 echo "data: [DONE]\n\n";
                 $sseFlush();
-                AiLogger::log('request.completed', AiTrace::ids($runId, $rid, $userId, $conversationId) + [
+                $terminalBase = AiTrace::ids($runId, $rid, $userId, $conversationId) + [
                     'endpoint' => 'stream',
                     'provider' => $provider,
                     'model' => $model,
-                    'status' => 'ok',
-                    'outcome' => empty($accum) ? AiTrace::OUTCOME_REPLIED : AiTrace::OUTCOME_CONFIRMATION_REQUESTED,
                     'reply_chars' => mb_strlen($fullText),
                     'proposal_count' => count($accum),
                     'token_usage' => null,
                     'connection_aborted' => connection_aborted() ? true : null,
                     'latency_ms' => AiTrace::elapsedMs($startedAt),
                     'recovered' => 'sync_fallback',
-                ]);
+                ];
+                if ($syncOk) {
+                    AiLogger::log('request.completed', $terminalBase + [
+                        'status' => 'ok',
+                        'outcome' => empty($accum) ? AiTrace::OUTCOME_REPLIED : AiTrace::OUTCOME_CONFIRMATION_REQUESTED,
+                    ]);
+                } else {
+                    AiLogger::error('request.failed', $terminalBase + [
+                        'status' => 'error',
+                        'outcome' => $syncErrorType === 'system' ? AiTrace::OUTCOME_SYSTEM_ERROR : AiTrace::OUTCOME_PROVIDER_ERROR,
+                        'error' => $syncError,
+                        'error_type' => $syncErrorType,
+                    ]);
+                }
             }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
         } catch (\Exception $e) {
             if ($this->isProviderConnectionError($e)) {
@@ -1738,18 +1765,30 @@ class AiChatController extends Controller
                 $sseFlush = $this->sseFlushClosure();
                 $controller = $this;
                 $resolvedForError = $resolved;
+                $syncOk = false;
+                $syncError = null;
+                $syncErrorType = null;
                 try {
                     $raw = $this->callOpenAiSyncRaw($key, $cfg['base_url'], $messages, $model, $tools);
                     $fullText = $raw['text'] !== '' ? $raw['text'] : $this->formatProviderError(new AiProviderException('Empty response from provider', $provider, $endpoint), $resolvedForError);
                     $fallbackTools = $raw['tool_calls'];
+                    $syncOk = trim($raw['text'] ?? '') !== '';
+                    if (! $syncOk) {
+                        $syncError = 'Empty response from provider';
+                        $syncErrorType = 'provider';
+                    }
                 } catch (AiProviderException $e2) {
                     $fullText = $this->formatProviderError($e2, $resolvedForError);
                     $fallbackTools = [];
+                    $syncError = $e2->getMessage();
+                    $syncErrorType = 'provider';
                 } catch (\Exception $e2) {
                     $fullText = $this->isProviderConnectionError($e2) ? $this->formatProviderError(new AiProviderException($e2->getMessage(), parse_url($endpoint, PHP_URL_HOST) ?: $provider, $endpoint, null, 0, $e2), $resolvedForError) : $this->formatSystemError($e2);
                     $fallbackTools = [];
+                    $syncError = $e2->getMessage();
+                    $syncErrorType = $this->isProviderConnectionError($e2) ? 'provider' : 'system';
                 }
-                return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $runId, $rid, $startedAt) {
+                return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $runId, $rid, $startedAt, $syncOk, $syncError, $syncErrorType) {
                     echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
                     $sseFlush();
                     foreach (mb_str_split($fullText, 5) as $chunk) {
@@ -1780,19 +1819,30 @@ class AiChatController extends Controller
                     }
                     echo "data: [DONE]\n\n";
                     $sseFlush();
-                    AiLogger::log('request.completed', AiTrace::ids($runId, $rid, $userId, $conversationId) + [
+                    $terminalBase = AiTrace::ids($runId, $rid, $userId, $conversationId) + [
                         'endpoint' => 'stream',
                         'provider' => $provider,
                         'model' => $model,
-                        'status' => 'ok',
-                        'outcome' => empty($accum) ? AiTrace::OUTCOME_REPLIED : AiTrace::OUTCOME_CONFIRMATION_REQUESTED,
                         'reply_chars' => mb_strlen($fullText),
                         'proposal_count' => count($accum),
                         'token_usage' => null,
                         'connection_aborted' => connection_aborted() ? true : null,
                         'latency_ms' => AiTrace::elapsedMs($startedAt),
                         'recovered' => 'sync_fallback',
-                    ]);
+                    ];
+                    if ($syncOk) {
+                        AiLogger::log('request.completed', $terminalBase + [
+                            'status' => 'ok',
+                            'outcome' => empty($accum) ? AiTrace::OUTCOME_REPLIED : AiTrace::OUTCOME_CONFIRMATION_REQUESTED,
+                        ]);
+                    } else {
+                        AiLogger::error('request.failed', $terminalBase + [
+                            'status' => 'error',
+                            'outcome' => $syncErrorType === 'system' ? AiTrace::OUTCOME_SYSTEM_ERROR : AiTrace::OUTCOME_PROVIDER_ERROR,
+                            'error' => $syncError,
+                            'error_type' => $syncErrorType,
+                        ]);
+                    }
                 }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
             }
             \Log::error('AI stream system failed, falling back to sync', ['provider' => $provider, 'error' => $e->getMessage()]);
@@ -1802,19 +1852,31 @@ class AiChatController extends Controller
             $sseFlush = $this->sseFlushClosure();
             $controller = $this;
             $resolvedForError = $resolved;
+            $syncOk = false;
+            $syncError = null;
+            $syncErrorType = null;
             try {
                 $raw = $this->callOpenAiSyncRaw($key, $cfg['base_url'], $messages, $model, $tools);
                 $fullText = $raw['text'] !== '' ? $raw['text'] : $this->formatSystemError(new \Exception('Empty response from provider'));
                 $fallbackTools = $raw['tool_calls'];
+                $syncOk = trim($raw['text'] ?? '') !== '';
+                if (! $syncOk) {
+                    $syncError = 'Empty response from provider';
+                    $syncErrorType = 'system';
+                }
             } catch (AiProviderException $e2) {
                 $fullText = $this->formatProviderError($e2, $resolvedForError);
                 $fallbackTools = [];
+                $syncError = $e2->getMessage();
+                $syncErrorType = 'provider';
             } catch (\Exception $e2) {
                 $fullText = $this->formatSystemError($e2);
                 $fallbackTools = [];
+                $syncError = $e2->getMessage();
+                $syncErrorType = 'system';
             }
 
-            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $runId, $rid, $startedAt) {
+            return response()->stream(function () use ($sseFlush, $conversationId, $fullText, $fallbackTools, $model, $provider, $userId, $controller, $agentMode, $messages, $allowedNames, $runId, $rid, $startedAt, $syncOk, $syncError, $syncErrorType) {
                 echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $conversationId])."\n\n";
                 $sseFlush();
                 foreach (mb_str_split($fullText, 5) as $chunk) {
@@ -1845,19 +1907,30 @@ class AiChatController extends Controller
                 }
                 echo "data: [DONE]\n\n";
                 $sseFlush();
-                AiLogger::log('request.completed', AiTrace::ids($runId, $rid, $userId, $conversationId) + [
+                $terminalBase = AiTrace::ids($runId, $rid, $userId, $conversationId) + [
                     'endpoint' => 'stream',
                     'provider' => $provider,
                     'model' => $model,
-                    'status' => 'ok',
-                    'outcome' => empty($accum) ? AiTrace::OUTCOME_REPLIED : AiTrace::OUTCOME_CONFIRMATION_REQUESTED,
                     'reply_chars' => mb_strlen($fullText),
                     'proposal_count' => count($accum),
                     'token_usage' => null,
                     'connection_aborted' => connection_aborted() ? true : null,
                     'latency_ms' => AiTrace::elapsedMs($startedAt),
                     'recovered' => 'sync_fallback',
-                ]);
+                ];
+                if ($syncOk) {
+                    AiLogger::log('request.completed', $terminalBase + [
+                        'status' => 'ok',
+                        'outcome' => empty($accum) ? AiTrace::OUTCOME_REPLIED : AiTrace::OUTCOME_CONFIRMATION_REQUESTED,
+                    ]);
+                } else {
+                    AiLogger::error('request.failed', $terminalBase + [
+                        'status' => 'error',
+                        'outcome' => $syncErrorType === 'provider' ? AiTrace::OUTCOME_PROVIDER_ERROR : AiTrace::OUTCOME_SYSTEM_ERROR,
+                        'error' => $syncError,
+                        'error_type' => $syncErrorType,
+                    ]);
+                }
             }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
         }
 

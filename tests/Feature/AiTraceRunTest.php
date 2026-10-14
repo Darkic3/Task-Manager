@@ -246,6 +246,33 @@ class AiTraceRunTest extends TestCase
         $this->assertDatabaseCount('ai_pending_actions', 0);
     }
 
+    /* ── 4b. total outage: stream AND sync fallback both fail ── */
+
+    public function test_total_provider_outage_is_failed_not_completed(): void
+    {
+        $user = User::factory()->create();
+        $this->withOpenAi($user);
+
+        // Every transport attempt times out: the stream opener and the
+        // sync fallback behind it. The user still gets a streamed error
+        // explanation, but the terminal event must be failed, never ok.
+        Http::fake(fn () => throw new \Illuminate\Http\Client\ConnectionException('Connection timed out'));
+
+        $content = $this->streamAgent($user, 'یه تسک بساز به نام Never task')->streamedContent();
+
+        $runId = $this->lastRunId('stream');
+        $failed = $this->contextOf($runId, 'request.failed');
+        $this->assertNotNull($failed, 'a total outage must terminate the request event as failed');
+        $this->assertSame(AiTrace::OUTCOME_PROVIDER_ERROR, $failed['outcome']);
+        $this->assertSame('error', $failed['status']);
+        $this->assertSame('provider', $failed['error_type']);
+        $this->assertSame('sync_fallback', $failed['recovered']);
+        $this->assertNull($this->contextOf($runId, 'request.completed'), 'failed runs emit no success');
+        $this->assertContains('provider.attempt_failed', $this->namesForRun($runId));
+        $this->assertDatabaseCount('ai_pending_actions', 0);
+        $this->assertNotEmpty($content, 'the user still receives a streamed explanation');
+    }
+
     /* ── 5. request without tools ── */
 
     public function test_reply_only_request_reports_no_tools_outcome(): void
