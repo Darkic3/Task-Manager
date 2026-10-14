@@ -59,6 +59,11 @@ class AiPlanController extends Controller
             if (in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_DONE], true)) {
                 return response()->json(['ok' => true, 'deduped' => true, 'plan' => $this->serialize($locked->fresh())]);
             }
+            if ($locked->isSuperseded()) {
+                AiLogger::error('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'superseded_confirm_blocked', 'status' => $locked->status, 'replaced_by' => $locked->superseded_by_plan_id]);
+
+                return response()->json(['ok' => false, 'code' => 'superseded', 'replaced_by' => $locked->superseded_by_plan_id, 'error' => __('This plan was replaced by a newer plan.')], 422);
+            }
             if (! $locked->isActionable()) {
                 $this->expire($locked);
                 AiLogger::log('plan.structure_expired', $this->traceFor($locked, $rid) + ['status' => $locked->status]);
@@ -102,6 +107,11 @@ class AiPlanController extends Controller
             if (! $locked->isActionable() || ! in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING], true)) {
                 if ($locked->status === AiPlan::STATUS_DONE) {
                     return response()->json(['ok' => true, 'deduped' => true, 'plan' => $this->serialize($locked->fresh())]);
+                }
+                if ($locked->isSuperseded()) {
+                    AiLogger::error('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'superseded_phase_blocked', 'status' => $locked->status, 'replaced_by' => $locked->superseded_by_plan_id]);
+
+                    return response()->json(['ok' => false, 'code' => 'superseded', 'replaced_by' => $locked->superseded_by_plan_id, 'error' => __('This plan was replaced by a newer plan.')], 422);
                 }
                 $this->expire($locked);
 
@@ -154,9 +164,11 @@ class AiPlanController extends Controller
         });
     }
 
-    public function cancel(AiPlan $plan)
+    public function cancel(Request $request, AiPlan $plan)
     {
         abort_if($plan->user_id !== Auth::id(), 403);
+
+        $request->validate(['replaced_by_plan_id' => 'nullable|integer|min:1']);
 
         // Race-safe: only an actionable (non-terminal) plan can be cancelled.
         // A concurrent confirmStructure/confirmPhase that already flipped the
@@ -165,7 +177,7 @@ class AiPlanController extends Controller
         // One rid per HTTP request.
         $rid = AiLogger::newRequestId();
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($plan, $rid) {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $plan, $rid) {
             /** @var AiPlan|null $locked */
             $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->first();
             if (! $locked || (int) $locked->user_id !== (int) Auth::id()) {
@@ -178,12 +190,30 @@ class AiPlanController extends Controller
                 return response()->json(['ok' => true, 'deduped' => true, 'message' => __('Plan already resolved — nothing changed.')]);
             }
 
+            // Explicit replacement only: the old plan is retired only by the
+            // user's own decision in this call, naming a live plan they own
+            // as the replacement — never automatically, never implicitly.
+            $replacementId = $request->input('replaced_by_plan_id');
+            $replacement = null;
+            if ($replacementId) {
+                if ((int) $replacementId === (int) $locked->id) {
+                    return response()->json(['ok' => false, 'code' => 'invalid_replacement', 'error' => __('A plan cannot replace itself.')], 422);
+                }
+                $replacement = AiPlan::where('id', (int) $replacementId)->where('user_id', Auth::id())->first();
+                if (! $replacement || ! $replacement->isActionable()) {
+                    return response()->json(['ok' => false, 'code' => 'invalid_replacement', 'error' => __('The replacement plan is not available.')], 422);
+                }
+                $locked->superseded_by_plan_id = $replacement->id;
+            }
+
             $locked->status = AiPlan::STATUS_CANCELLED;
             $locked->save();
             Log::info('ai.plan.cancelled', ['user_id' => Auth::id(), 'plan_id' => $locked->id]);
-            AiLogger::log('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'cancelled', 'status' => $locked->status]);
+            AiLogger::log('plan.updated', $this->traceFor($locked, $rid) + ['transition' => $replacement ? 'superseded' : 'cancelled', 'status' => $locked->status, 'replaced_by' => $replacement?->id]);
 
-            return response()->json(['ok' => true, 'message' => __('Plan cancelled — already-created items stay.')]);
+            return response()->json(['ok' => true, 'message' => $replacement
+                ? __('Plan replaced — already-created items stay.')
+                : __('Plan cancelled — already-created items stay.')]);
         });
     }
 

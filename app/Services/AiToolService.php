@@ -1539,22 +1539,54 @@ class AiToolService
     }
 
     /**
-      * Resolve a tracked routine by ID or name (owned by the user).
-      */
-    private function resolveRoutine(array $args, $user): ?Routine
+     * Resolve a tracked routine by ID or name (owned by the user).
+     *
+     * Mirrors resolveTask: exact-first, bounded fuzzy, explicit CONFLICT on
+     * ambiguity — never a silent first LIKE match. Miss/foreign/stale ids
+     * share one NOT_FOUND message so existence is never confirmed.
+     *
+     * @return array{routine?: Routine}|array{error: string, code: string}
+     */
+    private function resolveRoutine(array $args, $user): array
     {
         if (! empty($args['routine_id'])) {
-            return Routine::where('id', (int) $args['routine_id'])->where('user_id', $user->id)->first();
-        }
-        if (! empty($args['routine'])) {
-            $needle = $args['routine'];
+            $routine = Routine::where('id', (int) $args['routine_id'])->where('user_id', $user->id)->first();
+            if (! $routine) {
+                return ['error' => 'Routine not found or not yours.', 'code' => ToolError::NOT_FOUND];
+            }
 
-            return is_numeric($needle)
-                ? Routine::where('id', (int) $needle)->where('user_id', $user->id)->first()
-                : Routine::where('user_id', $user->id)->where('title', 'like', "%{$needle}%")->first();
+            return ['routine' => $routine];
         }
 
-        return null;
+        $needle = trim((string) ($args['routine'] ?? ''));
+        if ($needle === '') {
+            return ['error' => 'Pass the routine id or its title (routine).', 'code' => ToolError::VALIDATION_ERROR];
+        }
+        if (is_numeric($needle)) {
+            $routine = Routine::where('id', (int) $needle)->where('user_id', $user->id)->first();
+            if (! $routine) {
+                return ['error' => 'Routine not found or not yours.', 'code' => ToolError::NOT_FOUND];
+            }
+
+            return ['routine' => $routine];
+        }
+
+        $query = Routine::where('user_id', $user->id);
+        $exact = (clone $query)->where('title', $needle)->get();
+        $matches = $exact->isNotEmpty()
+            ? $exact
+            : (clone $query)->where('title', 'like', "%{$needle}%")->limit(6)->get();
+
+        if ($matches->isEmpty()) {
+            return ['error' => "Routine '{$needle}' not found.", 'code' => ToolError::NOT_FOUND];
+        }
+        if ($matches->count() > 1) {
+            $list = $matches->take(5)->map(fn ($r) => "'{$r->title}'")->join(', ');
+
+            return ['error' => "Multiple routines match '{$needle}': {$list}. Pass the routine id to pick one.", 'code' => ToolError::CONFLICT];
+        }
+
+        return ['routine' => $matches->first()];
     }
 
     private function validateRoutineLog(array $args, $user): array
@@ -1572,10 +1604,11 @@ class AiToolService
             return $this->fail($v->errors()->first());
         }
 
-        $routine = $this->resolveRoutine($args, $user);
-        if (! $routine) {
-            return $this->fail('Routine not found or not yours.', ToolError::NOT_FOUND);
+        $resolution = $this->resolveRoutine($args, $user);
+        if (! isset($resolution['routine'])) {
+            return $this->fail($resolution['error'], $resolution['code'] ?? ToolError::NOT_FOUND);
         }
+        $routine = $resolution['routine'];
         if (! $routine->isTracked()) {
             return $this->fail("Routine '{$routine->title}' has tracking disabled.");
         }
@@ -1607,9 +1640,21 @@ class AiToolService
             if ($needle === null || $needle === '') {
                 return $this->fail('Sets mode needs the step (item or item_id).');
             }
-            $item = is_numeric($needle)
-                ? $routine->checklistItems()->whereKey((int) $needle)->first()
-                : $routine->checklistItems()->where('name', 'like', "%{$needle}%")->first();
+            $item = null;
+            if (is_numeric($needle)) {
+                $item = $routine->checklistItems()->whereKey((int) $needle)->first();
+            } else {
+                $candidates = $routine->checklistItems()->where('name', $needle)->get();
+                if ($candidates->isEmpty()) {
+                    $candidates = $routine->checklistItems()->where('name', 'like', "%{$needle}%")->limit(6)->get();
+                }
+                if ($candidates->count() > 1) {
+                    $list = $candidates->take(5)->map(fn ($c) => "'{$c->name}'")->join(', ');
+
+                    return $this->fail("Multiple steps match '{$needle}': {$list}. Pass the step id (item_id) to pick one.", ToolError::CONFLICT);
+                }
+                $item = $candidates->first();
+            }
             if (! $item) {
                 return $this->fail('Step not found in this routine.');
             }
@@ -1975,8 +2020,13 @@ class AiToolService
                 $roots[$i]['attached'] = true;
                 $roots[$i]['attached_name'] = (string) $existing->name;
             } else {
+                // Attach ONLY on an exact (normalized) name match. A merely
+                // similar project must never be silently picked: the node
+                // falls through to create-new, where the DUPLICATE_TARGET
+                // guard still catches true near-duplicates at execution.
                 $match = $this->similarProjects($userId, $root['name']);
-                if ($match->isNotEmpty()) {
+                if ($match->isNotEmpty()
+                    && self::normProjectKey((string) $match[0]->name) === self::normProjectKey((string) $root['name'])) {
                     $roots[$i]['project_id'] = (int) $match[0]->id;
                     $roots[$i]['attached'] = true;
                     $roots[$i]['attached_name'] = (string) $match[0]->name;
@@ -1995,7 +2045,8 @@ class AiToolService
                     $roots[$i]['subprojects'][$si]['attached'] = true;
                 } elseif ($parentId !== null) {
                     $match = $this->similarProjects($userId, $sub['name'], [(int) $parentId], (int) $parentId, 1);
-                    if ($match->isNotEmpty()) {
+                    if ($match->isNotEmpty()
+                        && self::normProjectKey((string) $match[0]->name) === self::normProjectKey((string) $sub['name'])) {
                         $roots[$i]['subprojects'][$si]['project_id'] = (int) $match[0]->id;
                         $roots[$i]['subprojects'][$si]['attached'] = true;
                     }
@@ -2426,6 +2477,19 @@ class AiToolService
     public function executePlanPhase(\App\Models\AiPlan $plan, $user): array
     {
         return DB::transaction(function () use ($plan, $user) {
+            // Stale-plan guard: a cancelled/expired plan (or one owned by
+            // someone else) must never execute here, and must never be
+            // resurrected by the terminal write below. The HTTP endpoints
+            // check this too, but this service is also called directly.
+            $fresh = $plan->fresh();
+            if (! $fresh || (int) $fresh->user_id !== (int) $user->id) {
+                return ['ok' => false, 'message' => __('Plan not found.'), 'phase' => null];
+            }
+            if (! $fresh->isActionable()) {
+                return ['ok' => false, 'message' => __('This plan is no longer active. Ask Lina to propose it again.'), 'phase' => null];
+            }
+            $plan = $fresh;
+
             $idx = $plan->current_phase;
             $phases = $plan->phases;
             $phase = $phases[$idx] ?? null;

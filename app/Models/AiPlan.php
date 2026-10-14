@@ -36,6 +36,7 @@ class AiPlan extends Model
         'expires_at',
         'executed_at',
         'idempotency_key',
+        'superseded_by_plan_id',
     ];
 
     protected $casts = [
@@ -53,6 +54,17 @@ class AiPlan extends Model
     public function conversation()
     {
         return $this->belongsTo(AiConversation::class, 'conversation_id');
+    }
+
+    /** The replacement plan, when this one was cancelled as superseded. */
+    public function supersededBy()
+    {
+        return $this->belongsTo(self::class, 'superseded_by_plan_id');
+    }
+
+    public function isSuperseded(): bool
+    {
+        return $this->status === self::STATUS_CANCELLED && $this->superseded_by_plan_id !== null;
     }
 
     public function isExpired(): bool

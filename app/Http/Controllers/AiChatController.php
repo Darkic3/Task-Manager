@@ -341,6 +341,11 @@ class AiChatController extends Controller
             $conversation->update(['label' => mb_substr($request->message, 0, 60)]);
         }
 
+        // Structured request state: remember this turn's intent on the
+        // owned conversation so a later correction can be told apart from
+        // a new request even when history text is truncated away.
+        \App\Services\AiRequestState::record($conversation, ['intent' => $route['intent'] ?? null]);
+
         // No provider -> offline fallback (read-only, never creates anything)
         if (! $resolved) {
             AiLogger::log('request.offline_fallback', AiTrace::ids($runId, $rid, $user->id, $conversation->id) + ['reason' => 'no_provider_configured']);
@@ -863,6 +868,71 @@ class AiChatController extends Controller
      *   anew (a legitimate later repeat must never 500 on the UNIQUE
      *   constraint). Bounded retries; anything else rethrows.
      */
+    /**
+     * Remember a proposal in the conversation's structured state (Phase 3):
+     * resolved entity ids + the open proposal handle, so a later correction
+     * reuses them even when history text is truncated away. Advisory only —
+     * resolvers re-check ownership before anything is proposed or executed.
+     */
+    private function recordActionState($conversationId, string $tool, array $resolved, array $preview, int $actionId): void
+    {
+        if (! $conversationId) {
+            return;
+        }
+        \App\Services\AiRequestState::record($conversationId, [
+            'resolved' => \App\Services\AiRequestState::idsFromResolved($tool, $resolved),
+            'open' => ['actions' => [[
+                'id' => $actionId,
+                'tool' => $tool,
+                'label' => \App\Services\AiRequestState::proposalLabel($tool, $preview, $resolved),
+            ]]],
+        ]);
+    }
+
+    private function recordImportState($conversationId, $import): void
+    {
+        if (! $conversationId || ! $import) {
+            return;
+        }
+        $structure = is_array($import->structure) ? $import->structure : [];
+        \App\Services\AiRequestState::record($conversationId, [
+            'open' => ['imports' => [[
+                'id' => $import->id,
+                'tool' => 'workout_plan_propose',
+                'label' => mb_substr((string) ($structure['title'] ?? 'Workout plan'), 0, 40),
+            ]]],
+        ]);
+    }
+
+    private function recordPlanState($conversationId, $plan): void
+    {
+        if (! $conversationId || ! $plan) {
+            return;
+        }
+        $attached = [];
+        $structure = is_array($plan->structure) ? $plan->structure : [];
+        foreach (['projects', 'project'] as $key) {
+            $nodes = $structure[$key] ?? null;
+            $nodes = is_array($nodes) && array_is_list($nodes) ? $nodes : (is_array($nodes) ? [$nodes] : []);
+            foreach ($nodes as $node) {
+                if (is_array($node) && ! empty($node['project_id'])) {
+                    $attached[] = [
+                        'id' => (int) $node['project_id'],
+                        'title' => mb_substr((string) ($node['attached_name'] ?? $node['name'] ?? ''), 0, 40),
+                    ];
+                }
+            }
+        }
+        \App\Services\AiRequestState::record($conversationId, [
+            'resolved' => ['projects' => $attached],
+            'open' => ['plans' => [[
+                'id' => $plan->id,
+                'tool' => 'plan_propose',
+                'label' => mb_substr((string) $plan->title, 0, 40),
+            ]]],
+        ]);
+    }
+
     private function insertPendingIdempotent($user, $conversationId, string $tool, array $check, array $preview, ?string $runId = null, ?string $rid = null): array
     {
         $pipeline = \App\Services\AiTooling\ToolPipeline::class;
@@ -875,7 +945,7 @@ class AiChatController extends Controller
 
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
-                return [AiPendingAction::create([
+                $action = AiPendingAction::create([
                     'user_id' => $user->id,
                     'conversation_id' => $conversationId,
                     'tool' => $tool,
@@ -884,7 +954,10 @@ class AiChatController extends Controller
                     'status' => AiPendingAction::STATUS_PENDING,
                     'expires_at' => now()->addMinutes(AiPendingAction::EXPIRY_MINUTES),
                     'idempotency_key' => $key,
-                ]), false];
+                ]);
+                $this->recordActionState($conversationId, $tool, $check['resolved'], $preview, $action->id);
+
+                return [$action, false];
             } catch (\Illuminate\Database\QueryException $e) {
                 if (! str_contains(strtolower($e->getMessage()), 'duplicate')) {
                     throw $e;
@@ -894,6 +967,7 @@ class AiChatController extends Controller
                     /** @var AiPendingAction $winner */
                     $winner = $decision['reuse'];
                     AiLogger::log('tool.proposal_race_reused', AiTrace::ids($runId, $rid, $user->id, $conversationId, $winner->id) + ['tool' => $tool]);
+                    $this->recordActionState($conversationId, $tool, $check['resolved'], $preview, $winner->id);
 
                     return [$winner, true];
                 }
@@ -903,7 +977,7 @@ class AiChatController extends Controller
         }
 
         // Extremely unlikely (3 chained collisions): fall back to a fresh key.
-        return [AiPendingAction::create([
+        $action = AiPendingAction::create([
             'user_id' => $user->id,
             'conversation_id' => $conversationId,
             'tool' => $tool,
@@ -912,7 +986,10 @@ class AiChatController extends Controller
             'status' => AiPendingAction::STATUS_PENDING,
             'expires_at' => now()->addMinutes(AiPendingAction::EXPIRY_MINUTES),
             'idempotency_key' => $key.'_'.bin2hex(random_bytes(8)),
-        ]), false];
+        ]);
+        $this->recordActionState($conversationId, $tool, $check['resolved'], $preview, $action->id);
+
+        return [$action, false];
     }
 
     /**
@@ -971,6 +1048,9 @@ class AiChatController extends Controller
             'provider_type' => $resolved['type'] ?? 'openai',
             'has_note_attachments' => ! empty($extra['has_note_attachments']) || ((int) ($extra['note_count'] ?? 0)) > 0,
             'has_file_attachments' => ! empty($extra['has_file_attachments']) || ((int) ($extra['file_count'] ?? 0)) > 0,
+            // Live-thread follow-up: a correction without creation verbs must
+            // keep the tools (Phase 3). Explicit caller value wins.
+            'has_open_thread' => ! empty($extra['has_open_thread']),
         ];
     }
 
@@ -1044,6 +1124,7 @@ class AiChatController extends Controller
         $duplicate = $pipeline::findLivePlanByKey($user->id, $key);
         if ($duplicate) {
             AiLogger::log('plan.proposal_deduped', AiTrace::ids($runId, $rid, $user->id, $conversationId, null, $duplicate->id));
+            $this->recordPlanState($conversationId, $duplicate);
 
             return ['plan' => $controller->serialize($duplicate)] + ['expires_at' => $duplicate->expires_at->toIso8601String(), 'deduped' => true];
         }
@@ -1091,6 +1172,7 @@ class AiChatController extends Controller
         }
 
         AiLogger::log(AiTrace::PLAN_PROPOSED, AiTrace::ids($runId, $rid, $user->id, $conversationId, null, $plan->id) + ['title' => $plan->title, 'status' => 'awaiting_confirmation', 'expires_at' => $plan->expires_at?->toIso8601String(), 'totals' => $check['resolved']['totals'] ?? []]);
+        $this->recordPlanState($conversationId, $plan);
 
         $out = ['plan' => $controller->serialize($plan)] + ['expires_at' => $plan->expires_at->toIso8601String()];
         if ($raceReused) {
@@ -1138,6 +1220,7 @@ class AiChatController extends Controller
             ->first(fn ($row) => hash('sha256', \App\Services\AiTooling\ToolPipeline::canonicalJson((array) $row->structure)) === $structHash);
         if ($existing) {
             AiLogger::log('workout.proposal_deduped', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['import_id' => $existing->id]);
+            $this->recordImportState($conversationId, $existing);
 
             return [
                 'import' => [
@@ -1162,6 +1245,7 @@ class AiChatController extends Controller
         ]);
 
         AiLogger::log(AiTrace::TOOL_PROPOSED, AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['tool' => 'workout_plan_propose', 'status' => 'awaiting_confirmation', 'import_id' => $import->id, 'expires_at' => $import->expires_at?->toIso8601String()]);
+        $this->recordImportState($conversationId, $import);
 
         return [
             'import' => [
@@ -1352,6 +1436,7 @@ class AiChatController extends Controller
         if ($recent) {
             $structure = $recent->structure;
             AiLogger::log('workout.proposal_deduped', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['import_id' => $recent->id]);
+            $this->recordImportState($conversationId, $recent);
 
             return [
                 'import' => [
@@ -1401,6 +1486,7 @@ class AiChatController extends Controller
         ]);
 
         AiLogger::log(AiTrace::TOOL_PROPOSED, AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['tool' => 'workout_plan_propose', 'status' => 'awaiting_confirmation', 'import_id' => $import->id, 'via' => 'text_fallback', 'expires_at' => $import->expires_at?->toIso8601String()]);
+        $this->recordImportState($conversationId, $import);
 
         return [
             'import' => [
@@ -1536,6 +1622,11 @@ class AiChatController extends Controller
         $model = $resolved['model'];
         $provider = $resolved['provider'];
         $startedAt = microtime(true);
+        // Follow-up turns in a live thread keep the full toolset even when
+        // the message itself routes to general/smalltalk (Phase 3, Step 2):
+        // a correction carries no creation verbs but must still propose.
+        $toolContext['has_open_thread'] = ($toolContext['has_open_thread'] ?? false)
+            || \App\Services\AiRequestState::hasOpenThread($conversation->user_id, $conversation->id);
         $tools = $agentMode ? $this->toolsForResolved($resolved, $route, ['agent_mode' => $agentMode] + $toolContext, $runId, $rid, $conversation->user) : null;
         // Names actually sent to the model — the enforcement allowlist.
         // Null (chat mode) means "nothing visible": emitToolProposals gets [].

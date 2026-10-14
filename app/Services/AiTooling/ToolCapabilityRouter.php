@@ -76,14 +76,28 @@ final class ToolCapabilityRouter
         $intent = $route['intent'] ?? AiIntentRouter::INTENT_AMBIGUOUS;
         $confidence = $route['confidence'] ?? AiIntentRouter::CONF_LOW;
 
-        // 2) Casual/smalltalk with confidence → nothing to send.
+        // 2) Casual/smalltalk with confidence → nothing to send,
+        //    UNLESS the conversation holds a live thread (open proposals or
+        //    fresh request state): a follow-up correction carries no creation
+        //    verbs and would otherwise be disarmed. Fail open — the pipeline
+        //    and confirmation still gate every proposal.
         if ($intent === AiIntentRouter::INTENT_GENERAL && $confidence === AiIntentRouter::CONF_HIGH) {
+            if (! empty($context['has_open_thread'])) {
+                return ['tools' => null, 'categories' => [], 'reason' => 'follow_up_fail_open'];
+            }
+
             return ['tools' => [], 'categories' => [], 'reason' => 'general_chat_no_tools'];
         }
 
         // 3) Unclear intent → limited SAFE set (READ-only), clarification path
         //    is driven by AiIntentRouter::hintFor() in the system prompt.
+        //    Same live-thread exception as above: a correction routed
+        //    ambiguous must still reach the mutation tools.
         if ($intent === AiIntentRouter::INTENT_AMBIGUOUS || $confidence === AiIntentRouter::CONF_LOW) {
+            if (! empty($context['has_open_thread'])) {
+                return ['tools' => null, 'categories' => [], 'reason' => 'follow_up_fail_open'];
+            }
+
             return [
                 'tools' => ToolCapabilityRegistry::SAFE_FALLBACK,
                 'categories' => ['report', 'search', 'question'],

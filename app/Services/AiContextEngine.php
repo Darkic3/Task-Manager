@@ -116,6 +116,7 @@ class AiContextEngine
         if (! empty($cfg['skip_workspace'])) {
             $history = $this->loadHistory($user->id, $options, (int) $cfg['history_limit'], (int) $cfg['history_chars']);
             $text = 'WORKSPACE: skipped (general question — no workspace data loaded).';
+            [$text, $stateApplied] = $this->applyRequestState($user->id, $options, $text);
 
             return [
                 'text' => $text,
@@ -133,6 +134,7 @@ class AiContextEngine
                     'cache_hit' => false,
                     'project_match' => null,
                     'keyword_count' => 0,
+                    'state_applied' => $stateApplied,
                 ],
             ];
         }
@@ -214,6 +216,7 @@ class AiContextEngine
             }
         }
         $text = implode("\n\n", $parts);
+        [$text, $stateApplied] = $this->applyRequestState($user->id, $options, $text);
 
         return [
             'text' => $text,
@@ -231,6 +234,7 @@ class AiContextEngine
                 'cache_hit' => $cacheHit,
                 'project_match' => $project['name'] ?? null,
                 'keyword_count' => count($keywords),
+                'state_applied' => $stateApplied,
             ],
         ];
     }
@@ -590,6 +594,35 @@ class AiContextEngine
         }
 
         return ['turns' => $turns, 'chars' => $chars];
+    }
+
+    /**
+     * Append the structured request state for this conversation, if any.
+     * Same ownership gate as history; stale/empty state yields nothing.
+     * The block rides outside the workspace budget (it is ≤600 chars).
+     *
+     * @return array{0: string, 1: bool}
+     */
+    private function applyRequestState(int $userId, array $options, string $text): array
+    {
+        $convId = (int) ($options['conversation_id'] ?? 0);
+        if ($convId <= 0) {
+            return [$text, false];
+        }
+        try {
+            $conv = AiConversation::where('id', $convId)->where('user_id', $userId)->first(['id', 'state']);
+            if (! $conv) {
+                return [$text, false];
+            }
+            $block = AiRequestState::block($conv);
+            if ($block === null) {
+                return [$text, false];
+            }
+
+            return [$text."\n\n".$block, true];
+        } catch (\Throwable $ignored) {
+            return [$text, false];
+        }
     }
 
     /* ── Rendering (whole lines only) ───────────────────────────── */

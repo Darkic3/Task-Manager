@@ -6,7 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class AiConversation extends Model
 {
-    protected $fillable = ['user_id', 'label'];
+    protected $fillable = ['user_id', 'label', 'state'];
+
+    protected $casts = ['state' => 'array'];
 
     public function messages()
     {

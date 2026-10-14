@@ -451,6 +451,9 @@ class AiActionController extends Controller
             AiLogger::log(AiTrace::ACTION_EXECUTED, $this->traceFor($fresh, $rid) + ['tool' => $fresh->tool, 'status' => 'executed', 'created_id' => $result['id'] ?? null, 'undoable' => $undo !== null, 'message' => $result['message'] ?? null, 'exec_ms' => AiTrace::elapsedMs($execStartedAt)]);
 
             if ($fresh->conversation_id) {
+                // Structured request state: remember the executed decision on
+                // the owned conversation (advisory only — never authorization).
+                \App\Services\AiRequestState::record($fresh->conversation_id, ['decided' => [$fresh->id]]);
                 AiMessage::create([
                     'conversation_id' => $fresh->conversation_id,
                     'role' => 'assistant',
