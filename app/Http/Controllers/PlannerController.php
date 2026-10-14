@@ -386,21 +386,23 @@ class PlannerController extends Controller
         ]);
 
         $task->due_date = Carbon::parse($data['due_date'])->toDateString();
-        if (array_key_exists('time_period', $data)) {
+        if (array_key_exists('time_period', $request->all())) {
             $task->time_period = $data['time_period'];
         }
         $task->save();
         $task->load('project:id,name');
 
+        $weekView = $request->input('view') !== 'day';
+
         return response()->json([
             'ok' => true,
             'id' => $task->id,
-            'due_date' => $task->due_date->toDateString(),
+            'task' => ['id' => $task->id, 'title' => $task->title],
             'group' => $task->time_period ?: 'anytime',
-            'html' => view('planner._week-task', [
-                'task' => $task,
-                'currentDate' => $task->due_date->toDateString(),
-            ])->render(),
+            'due_date' => $task->due_date->toDateString(),
+            'html' => $weekView
+                ? view('planner._week-task', ['task' => $task, 'currentDate' => $task->due_date->toDateString()])->render()
+                : view('planner._task-row', ['task' => $task, 'count' => true, 'postpone' => 'tomorrow', 'hideDue' => true, 'draggable' => true])->render(),
         ]);
     }
 

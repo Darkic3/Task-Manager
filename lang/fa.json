@@ -1870,5 +1870,16 @@
     "Removed from quit tracking": "از پیگیری ترک خارج شد",
     "Saved to your day log.": "در دفتر روزت ذخیره شد.",
     "Day log sentences cannot carry time info.": "ثبت جمله نمی‌تواند اطلاعات زمانی داشته باشد.",
-    "Day log entries cannot be merged.": "این ثبت‌ها قابل ادغام نیستند."
+    "Day log entries cannot be merged.": "این ثبت‌ها قابل ادغام نیستند.",
+    "Pull an existing task into today": "افزودن یک تسک موجود به امروز",
+    "Pick from your unscheduled tasks — nothing gets created": "از بین تسک‌های بدون تاریخ انتخاب کن — چیزی ساخته نمی‌شود",
+    "Search your unscheduled tasks…": "جستجو در تسک‌های بدون تاریخ…",
+    "Search your unscheduled tasks": "جستجو در تسک‌های بدون تاریخ",
+    "Unscheduled tasks": "تسک‌های بدون تاریخ",
+    "No matching task in your inbox.": "تسکی با این عنوان پیدا نشد.",
+    "Your inbox is empty — every task has a date.": "صندوق ورودی خالی است — همه تسک‌ها تاریخ دارند.",
+    "Could not load your inbox.": "بارگذاری صندوق ورودی ممکن نشد.",
+    "Task moved to this day": "تسک به این روز منتقل شد",
+    "Could not schedule the task.": "زمان‌بندی تسک ممکن نشد.",
+    "Could not undo.": "برگشت ممکن نشد."
 }

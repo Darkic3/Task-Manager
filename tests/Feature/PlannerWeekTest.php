@@ -122,6 +122,25 @@ class PlannerWeekTest extends TestCase
         $this->assertSame('afternoon', $task->time_period);
     }
 
+    public function test_schedule_task_returns_day_row_when_day_view_requested(): void
+    {
+        $user = User::factory()->create();
+        $task = Task::factory()->create([
+            'user_id' => $user->id, 'title' => 'Move me to day', 'status' => 'to_do', 'due_date' => null,
+        ]);
+        $target = today()->toDateString();
+
+        $response = $this->actingAs($user)->postJson(route('planner.tasks.schedule', $task), [
+            'due_date' => $target,
+            'view' => 'day',
+        ]);
+
+        $response->assertOk()->assertJsonPath('due_date', $target)->assertJsonPath('group', 'anytime');
+        $this->assertStringContainsString('pl-task', $response->json('html'));
+        $this->assertStringContainsString('data-task-item', $response->json('html'));
+        $this->assertSame($target, $task->fresh()->due_date->toDateString());
+    }
+
     public function test_schedule_task_rejects_foreign_task(): void
     {
         $user = User::factory()->create();

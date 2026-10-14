@@ -75,6 +75,67 @@
     .pl-empty{padding:26px 16px;text-align:center;color:#94a3b8;font-size:12.5px;font-weight:500;}
     .pl-empty i{display:block;font-size:26px;margin-bottom:8px;color:#cbd5e1;}
 
+    /* ── Empty-day CTA: pull an existing (unscheduled) task into this day ── */
+    .pl-qadd{position:relative;}
+    .pl-qadd-btn{
+        position:relative;display:flex;align-items:center;gap:13px;width:100%;overflow:hidden;
+        padding:14px 16px;border-radius:15px;cursor:pointer;text-align:start;
+        border:1.5px dashed #ddd6fe;background:linear-gradient(135deg,#fbfaff 0%,#f5f3ff 100%);
+        font-family:inherit;transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease,background .18s ease;}
+    .pl-qadd-btn:hover{border-color:#c4b5fd;border-style:solid;transform:translateY(-1px);
+        box-shadow:0 14px 28px -18px rgba(76,29,149,.6);}
+    .pl-qadd-btn:focus-visible{outline:2px solid #7c3aed;outline-offset:2px;}
+    .pl-qadd-glow{position:absolute;inset-inline-start:-40%;top:-60%;width:45%;height:220%;pointer-events:none;
+        background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent);transform:skewX(-18deg);
+        transition:inset-inline-start .55s ease;}
+    .pl-qadd-btn:hover .pl-qadd-glow{inset-inline-start:130%;}
+    .pl-qadd-ico{flex-shrink:0;width:40px;height:40px;display:grid;place-items:center;border-radius:13px;color:#fff;font-size:17px;
+        background:linear-gradient(135deg,#7c3aed,#6366f1);
+        box-shadow:0 10px 20px -10px rgba(109,40,217,.95),inset 0 1px 0 rgba(255,255,255,.3);}
+    .pl-qadd-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+    .pl-qadd-txt b{font-size:13px;font-weight:800;color:#241d4b;letter-spacing:-.01em;}
+    .pl-qadd-txt small{font-size:11px;font-weight:600;color:#7d76a0;line-height:1.5;}
+    .pl-qadd-arrow{flex-shrink:0;color:#a79ccb;font-size:12px;transition:transform .18s ease;}
+    .pl-qadd-btn[aria-expanded="true"] .pl-qadd-arrow{transform:rotate(180deg);}
+    .pl-qadd-btn[aria-expanded="true"]{border-style:solid;border-color:#c4b5fd;background:linear-gradient(135deg,#fff,#f7f3ff);
+        box-shadow:0 10px 24px -16px rgba(76,29,149,.55);}
+    .pl-qadd-panel{margin-top:8px;border:1px solid #e7e1fb;border-radius:15px;overflow:hidden;background:#fff;
+        box-shadow:0 18px 38px -22px rgba(23,20,48,.5);animation:plQaddIn .18s cubic-bezier(.16,1,.3,1);}
+    .pl-qadd-panel[hidden]{display:none;}
+    @keyframes plQaddIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;}}
+    .pl-qadd-search{display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid #f1eefb;background:#faf8ff;}
+    .pl-qadd-search>i{color:#a79ccb;font-size:13px;}
+    .pl-qadd-search input{flex:1;min-width:0;border:0;background:transparent;outline:none;font-family:inherit;
+        font-size:13px;font-weight:600;color:#1e293b;}
+    .pl-qadd-search input::placeholder{color:#a9a2c4;font-weight:500;}
+    .pl-qadd-clear{border:0;background:#f1edfd;color:#6b6390;width:26px;height:26px;border-radius:8px;cursor:pointer;
+        display:grid;place-items:center;font-size:11px;transition:all .14s ease;}
+    .pl-qadd-clear:hover{background:#e5dcfb;color:#4c1d95;}
+    .pl-qadd-clear[hidden]{display:none;}
+    .pl-qadd-list{max-height:264px;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:3px;}
+    .pl-qadd-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 11px;border:1px solid transparent;
+        border-radius:11px;background:transparent;cursor:pointer;text-align:start;font-family:inherit;transition:all .13s ease;}
+    .pl-qadd-item:hover:not(:disabled){background:#faf8ff;border-color:#ece5fc;}
+    .pl-qadd-item:focus-visible{outline:2px solid #7c3aed;outline-offset:-2px;}
+    .pl-qadd-item:disabled{opacity:.55;cursor:wait;}
+    .pl-qadd-dot{flex-shrink:0;width:8px;height:8px;border-radius:50%;}
+    .pl-qadd-name{flex:1;min-width:0;font-size:12.5px;font-weight:700;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .pl-qadd-proj{flex-shrink:0;max-width:110px;font-size:10.5px;font-weight:700;color:#8b84a8;background:#f5f2ff;
+        border:1px solid #ece5fc;border-radius:20px;padding:2px 9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .pl-qadd-go{flex-shrink:0;width:24px;height:24px;display:grid;place-items:center;border-radius:8px;color:#7c3aed;
+        background:#f2edff;font-size:11px;opacity:0;transform:translateX(-4px);transition:all .14s ease;}
+    .pl-qadd-item:hover:not(:disabled) .pl-qadd-go{opacity:1;transform:none;}
+    .pl-qadd-note{padding:14px 12px;text-align:center;font-size:11.5px;font-weight:600;color:#9b94b8;line-height:1.7;}
+    .pl-qadd-note i{display:block;font-size:20px;margin-bottom:6px;color:#c9c2e4;}
+    /* Once the day has tasks, the empty-state CTA steps aside. */
+    #plPendingBody:has([data-task-item]) .pl-qadd,
+    #plPendingBody:has(.pl-period-group) .pl-qadd{display:none;}
+    @media (max-width:576px){
+        .pl-qadd-btn{padding:12px 13px;gap:10px;}
+        .pl-qadd-ico{width:36px;height:36px;font-size:15px;}
+        .pl-qadd-txt small{display:none;}
+    }
+
     /* ── Desktop duo: side-by-side pairs, day view only (≥992px). Below that, normal stack. ── */
     @media (min-width: 992px) {
         .pl-duo{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-bottom:16px;}
@@ -3720,6 +3781,24 @@
         if (type === 'task') refreshCounters(); else refreshRoutineCounters();
     }
 
+    /* Take an existing task back out of this day (keeps the task itself). */
+    async function plUnscheduleTask(id) {
+        try {
+            const res = await plFetch(POSTPONE_URL(id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ action: 'clear' }),
+            });
+            if (!res.ok) { throw new Error('HTTP ' + res.status); }
+        } catch (e) {
+            console.error('[Planner] unschedule failed', e);
+            plShowToast(@json(__('Could not undo.')));
+            return;
+        }
+        document.querySelectorAll('[data-task-item][data-id="' + id + '"]').forEach(row => row.remove());
+        refreshCounters();
+    }
+
     /* ── Quick add ── */
     const plQa = document.getElementById('plQuickAdd');
 
@@ -3813,6 +3892,118 @@
         }
         return false;
     }
+
+    /* ── Empty-day CTA: schedule an existing unscheduled task into this day.
+       Same endpoints the week view uses (backlog + schedule), just day rows. ── */
+    (function () {
+        const root = document.getElementById('plBacklogAdd');
+        if (!root) { return; }
+        const BACKLOG_URL = @json(route('planner.backlog'));
+        const SCHEDULE_URL = id => `{{ route('planner.tasks.schedule', ['task' => '__ID__']) }}`.replace('__ID__', id);
+        const toggle = document.getElementById('plBacklogToggle');
+        const panel = document.getElementById('plBacklogPanel');
+        const search = document.getElementById('plBacklogSearch');
+        const clear = document.getElementById('plBacklogClear');
+        const list = document.getElementById('plBacklogList');
+        const dayEl = document.querySelector('[data-next-date]');
+        const day = dayEl ? dayEl.dataset.nextDate : '';
+        const PRIO = { high: '#dc2626', medium: '#d97706', low: '#16a34a' };
+        let searchT = null;
+
+        const busy = b => { b.disabled = true; b.querySelector('.pl-qadd-go').innerHTML = '<span class="spinner-border spinner-border-sm" style="width:.7rem;height:.7rem"></span>'; };
+
+        function setOpen(open) {
+            panel.hidden = !open;
+            toggle.setAttribute('aria-expanded', String(open));
+            if (open) { load(''); setTimeout(() => search.focus(), 30); }
+        }
+        function note(text, icon) {
+            list.innerHTML = '<div class="pl-qadd-note"><i class="bi ' + (icon || 'bi-inbox') + '"></i>' + text + '</div>';
+        }
+
+        async function load(q) {
+            clear.hidden = !q;
+            note(@json(__('Loading…')), 'bi-arrow-repeat');
+            try {
+                const res = await plFetch(BACKLOG_URL + (q ? '?q=' + encodeURIComponent(q) : ''), {
+                    headers: { 'Accept': 'application/json' },
+                });
+                if (!res.ok) { throw new Error('HTTP ' + res.status); }
+                const json = await res.json();
+                const tasks = json.tasks || [];
+                if (!tasks.length) {
+                    note(q ? @json(__('No matching task in your inbox.')) : @json(__('Your inbox is empty — every task has a date.')), 'bi-check2-circle');
+                    return;
+                }
+                list.innerHTML = '';
+                tasks.forEach(t => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'pl-qadd-item';
+                    b.setAttribute('role', 'option');
+                    b.innerHTML = '<span class="pl-qadd-dot"></span>' +
+                        '<span class="pl-qadd-name"></span>' +
+                        (t.project ? '<span class="pl-qadd-proj"></span>' : '') +
+                        '<span class="pl-qadd-go"><i class="bi bi-arrow-left"></i></span>';
+                    b.querySelector('.pl-qadd-dot').style.background = PRIO[t.priority] || '#94a3b8';
+                    b.querySelector('.pl-qadd-name').textContent = t.title;
+                    if (t.project) { b.querySelector('.pl-qadd-proj').textContent = t.project; }
+                    b.addEventListener('click', () => pull(b, t));
+                    list.appendChild(b);
+                });
+            } catch (e) {
+                console.error('[Planner] backlog load failed', e);
+                note(@json(__('Could not load your inbox.')), 'bi-exclamation-triangle');
+            }
+        }
+
+        async function pull(btn, t) {
+            busy(btn);
+            try {
+                const res = await plFetch(SCHEDULE_URL(t.id), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ due_date: day, view: 'day' }),
+                });
+                if (!res.ok) { throw new Error('HTTP ' + res.status); }
+                const json = await res.json();
+                const gb = window.plEnsureGroup ? window.plEnsureGroup(json.group || 'anytime') : null;
+                if (gb) {
+                    const wrap = document.createElement('div');
+                    wrap.innerHTML = json.html.trim();
+                    gb.appendChild(wrap.firstElementChild);
+                } else {
+                    plInsertRow('plPendingBody', json.html);
+                }
+                refreshCounters();
+                refreshNextUp();
+                /* Undo must not delete a task the user already owned: it just
+                   takes it back out of this day (same call the row's own
+                   "clear date" action uses). */
+                plShowToast(@json(__('Task moved to this day')), () => plUnscheduleTask(t.id));
+            } catch (e) {
+                console.error('[Planner] schedule failed', e);
+                btn.disabled = false;
+                btn.querySelector('.pl-qadd-go').innerHTML = '<i class="bi bi-arrow-left"></i>';
+                plShowToast(@json(__('Could not schedule the task.')));
+            }
+        }
+
+        toggle.addEventListener('click', () => setOpen(panel.hidden));
+        clear.addEventListener('click', () => { search.value = ''; search.focus(); load(''); });
+        search.addEventListener('input', () => {
+            clearTimeout(searchT);
+            const q = search.value.trim();
+            searchT = setTimeout(() => load(q), 250);
+        });
+        document.addEventListener('click', ev => {
+            if (panel.hidden || root.contains(ev.target)) { return; }
+            setOpen(false);
+        });
+        document.addEventListener('keydown', ev => {
+            if (ev.key === 'Escape' && !panel.hidden) { setOpen(false); toggle.focus(); }
+        });
+    })();
 
     async function submitQuickRoutine(form) {
         const titleInput = form.querySelector('[name="title"]');

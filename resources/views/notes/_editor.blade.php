@@ -869,8 +869,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     window.addEventListener('beforeunload', function (e) {
         if (!dirty) return;
-        e.preventDefault();
-        e.returnValue = '';
+        ntBeforeUnloadConfirmed = false;
+        confirmSwal('You have unsaved changes. Are you sure you want to leave this page?')
+            .then(() => {
+                if (!ntBeforeUnloadConfirmed) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
     });
 
     /* ── Boot ─────────────────────────────────────────────────── */
@@ -1617,8 +1623,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (titleInput) titleInput.addEventListener('input', () => { dirty = true; });
     window.addEventListener('beforeunload', function (e) {
         if (!dirty) return;
-        e.preventDefault();
-        e.returnValue = '';
+        ntBeforeUnloadConfirmed = false;
+        confirmSwal('You have unsaved changes. Are you sure you want to leave this page?')
+            .then(() => {
+                if (!ntBeforeUnloadConfirmed) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
     });
 
     /* ══ Boot ════════════════════════════════════════════════════ */
