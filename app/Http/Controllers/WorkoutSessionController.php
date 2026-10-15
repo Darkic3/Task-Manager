@@ -149,6 +149,30 @@ class WorkoutSessionController extends Controller
         ]);
     }
 
+    public function saveExerciseNote(Request $request, WorkoutSession $workoutSession): JsonResponse
+    {
+        $this->authorizeSession($workoutSession);
+        $data = $request->validate([
+            'workout_exercise_id' => ['required', 'integer', 'exists:workout_exercises,id'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $exercise = $workoutSession->day()->firstOrFail()->exercises()->whereKey($data['workout_exercise_id'])->firstOrFail();
+
+        $exerciseLog = WorkoutExerciseLog::firstOrCreate(
+            ['workout_session_id' => $workoutSession->id, 'workout_exercise_id' => $exercise->id],
+            ['completed' => false]
+        );
+
+        $note = trim((string) ($data['note'] ?? ''));
+        $exerciseLog->update(['note' => $note !== '' ? $note : null]);
+
+        return response()->json([
+            'ok' => true,
+            'note' => $exerciseLog->note,
+        ]);
+    }
+
     public function finish(FinishWorkoutSessionRequest $request, WorkoutSession $workoutSession): RedirectResponse
     {
         $this->authorizeSession($workoutSession);

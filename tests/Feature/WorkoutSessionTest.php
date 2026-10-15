@@ -78,6 +78,53 @@ class WorkoutSessionTest extends TestCase
         $this->assertNotNull($session->fresh()->ended_at);
     }
 
+    public function test_user_can_save_a_whole_movement_note_for_a_session(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Pull-up', 'normalized_name' => 'pull-up']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $user->id);
+        $day = $plan->days()->first();
+        $workoutExercise = $day->exercises()->first();
+
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-27']);
+        $session = WorkoutSession::firstOrFail();
+
+        $this->actingAs($user)->postJson(route('workouts.sessions.exercise-note.store', $session), [
+            'workout_exercise_id' => $workoutExercise->id,
+            'note' => 'Felt strong, elbows tucked.',
+        ])->assertOk()->assertJsonPath('note', 'Felt strong, elbows tucked.');
+
+        $this->assertSame('Felt strong, elbows tucked.', $session->exerciseLogs()->firstOrFail()->note);
+
+        $this->actingAs($user)->postJson(route('workouts.sessions.exercise-note.store', $session), [
+            'workout_exercise_id' => $workoutExercise->id,
+            'note' => '',
+        ])->assertOk()->assertJsonPath('note', null);
+
+        $this->assertNull($session->exerciseLogs()->firstOrFail()->note);
+    }
+
+    public function test_movement_note_is_scoped_to_its_owner(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $owner->id, 'name' => 'Squat', 'normalized_name' => 'squat']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $owner->id);
+        $day = $plan->days()->first();
+        $workoutExercise = $day->exercises()->first();
+        $session = WorkoutSession::create([
+            'user_id' => $owner->id,
+            'workout_day_id' => $day->id,
+            'workout_date' => '2026-09-27',
+            'status' => WorkoutSession::IN_PROGRESS,
+        ]);
+
+        $this->actingAs($other)->postJson(route('workouts.sessions.exercise-note.store', $session), [
+            'workout_exercise_id' => $workoutExercise->id,
+            'note' => 'Sneaky',
+        ])->assertForbidden();
+    }
+
     public function test_session_is_scoped_to_its_owner(): void
     {
         $owner = User::factory()->create();
@@ -202,6 +249,29 @@ class WorkoutSessionTest extends TestCase
         $this->assertStringContainsString('ws-timer-clock', $html);
         $this->assertStringContainsString('01:35', $html);
         $this->assertStringContainsString('is-running', $html);
+    }
+
+    public function test_session_page_renders_a_saved_movement_note(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Pull-up', 'normalized_name' => 'pull-up']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $user->id);
+        $day = $plan->days()->first();
+        $workoutExercise = $day->exercises()->first();
+
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-27']);
+        $session = WorkoutSession::firstOrFail();
+
+        $this->actingAs($user)->postJson(route('workouts.sessions.exercise-note.store', $session), [
+            'workout_exercise_id' => $workoutExercise->id,
+            'note' => 'Elbows tucked, felt strong.',
+        ])->assertOk();
+
+        $html = $this->actingAs($user)->get(route('workouts.sessions.show', $session))->assertOk()->getContent();
+
+        $this->assertStringContainsString('data-ex-note-toggle', $html);
+        $this->assertStringContainsString('data-ex-note-wrap', $html);
+        $this->assertStringContainsString('Elbows tucked, felt strong.', $html);
     }
 
     public function test_session_page_shows_the_frozen_duration_after_finish(): void

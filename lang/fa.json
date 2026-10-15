@@ -338,6 +338,11 @@
     "Form Rating": "امتیاز فرم اجرای حرکت",
     "Pain Level (0-10)": "میزان درد (۰ تا ۱۰)",
     "Set Note / Reason": "یادداشت ست / دلیل",
+    "Movement Note": "یادداشت حرکت",
+    "Movement note (during training)": "یادداشت حرکت (در حین تمرین)",
+    "How did this movement feel? Technique, tempo, pain, cues…": "این حرکت چطور بود؟ تکنیک، تمپو، درد، نکات…",
+    "Save Note": "ذخیره یادداشت",
+    "Movement note saved.": "یادداشت حرکت ذخیره شد.",
     "Optional notes": "یادداشت اختیاری",
     "Skip Set": "رد کردن ست",
     "seconds": "ثانیه",
@@ -1941,5 +1946,10 @@
     "Creating…": "در حال ساخت…",
     "Could not create the notebook.": "ساخت دفترچه ممکن نشد.",
     "Enter a name for the notebook.": "یک نام برای دفترچه وارد کنید.",
-    "You have unsaved changes. Are you sure you want to leave this page?": "تغییرات ذخیره‌نشده دارید. آیا مطمئن هستید که می‌خواهید این صفحه را ترک کنید؟"
+    "You have unsaved changes. Are you sure you want to leave this page?": "تغییرات ذخیره‌نشده دارید. آیا مطمئن هستید که می‌خواهید این صفحه را ترک کنید؟",
+    "Filter by project": "فیلتر بر اساس پروژه",
+    "Search tasks": "جست‌وجوی تسک‌ها",
+    "Search tasks… (unscheduled, overdue, no time)": "جست‌وجوی تسک‌ها… (بدون تاریخ، عقب‌افتاده، بدون زمان)",
+    "No date": "بدون تاریخ",
+    "Project not found.": "پروژه پیدا نشد."
 }

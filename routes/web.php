@@ -89,6 +89,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('days/{workoutDay}/session', [WorkoutSessionController::class, 'start'])->name('sessions.start');
         Route::get('sessions/{workoutSession}', [WorkoutSessionController::class, 'show'])->name('sessions.show');
         Route::post('sessions/{workoutSession}/sets', [WorkoutSessionController::class, 'saveSet'])->name('sessions.sets.store');
+        Route::post('sessions/{workoutSession}/exercise-note', [WorkoutSessionController::class, 'saveExerciseNote'])->name('sessions.exercise-note.store');
         Route::patch('sessions/{workoutSession}/finish', [WorkoutSessionController::class, 'finish'])->name('sessions.finish');
         Route::get('reports', [WorkoutReportController::class, 'index'])->name('reports.index');
         Route::get('reports/exercises/{exercise}', [WorkoutReportController::class, 'exercise'])->name('reports.exercise');

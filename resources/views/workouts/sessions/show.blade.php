@@ -372,11 +372,32 @@
                 </div>
 
                 {{-- Add Set & Movement Notes --}}
-                <div class="px-3 pb-3 pt-1 d-flex justify-content-between align-items-center">
-                    <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 rounded-pill" onclick="addNewSetRow(this)">
-                        <i class="bi bi-plus-lg"></i> {{ __('Add Set') }}
-                    </button>
+                <div class="px-3 pb-3 pt-1 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 rounded-pill" onclick="addNewSetRow(this)">
+                            <i class="bi bi-plus-lg"></i> {{ __('Add Set') }}
+                        </button>
+                        <button type="button" class="btn btn-sm {{ $log?->note ? 'btn-primary' : 'btn-outline-secondary' }} d-inline-flex align-items-center gap-1 rounded-pill" onclick="toggleExNote(this)" title="{{ __('Movement note (during training)') }}" data-ex-note-toggle>
+                            <i class="bi bi-journal-text"></i> {{ __('Movement Note') }}
+                            @if($log?->note)<i class="bi bi-check-circle-fill" data-ex-note-flag></i>@endif
+                        </button>
+                    </div>
                     <span class="small text-muted exercise-1rm-display" id="ex-1rm-{{ $workoutExercise->id }}"></span>
+                </div>
+
+                {{-- Movement (Exercise) Note --}}
+                <div class="ex-note-wrap px-3 pb-3" data-ex-note-wrap @if(! $log?->note) hidden @endif>
+                    <label class="small text-muted mb-1 d-flex align-items-center gap-1">
+                        <i class="bi bi-journal-text"></i> {{ __('Movement note (during training)') }}
+                    </label>
+                    <textarea class="form-control form-control-sm" rows="2" maxlength="2000" data-ex-note
+                              placeholder="{{ __('How did this movement feel? Technique, tempo, pain, cues…') }}">{{ $log?->note }}</textarea>
+                    <div class="d-flex justify-content-between align-items-center mt-1">
+                        <span class="small text-muted" data-ex-note-status></span>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="saveExNote(this)">
+                            <i class="bi bi-check-lg"></i> {{ __('Save Note') }}
+                        </button>
+                    </div>
                 </div>
             </article>
         @empty
@@ -480,6 +501,7 @@
 <script>
     const WS_TOKEN = '{{ csrf_token() }}';
     const SET_URL = '{{ route("workouts.sessions.sets.store", $workoutSession) }}';
+    const EX_NOTE_URL = '{{ route("workouts.sessions.exercise-note.store", $workoutSession) }}';
     const I18N_WS = {
         done: @json(__('Done')),
         save: @json(__('Save')),
@@ -502,6 +524,7 @@
         setSkippedToast: @json(__('✓ Set #:num marked as skipped.')),
         skippedLabel: @json(__('Skipped:')),
         errorSavingSet: @json(__('Error saving set')),
+        noteSaved: @json(__('Movement note saved.')),
         errorRecordingSkip: @json(__('Error recording skip')),
         errorConnectingServer: @json(__('Error connecting to server')),
         seconds: @json(__('seconds')),
@@ -602,6 +625,66 @@
         const row = btn.closest('[data-set-row]');
         const fields = row.querySelector('.set-more-fields');
         if (fields) fields.classList.toggle('show');
+    }
+
+    // Toggle the whole-movement (exercise) note editor
+    function toggleExNote(btn) {
+        const card = btn.closest('[data-exercise-card]');
+        const wrap = card?.querySelector('[data-ex-note-wrap]');
+        if (!wrap) return;
+        wrap.hidden = !wrap.hidden;
+        if (!wrap.hidden) wrap.querySelector('[data-ex-note]')?.focus();
+    }
+
+    // Save the whole-movement (exercise) note for this session
+    async function saveExNote(btn) {
+        const card = btn.closest('[data-exercise-card]');
+        const textarea = card?.querySelector('[data-ex-note]');
+        const status = card?.querySelector('[data-ex-note-status]');
+        const toggle = card?.querySelector('[data-ex-note-toggle]');
+        if (!textarea) return;
+
+        btn.disabled = true;
+        if (status) status.textContent = '';
+
+        try {
+            const res = await fetch(EX_NOTE_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': WS_TOKEN
+                },
+                body: JSON.stringify({
+                    workout_exercise_id: card.dataset.exerciseId,
+                    note: textarea.value
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || I18N_WS.errorSavingSet);
+
+            const hasNote = !!(data.note && data.note.length);
+            let flag = toggle?.querySelector('[data-ex-note-flag]');
+            if (hasNote && toggle && !flag) {
+                flag = document.createElement('i');
+                flag.className = 'bi bi-check-circle-fill';
+                flag.setAttribute('data-ex-note-flag', '');
+                toggle.appendChild(flag);
+            } else if (!hasNote && flag) {
+                flag.remove();
+            }
+            if (toggle) {
+                toggle.classList.toggle('btn-primary', hasNote);
+                toggle.classList.toggle('btn-outline-secondary', !hasNote);
+            }
+
+            if (status) status.textContent = I18N_WS.noteSaved;
+            toast(I18N_WS.noteSaved);
+        } catch (e) {
+            if (status) status.textContent = I18N_WS.errorSavingSet;
+        } finally {
+            btn.disabled = false;
+        }
     }
 
     // Web Audio API beep for rest timer completion
