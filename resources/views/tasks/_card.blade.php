@@ -45,7 +45,7 @@
      data-status="{{ $task->status }}"
      data-parent="{{ $task->parent_id ?? '' }}"
      data-assignee="{{ $task->user?->name ?? __('Unassigned') }}"
-     style="border-left:2px solid {{ $leftColor }};">
+     style="border-inline-start:3px solid {{ $leftColor }};">
 
     <div class="cu-task-main">
         <span class="cu-grip" title="{{ __('Drag to move') }}"><i class="bi bi-grip-vertical"></i></span>

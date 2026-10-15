@@ -1927,5 +1927,13 @@
     "Select all": "انتخاب همه",
     "Deselect all": "لغو انتخاب همه",
     "Add (:count) to day": "افزودن (:count) به روز",
-    ":count tasks moved to this day": ":count تسک به این روز منتقل شد"
+    ":count tasks moved to this day": ":count تسک به این روز منتقل شد",
+    "Other tasks": "سایر تسک‌ها",
+    "Plan": "برنامه‌ریزی",
+    "New": "جدید",
+    "Quick add task": "افزودن سریع تسک",
+    "Schedule task": "زمان‌بندی تسک",
+    "Change day's slot": "تغییر بازه روز",
+    "Scheduled": "زمان‌بندی شد",
+    "Search tasks…": "جست‌وجوی تسک‌ها…"
 }

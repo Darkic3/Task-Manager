@@ -7,7 +7,7 @@
         <div class="cu-list-sub">
             <span class="cu-status-chip {{ $task->status }}">
                 <i class="bi bi-circle-fill" style="font-size:5px;"></i>
-                {{ ucwords(str_replace('_',' ',$task->status)) }}
+                {{ __(ucwords(str_replace('_',' ',$task->status))) }}
             </span>
         </div>
         </div>
@@ -20,7 +20,7 @@
             <span style="color:#c4c9d4;">—</span>
         @endif
     </div>
-    <div><span class="cu-priority {{ $task->priority }}">{{ ucfirst($task->priority) }}</span></div>
+    <div><span class="cu-priority {{ $task->priority }}">{{ __(ucfirst($task->priority)) }}</span></div>
     <div style="font-size:12px;color:#3d4149;">
         @if($task->user)
             <div style="display:flex;align-items:center;gap:6px;">
@@ -34,7 +34,7 @@
     <div class="cu-due {{ $task->due_date && \Carbon\Carbon::parse($task->due_date)->startOfDay()->lt(now()->startOfDay()) && $task->status !== 'completed' ? 'overdue' : '' }}" style="font-size:12px;">
         @if($task->due_date)
             <i class="bi bi-calendar-event" style="font-size:11px;"></i>
-            {{ \Carbon\Carbon::parse($task->due_date)->format('M d, Y') }}
+            {{ app_date($task->due_date, 'j F Y') }}
         @else
             <span style="color:#c4c9d4;">—</span>
         @endif
@@ -49,7 +49,7 @@
                 <i class="bi bi-calendar-plus"></i>
             </button>
         @endif
-        <a href="{{ route('tasks.show', $task->id) }}" class="cu-task-btn" title="View"><i class="bi bi-eye"></i></a>
-        <a href="{{ route('tasks.edit', $task->id) }}" class="cu-task-btn" title="Edit"><i class="bi bi-pencil"></i></a>
+        <a href="{{ route('tasks.show', $task->id) }}" class="cu-task-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
+        <a href="{{ route('tasks.edit', $task->id) }}" class="cu-task-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
     </div>
 </div>

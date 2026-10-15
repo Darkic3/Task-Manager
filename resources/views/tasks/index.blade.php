@@ -620,25 +620,122 @@
     .cud-custom input[type="date"].has-value,
     .cud-custom input.cud-jalali.has-value{border-style:solid;border-color:#7c3aed;background:#f5f0ff;font-weight:700;color:#6d28d9;}
     .cud-sec-divider{height:1px;background:#f2f3f5;margin:2px 16px 10px;}
+
+    /* ══ Tasks beauty rebuild v2 — cohesive premium layer (overrides minimal look) ── */
+    .main-content{background:linear-gradient(180deg,#fafafa 0%,#f4f3fa 100%);}
+    /* Header: gradient banner + glass count */
+    .cu-header{background:linear-gradient(135deg,#4f46e5 0%,#6d28d9 55%,#7c3aed 100%);border-radius:16px;
+        padding:16px 20px;margin-bottom:14px;color:#fff;position:relative;overflow:hidden;
+        box-shadow:0 12px 28px -10px rgba(99,102,241,.5),inset 0 1px 0 rgba(255,255,255,.22);}
+    .cu-header::before{display:block;content:'';position:absolute;top:-40px;inset-inline-end:-30px;width:150px;height:150px;
+        background:rgba(255,255,255,.12);border-radius:50%;}
+    .cu-header-title{color:#fff;font-size:20px;font-weight:800;text-shadow:0 1px 8px rgba(0,0,0,.25);}
+    .cu-header-sub{color:rgba(255,255,255,.82);}
+    .cu-header a.back-link{width:32px;height:32px;flex-shrink:0;display:grid;place-items:center;border-radius:10px;
+        background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff !important;position:relative;z-index:1;}
+    .cu-header a.back-link:hover{background:rgba(255,255,255,.3);}
+    .cu-header-count{margin-inline-start:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:7px;
+        background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:99px;
+        padding:5px 14px;font-size:12px;font-weight:600;color:rgba(255,255,255,.9);position:relative;z-index:1;
+        backdrop-filter:blur(4px);font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .cu-header-count strong{font-size:14px;font-weight:800;color:#fff;}
+    /* Toolbar: sticky command card, two rows */
+    .cu-toolbar{background:#fff;border:1px solid #e8eaf0;border-radius:16px;padding:10px 12px;margin-bottom:16px;
+        box-shadow:0 1px 4px rgba(15,23,42,.05);display:flex;flex-direction:column;gap:0;}
+    @media(min-width:769px){.cu-toolbar{position:sticky;top:0;z-index:60;backdrop-filter:blur(10px);background:rgba(255,255,255,.94);}}
+    .cu-toolbar-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .cu-toolbar-filters{border-top:1px dashed #eef0f4;margin-top:8px;padding-top:8px;}
+    .cu-filters-cap{width:30px;height:30px;flex-shrink:0;display:grid;place-items:center;border-radius:9px;
+        background:#f5f3ff;color:#7c3aed;font-size:13px;}
+    .cu-view-toggle{background:#f1f2f6;border-radius:11px;padding:3px;box-shadow:inset 0 1px 3px rgba(15,23,42,.06);}
+    .cu-view-btn{border-radius:8px;padding:7px 13px;font-size:12.5px;white-space:nowrap;}
+    .cu-view-btn.active{background:#fff;color:#6d28d9;box-shadow:0 2px 8px rgba(109,40,217,.18),inset 0 0 0 1px #e2d9fd;}
+    .cu-search-wrap{position:relative;flex:1;min-width:160px;}
+    .cu-search-wrap > i{position:absolute;top:50%;inset-inline-start:11px;transform:translateY(-50%);
+        color:#9aa0ab;font-size:13px;pointer-events:none;}
+    .cu-search-input{width:100%;min-height:38px;border-radius:10px;padding-inline-start:33px;}
+    .cu-search-input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    .cu-toolbar-actions{display:flex;align-items:center;gap:8px;margin-inline-start:auto;}
+    .cu-filter-select{min-height:36px;border-radius:9px;}
+    .cu-filter-select:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.1);}
+    .cu-btn-new{border-radius:10px;padding:9px 18px;font-weight:700;
+        background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 4px 12px -4px rgba(124,58,237,.55),inset 0 1px 0 rgba(255,255,255,.25);}
+    .cu-btn-new:hover{background:linear-gradient(135deg,#6d28d9,#5b21b6);transform:translateY(-1px);
+        box-shadow:0 6px 16px -4px rgba(124,58,237,.6);}
+    .cu-btn-new:active{transform:scale(.97);}
+    .cu-mini-btn{border-radius:9px;min-height:36px;}
+    /* Kanban: soft columns, floating cards */
+    .cu-col{background:#fff;border:1px solid #e8eaf0;border-radius:14px;box-shadow:0 1px 3px rgba(15,23,42,.05);overflow:hidden;}
+    .cu-col-head{padding:11px 12px;border-bottom:1px solid #f1f3f6;background:#fbfbfe;}
+    .cu-col-count{background:#ede9fe;color:#6d28d9;font-weight:800;font-variant-numeric:tabular-nums;}
+    .cu-col-body{background:#f4f5f9;padding:8px;max-height:calc(100vh - 380px);}
+    .cu-col-empty{border:1.5px dashed #e2e5ec;border-radius:10px;margin:2px;}
+    .cu-task-card{border-radius:12px;box-shadow:0 1px 2px rgba(15,23,42,.05);}
+    .cu-task-card:hover{transform:translateY(-1px);border-color:#d9cffb;box-shadow:0 8px 18px -8px rgba(109,40,217,.28);}
+    .cu-task-card.is-done{background:#fafbfa;}
+    .cu-check{width:20px;height:20px;}
+    .cu-quickadd{border-radius:9px;padding:4px 8px;}
+    .cu-quickadd:focus-within{background:#fff;box-shadow:0 0 0 3px rgba(124,58,237,.1);}
+    /* List rows */
+    .cu-list-head{font-size:10.5px;padding:8px 16px;}
+    .cu-list-row{border-radius:10px;padding:11px 16px;}
+    .cu-list-row:hover{border-color:#d9cffb;box-shadow:0 4px 14px -8px rgba(109,40,217,.25);transform:translateY(-1px);}
+    .cu-list-title{font-weight:600;}
+    /* Tree */
+    .cu-tree-view{border-radius:14px;box-shadow:0 1px 3px rgba(15,23,42,.05);}
+    .cu-ttree-row{padding:10px 14px 10px calc(14px + var(--depth, 0) * 22px);}
+    html[dir="rtl"] .cu-ttree-row{padding:10px calc(14px + var(--depth, 0) * 22px) 10px 14px;}
+    .cu-ttree-pb-fill{background:linear-gradient(90deg,#7c3aed,#a78bfa);}
+    /* Chapters */
+    .cu-chapter{border-radius:14px;box-shadow:0 1px 3px rgba(15,23,42,.05);}
+    .cu-chapter-head{padding:10px 14px;}
+    .cu-chapter-body{padding:6px;}
+    .cu-chapter-pb-fill{background:linear-gradient(90deg,#16a34a,#4ade80);}
+    .cu-ch-row{border-radius:10px;}
+    .cu-ch-row:hover{background:#f6f2ff;}
+    /* Create modal: gradient head */
+    .cu-modal .modal-content{border:none;border-radius:18px;overflow:hidden;}
+    .cu-modal .modal-header{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;padding:16px 20px;}
+    .cu-modal .modal-title{color:#fff;}
+    .cu-modal .modal-header .btn-close{filter:invert(1);opacity:.85;}
+    .cu-modal .modal-header .btn-close:hover{opacity:1;}
+    .cu-modal .modal-footer{background:#f8fafc;}
+    .cu-input{min-height:38px;border-radius:9px;}
+    /* Empty state */
+    .cu-empty{border-radius:16px;border-style:dashed;padding:56px 20px;}
+    .cu-empty-icon{width:60px;height:60px;border-radius:18px;font-size:26px;color:#fff;
+        background:linear-gradient(135deg,#7c3aed,#6366f1);box-shadow:0 10px 20px -10px rgba(109,40,217,.6);}
+    /* ── RTL logical fixes ── */
+    .cu-col-actions{margin-left:0;margin-inline-start:auto;}
+    .cu-task-foot{padding-left:0;padding-inline-start:26px;}
+    .cu-assignee{margin-left:0;margin-inline-start:auto;}
+    .cu-add-day{margin-left:0;margin-inline-start:2px;}
+    .cud-x{margin-left:0;margin-inline-start:auto;}
+    .cu-ch-row .cu-due{margin-left:0;margin-inline-start:2px;}
+    .cu-bulk-count{padding-right:0;padding-inline-end:10px;border-right:none;
+        border-inline-end:1px solid rgba(255,255,255,.12);margin-right:0;margin-inline-end:2px;}
+    html[dir="rtl"] .cu-overdue-tag,html[dir="rtl"] .cu-status-chip,html[dir="rtl"] .cu-priority,
+    html[dir="rtl"] .cu-list-head,html[dir="rtl"] .cud-eyebrow,html[dir="rtl"] .cud-sec-label{letter-spacing:0;}
+    html[dir="rtl"] .cu-task-title{line-height:1.7;}
+    @media (max-width: 768px) {
+        .main-content{padding:12px 12px 110px;}
+        .cu-header{padding:14px 16px;border-radius:14px;}
+        .cu-header-title{font-size:17px;}
+        .cu-toolbar{position:static;}
+        .cu-view-toggle{max-width:100%;overflow-x:auto;}
+        .cu-view-toggle .cu-view-btn span{display:none;}
+        .cu-view-toggle .cu-view-btn{padding:8px 12px;font-size:14px;}
+        .cu-search-wrap{flex:1 1 100%;order:3;}
+        .cu-toolbar-actions{margin-inline-start:0;width:100%;}
+        .cu-toolbar-actions .cu-btn-new{flex:1;justify-content:center;}
+        .cu-filter-select{flex:1 1 30%;}
+        .cu-col-body{max-height:none;}
+    }
 </style>
 @endpush
 
 @section('content')
 <div class="main-content">
-
-    <div class="cu-header">
-        <div class="d-flex align-items-center gap-2">
-            @if(isset($project))
-                <a href="{{ route('projects.show', $project) }}" class="back-link text-decoration-none">
-                    <i class="bi bi-arrow-left" style="font-size:16px;"></i>
-                </a>
-            @endif
-            <div>
-                <div class="cu-header-title">{{ isset($project) ? $project->name . ' — ' . __('Tasks') : __('Tasks') }}</div>
-                <div class="cu-header-sub">{{ isset($project) ? __('Manage and track tasks for this project') : __('All active tasks across your projects') }}</div>
-            </div>
-        </div>
-    </div>
 
     @php
         $todoCnt     = count($tasks['to_do'] ?? []);
@@ -650,31 +747,60 @@
         $hasAny      = $totalCnt > 0;
     @endphp
 
-    <div class="cu-toolbar">
-        <div class="cu-toolbar-left">
-            <div class="cu-view-toggle">
-                <button class="cu-view-btn active" data-view="kanban"><i class="bi bi-kanban"></i> {{ __('Board') }}</button>
-                @if(!isset($project))
-                    <button class="cu-view-btn" data-view="projects"><i class="bi bi-folder"></i> {{ __('Projects') }}</button>
-                @endif
-                <button class="cu-view-btn" data-view="chapters"><i class="bi bi-collection"></i> {{ __('Chapters') }}</button>
-                <button class="cu-view-btn" data-view="list"><i class="bi bi-list-ul"></i> {{ __('List') }}</button>
-                <button class="cu-view-btn" data-view="tree"><i class="bi bi-diagram-3"></i> {{ __('Tree') }}</button>
+    <div class="cu-header">
+        <div class="d-flex align-items-center gap-2">
+            @if(isset($project))
+                <a href="{{ route('projects.show', $project) }}" class="back-link text-decoration-none" title="{{ __('Back') }}" aria-label="{{ __('Back') }}">
+                    <i class="bi {{ app()->getLocale() === 'fa' ? 'bi-arrow-right' : 'bi-arrow-left' }}" style="font-size:16px;"></i>
+                </a>
+            @endif
+            <div class="cu-header-titles">
+                <div class="cu-header-title">{{ isset($project) ? $project->name . ' — ' . __('Tasks') : __('Tasks') }}</div>
+                <div class="cu-header-sub">{{ isset($project) ? __('Manage and track tasks for this project') : __('All active tasks across your projects') }}</div>
             </div>
-            <input type="text" class="cu-search-input" id="cuSearch" placeholder="{{ __('Search') }}">
-            <select class="cu-filter-select" id="cuPriority">
+            <span class="cu-header-count"><strong>{{ app_num($totalCnt) }}</strong> {{ __('Tasks') }}</span>
+        </div>
+    </div>
+
+    <div class="cu-toolbar">
+        <div class="cu-toolbar-row cu-toolbar-main">
+            <div class="cu-view-toggle" role="tablist">
+                <button class="cu-view-btn active" data-view="kanban"><i class="bi bi-kanban"></i> <span>{{ __('Board') }}</span></button>
+                @if(!isset($project))
+                    <button class="cu-view-btn" data-view="projects"><i class="bi bi-folder"></i> <span>{{ __('Projects') }}</span></button>
+                @endif
+                <button class="cu-view-btn" data-view="chapters"><i class="bi bi-collection"></i> <span>{{ __('Chapters') }}</span></button>
+                <button class="cu-view-btn" data-view="list"><i class="bi bi-list-ul"></i> <span>{{ __('List') }}</span></button>
+                <button class="cu-view-btn" data-view="tree"><i class="bi bi-diagram-3"></i> <span>{{ __('Tree') }}</span></button>
+            </div>
+            <div class="cu-search-wrap">
+                <i class="bi bi-search"></i>
+                <input type="text" class="cu-search-input" id="cuSearch" placeholder="{{ __('Search tasks…') }}" autocomplete="off">
+            </div>
+            <div class="cu-toolbar-actions">
+                <button class="cu-mini-btn" id="cuSelectMode" title="{{ __('Select multiple tasks') }}">
+                    <i class="bi bi-check2-square"></i> <span>{{ __('Select') }}</span> <span class="cu-select-badge" id="cuSelectBadge">0</span>
+                </button>
+                <button class="cu-btn-new" data-bs-toggle="modal" data-bs-target="#createTaskModal">
+                    <i class="bi bi-plus-lg"></i> {{ __('New Task') }}
+                </button>
+            </div>
+        </div>
+        <div class="cu-toolbar-row cu-toolbar-filters">
+            <span class="cu-filters-cap"><i class="bi bi-funnel"></i></span>
+            <select class="cu-filter-select" id="cuPriority" aria-label="{{ __('Priority') }}">
                 <option value="">{{ __('All') }} {{ __('Priority') }}</option>
                 <option value="high">{{ __('High') }}</option>
                 <option value="medium">{{ __('Medium') }}</option>
                 <option value="low">{{ __('Low') }}</option>
             </select>
-            <select class="cu-filter-select" id="cuProject">
+            <select class="cu-filter-select" id="cuProject" aria-label="{{ __('Projects') }}">
                 <option value="">{{ __('All') }} {{ __('Projects') }}</option>
                 @foreach($projects as $proj)
                     <option value="{{ $proj->id }}">{{ $proj->name }}</option>
                 @endforeach
             </select>
-            <select class="cu-filter-select" id="cuStatus">
+            <select class="cu-filter-select" id="cuStatus" aria-label="{{ __('Status') }}">
                 <option value="">{{ __('All') }} {{ __('Status') }}</option>
                 <option value="to_do">{{ __('To Do') }}</option>
                 <option value="in_progress">{{ __('In Progress') }}</option>
@@ -682,7 +808,7 @@
                 <option value="in_review">{{ __('In Review') }}</option>
                 <option value="completed">{{ __('Completed') }}</option>
             </select>
-            <select class="cu-filter-select" id="cuSort" title="{{ __('Sort') }}">
+            <select class="cu-filter-select" id="cuSort" title="{{ __('Sort') }}" aria-label="{{ __('Sort') }}">
                 <option value="">{{ __('Sort') }}: {{ __('Manual') }}</option>
                 <option value="due">{{ __('Due Date') }}</option>
                 <option value="priority">{{ __('Priority') }}</option>
@@ -695,15 +821,6 @@
                 <button class="cu-mini-btn" id="cuExpandAll" title="{{ __('Expand all chapters') }}">{{ __('Expand all') }}</button>
                 <button class="cu-mini-btn" id="cuCollapseAll" title="{{ __('Collapse all chapters') }}">{{ __('Collapse all') }}</button>
             </span>
-        </div>
-        <div class="cu-toolbar-right">
-            <span style="font-size:12px;color:#8b8d98;">{{ $totalCnt }} {{ __('Tasks') }}</span>
-            <button class="cu-mini-btn" id="cuSelectMode" title="{{ __('Select multiple tasks') }}">
-                <i class="bi bi-check2-square"></i> <span>{{ __('Select') }}</span> <span class="cu-select-badge" id="cuSelectBadge">0</span>
-            </button>
-            <button class="cu-btn-new" data-bs-toggle="modal" data-bs-target="#createTaskModal">
-                <i class="bi bi-plus-lg"></i> {{ __('New Task') }}
-            </button>
         </div>
     </div>
 
@@ -811,7 +928,7 @@
         @if($singleRoots->count() > 0)
             @include('tasks._chapter-section', [
                 'sectionId'    => 'ch-other',
-                'sectionTitle' => 'Other tasks',
+                'sectionTitle' => __('Other tasks'),
                 'sectionUrl'   => null,
                 'tasks'        => $singleRoots,
                 'grouped'      => $groupedBy,
@@ -832,7 +949,7 @@
             @if($orphanTasks->count())
                 @include('tasks._chapter-section', [
                     'sectionId'    => 'p-none',
-                    'sectionTitle' => 'No project',
+                    'sectionTitle' => __('No project'),
                     'sectionUrl'   => route('tasks.index'),
                     'tasks'        => $orphanTasks->filter(fn ($t) => $t->parent_id === null)->values(),
                     'grouped'      => $orphanTasks->groupBy('parent_id'),
@@ -1017,7 +1134,7 @@
         </div>
         <div class="cud-foot">
             <span class="cud-hint"><span class="dot"></span><span data-schedule-summary>{{ __('Pick a day, then a time') }}</span></span>
-            <a href="{{ route('planner.index') }}" class="cud-link" data-schedule-open target="_blank" rel="noopener">{{ __('Open day') }} &rarr;</a>
+            <a href="{{ route('planner.index') }}" class="cud-link" data-schedule-open target="_blank" rel="noopener">{{ __('Open day') }} <i class="bi {{ app()->getLocale() === 'fa' ? 'bi-arrow-left' : 'bi-arrow-right' }}"></i></a>
         </div>
     </div>
 </div>

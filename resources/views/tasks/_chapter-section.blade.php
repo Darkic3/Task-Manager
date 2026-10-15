@@ -47,6 +47,8 @@
                 title="{{ __('Quick add task') }} (A)">
             <i class="bi bi-plus-lg"></i><span>{{ __('New') }}</span><span class="cu-kbd">A</span>
         </button>
+    </div>
+    <div class="cu-chapter-body" id="{{ $bodyId }}">
         <div class="cu-ch-quickform" data-ch-quickform="{{ $sectionId }}" hidden>
             <i class="bi bi-plus-lg"></i>
             <input type="text" data-ch-quickinput maxlength="255" autocomplete="off"
