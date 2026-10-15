@@ -519,6 +519,46 @@
 
     .nt-select:focus { border-color: var(--primary-500); box-shadow: 0 0 0 3px rgb(99 102 241 / .12); }
 
+    /* Inline notebook quick-create (shared note editor) */
+    .nt-nb-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+    .nt-nb-head .nt-form-label { margin-bottom: 0; }
+    .nt-nb-add {
+        display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+        border: 1px dashed var(--gray-300); background: #fff; color: var(--primary-600);
+        border-radius: 999px; font-size: .68rem; font-weight: 800; padding: 2px 9px;
+        cursor: pointer; transition: all .14s;
+    }
+    .nt-nb-add:hover { border-color: var(--primary-500); background: var(--primary-50); }
+    .nt-nb-add:active { transform: scale(.96); }
+    .nt-nb-add i { font-size: .72rem; }
+    .nt-nb-quick {
+        margin-top: 7px; padding: 9px; border: 1px solid #c7d2fe; background: var(--primary-50);
+        border-radius: var(--radius-md); animation: ntNbIn .16s ease-out;
+    }
+    .nt-nb-quick[hidden] { display: none; }
+    @keyframes ntNbIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+    .nt-nb-quick-line { display: flex; gap: 6px; }
+    .nt-nb-quick-line input {
+        flex: 1; min-width: 0; height: 34px; padding: 0 10px;
+        border: 1px solid var(--gray-300); border-radius: var(--radius-md);
+        font-size: .82rem; color: var(--gray-800); outline: none;
+        transition: border-color .14s, box-shadow .14s;
+    }
+    .nt-nb-quick-line input:focus { border-color: var(--primary-500); box-shadow: 0 0 0 3px rgb(99 102 241 / .12); }
+    .nt-nb-quick-ok, .nt-nb-quick-x {
+        width: 34px; height: 34px; flex-shrink: 0; display: grid; place-items: center;
+        border-radius: var(--radius-md); border: 1px solid var(--gray-300); background: #fff;
+        cursor: pointer; transition: all .14s;
+    }
+    .nt-nb-quick-ok { border-color: var(--primary-600); background: var(--primary-600); color: #fff; }
+    .nt-nb-quick-ok:hover { background: var(--primary-700); }
+    .nt-nb-quick-ok:disabled { opacity: .7; cursor: default; }
+    .nt-nb-quick-x { color: var(--gray-500); }
+    .nt-nb-quick-x:hover { background: var(--gray-100); }
+    .nt-nb-quick-parent { margin-top: 6px; height: 32px; font-size: .78rem; }
+    .nt-nb-quick-msg { font-size: .7rem; font-weight: 700; margin-top: 6px; color: var(--gray-500); }
+    .nt-nb-quick-msg.is-err { color: #dc2626; }
+
     .nt-checks { display: flex; flex-wrap: wrap; gap: 6px; }
     .nt-check {
         display: inline-flex; align-items: center; gap: 6px;

@@ -6,6 +6,7 @@ use App\Models\Note;
 use App\Models\NoteLabel;
 use App\Models\NoteSubject;
 use App\Models\Project;
+use App\Models\Routine;
 use App\Models\Task;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -20,6 +21,7 @@ class NoteMentionService
         Note::class => 'title',
         Project::class => 'name',
         Task::class => 'title',
+        Routine::class => 'title',
     ];
 
     /**
@@ -86,6 +88,9 @@ class NoteMentionService
                 $results[] = $row;
             }
             foreach ($this->matchTasks($userId, $key, 4) as $row) {
+                $results[] = $row;
+            }
+            foreach ($this->matchRoutines($userId, $key, 4) as $row) {
                 $results[] = $row;
             }
         }
@@ -181,6 +186,21 @@ class NoteMentionService
             ->map(fn ($t) => [
                 'type' => 'task', 'id' => $t->id, 'name' => $t->title,
                 'icon' => 'bi-check2-square', 'hint' => __('Task'),
+            ])->all();
+    }
+
+    private function matchRoutines(int $userId, string $key, int $limit): array
+    {
+        if ($key === '') {
+            return [];
+        }
+
+        return Routine::where('user_id', $userId)
+            ->where('title', 'like', '%'.$this->escapeLike(Str::substr($key, 0, 40)).'%')
+            ->limit($limit)->get()
+            ->map(fn ($r) => [
+                'type' => 'routine', 'id' => $r->id, 'name' => $r->title,
+                'icon' => 'bi-arrow-repeat', 'hint' => __('Routine'),
             ])->all();
     }
 

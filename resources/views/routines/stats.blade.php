@@ -428,5 +428,16 @@
     </div>
     @endif
 
+    @include('notes.partials._entity_notes', [
+        'entityKind' => 'routine',
+        'attachUrl' => route('routines.notes.attach', $routine),
+        'detachBase' => route('routines.notes.detach', [$routine, '__ID__']),
+        'createUrl' => route('notes.create', ['linked_type' => 'routine', 'linked_id' => $routine->id]),
+        'indexUrl' => route('notes.index', ['linked_type' => \App\Models\Routine::class, 'linked_id' => $routine->id]),
+        'linkedNotes' => $linkedNotes ?? collect(),
+        'noteLinks' => $noteLinks ?? collect(),
+        'recentNotes' => $recentNotes ?? collect(),
+    ])
+
 </div>
 @endsection

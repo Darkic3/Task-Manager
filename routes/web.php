@@ -75,6 +75,8 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('tasks/{task}/notes/{link}', [TaskController::class, 'detachNote'])->name('tasks.notes.detach');
     Route::post('projects/{project}/notes', [ProjectController::class, 'attachNote'])->name('projects.notes.attach');
     Route::delete('projects/{project}/notes/{link}', [ProjectController::class, 'detachNote'])->name('projects.notes.detach');
+    Route::post('routines/{routine}/notes', [\App\Http\Controllers\RoutineController::class, 'attachNote'])->name('routines.notes.attach');
+    Route::delete('routines/{routine}/notes/{link}', [\App\Http\Controllers\RoutineController::class, 'detachNote'])->name('routines.notes.detach');
 
     Route::resource('routines', RoutineController::class)->except(['show']);
     Route::post('routines/reorder', [RoutineController::class, 'reorder'])->name('routines.reorder');

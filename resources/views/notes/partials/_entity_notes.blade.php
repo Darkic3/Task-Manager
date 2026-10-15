@@ -1,7 +1,7 @@
 {{--
-    Linked-notes section for a task / project / subtask page.
+    Linked-notes section for a task / project / routine / subtask / sub-project page.
     Expects:
-      $entityKind  'task' | 'project'
+      $entityKind  'task' | 'project' | 'routine'
       $attachUrl   POST {note_id}  -> {success, note:{id,title,url}}
       $detachBase  URL prefix for DELETE, link id appended (e.g. route('tasks.notes.detach', [$task, '__ID__']) with placeholder)
       $createUrl   notes.create with ?linked_type=&linked_id=

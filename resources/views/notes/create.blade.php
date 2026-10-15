@@ -32,6 +32,8 @@
     'selectedLabels' => $selectedLabels,
     'selectedFiles' => $selectedFiles,
     'kindMeta' => $kindMeta,
+    'mentionPicks' => $mentionPicks ?? [],
+    'linkTargets' => $linkTargets ?? ['projects' => [], 'tasks' => [], 'routines' => []],
     'prefillLink' => $prefillLink ?? null,
     'action' => route('notes.store'),
 ])

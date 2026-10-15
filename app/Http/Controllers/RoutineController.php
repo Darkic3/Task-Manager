@@ -449,7 +449,27 @@ class RoutineController extends Controller
             $valueStats = null;
         }
 
-        return view('routines.stats', compact('routine', 'weeks', 'monthSpans', 'streak', 'adherence', 'tracker', 'valueStats', 'prevCycle', 'avoid'));
+        $linkedNotes = \App\Models\Note::ofUser((int) Auth::id())
+            ->linkedTo(\App\Models\Routine::class, (int) $routine->id)
+            ->notArchived()
+            ->with(['labels'])
+            ->chronological('desc')
+            ->limit(20)
+            ->get();
+
+        $noteLinks = \App\Models\NoteLink::where('linkable_type', \App\Models\Routine::class)
+            ->where('linkable_id', (int) $routine->id)
+            ->whereHas('note', fn ($q) => $q->where('user_id', Auth::id()))
+            ->with(['note:id,title,updated_at'])
+            ->get();
+
+        $recentNotes = \App\Models\Note::ofUser((int) Auth::id())
+            ->notArchived()
+            ->orderByDesc('updated_at')
+            ->limit(50)
+            ->get(['id', 'title']);
+
+        return view('routines.stats', compact('routine', 'weeks', 'monthSpans', 'streak', 'adherence', 'tracker', 'valueStats', 'prevCycle', 'avoid', 'linkedNotes', 'noteLinks', 'recentNotes'));
     }
 
     /**
@@ -775,6 +795,52 @@ class RoutineController extends Controller
     private function authorizeRoutine(Routine $routine): void
     {
         abort_if($routine->user_id !== Auth::id(), 403);
+    }
+
+    /**
+     * Attach an existing note to this routine (mirrors task/project flow).
+     */
+    public function attachNote(Request $request, Routine $routine, \App\Services\Notes\NoteLinkService $links)
+    {
+        $this->authorizeRoutine($routine);
+
+        $data = $request->validate(['note_id' => ['required', 'integer', 'min:1']]);
+
+        $note = \App\Models\Note::ofUser(Auth::id())->whereKey($data['note_id'])->first();
+
+        if (! $note) {
+            return response()->json(['success' => false, 'message' => __('Note not found.')], 422);
+        }
+
+        $link = $links->attach($note, \App\Models\Routine::class, (int) $routine->id);
+
+        if (! $link) {
+            return response()->json(['success' => false, 'message' => __('Could not attach.')], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'note' => ['id' => $note->id, 'title' => $note->title, 'url' => route('notes.show', $note)],
+        ]);
+    }
+
+    public function detachNote(Routine $routine, \App\Models\NoteLink $link)
+    {
+        $this->authorizeRoutine($routine);
+
+        if ($link->linkable_type !== \App\Models\Routine::class || (int) $link->linkable_id !== (int) $routine->id) {
+            return response()->json(['success' => false], 404);
+        }
+
+        $note = \App\Models\Note::ofUser(Auth::id())->whereKey($link->note_id)->first();
+
+        if (! $note) {
+            return response()->json(['success' => false], 404);
+        }
+
+        $link->delete();
+
+        return response()->json(['success' => true]);
     }
 
     /**

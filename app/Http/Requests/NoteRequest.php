@@ -60,7 +60,7 @@ class NoteRequest extends FormRequest
 
             // composer picks for polymorphic links
             'mentions' => ['nullable', 'array', 'max:50'],
-            'mentions.*.type' => ['required', 'string', Rule::in(['subject', 'label', 'project', 'task', 'note'])],
+            'mentions.*.type' => ['required', 'string', Rule::in(['subject', 'label', 'project', 'task', 'routine', 'note'])],
             'mentions.*.id' => ['required', 'integer', 'min:1'],
 
             'file_ids' => ['nullable', 'array', 'max:20'],

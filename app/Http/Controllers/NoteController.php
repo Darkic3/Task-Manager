@@ -104,6 +104,7 @@ class NoteController extends Controller
             'kindMeta' => note_kind_meta(),
             'mentionPicks' => [],
             'prefillLink' => $this->prefillLink($request, $userId),
+            'linkTargets' => $this->linkTargetOptions($userId),
         ]);
     }
 
@@ -189,6 +190,7 @@ class NoteController extends Controller
                 ->all(),
             'prefillLink' => null,
             'kindMeta' => note_kind_meta(),
+            'linkTargets' => $this->linkTargetOptions($userId),
         ]);
     }
 
@@ -332,6 +334,7 @@ class NoteController extends Controller
         $map = [
             'project' => \App\Models\Project::class,
             'task' => \App\Models\Task::class,
+            'routine' => \App\Models\Routine::class,
             'note' => Note::class,
         ];
 
@@ -351,19 +354,95 @@ class NoteController extends Controller
     }
 
     /**
-     * Resolve ?linked_type=task|project&linked_id=X into a prefill chip.
+     * Searchable multi-assign options for the note editor:
+     * projects (indented tree, incl. sub-projects), tasks (with project /
+     * parent hints, incl. subtasks) and routines.
+     *
+     * @return array{projects: array, tasks: array, routines: array}
+     */
+    private function linkTargetOptions(int $userId): array
+    {
+        $projects = \App\Models\Project::where('user_id', $userId)
+            ->orderBy('name')->get(['id', 'name', 'parent_id']);
+
+        $byId = $projects->keyBy('id');
+        $pathOf = function ($p) use ($byId) {
+            $parts = [$p->name];
+            $guard = 0;
+            $cur = $p;
+            while ($cur->parent_id && isset($byId[$cur->parent_id]) && $guard++ < 10) {
+                $cur = $byId[$cur->parent_id];
+                array_unshift($parts, $cur->name);
+            }
+
+            return implode(' / ', $parts);
+        };
+        $depthOf = function ($p) use ($byId) {
+            $d = 0;
+            $cur = $p;
+            $guard = 0;
+            while ($cur->parent_id && isset($byId[$cur->parent_id]) && $guard++ < 10) {
+                $d++;
+                $cur = $byId[$cur->parent_id];
+            }
+
+            return $d;
+        };
+
+        $projectOpts = $projects->map(fn ($p) => [
+            'id' => $p->id,
+            'name' => $p->name,
+            'path' => $pathOf($p),
+            'depth' => $depthOf($p),
+            'is_sub' => $p->parent_id !== null,
+        ])->values()->all();
+
+        $tasks = \App\Models\Task::where('user_id', $userId)
+            ->with(['project:id,name', 'parent:id,title'])
+            ->orderBy('title')->limit(500)
+            ->get(['id', 'title', 'project_id', 'parent_id']);
+
+        $taskOpts = $tasks->map(fn ($t) => [
+            'id' => $t->id,
+            'name' => $t->title,
+            'hint' => trim(implode(' · ', array_filter([
+                $t->project?->name,
+                $t->parent ? __('Sub of :t', ['t' => $t->parent->title]) : null,
+            ]))),
+            'is_sub' => $t->parent_id !== null,
+        ])->values()->all();
+
+        $routines = \App\Models\Routine::where('user_id', $userId)
+            ->orderBy('title')->limit(300)
+            ->get(['id', 'title']);
+
+        $routineOpts = $routines->map(fn ($r) => [
+            'id' => $r->id,
+            'name' => $r->title,
+        ])->values()->all();
+
+        return ['projects' => $projectOpts, 'tasks' => $taskOpts, 'routines' => $routineOpts];
+    }
+
+    /**
+     * Resolve ?linked_type=task|project|routine&linked_id=X into a prefill chip.
      * Subtasks are tasks (parent_id set) — same flow, label shows the title.
+     * Sub-projects are projects (parent_id set) — same flow.
      */
     private function prefillLink(Request $request, int $userId): ?array
     {
         $type = strtolower((string) $request->query('linked_type', ''));
         $id = (int) $request->query('linked_id', 0);
 
-        if ($id <= 0 || ! in_array($type, ['task', 'project'], true)) {
+        if ($id <= 0 || ! in_array($type, ['task', 'project', 'routine'], true)) {
             return null;
         }
 
-        $class = $type === 'task' ? \App\Models\Task::class : \App\Models\Project::class;
+        $class = match ($type) {
+            'task' => \App\Models\Task::class,
+            'routine' => \App\Models\Routine::class,
+            default => \App\Models\Project::class,
+        };
         $model = $class::where('user_id', $userId)->whereKey($id)->first();
 
         if (! $model) {
@@ -373,7 +452,7 @@ class NoteController extends Controller
         return [
             'type' => $type,
             'id' => $model->id,
-            'name' => $type === 'task' ? $model->title : $model->name,
+            'name' => $type === 'project' ? $model->name : $model->title,
         ];
     }
 
@@ -382,11 +461,15 @@ class NoteController extends Controller
         $type = strtolower((string) $request->input('linked_type', $request->query('linked_type', '')));
         $id = (int) ($request->input('linked_id', $request->query('linked_id', 0)));
 
-        if ($id <= 0 || ! in_array($type, ['task', 'project'], true)) {
+        if ($id <= 0 || ! in_array($type, ['task', 'project', 'routine'], true)) {
             return;
         }
 
-        $class = $type === 'task' ? \App\Models\Task::class : \App\Models\Project::class;
+        $class = match ($type) {
+            'task' => \App\Models\Task::class,
+            'routine' => \App\Models\Routine::class,
+            default => \App\Models\Project::class,
+        };
         $this->links->attach($note, $class, $id);
     }
 }

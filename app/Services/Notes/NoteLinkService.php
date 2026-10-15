@@ -7,6 +7,7 @@ use App\Models\NoteLabel;
 use App\Models\NoteLink;
 use App\Models\NoteSubject;
 use App\Models\Project;
+use App\Models\Routine;
 use App\Models\Task;
 use Illuminate\Support\Collection;
 
@@ -83,6 +84,7 @@ class NoteLinkService
         $map = [
             'project' => Project::class,
             'task' => Task::class,
+            'routine' => Routine::class,
             'note' => Note::class,
             'subject' => NoteSubject::class,
             'label' => NoteLabel::class,

@@ -28,6 +28,7 @@ class NoteLinkController extends Controller
             'note' => Note::class,
             'project' => \App\Models\Project::class,
             'task' => \App\Models\Task::class,
+            'routine' => \App\Models\Routine::class,
         ]), true);
 
         if (! $class) {
@@ -89,6 +90,7 @@ class NoteLinkController extends Controller
             'note' => Note::class,
             'project' => \App\Models\Project::class,
             'task' => \App\Models\Task::class,
+            'routine' => \App\Models\Routine::class,
         ], true);
 
         if (! $class) {

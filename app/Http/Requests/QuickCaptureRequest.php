@@ -20,7 +20,7 @@ class QuickCaptureRequest extends FormRequest
             'notebook_id' => ['nullable', 'integer'],
             'occurred_at' => ['nullable', 'date'],
             'mentions' => ['nullable', 'array', 'max:30'],
-            'mentions.*.type' => ['required', 'string', Rule::in(['subject', 'label', 'project', 'task', 'note'])],
+            'mentions.*.type' => ['required', 'string', Rule::in(['subject', 'label', 'project', 'task', 'routine', 'note'])],
             'mentions.*.id' => ['required', 'integer', 'min:1'],
         ];
     }
