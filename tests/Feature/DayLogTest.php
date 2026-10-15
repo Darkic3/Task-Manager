@@ -83,7 +83,7 @@ class DayLogTest extends TestCase
         ]);
     }
 
-    public function test_store_journal_requires_mood_and_rejects_time_fields(): void
+    public function test_store_journal_allows_null_mood_and_rejects_time_fields(): void
     {
         $user = User::factory()->create();
 
@@ -94,11 +94,41 @@ class DayLogTest extends TestCase
 
         $this->actingAs($user)->postJson(route('day-logs.store'), [
             'date' => today()->toDateString(), 'kind' => 'journal', 'title' => 'No mood one',
-        ])->assertUnprocessable();
+        ])->assertCreated()->assertJsonPath('entry.mood', null);
 
         $this->actingAs($user)->postJson(route('day-logs.store'), $this->activityPayload([
             'kind' => 'journal', 'mood' => 6, 'period' => 'evening',
         ]))->assertUnprocessable();
+    }
+
+    public function test_store_activity_accepts_an_optional_mood(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->postJson(route('day-logs.store'), $this->activityPayload([
+            'mood' => 8, 'mood_picked' => false,
+        ]))->assertCreated()->assertJsonPath('entry.kind', 'activity')
+            ->assertJsonPath('entry.mood', 8);
+
+        $this->assertDatabaseHas('day_logs', [
+            'user_id' => $user->id, 'title' => 'Playing piano', 'mood' => 8,
+        ]);
+    }
+
+    public function test_store_journal_allows_quit_flag_and_mood(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->postJson(route('day-logs.store'), [
+            'date' => today()->toDateString(), 'kind' => 'journal', 'title' => 'Journal with quit flag',
+            'mood' => 6, 'mood_picked' => true, 'is_quit' => true,
+        ])->assertCreated()->assertJsonPath('entry.kind', 'journal')
+            ->assertJsonPath('entry.is_quit', true)
+            ->assertJsonPath('entry.mood', 6);
+
+        $this->assertDatabaseHas('day_logs', [
+            'user_id' => $user->id, 'kind' => 'journal', 'title' => 'Journal with quit flag', 'is_quit' => true,
+        ]);
     }
 
     public function test_store_validation_rejects_bad_input(): void
@@ -108,7 +138,7 @@ class DayLogTest extends TestCase
 
         $as($this->activityPayload(['title' => '']));
         $as($this->activityPayload(['kind' => 'dance']));
-        $as($this->activityPayload(['mood' => 5]));
+        $as($this->activityPayload(['mood' => 11]));
         $as($this->activityPayload(['mood' => 11, 'kind' => 'journal']));
         $as($this->activityPayload(['logged_at' => '25:00']));
         $as($this->activityPayload(['period' => 'dawn']));

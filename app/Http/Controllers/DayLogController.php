@@ -225,9 +225,9 @@ class DayLogController extends Controller
             'start_time' => ['nullable', 'date_format:H:i', 'prohibited_if:kind,journal'],
             'end_time' => ['nullable', 'date_format:H:i', 'prohibited_if:kind,journal'],
             'logged_at' => ['nullable', 'date_format:H:i'],
-            'mood' => ['nullable', 'integer', 'min:1', 'max:10', 'required_if:kind,journal', 'prohibited_if:kind,activity'],
-            'mood_picked' => ['nullable', 'boolean', 'prohibited_if:kind,activity'],
-            'is_quit' => ['nullable', 'boolean', 'prohibited_if:kind,journal'],
+            'mood' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'mood_picked' => ['nullable', 'boolean'],
+            'is_quit' => ['nullable', 'boolean'],
             'time_entry_id' => ['nullable', 'integer', Rule::exists('time_entries', 'id')->where('user_id', Auth::id()), 'prohibited_if:kind,journal'],
         ];
     }

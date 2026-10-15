@@ -2284,8 +2284,9 @@
                     </div>
                     <span class="lg-label">{{ __('Mood') }}</span>
                     <select class="lg-sel" id="lgMood" name="day_log_mood" aria-label="{{ __('Mood') }}">
+                        <option value="">{{ __('Not set') }}</option>
                         @for($lgMood = 1; $lgMood <= 10; $lgMood++)
-                            <option value="{{ $lgMood }}" @selected($lgMood === 7)>{{ app_num($lgMood) }}/{{ app_num(10) }}</option>
+                            <option value="{{ $lgMood }}">{{ app_num($lgMood) }}/{{ app_num(10) }}</option>
                         @endfor
                     </select>
                 </div>
@@ -6232,7 +6233,7 @@
        range all at once ("پیانو ۴۵ دقیقه عصر"), or none of them. */
     const TIME_UNITS = [UNITS.minute, UNITS.hour];
     const state = { kind: 'activity', amount: null, unit: UNITS.minute,
-                    start: null, end: null, period: null, mood: 7, actId: null };
+                    start: null, end: null, period: null, mood: null, actId: null };
 
     const $ = id => document.getElementById(id);
     const input = $('lgInput');
@@ -6315,8 +6316,8 @@
             amount: isJ ? null : (s.amount != null ? s.amount : null),
             amount_unit: (!isJ && s.amount != null) ? (s.unitKey || 'minute') : null,
             start_time: isJ ? null : (s.start || null), end_time: isJ ? null : (s.end || null),
-            logged_at: s.loggedAt || null, mood: isJ ? (s.mood != null ? s.mood : 7) : null,
-            mood_picked: isJ ? !!s.moodPicked : null, is_quit: !isJ && !!s.isQuit,
+            logged_at: s.loggedAt || null, mood: s.mood != null ? s.mood : null,
+            mood_picked: !!s.moodPicked, is_quit: !!s.isQuit,
             time_entry_id: s.timeEntryId || null };
     }
     const entryToPayload = e => snapshotToPayload(snapshotEntry(e));
@@ -6385,13 +6386,13 @@
         if (e.start && e.end) { bits.push(NUM(e.start) + '–' + NUM(e.end)); }
         else if (e.seconds) { bits.push(humanDuration(e.seconds)); }
         if (e.amount && e.amountUnit) { bits.push(NUM(e.amount) + ' ' + e.amountUnit); }
-        if (e.kind === 'journal' && e.mood && !e.moodPicked) { bits.push(I18N.moodLabel + ' ' + NUM(e.mood) + '/' + NUM(10)); }
+        if (e.mood != null && !e.moodPicked) { bits.push(I18N.moodLabel + ' ' + NUM(e.mood) + '/' + NUM(10)); }
         return bits.join(' · ');
     }
 
     function rowHtml(e) {
         const isJ = e.kind === 'journal';
-        const isMood = isJ && !!e.moodPicked;
+        const isMood = !!e.moodPicked;
         const meta = rowMeta(e);
         /* Clock block: the hour it was logged + which part of day it belongs to.
            Activity ranges stay in the meta chips; this block always answers
@@ -6409,12 +6410,12 @@
             : '';
         /* Meta and note travel together: they sit at the end of the title line,
            or wrap as a block when the title is long. */
-        const sub = (meta || e.note)
-            ? '<div class="lg-row-sub">' +
-                (isMood ? '<span class="lg-mood-badge">' + esc(I18N.moodLabel) + ' ' + NUM(e.mood) + '/' + NUM(10) + '</span>' : '') +
-                (meta && !isMood ? '<span class="lg-row-meta">' + esc(meta) + '</span>' : '') +
-                (isMood && e.note ? '<span class="lg-row-note">' + esc(e.note) + '</span>' : '') +
-                (!isMood && e.note ? '<span class="lg-row-note">' + esc(e.note) + '</span>' : '') +
+        const moodBadge = (e.mood != null && e.moodPicked)
+            ? '<span class="lg-mood-badge">' + esc(I18N.moodLabel) + ' ' + NUM(e.mood) + '/' + NUM(10) + '</span>' : '';
+        const sub = (meta || e.note || moodBadge)
+            ? '<div class="lg-row-sub">' + moodBadge +
+                (meta ? '<span class="lg-row-meta">' + esc(meta) + '</span>' : '') +
+                (e.note ? '<span class="lg-row-note">' + esc(e.note) + '</span>' : '') +
               '</div>'
             : '';
         return '' +
@@ -6468,9 +6469,8 @@
                 if (state.start && state.end) { bits.push(NUM(state.start) + '–' + NUM(state.end)); }
                 else if (state.amount) { bits.push(NUM(state.amount) + ' ' + unitLabel(state.unit)); }
                 if (state.period) { bits.push(periodLabel(state.period)); }
-            } else if (state.mood) {
-                bits.push(I18N.moodLabel + ' ' + NUM(state.mood) + '/' + NUM(10));
             }
+            if (state.mood != null) { bits.push(I18N.moodLabel + ' ' + NUM(state.mood) + '/' + NUM(10)); }
             const note = $('lgNote').value.trim();
             if (note) { bits.push(note); }
             meta.style.color = '#6d28d9';
@@ -6499,10 +6499,18 @@
         return I18N.setTime;
     }
 
+    /* The mood field mirrors the state — empty means "not filled in". */
+    function syncMoodField() {
+        const sel = $('lgMood');
+        const value = state.mood == null ? '' : String(state.mood);
+        if (sel.value !== value) { sel.value = value; }
+    }
+
     function renderPills() {
         $('lgTimeLabel').textContent = timePillText();
         $('lgPillTime').classList.toggle('is-on', hasTime());
-        $('lgPillMood').classList.toggle('is-on', state.kind === 'journal');
+        $('lgPillMood').classList.toggle('is-on', state.mood != null);
+        syncMoodField();
         $('lgCount').textContent = NUM(entries.length);
         $('lgSave').disabled = !input.value.trim();
         document.querySelectorAll('[data-lg-val]').forEach(b =>
@@ -6581,28 +6589,35 @@
     }
 
     /* ── v2: explicit entry-type segment (activity / sentence / mood).
-       Thin mirror over the existing state.kind — no logic change. */
-    let segMoodArmed = false;
+       The segment only changes when the user clicks it — opening the mood
+       input must never move the selection under the user's finger. */
+    let segKind = 'activity';   // activity | journal | mood
+
+    /* One place decides what the composer is. A mood can ride on any entry,
+       so it is a plain detail and never forces a kind of its own. */
+    function setComposerKind(kind) {
+        segKind = kind === 'activity' ? 'activity' : (kind === 'mood' ? 'mood' : 'journal');
+        state.kind = segKind === 'activity' ? 'activity' : 'journal';
+        input.placeholder = state.kind === 'journal'
+            ? @json(__('What did you feel today? One sentence…'))
+            : @json(__('e.g. played piano 45m…'));
+        /* Dimmed, never hidden: the row must not jump under the finger. */
+        $('lgPillTime').disabled = state.kind === 'journal';
+        if (state.kind === 'journal' && $('lgPanelTime').hidden === false) { togglePanel('time'); }
+    }
+
     function renderSeg() {
-        const kind = state.kind === 'journal' ? (segMoodArmed ? 'mood' : 'journal') : 'activity';
         document.querySelectorAll('[data-lg-kind]').forEach(b => {
-            const on = b.dataset.lgKind === kind;
+            const on = b.dataset.lgKind === segKind;
             b.classList.toggle('active', on);
             b.setAttribute('aria-selected', String(on));
         });
     }
     document.querySelectorAll('[data-lg-kind]').forEach(b => b.addEventListener('click', () => {
-        const kind = b.dataset.lgKind;
-        if (kind === 'activity' && state.kind === 'journal') { $('lgPillMood').click(); segMoodArmed = false; }
-        else if (kind === 'journal') {
-            if (state.kind !== 'journal') { $('lgPillMood').click(); }
-            segMoodArmed = false;
-            if (!$('lgPanelMood').hidden) { togglePanel('mood'); }
-        } else if (kind === 'mood') {
-            if (state.kind !== 'journal') { $('lgPillMood').click(); }
-            segMoodArmed = true;
-            if ($('lgPanelMood').hidden) { togglePanel('mood'); }
-        }
+        setComposerKind(b.dataset.lgKind);
+        const wantMood = segKind === 'mood';
+        if (wantMood && $('lgPanelMood').hidden) { togglePanel('mood'); }
+        else if (!wantMood && $('lgPanelMood').hidden === false) { togglePanel('mood'); }
         render();
         input.focus();
     }));
@@ -6841,7 +6856,7 @@
             $(PANELS[key].panel).hidden = !isTarget;
             $(PANELS[key].pill).setAttribute('aria-expanded', String(isTarget));
             $(PANELS[key].pill).classList.toggle('is-on', isTarget ||
-                (key === 'time' ? hasTime() : key === 'mood' && state.kind === 'journal'));
+                (key === 'time' ? hasTime() : key === 'mood' && state.mood != null));
         });
         if (open) {
             const focusTarget = $(PANELS[name].panel).querySelector('input, select, button');
@@ -6902,7 +6917,7 @@
         state.actId = null;
         /* An emptied composer is a fresh entry: nothing may leak from the last
            sentence into the next one. */
-        if (!input.value.trim()) { resetTime(); $('lgNote').value = ''; }
+        if (!input.value.trim()) { resetTime(); $('lgNote').value = ''; state.mood = null; }
         else if (parsed.note) { $('lgNote').value = parsed.note; }
         applyParsed(parsed);
         render();
@@ -6957,14 +6972,7 @@
     $('lgPillTime').addEventListener('click', () => togglePanel('time'));
     $('lgPillNote').addEventListener('click', () => togglePanel('note'));
     $('lgPillMood').addEventListener('click', () => {
-        state.kind = state.kind === 'journal' ? 'activity' : 'journal';
-        segMoodArmed = false;
-        input.placeholder = state.kind === 'journal'
-            ? @json(__('What did you feel today? One sentence…'))
-            : @json(__('e.g. played piano 45m…'));
-        /* Dimmed, never hidden: the row must not jump under the finger. */
-        $('lgPillTime').disabled = state.kind === 'journal';
-        if (state.kind === 'journal' && $('lgPanelTime').hidden === false) { togglePanel('time'); }
+        /* Just opens the mood field — the selected entry type stays put. */
         togglePanel('mood');
         render();
     });
@@ -6990,19 +6998,23 @@
         render();
     });
     $('lgClearTime').addEventListener('click', () => { resetTime(); render(); });
-    $('lgMood').addEventListener('change', e => { state.mood = Number(e.target.value); render(); });
+    $('lgMood').addEventListener('change', e => {
+        state.mood = e.target.value === '' ? null : Number(e.target.value);
+        render();
+    });
 
     /* One place decides what an entry is: the sentence first, the panel second. */
     function buildEntry(parsed) {
         const isJournal = state.kind === 'journal';
         const title = isJournal ? input.value.trim() : (parsed.title || input.value.trim());
         const entry = { id: 'tmp' + Date.now(), actId: state.actId, title: title, kind: state.kind,
-                        note: $('lgNote').value.trim() || null, unitKey: unitKeyOf(state.unit) };
+                        note: $('lgNote').value.trim() || null, unitKey: unitKeyOf(state.unit),
+                        mood: state.mood, moodPicked: segKind === 'mood' };
         const now = new Date();
         entry.loggedAt = pad(now.getHours()) + ':' + pad(now.getMinutes());
 
         if (isJournal) {
-            return Object.assign(entry, { mode: 'none', mood: state.mood, moodPicked: segMoodArmed, period: null, color: '#a16207' });
+            return Object.assign(entry, { mode: 'none', period: null, color: '#a16207' });
         }
 
         const period = parsed.period || state.period || null;
@@ -7055,6 +7067,7 @@
         input.value = '';
         $('lgNote').value = '';
         state.actId = null;
+        state.mood = null;
         resetTime();
         closeSuggest();
     }
@@ -7117,10 +7130,10 @@
             entry.mode = 'period';
             entry.period = period;
             entry.color = '#7c3aed';
-            entry.mood = null;
+            /* Keep the mood value — activities may carry one too. */
             entry.moodPicked = false;
             render();
-            lgApi(LG_ROUTES.update(entry.id), 'PATCH', { kind: 'activity', period, mood: null, mood_picked: false }).then(j => {
+            lgApi(LG_ROUTES.update(entry.id), 'PATCH', { kind: 'activity', period, mood_picked: false }).then(j => {
                 Object.assign(entry, mapServerEntry(j.entry));
                 entry.color = colorFor(entry.title);
                 render();
