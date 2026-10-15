@@ -38,6 +38,22 @@
     .cu-fav-btn.active { border-color: #f59e0b; color: #b45309; background: #fef3c7; }
     .cu-fav-btn.active i { color: #f59e0b; }
     .cu-fav-btn i { color: var(--gray-400); }
+
+    /* Auto-dismissing success toast (replaces the old blocking alert) */
+    .nt-toast {
+        position: fixed; top: 18px; inset-inline-end: 18px; z-index: 1080;
+        display: flex; align-items: center; gap: 9px;
+        max-width: min(380px, calc(100vw - 36px));
+        padding: 11px 15px; border-radius: 12px; cursor: pointer;
+        background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46;
+        font-size: .82rem; font-weight: 700;
+        box-shadow: 0 12px 30px -12px rgba(6, 95, 70, .45);
+        animation: ntToastIn .28s cubic-bezier(.2, .9, .3, 1.2);
+    }
+    .nt-toast i { font-size: 1rem; flex-shrink: 0; }
+    .nt-toast.is-out { animation: ntToastOut .22s ease forwards; }
+    @keyframes ntToastIn { from { opacity: 0; transform: translateY(-10px) scale(.97); } to { opacity: 1; transform: none; } }
+    @keyframes ntToastOut { to { opacity: 0; transform: translateY(-8px); } }
 </style>
 @endpush
 
@@ -62,8 +78,8 @@
 </div>
 
 @if (session('success'))
-    <div class="alert alert-success d-flex align-items-center gap-2" style="font-size:.82rem;">
-        <i class="bi bi-check-circle"></i>{{ session('success') }}
+    <div class="nt-toast" id="ntToast" role="status" aria-live="polite">
+        <i class="bi bi-check-circle-fill"></i><span>{{ session('success') }}</span>
     </div>
 @endif
 
@@ -396,5 +412,17 @@ function confirmDelete() {
         });
     });
 })();
+</script>
+@endpush
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const t = document.getElementById('ntToast');
+    if (!t) return;
+    const hide = () => { t.classList.add('is-out'); setTimeout(() => t.remove(), 240); };
+    const timer = setTimeout(hide, 3200);
+    t.addEventListener('click', () => { clearTimeout(timer); hide(); });
+});
 </script>
 @endpush

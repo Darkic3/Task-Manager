@@ -28,8 +28,39 @@
     // and the pair is submitted as hidden inputs so the link survives even when
     // the composer picks are stripped (e.g. JS disabled).
     $prefillLink = $prefillLink ?? null;
-    $prefillIco = $prefillLink && $prefillLink['type'] === 'project' ? 'bi-folder' : 'bi-check2-square';
-    $prefillText = $prefillLink ? ($prefillLink['type'] === 'project' ? __('Project') : __('Task')) : '';
+    $prefillIco = match ($prefillLink['type'] ?? null) {
+        'project' => 'bi-folder',
+        'routine' => 'bi-arrow-repeat',
+        default => 'bi-check2-square',
+    };
+    $prefillText = match ($prefillLink['type'] ?? null) {
+        'project' => __('Project'),
+        'routine' => __('Routine'),
+        'task' => __('Task'),
+        default => '',
+    };
+    $linkTargets = $linkTargets ?? ['projects' => [], 'tasks' => [], 'routines' => []];
+    $mentionPicks = $mentionPicks ?? [];
+    $nameByKey = [];
+    foreach (($linkTargets['projects'] ?? []) as $o) { $nameByKey['project:'.$o['id']] = $o['path'] ?? $o['name']; }
+    foreach (($linkTargets['tasks'] ?? []) as $o) { $nameByKey['task:'.$o['id']] = $o['name']; }
+    foreach (($linkTargets['routines'] ?? []) as $o) { $nameByKey['routine:'.$o['id']] = $o['name']; }
+    // After a validation error, repopulate from old input so picks are not lost.
+    $oldMentions = old('mentions');
+    $sourcePicks = is_array($oldMentions) && count($oldMentions)
+        ? collect($oldMentions)->map(fn ($p) => [
+            'type' => $p['type'] ?? '', 'id' => (int) ($p['id'] ?? 0),
+            'name' => $nameByKey[($p['type'] ?? '').':'.((int) ($p['id'] ?? 0))] ?? '',
+          ])->all()
+        : $mentionPicks;
+    $initialLinks = collect($sourcePicks)
+        ->filter(fn ($p) => in_array($p['type'] ?? '', ['project', 'task', 'routine'], true) && (int) ($p['id'] ?? 0) > 0)
+        ->map(fn ($p) => ['type' => $p['type'], 'id' => (int) $p['id'], 'name' => (string) ($p['name'] ?? $nameByKey[$p['type'].':'.$p['id']] ?? '')])
+        ->unique(fn ($p) => $p['type'].':'.$p['id'])
+        ->values()->all();
+    if ($prefillLink && ! collect($initialLinks)->contains(fn ($l) => $l['type'] === $prefillLink['type'] && (int) $l['id'] === (int) $prefillLink['id'])) {
+        $initialLinks[] = ['type' => $prefillLink['type'], 'id' => (int) $prefillLink['id'], 'name' => (string) $prefillLink['name']];
+    }
 
     // WYSIWYG: the editor surface is HTML, the stored value stays Markdown.
     // Render the Markdown once on the server so the rich surface opens with
@@ -191,7 +222,12 @@
                     </div>
 
                     <div class="nt-form-row">
-                        <label class="nt-form-label" for="ntNotebook">{{ __('Notebook') }}</label>
+                        <div class="nt-nb-head">
+                            <label class="nt-form-label" for="ntNotebook">{{ __('Notebook') }}</label>
+                            <button type="button" class="nt-nb-add" id="ntNbAdd" title="{{ __('New notebook') }}">
+                                <i class="bi bi-plus-lg"></i><span>{{ __('New') }}</span>
+                            </button>
+                        </div>
                         <select class="nt-select" id="ntNotebook" name="notebook_id">
                             <option value="">{{ __('— Unfiled —') }}</option>
                             @foreach ($nbOptions as $opt)
@@ -200,6 +236,29 @@
                                 </option>
                             @endforeach
                         </select>
+
+                        {{-- Minimal inline creator: type a name, press Enter, done. --}}
+                        <div class="nt-nb-quick" id="ntNbQuick" hidden>
+                            <div class="nt-nb-quick-line">
+                                <input type="text" id="ntNbQuickTitle" maxlength="120" autocomplete="off"
+                                       placeholder="{{ __('Notebook name') }}" aria-label="{{ __('Notebook name') }}">
+                                <button type="button" class="nt-nb-quick-ok" id="ntNbQuickOk" title="{{ __('Create') }}" aria-label="{{ __('Create') }}">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                                <button type="button" class="nt-nb-quick-x" id="ntNbQuickX" title="{{ __('Cancel') }}" aria-label="{{ __('Cancel') }}">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                            @if (count($nbOptions))
+                                <select class="nt-select nt-nb-quick-parent" id="ntNbQuickParent" aria-label="{{ __('Parent notebook') }}">
+                                    <option value="">{{ __('— Inside: no parent —') }}</option>
+                                    @foreach ($nbOptions as $opt)
+                                        <option value="{{ $opt['id'] }}">{{ $opt['label'] }}</option>
+                                    @endforeach
+                                </select>
+                            @endif
+                            <div class="nt-nb-quick-msg" id="ntNbQuickMsg" hidden></div>
+                        </div>
                     </div>
 
                     <div class="nt-form-row mb-0">
@@ -257,6 +316,21 @@
                             {{ __('No labels yet — write #something in the body to create one.') }}
                         </p>
                     @endif
+                </div>
+            </div>
+
+            <div class="nt-panel" id="ntLinkPanel">
+                <div class="nt-panel-head"><i class="bi bi-link-45deg"></i>{{ __('Assigned to') }}</div>
+                <div class="nt-panel-body">
+                    <input type="text" id="ntLinkSearch" class="form-control" autocomplete="off"
+                           placeholder="{{ __('Search projects, tasks, routines…') }}" style="font-size:13px;">
+                    <div id="ntLinkResults" style="display:flex;flex-direction:column;gap:4px;margin-top:8px;max-height:220px;overflow-y:auto;"></div>
+                    <div id="ntLinkSelected" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+                    <div id="ntLinkHidden"></div>
+                    <div class="nt-form-help" style="margin-top:6px;">{{ __('A note can be assigned to several projects, sub-projects, tasks and routines at once.') }}</div>
+                    <noscript>
+                        <div class="nt-form-help">{{ __('Enable JavaScript to assign to multiple targets — or open a project / task / routine and use “New note”.') }}</div>
+                    </noscript>
                 </div>
             </div>
 
@@ -1592,9 +1666,17 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /* ══ Save / delete / dirty guard ════════════════════════════ */
+    // True only while our own save/delete is submitting — the page is
+    // *supposed* to leave then, so the guard must stay silent.
+    let submitting = false;
+    let dirty = false;
+    const LEAVE_MSG = @json(__('You have unsaved changes. Are you sure you want to leave this page?'));
+
     function saveNote() {
         syncHidden();
         writeDraft();
+        submitting = true;
+        dirty = false;
         form.requestSubmit ? form.requestSubmit() : form.submit();
     }
     const saveBtn = document.getElementById('ntSave');
@@ -1602,35 +1684,55 @@ document.addEventListener('DOMContentLoaded', function () {
         const md = syncHidden();
         if (md.trim() === '') {
             e.preventDefault();
+            submitting = false;
             shell.classList.add('is-empty-error');
             setTimeout(() => shell.classList.remove('is-empty-error'), 1200);
             rich.focus();
             if (typeof alertSwal === 'function') alertSwal(T.emptyMd, null, 'warning');
             return;
         }
+        // Saving is intentional — save automatically, never prompt here.
+        submitting = true;
+        dirty = false;
         if (saveBtn) { saveBtn.disabled = true; }
         try { localStorage.removeItem(DRAFT_KEY); } catch (err) {}
         toggleZen(false);
     });
     const del = document.getElementById('ntDelete');
     if (del) del.addEventListener('click', function () {
-        confirmSwal(document.getElementById('ntDeleteForm'), @json(__('Delete this note permanently?')), { isDelete: true });
+        confirmSwal(@json(__('Delete this note permanently?')), { isDelete: true })
+            .then((ok) => {
+                if (ok) { submitting = true; dirty = false; document.getElementById('ntDeleteForm').submit(); }
+            });
     });
 
-    let dirty = false;
     const initialHtml = rich.innerHTML;
     const initialTitle = titleInput ? titleInput.value : '';
     if (titleInput) titleInput.addEventListener('input', () => { dirty = true; });
+
+    // Leaving with unsaved edits: intercept in-app links so the swal can
+    // *actually* wait for the user's choice (beforeunload cannot be async),
+    // and fall back to the native browser dialog for refresh/close/back.
+    document.addEventListener('click', function (e) {
+        if (!dirty || submitting || e.defaultPrevented || e.button !== 0) return;
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const link = e.target.closest('a[href]');
+        if (!link || link.target === '_blank' || link.hasAttribute('download')) return;
+        const raw = link.getAttribute('href');
+        if (!raw || raw.startsWith('#') || raw.startsWith('javascript:')) return;
+        const url = new URL(link.href, window.location.origin);
+        if (url.origin !== window.location.origin) return;
+
+        e.preventDefault();
+        confirmSwal(LEAVE_MSG).then((ok) => {
+            if (ok) { submitting = true; window.location.href = url.href; }
+        });
+    });
+
     window.addEventListener('beforeunload', function (e) {
-        if (!dirty) return;
-        ntBeforeUnloadConfirmed = false;
-        confirmSwal('You have unsaved changes. Are you sure you want to leave this page?')
-            .then(() => {
-                if (!ntBeforeUnloadConfirmed) {
-                    e.preventDefault();
-                    e.returnValue = '';
-                }
-            });
+        if (!dirty || submitting) return;
+        e.preventDefault();
+        e.returnValue = '';
     });
 
     /* ══ Boot ════════════════════════════════════════════════════ */
@@ -1638,6 +1740,286 @@ document.addEventListener('DOMContentLoaded', function () {
     renderChips();
     checkDraft();
     refreshToolbar();
+});
+</script>
+@endpush
+
+{{-- ══════════════════════════════════════════════════════════════
+     Inline notebook quick-create.
+     Create a notebook (optionally nested under a parent) without
+     leaving the note editor — type a name, press Enter. The new
+     notebook is appended to the picker and auto-selected.
+     ════════════════════════════════════════════════════════════ --}}
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const addBtn  = document.getElementById('ntNbAdd');
+    const quick   = document.getElementById('ntNbQuick');
+    const titleIn = document.getElementById('ntNbQuickTitle');
+    const parentIn= document.getElementById('ntNbQuickParent');
+    const okBtn   = document.getElementById('ntNbQuickOk');
+    const xBtn    = document.getElementById('ntNbQuickX');
+    const msg     = document.getElementById('ntNbQuickMsg');
+    const select  = document.getElementById('ntNotebook');
+    if (!addBtn || !quick || !titleIn || !okBtn || !select) return;
+
+    const STORE = @json(route('notebooks.store'));
+    const T = {
+        creating: @json(__('Creating…')),
+        fail: @json(__('Could not create the notebook.')),
+        nameReq: @json(__('Enter a name for the notebook.')),
+    };
+    const csrf = () => (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+    let busy = false;
+
+    function showMsg(text, isErr) {
+        if (!msg) return;
+        msg.textContent = text;
+        msg.hidden = false;
+        msg.classList.toggle('is-err', !!isErr);
+    }
+
+    function openQuick() {
+        quick.hidden = false;
+        if (parentIn) parentIn.value = select.value || '';
+        if (msg) { msg.hidden = true; msg.textContent = ''; }
+        titleIn.value = '';
+        titleIn.focus();
+    }
+
+    function closeQuick() {
+        quick.hidden = true;
+        if (msg) { msg.hidden = true; msg.textContent = ''; }
+    }
+
+    addBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        quick.hidden ? openQuick() : closeQuick();
+    });
+    if (xBtn) xBtn.addEventListener('click', closeQuick);
+
+    titleIn.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); submit(); }
+        if (e.key === 'Escape') { e.preventDefault(); closeQuick(); }
+    });
+
+    async function submit() {
+        const title = titleIn.value.trim();
+        if (!title) { showMsg(T.nameReq, true); titleIn.focus(); return; }
+        if (busy) return;
+        busy = true;
+        okBtn.disabled = true;
+        okBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        showMsg(T.creating, false);
+
+        const body = new FormData();
+        body.set('title', title);
+        if (parentIn && parentIn.value) body.set('parent_id', parentIn.value);
+
+        const send = () => fetch(STORE, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrf(),
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body,
+        });
+
+        try {
+            let res = await send();
+            // Session may have rotated the token while the editor was open.
+            if (res.status === 419) res = await send();
+            if (res.status === 401) { window.location.reload(); return; }
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            const nb = json.notebook || json.data || {};
+            if (!nb.id) throw new Error('bad response');
+
+            const opt = document.createElement('option');
+            opt.value = nb.id;
+            opt.textContent = nb.path || nb.title || title;
+            select.appendChild(opt);
+            select.value = String(nb.id);
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            closeQuick();
+        } catch (err) {
+            showMsg(T.fail, true);
+        } finally {
+            busy = false;
+            okBtn.disabled = false;
+            okBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
+        }
+    }
+
+    okBtn.addEventListener('click', submit);
+});
+</script>
+@endpush
+
+{{-- ══════════════════════════════════════════════════════════════
+     Multi-assign: searchable picker for projects (incl. sub-projects),
+     tasks (incl. subtasks) and routines. Selected items are submitted
+     as mentions[][type/id] + mentions_submitted, reusing the same
+     NoteLinkService::syncFromText pipeline as the prefill flow.
+     ════════════════════════════════════════════════════════════ --}}
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const panel = document.getElementById('ntLinkPanel');
+    if (!panel || panel.dataset.bound) return;
+    panel.dataset.bound = '1';
+
+    const search = document.getElementById('ntLinkSearch');
+    const resultsBox = document.getElementById('ntLinkResults');
+    const selectedBox = document.getElementById('ntLinkSelected');
+    const hiddenBox = document.getElementById('ntLinkHidden');
+    if (!search || !resultsBox || !selectedBox || !hiddenBox) return;
+
+    const TARGETS = @json($linkTargets);
+    const T = {
+        projects: @json(__('Projects')),
+        tasks: @json(__('Tasks')),
+        routines: @json(__('Routines')),
+        noResult: @json(__('No matches. Try another keyword.')),
+        emptyHint: @json(__('Nothing assigned yet.')),
+        remove: @json(__('Remove')),
+    };
+    const META = {
+        project: { icon: 'bi-folder', color: '#7c3aed', bg: '#ede9fe' },
+        task: { icon: 'bi-check2-square', color: '#059669', bg: '#d1fae5' },
+        routine: { icon: 'bi-arrow-repeat', color: '#0284c7', bg: '#e0f2fe' },
+    };
+
+    const norm = (s) => (s || '').toString().toLowerCase();
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    const selected = new Map();
+    (@json($initialLinks) || []).forEach(p => {
+        if (!p || !p.type || !p.id) return;
+        selected.set(p.type + ':' + (+p.id), { type: p.type, id: +p.id, name: p.name || '' });
+    });
+
+    function enrich(item) {
+        if (item.name) return item;
+        const pool = item.type === 'project' ? (TARGETS.projects || [])
+            : item.type === 'task' ? (TARGETS.tasks || [])
+            : (TARGETS.routines || []);
+        const found = pool.find(o => +o.id === +item.id);
+        if (!found) return item;
+        return {
+            type: item.type, id: +item.id,
+            name: found.path || found.name,
+            hint: found.hint || (found.is_sub ? '' : ''),
+        };
+    }
+
+    function renderSelected() {
+        hiddenBox.innerHTML = '';
+        if (!selected.size) {
+            selectedBox.innerHTML = '<span style="font-size:12px;color:#adb0b8;font-style:italic;">' + esc(T.emptyHint) + '</span>';
+        } else {
+            selectedBox.innerHTML = '';
+        }
+        let i = 0;
+        selected.forEach(raw => {
+            const item = enrich(raw);
+            const m = META[item.type] || META.task;
+            const chip = document.createElement('span');
+            chip.style.cssText = 'display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border:1px solid #e5e7eb;border-radius:999px;padding:3px 6px 3px 8px;background:' + m.bg + ';color:#1f2328;max-width:100%;';
+            chip.innerHTML = '<i class="bi ' + m.icon + '" style="color:' + m.color + ';"></i>'
+                + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;" title="' + esc(item.name) + '">' + esc(item.name) + '</span>'
+                + '<button type="button" data-unlink="' + esc(item.type + ':' + item.id) + '" title="' + esc(T.remove) + '" style="border:none;background:#fff;border-radius:999px;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:#8b8d98;font-size:11px;line-height:1;">×</button>';
+            selectedBox.appendChild(chip);
+
+            [['mentions_submitted', '1']].forEach(() => {});
+            i++;
+        });
+        if (selected.size) {
+            const flag = document.createElement('input');
+            flag.type = 'hidden';
+            flag.name = 'mentions_submitted';
+            flag.value = '1';
+            hiddenBox.appendChild(flag);
+            let idx = 0;
+            selected.forEach(item => {
+                const t = document.createElement('input');
+                t.type = 'hidden';
+                t.name = 'mentions[' + idx + '][type]';
+                t.value = item.type;
+                hiddenBox.appendChild(t);
+                const v = document.createElement('input');
+                v.type = 'hidden';
+                v.name = 'mentions[' + idx + '][id]';
+                v.value = item.id;
+                hiddenBox.appendChild(v);
+                idx++;
+            });
+        }
+        selectedBox.querySelectorAll('[data-unlink]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                selected.delete(btn.dataset.unlink);
+                renderSelected();
+                renderResults(search.value);
+            });
+        });
+    }
+
+    function allItems() {
+        const out = [];
+        (TARGETS.projects || []).forEach(o => out.push({ type: 'project', id: +o.id, name: o.path || o.name, hint: o.is_sub ? @json(__('Sub-project')) : @json(__('Project')), depth: o.depth || 0 }));
+        (TARGETS.tasks || []).forEach(o => out.push({ type: 'task', id: +o.id, name: o.name, hint: o.hint || @json(__('Task')), isSub: !!o.is_sub }));
+        (TARGETS.routines || []).forEach(o => out.push({ type: 'routine', id: +o.id, name: o.name, hint: @json(__('Routine')) }));
+        return out;
+    }
+    const INDEX = allItems();
+
+    function renderResults(q) {
+        q = norm((q || '').trim());
+        const groups = { project: [], task: [], routine: [] };
+        INDEX.forEach(item => {
+            if (selected.has(item.type + ':' + item.id)) return;
+            if (q && !(norm(item.name).includes(q) || norm(item.hint).includes(q))) return;
+            if (groups[item.type].length < 8) groups[item.type].push(item);
+        });
+        resultsBox.innerHTML = '';
+        let total = 0;
+        [['project', T.projects], ['task', T.tasks], ['routine', T.routines]].forEach(([type, label]) => {
+            const list = groups[type];
+            if (!list.length) return;
+            total += list.length;
+            const h = document.createElement('div');
+            h.style.cssText = 'font-size:10px;font-weight:700;color:#8b8d98;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;';
+            h.textContent = label;
+            resultsBox.appendChild(h);
+            list.forEach(item => {
+                const m = META[item.type];
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;text-align:start;width:100%;';
+                b.innerHTML = '<i class="bi ' + m.icon + '" style="color:' + m.color + ';flex-shrink:0;"></i>'
+                    + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(item.name) + '</span>'
+                    + (item.hint ? '<span style="font-size:11px;color:#8b8d98;flex-shrink:0;">' + esc(item.hint) + '</span>' : '');
+                b.addEventListener('click', () => {
+                    selected.set(item.type + ':' + item.id, { type: item.type, id: item.id, name: item.name });
+                    search.value = '';
+                    renderSelected();
+                    renderResults('');
+                    search.focus();
+                });
+                resultsBox.appendChild(b);
+            });
+        });
+        if (!total) {
+            resultsBox.innerHTML = '<p style="font-size:12px;color:#adb0b8;font-style:italic;margin:4px 0 0;">' + esc(q ? T.noResult : T.emptyHint) + '</p>';
+        }
+    }
+
+    search.addEventListener('input', () => renderResults(search.value));
+    search.addEventListener('focus', () => renderResults(search.value));
+
+    renderSelected();
+    renderResults('');
 });
 </script>
 @endpush
