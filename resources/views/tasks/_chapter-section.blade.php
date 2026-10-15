@@ -43,23 +43,28 @@
         </span>
         <span class="cu-col-count cu-chapter-open" title="{{ __('Unfinished') }}">{{ $secOpen }} {{ __('open') }}</span>
         <button type="button" class="cu-ch-add cu-ch-add--quick"
-                data-ch-quickadd="0" data-section="{{ $sectionId }}"
+                data-ch-quickadd="{{ (int) ($quickProjectId ?? 0) }}" data-section="{{ $sectionId }}"
                 title="{{ __('Quick add task') }} (A)">
             <i class="bi bi-plus-lg"></i><span>{{ __('New') }}</span><span class="cu-kbd">A</span>
         </button>
     </div>
     <div class="cu-chapter-body" id="{{ $bodyId }}">
-        <div class="cu-ch-quickform" data-ch-quickform="{{ $sectionId }}" hidden>
+        {{-- Project-bound sections fix the project by the button; only
+             unbound sections (chapters) ask for one. --}}
+        <div class="cu-ch-quickform" data-ch-quickform="{{ $sectionId }}"
+             data-ch-project="{{ $quickProjectId === null ? '' : (int) $quickProjectId }}" hidden>
             <i class="bi bi-plus-lg"></i>
             <input type="text" data-ch-quickinput maxlength="255" autocomplete="off"
                    placeholder="{{ __('Task title… Enter to add') }}" aria-label="{{ __('New task title') }}">
             <span class="cu-ch-quickhint"><kbd>&#8629;</kbd> {{ __('add') }} · <kbd>esc</kbd></span>
-            <select class="cu-input cu-select" data-ch-quickproject>
-                <option value="">{{ __('No Project') }}</option>
-                @foreach($projects as $proj)
-                    <option value="{{ $proj->id }}" {{ old('project_id', '') == $proj->id ? 'selected' : '' }}>{{ $proj->name }}</option>
-                @endforeach
-            </select>
+            @if($quickProjectId === null)
+                <select class="cu-input cu-select" data-ch-quickproject>
+                    <option value="">{{ __('No Project') }}</option>
+                    @foreach($projects as $proj)
+                        <option value="{{ $proj->id }}" {{ old('project_id', '') == $proj->id ? 'selected' : '' }}>{{ $proj->name }}</option>
+                    @endforeach
+                </select>
+            @endif
         </div>
         @foreach($tasks as $t)
             @include('tasks._chapter-row', ['task' => $t, 'grouped' => $grouped, 'depth' => 0, 'rootId' => $sectionId])
