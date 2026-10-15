@@ -42,23 +42,23 @@
             <span class="cu-chapter-count" title="{{ __(':done of :total done', ['done' => $secDone, 'total' => $secTotal]) }}">{{ $secDone }}/{{ $secTotal }}</span>
         </span>
         <span class="cu-col-count cu-chapter-open" title="{{ __('Unfinished') }}">{{ $secOpen }} {{ __('open') }}</span>
-        @if(!is_null($quickProjectId))
-            <button type="button" class="cu-ch-add"
-                    data-ch-quickadd="{{ $quickProjectId }}" data-section="{{ $sectionId }}"
-                    title="{{ __('Quick add task to this project') }} (A)">
-                <i class="bi bi-plus-lg"></i><span>{{ __('New') }}</span><span class="cu-kbd">A</span>
-            </button>
-        @endif
-    </div>
-    <div class="cu-chapter-body" id="{{ $bodyId }}">
-        @if(!is_null($quickProjectId))
-            <div class="cu-ch-quickform" data-ch-quickform="{{ $sectionId }}" hidden>
-                <i class="bi bi-plus-lg"></i>
-                <input type="text" data-ch-quickinput maxlength="255" autocomplete="off"
-                       placeholder="{{ __('Task title… Enter to add') }}" aria-label="{{ __('New task title') }}">
-                <span class="cu-ch-quickhint"><kbd>&#8629;</kbd> {{ __('add') }} · <kbd>esc</kbd></span>
-            </div>
-        @endif
+        <button type="button" class="cu-ch-add cu-ch-add--quick"
+                data-ch-quickadd="0" data-section="{{ $sectionId }}"
+                title="{{ __('Quick add task') }} (A)">
+            <i class="bi bi-plus-lg"></i><span>{{ __('New') }}</span><span class="cu-kbd">A</span>
+        </button>
+        <div class="cu-ch-quickform" data-ch-quickform="{{ $sectionId }}" hidden>
+            <i class="bi bi-plus-lg"></i>
+            <input type="text" data-ch-quickinput maxlength="255" autocomplete="off"
+                   placeholder="{{ __('Task title… Enter to add') }}" aria-label="{{ __('New task title') }}">
+            <span class="cu-ch-quickhint"><kbd>&#8629;</kbd> {{ __('add') }} · <kbd>esc</kbd></span>
+            <select class="cu-input cu-select" data-ch-quickproject>
+                <option value="">{{ __('No Project') }}</option>
+                @foreach($projects as $proj)
+                    <option value="{{ $proj->id }}" {{ old('project_id', '') == $proj->id ? 'selected' : '' }}>{{ $proj->name }}</option>
+                @endforeach
+            </select>
+        </div>
         @foreach($tasks as $t)
             @include('tasks._chapter-row', ['task' => $t, 'grouped' => $grouped, 'depth' => 0, 'rootId' => $sectionId])
         @endforeach

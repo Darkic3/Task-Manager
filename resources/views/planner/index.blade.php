@@ -1838,6 +1838,121 @@
         .pl-hero .pl-next-card::after{animation:none;display:none;}
         .pl-task:hover{transform:none;}
     }
+
+    /* ══ Pro Quick-Add modal: add a task to the day in seconds ── */
+    .pl-qa-dialog-pro{width:min(540px,96vw);border-radius:18px;}
+    .pl-qa-pro-head{display:flex;align-items:center;gap:12px;padding:16px 18px 14px;color:#fff;
+        background:linear-gradient(135deg,#4f46e5 0%,#6d28d9 60%,#7c3aed 100%);position:relative;overflow:hidden;}
+    .pl-qa-pro-head::after{content:'';position:absolute;top:-40px;inset-inline-end:-30px;width:130px;height:130px;
+        background:rgba(255,255,255,.12);border-radius:50%;pointer-events:none;}
+    .pl-qa-pro-icon{width:38px;height:38px;flex-shrink:0;display:grid;place-items:center;border-radius:12px;font-size:17px;
+        background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.3);position:relative;z-index:1;}
+    .pl-qa-pro-titles{display:flex;flex-direction:column;gap:1px;min-width:0;position:relative;z-index:1;}
+    .pl-qa-pro-head .pl-qa-title{font-size:15px;font-weight:800;color:#fff;}
+    .pl-qa-sub{font-size:11.5px;font-weight:600;color:rgba(255,255,255,.75);}
+    .pl-qa-pro-head .pl-qa-x{background:rgba(255,255,255,.15);color:#fff;position:relative;z-index:1;}
+    .pl-qa-pro-head .pl-qa-x:hover{background:rgba(255,255,255,.3);color:#fff;}
+    .pl-qa-dialog-pro .pl-qa-tabs{background:#faf8ff;}
+    .pl-qa-dialog-pro .pl-qa-tab{display:inline-flex;align-items:center;gap:6px;}
+    .pl-qa-dialog-pro .pl-qa-form{gap:9px;padding:16px 18px 18px;}
+    .pl-qa-title-input{font-size:15px !important;font-weight:700;padding:12px 14px !important;border-radius:12px !important;}
+    .pl-qa-title-input::placeholder{font-weight:500;}
+    .pl-qa-label{font-size:11px;font-weight:800;color:#8a8f98;text-transform:uppercase;letter-spacing:.05em;margin-top:4px;}
+    html[dir="rtl"] .pl-qa-label{letter-spacing:0;}
+    .pl-qa-error{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:#b91c1c;
+        background:#fef2f2;border:1px solid #fbd5d5;border-radius:10px;padding:8px 12px;}
+    .pl-qa-error[hidden]{display:none;}
+    .pl-qa-error::before{content:'\F33B';font-family:'bootstrap-icons';font-size:14px;}
+    /* Priority segmented control */
+    .pl-qa-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:#f4f5f8;border-radius:12px;padding:4px;}
+    .pl-qa-seg button{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid transparent;
+        background:transparent;border-radius:9px;min-height:36px;font-size:12.5px;font-weight:800;color:#6b7385;cursor:pointer;transition:all .14s;}
+    .pl-qa-seg button:hover{background:#fff;}
+    .pl-qa-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+    .pl-qa-seg-low .pl-qa-dot{background:#16a34a;}
+    .pl-qa-seg-medium .pl-qa-dot{background:#d97706;}
+    .pl-qa-seg-high .pl-qa-dot{background:#dc2626;}
+    .pl-qa-seg button.active{background:#fff;box-shadow:0 2px 8px rgba(15,23,42,.1);color:#1a1d23;}
+    .pl-qa-seg-low.active{box-shadow:inset 0 0 0 1.5px #86efac,0 2px 8px rgba(22,163,74,.18);}
+    .pl-qa-seg-medium.active{box-shadow:inset 0 0 0 1.5px #fcd34d,0 2px 8px rgba(217,119,6,.18);}
+    .pl-qa-seg-high.active{box-shadow:inset 0 0 0 1.5px #fca5a5,0 2px 8px rgba(220,38,38,.18);}
+    /* Period + estimate chips */
+    .pl-qa-dialog-pro .pl-qa-chips button{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:5px 13px;font-size:12px;}
+    .pl-qa-dialog-pro .pl-qa-chips button.active{background:linear-gradient(135deg,#ede9fe,#e0e7ff);border-color:#a78bfa;color:#5b21b6;
+        box-shadow:0 2px 8px rgba(124,58,237,.2);}
+    /* Labeled fields */
+    .pl-qa-field{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;}
+    .pl-qa-field .pl-qa-label{margin-top:0;}
+    .pl-qa-field select,.pl-qa-field input[type="time"]{min-height:40px;}
+    /* Session-added list */
+    .pl-qa-added{border:1px solid #bbf7d0;background:linear-gradient(135deg,#f4fdf7,#ecfdf5);border-radius:12px;padding:9px 12px;}
+    .pl-qa-added[hidden]{display:none;}
+    .pl-qa-added-head{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:#15803d;margin-bottom:5px;}
+    .pl-qa-added ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;max-height:118px;overflow-y:auto;}
+    .pl-qa-added li{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:#334155;
+        background:#fff;border:1px solid #d9f2e3;border-radius:9px;padding:5px 10px;animation:plQaddIn .18s ease;}
+    .pl-qa-added li i{color:#16a34a;font-size:13px;}
+    /* Footer: ghost + primary */
+    .pl-qa-actions-split{justify-content:space-between;margin-top:4px;}
+    .pl-qa-secondary{display:inline-flex;align-items:center;gap:6px;background:#fff;color:#6d28d9;border:1.5px solid #ddd6fe;
+        border-radius:10px;padding:9px 16px;font-size:12.5px;font-weight:800;cursor:pointer;transition:all .15s;}
+    .pl-qa-secondary:hover:not(:disabled){background:#f5f3ff;border-color:#c4b5fd;transform:translateY(-1px);}
+    .pl-qa-secondary:disabled{opacity:.5;cursor:wait;}
+    .pl-qa-dialog-pro .pl-qa-actions button[type="submit"]{display:inline-flex;align-items:center;gap:7px;border-radius:10px;
+        padding:10px 22px;font-size:13px;box-shadow:0 4px 12px -4px rgba(124,58,237,.5);}
+    .pl-qa-dialog-pro .pl-qa-actions button[type="submit"]:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+    .pl-qa-submit.is-loading{position:relative;color:transparent !important;pointer-events:none;}
+    .pl-qa-submit.is-loading::after{content:'';position:absolute;top:50%;left:50%;width:16px;height:16px;margin:-8px 0 0 -8px;
+        border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:plQaSpin .7s linear infinite;}
+    @keyframes plQaSpin{to{transform:rotate(360deg);}}
+    @media (max-width:575.98px){
+        .pl-qa-dialog-pro{border-radius:18px 18px 0 0;}
+        .pl-qa-actions-split{flex-direction:column-reverse;align-items:stretch;}
+        .pl-qa-secondary,.pl-qa-dialog-pro .pl-qa-actions button[type="submit"]{justify-content:center;min-height:46px;}
+        .pl-qa-seg button{min-height:42px;}
+    }
+
+    /* ══ Backlog picker modal: pull existing tasks into the day ── */
+    .pl-head-add-existing{
+        display:inline-flex;align-items:center;justify-content:center;gap:6px;
+        width:30px;height:30px;border-radius:9px;border:1px solid #e2e8f0;background:#fff;color:#6d28d9;
+        font-size:14px;cursor:pointer;transition:all .15s;flex-shrink:0;
+    }
+    .pl-head-add-existing:hover{border-color:#c4b5fd;background:#faf5ff;transform:translateY(-1px);
+        box-shadow:0 4px 10px rgba(124,58,237,.18);}
+    .pl-head-add-existing:active{transform:scale(.95);}
+    .pl-bl-search{border-bottom:1px solid #f1eefb;}
+    .pl-qadd-filters{display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px 2px;}
+    .pl-qadd-filters button{display:inline-flex;align-items:center;gap:6px;border:1px solid #e5e7eb;background:#fafbfc;
+        color:#6b6f78;border-radius:20px;padding:5px 13px;font-size:11.5px;font-weight:800;cursor:pointer;transition:all .13s;}
+    .pl-qadd-filters button:hover{border-color:#c4b5fd;color:#7c3aed;}
+    .pl-qadd-filters button.active{background:linear-gradient(135deg,#ede9fe,#e0e7ff);border-color:#a78bfa;color:#5b21b6;
+        box-shadow:0 2px 8px rgba(124,58,237,.2);}
+    .pl-qadd-filters button:disabled{opacity:.5;cursor:default;}
+    .pl-bl-list{max-height:320px;min-height:120px;}
+    .pl-bl-list .pl-qadd-item{cursor:pointer;align-items:center;}
+    .pl-bl-list .pl-qadd-item.selected{background:#faf5ff;border-color:#c4b5fd;box-shadow:0 0 0 3px rgba(124,58,237,.08);}
+    .pl-qadd-check{appearance:none;-webkit-appearance:none;width:20px;height:20px;flex-shrink:0;margin:0;cursor:pointer;
+        border:2px solid #cbd5e1;border-radius:7px;background:#fff;display:grid;place-items:center;transition:all .13s;}
+    .pl-qadd-check:hover{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    .pl-qadd-check:checked{background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:#6d28d9;}
+    .pl-qadd-check:checked::after{content:'✓';color:#fff;font-size:12px;font-weight:900;line-height:1;}
+    .pl-qadd-check:focus-visible{outline:2px solid #7c3aed;outline-offset:2px;}
+    .pl-bl-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+        padding:12px 16px;border-top:1px solid #f1f5f9;background:#f8fafc;border-radius:0 0 18px 18px;}
+    .pl-qa-submit-bl{display:inline-flex;align-items:center;gap:7px;border:1px solid #6d28d9;border-radius:10px;
+        background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);color:#fff;padding:10px 20px;font-size:13px;font-weight:800;
+        cursor:pointer;box-shadow:0 4px 12px -4px rgba(124,58,237,.5);transition:all .15s;position:relative;}
+    .pl-qa-submit-bl:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 16px -4px rgba(124,58,237,.6);}
+    .pl-qa-submit-bl:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+    .pl-qa-submit-bl.is-loading{color:transparent !important;pointer-events:none;}
+    .pl-qa-submit-bl.is-loading::after{content:'';position:absolute;top:50%;left:50%;width:16px;height:16px;margin:-8px 0 0 -8px;
+        border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:plQaSpin .7s linear infinite;}
+    @media (max-width:575.98px){
+        .pl-bl-foot{flex-direction:column-reverse;align-items:stretch;}
+        .pl-qa-submit-bl,.pl-bl-foot .pl-qa-secondary{justify-content:center;min-height:46px;}
+        .pl-bl-list{max-height:46vh;}
+    }
 </style>
 @endpush
 
@@ -1984,35 +2099,26 @@
                 <i class="bi bi-check2-square" style="color:#4f46e5;"></i>
                 <span class="pl-section-title">{{ $isToday ? __("Today's Tasks") : __('Tasks') }}</span>
                 <span class="pl-head-sub">{{ __('Do the work') }}</span>
+                <button type="button" class="pl-head-add-existing" onclick="openBacklogModal()"
+                        title="{{ __('Add existing task to this day') }}" aria-label="{{ __('Add existing task to this day') }}">
+                    <i class="bi bi-inboxes"></i>
+                </button>
                 <span class="pl-section-count" id="plTodaySectionCount">{{ app_num($pending->count()) }}</span>
             </div>
             <div class="pl-section-body" id="plPendingBody">
                 @php $groups = $pending->groupBy(fn ($t) => $t->time_period ?: 'anytime'); @endphp
                 @forelse($pending as $task)@empty
                     <div class="pl-empty"><i class="bi bi-cup-hot"></i>{{ __('Nothing scheduled for this day. Enjoy!') }}</div>
-                    <div class="pl-qadd" id="plBacklogAdd">
-                        <button type="button" class="pl-qadd-btn" id="plBacklogToggle"
-                                aria-expanded="false" aria-controls="plBacklogPanel">
+                    <div class="pl-qadd">
+                        <button type="button" class="pl-qadd-btn" onclick="openBacklogModal()">
                             <span class="pl-qadd-glow" aria-hidden="true"></span>
                             <span class="pl-qadd-ico"><i class="bi bi-inboxes" aria-hidden="true"></i></span>
                             <span class="pl-qadd-txt">
                                 <b>{{ __('Pull an existing task into today') }}</b>
                                 <small>{{ __('Pick from your unscheduled tasks — nothing gets created') }}</small>
                             </span>
-                            <span class="pl-qadd-arrow"><i class="bi bi-chevron-down" aria-hidden="true"></i></span>
+                            <span class="pl-qadd-arrow"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>
                         </button>
-                        <div class="pl-qadd-panel" id="plBacklogPanel" hidden>
-                            <div class="pl-qadd-search">
-                                <i class="bi bi-search" aria-hidden="true"></i>
-                                <input type="search" id="plBacklogSearch" autocomplete="off"
-                                       placeholder="{{ __('Search your unscheduled tasks…') }}"
-                                       aria-label="{{ __('Search your unscheduled tasks') }}">
-                                <button type="button" class="pl-qadd-clear" id="plBacklogClear" hidden
-                                        aria-label="{{ __('Close') }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
-                            </div>
-                            <div class="pl-qadd-list" id="plBacklogList" role="listbox"
-                                 aria-label="{{ __('Unscheduled tasks') }}"></div>
-                        </div>
                     </div>
                 @endforelse
                 @foreach(config('routines.periods', []) as $key => $period)
@@ -2360,52 +2466,79 @@
 
         <div class="pl-qa" id="plQuickAdd" hidden>
             <div class="pl-qa-backdrop" data-qa-close></div>
-            <div class="pl-qa-dialog" role="dialog" aria-modal="true" aria-labelledby="plQaTitle">
-                <div class="pl-qa-head">
-                    <span class="pl-qa-title" id="plQaTitle">{{ __('Quick Add') }}</span>
+            <div class="pl-qa-dialog pl-qa-dialog-pro" role="dialog" aria-modal="true" aria-labelledby="plQaTitle">
+                <div class="pl-qa-pro-head">
+                    <span class="pl-qa-pro-icon"><i class="bi bi-plus-lg"></i></span>
+                    <span class="pl-qa-pro-titles">
+                        <span class="pl-qa-title" id="plQaTitle">{{ __('Add task to this day') }}</span>
+                        <span class="pl-qa-sub">{{ app_human_date($date) }}</span>
+                    </span>
                     <button type="button" class="pl-qa-x" data-qa-close aria-label="{{ __('Close') }}">&times;</button>
                 </div>
                 <div class="pl-qa-tabs" role="tablist">
-                    <button type="button" class="pl-qa-tab active" data-qa-tab="task">{{ __('Task') }}</button>
-                    <button type="button" class="pl-qa-tab" data-qa-tab="routine">{{ __('Routine') }}</button>
+                    <button type="button" class="pl-qa-tab active" data-qa-tab="task" data-qa-title="{{ __('Add task to this day') }}"><i class="bi bi-check2-square"></i> {{ __('Task') }}</button>
+                    <button type="button" class="pl-qa-tab" data-qa-tab="routine" data-qa-title="{{ __('Add routine to this day') }}"><i class="bi bi-arrow-repeat"></i> {{ __('Routine') }}</button>
                 </div>
 
                 <form class="pl-qa-form" data-qa-panel="task"
                       data-url="{{ route('planner.quick-add.task') }}"
                       onsubmit="return submitQuickTask(this)">
                     <input type="hidden" name="date" value="{{ $date->toDateString() }}">
-                    <input type="text" name="title" class="pl-qa-input" placeholder="{{ __('What needs to be done?') }}" autocomplete="off">
-                    <div class="pl-qa-row">
-                        <select name="priority" aria-label="{{ __('Priority') }}">
-                            <option value="low">{{ __('Low') }}</option>
-                            <option value="medium" selected>{{ __('Medium') }}</option>
-                            <option value="high">{{ __('High') }}</option>
-                        </select>
-                        <select name="project_id" aria-label="{{ __('Project') }}">
-                            <option value="">{{ __('No Project') }}</option>
-                            @foreach(($quickProjects ?? []) as $proj)
-                                <option value="{{ $proj->id }}">{{ $proj->name }}</option>
-                            @endforeach
-                        </select>
+                    <input type="text" name="title" class="pl-qa-input pl-qa-title-input" placeholder="{{ __('What needs to be done?') }}" autocomplete="off" maxlength="255">
+                    <div class="pl-qa-error" data-qa-error hidden></div>
+
+                    <span class="pl-qa-label">{{ __('Priority') }}</span>
+                    <div class="pl-qa-seg" data-qa-seg="priority" role="radiogroup" aria-label="{{ __('Priority') }}">
+                        <button type="button" data-val="low" class="pl-qa-seg-low"><span class="pl-qa-dot"></span>{{ __('Low') }}</button>
+                        <button type="button" data-val="medium" class="active pl-qa-seg-medium"><span class="pl-qa-dot"></span>{{ __('Medium') }}</button>
+                        <button type="button" data-val="high" class="pl-qa-seg-high"><span class="pl-qa-dot"></span>{{ __('High') }}</button>
                     </div>
-                    <div class="pl-qa-row">
-                        <select name="time_period" aria-label="{{ __('Time of day') }}">
-                            <option value="">{{ __('Anytime') }}</option>
-                            @foreach(config('routines.periods', []) as $key => $period)
-                                <option value="{{ $key }}">{{ __($period['label']) }}</option>
-                            @endforeach
-                        </select>
-                        <input type="time" name="due_time" aria-label="{{ __('Exact time') }}">
+                    <input type="hidden" name="priority" value="medium">
+
+                    <span class="pl-qa-label">{{ __('When') }}</span>
+                    <div class="pl-qa-chips pl-qa-chips-period" data-qa-period>
+                        <button type="button" data-val="" class="active"><i class="bi bi-inbox"></i>{{ __('Anytime') }}</button>
+                        @foreach(config('routines.periods', []) as $key => $period)
+                            <button type="button" data-val="{{ $key }}"><i class="bi {{ $period['icon'] }}" style="color:{{ $period['color'] }};"></i>{{ __($period['label']) }}</button>
+                        @endforeach
                     </div>
+                    <input type="hidden" name="time_period" value="">
+
+                    <div class="pl-qa-row">
+                        <div class="pl-qa-field">
+                            <span class="pl-qa-label">{{ __('Project') }}</span>
+                            <select name="project_id" aria-label="{{ __('Project') }}">
+                                <option value="">{{ __('No Project') }}</option>
+                                @foreach(($quickProjects ?? []) as $proj)
+                                    <option value="{{ $proj->id }}">{{ $proj->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="pl-qa-field">
+                            <span class="pl-qa-label">{{ __('Exact time') }}</span>
+                            <input type="time" name="due_time" aria-label="{{ __('Exact time') }}">
+                        </div>
+                    </div>
+
+                    <span class="pl-qa-label">{{ __('Estimate') }}</span>
                     <div class="pl-qa-chips" data-qa-minutes>
                         <button type="button" data-min="15">15m</button>
                         <button type="button" data-min="30">30m</button>
+                        <button type="button" data-min="45">45m</button>
                         <button type="button" data-min="60">1h</button>
                         <button type="button" data-min="90">1h 30m</button>
+                        <button type="button" data-min="120">2h</button>
                     </div>
                     <input type="hidden" name="estimated_minutes" value="">
-                    <div class="pl-qa-actions">
-                        <button type="submit">{{ __('Add task') }}</button>
+
+                    <div class="pl-qa-added" data-qa-added hidden>
+                        <div class="pl-qa-added-head"><i class="bi bi-check-circle-fill"></i><span data-qa-added-count></span></div>
+                        <ul data-qa-added-list></ul>
+                    </div>
+
+                    <div class="pl-qa-actions pl-qa-actions-split">
+                        <button type="button" class="pl-qa-secondary" data-qa-add-new="task"><i class="bi bi-plus-lg"></i> {{ __('Add & new') }}</button>
+                        <button type="submit" class="pl-qa-submit" data-qa-submit disabled><i class="bi bi-check-lg"></i> {{ __('Add task') }}</button>
                     </div>
                 </form>
 
@@ -2413,25 +2546,78 @@
                       data-url="{{ route('planner.quick-add.routine') }}"
                       onsubmit="return submitQuickRoutine(this)">
                     <input type="hidden" name="date" value="{{ $date->toDateString() }}">
-                    <input type="text" name="title" class="pl-qa-input" placeholder="{{ __('Routine name') }}" autocomplete="off">
+                    <input type="text" name="title" class="pl-qa-input pl-qa-title-input" placeholder="{{ __('Routine name') }}" autocomplete="off" maxlength="255">
+                    <div class="pl-qa-error" data-qa-error hidden></div>
                     <div class="pl-qa-row">
-                        <select name="frequency" aria-label="{{ __('Frequency') }}">
-                            <option value="daily">{{ __('Daily') }}</option>
-                            <option value="weekly">{{ __('Weekly') }}</option>
-                            <option value="monthly">{{ __('Monthly') }}</option>
-                            <option value="every_n_days">{{ __('Every other day') }}</option>
-                        </select>
-                        <select name="time_period" aria-label="{{ __('Time of day') }}">
-                            <option value="">{{ __('Anytime') }}</option>
-                            @foreach(config('routines.periods', []) as $key => $period)
-                                <option value="{{ $key }}">{{ __($period['label']) }}</option>
-                            @endforeach
-                        </select>
+                        <div class="pl-qa-field">
+                            <span class="pl-qa-label">{{ __('Frequency') }}</span>
+                            <select name="frequency" aria-label="{{ __('Frequency') }}">
+                                <option value="daily">{{ __('Daily') }}</option>
+                                <option value="weekly">{{ __('Weekly') }}</option>
+                                <option value="monthly">{{ __('Monthly') }}</option>
+                                <option value="every_n_days">{{ __('Every other day') }}</option>
+                            </select>
+                        </div>
+                        <div class="pl-qa-field">
+                            <span class="pl-qa-label">{{ __('Time of day') }}</span>
+                            <select name="time_period" aria-label="{{ __('Time of day') }}">
+                                <option value="">{{ __('Anytime') }}</option>
+                                @foreach(config('routines.periods', []) as $key => $period)
+                                    <option value="{{ $key }}">{{ __($period['label']) }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
-                    <div class="pl-qa-actions">
-                        <button type="submit">{{ __('Add routine') }}</button>
+
+                    <div class="pl-qa-added" data-qa-added hidden>
+                        <div class="pl-qa-added-head"><i class="bi bi-check-circle-fill"></i><span data-qa-added-count></span></div>
+                        <ul data-qa-added-list></ul>
+                    </div>
+
+                    <div class="pl-qa-actions pl-qa-actions-split">
+                        <button type="button" class="pl-qa-secondary" data-qa-add-new="routine"><i class="bi bi-plus-lg"></i> {{ __('Add & new') }}</button>
+                        <button type="submit" class="pl-qa-submit" data-qa-submit disabled><i class="bi bi-check-lg"></i> {{ __('Add routine') }}</button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        {{-- Backlog picker modal: pull existing unscheduled tasks into this day --}}
+        <div class="pl-qa" id="plBacklogModal" hidden data-date="{{ $date->toDateString() }}">
+            <div class="pl-qa-backdrop" data-bl-close></div>
+            <div class="pl-qa-dialog pl-qa-dialog-pro" role="dialog" aria-modal="true" aria-labelledby="plBlTitle">
+                <div class="pl-qa-pro-head">
+                    <span class="pl-qa-pro-icon"><i class="bi bi-inboxes"></i></span>
+                    <span class="pl-qa-pro-titles">
+                        <span class="pl-qa-title" id="plBlTitle">{{ __('Add existing tasks') }}</span>
+                        <span class="pl-qa-sub">{{ app_human_date($date) }}</span>
+                    </span>
+                    <button type="button" class="pl-qa-x" data-bl-close aria-label="{{ __('Close') }}">&times;</button>
+                </div>
+                <div class="pl-qadd-search pl-bl-search">
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <input type="search" id="plBacklogSearch" autocomplete="off"
+                           placeholder="{{ __('Search your unscheduled tasks…') }}"
+                           aria-label="{{ __('Search your unscheduled tasks') }}">
+                    <button type="button" class="pl-qadd-clear" id="plBacklogClear" hidden
+                            aria-label="{{ __('Close') }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                </div>
+                <div class="pl-qadd-filters" data-bl-filters role="group" aria-label="{{ __('Priority') }}">
+                    <button type="button" data-prio="" class="active">{{ __('All') }}</button>
+                    <button type="button" data-prio="high"><span class="pl-qa-dot" style="background:#dc2626;"></span>{{ __('High') }}</button>
+                    <button type="button" data-prio="medium"><span class="pl-qa-dot" style="background:#d97706;"></span>{{ __('Medium') }}</button>
+                    <button type="button" data-prio="low"><span class="pl-qa-dot" style="background:#16a34a;"></span>{{ __('Low') }}</button>
+                </div>
+                <div class="pl-qadd-list pl-bl-list" id="plBacklogList" role="listbox"
+                     aria-label="{{ __('Unscheduled tasks') }}" aria-multiselectable="true"></div>
+                <div class="pl-bl-foot">
+                    <button type="button" class="pl-qa-secondary" data-bl-select-all>
+                        <i class="bi bi-check2-square"></i> <span data-bl-select-all-label>{{ __('Select all') }}</span>
+                    </button>
+                    <button type="button" class="pl-qa-submit-bl" data-bl-add disabled>
+                        <i class="bi bi-arrow-down-circle"></i> <span data-bl-add-label></span>
+                    </button>
+                </div>
             </div>
         </div>
     @endif
@@ -4035,30 +4221,150 @@
     /* ── Quick add ── */
     const plQa = document.getElementById('plQuickAdd');
 
+    const QA_I18N = {
+        needTitle: @json(__('Please write a title first')),
+        added: @json(__('Added (:count)')),
+        genericError: @json(__('Something went wrong. Please try again.')),
+    };
+
     function openQuickAdd(tab) {
         if (!plQa) return;
         plQa.hidden = false;
         document.body.classList.add('pl-modal-open');
         switchQuickTab(tab || 'task');
         const panel = plQa.querySelector('[data-qa-panel="' + (tab || 'task') + '"]');
-        if (panel) setTimeout(() => { const inp = panel.querySelector('[name="title"]'); if (inp) inp.focus(); }, 40);
+        if (panel) {
+            qaHideError(panel);
+            qaSyncSubmit(panel);
+            setTimeout(() => { const inp = panel.querySelector('[name="title"]'); if (inp) inp.focus(); }, 40);
+        }
     }
 
     function closeQuickAdd() {
         if (!plQa) return;
         plQa.hidden = true;
         document.body.classList.remove('pl-modal-open');
+        /* Fresh start next time: clear session lists + errors. */
+        plQa.querySelectorAll('[data-qa-added]').forEach(box => {
+            box.hidden = true;
+            const list = box.querySelector('[data-qa-added-list]');
+            if (list) list.replaceChildren();
+        });
+        plQa.querySelectorAll('[data-qa-error]').forEach(e => { e.hidden = true; });
     }
 
     function switchQuickTab(tab) {
         if (!plQa) return;
-        plQa.querySelectorAll('[data-qa-tab]').forEach(b => b.classList.toggle('active', b.dataset.qaTab === tab));
+        plQa.querySelectorAll('[data-qa-tab]').forEach(b => {
+            const on = b.dataset.qaTab === tab;
+            b.classList.toggle('active', on);
+            if (on && b.dataset.qaTitle) {
+                const title = document.getElementById('plQaTitle');
+                if (title) title.textContent = b.dataset.qaTitle;
+            }
+        });
         plQa.querySelectorAll('[data-qa-panel]').forEach(p => { p.hidden = p.dataset.qaPanel !== tab; });
+    }
+
+    /* Live validation: submit stays disabled until a title is typed. */
+    function qaSyncSubmit(panel) {
+        const title = panel.querySelector('[name="title"]');
+        const submit = panel.querySelector('[data-qa-submit]');
+        if (submit) submit.disabled = !title || !title.value.trim();
+    }
+
+    function qaShowError(panel, message) {
+        const box = panel.querySelector('[data-qa-error]');
+        if (!box) return;
+        box.textContent = message || QA_I18N.genericError;
+        box.hidden = false;
+    }
+
+    function qaHideError(panel) {
+        const box = panel.querySelector('[data-qa-error]');
+        if (box) box.hidden = true;
+    }
+
+    /* Restore pills/chips to match hidden inputs (after a full form.reset()). */
+    function qaSyncControls(form) {
+        const seg = form.querySelector('[data-qa-seg]');
+        if (seg) {
+            const input = form.querySelector('[name="priority"]');
+            seg.querySelectorAll('button').forEach(b => b.classList.toggle('active', !!input && b.dataset.val === input.value));
+        }
+        const period = form.querySelector('[data-qa-period]');
+        if (period) {
+            const input = form.querySelector('[name="time_period"]');
+            period.querySelectorAll('button').forEach(b => b.classList.toggle('active', !!input && (b.dataset.val || '') === (input.value || '')));
+        }
+        const mins = form.querySelector('[data-qa-minutes]');
+        if (mins) {
+            const input = form.querySelector('[name="estimated_minutes"]');
+            mins.querySelectorAll('button').forEach(b => b.classList.toggle('active', !!input && input.value !== '' && b.dataset.min === input.value));
+        }
+        qaSyncSubmit(form);
+    }
+
+    /* "Added in this session" list inside the modal. */
+    function qaTrackAdded(panel, title) {
+        const box = panel.querySelector('[data-qa-added]');
+        if (!box) return;
+        const list = box.querySelector('[data-qa-added-list]');
+        const head = box.querySelector('[data-qa-added-count]');
+        const li = document.createElement('li');
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-check-lg';
+        li.appendChild(icon);
+        li.appendChild(document.createTextNode(title));
+        list.prepend(li);
+        while (list.children.length > 5) list.lastElementChild.remove();
+        box.hidden = false;
+        if (head) head.textContent = QA_I18N.added.replace(':count', plNum(list.children.length));
+    }
+
+    function qaSetLoading(form, loading) {
+        form.querySelectorAll('[data-qa-submit], [data-qa-add-new]').forEach(b => { b.disabled = loading; });
+        const submit = form.querySelector('[data-qa-submit]');
+        if (submit) submit.classList.toggle('is-loading', loading);
     }
 
     if (plQa) {
         plQa.querySelectorAll('[data-qa-close]').forEach(b => b.addEventListener('click', closeQuickAdd));
         plQa.querySelectorAll('[data-qa-tab]').forEach(b => b.addEventListener('click', () => switchQuickTab(b.dataset.qaTab)));
+        plQa.addEventListener('input', e => {
+            const panel = e.target.closest('[data-qa-panel]');
+            if (panel && e.target.name === 'title') { qaSyncSubmit(panel); qaHideError(panel); }
+        });
+        /* Priority segmented pills. */
+        plQa.querySelectorAll('[data-qa-seg]').forEach(seg => {
+            seg.addEventListener('click', e => {
+                const b = e.target.closest('button');
+                if (!b) return;
+                const form = seg.closest('[data-qa-panel]');
+                const input = form.querySelector('[name="priority"]');
+                if (input) input.value = b.dataset.val;
+                seg.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+            });
+        });
+        /* Time-of-day chips: single select, clicking the active one resets to Anytime. */
+        plQa.querySelectorAll('[data-qa-period]').forEach(wrap => {
+            wrap.addEventListener('click', e => {
+                const b = e.target.closest('button');
+                if (!b) return;
+                const form = wrap.closest('[data-qa-panel]');
+                const input = form.querySelector('[name="time_period"]');
+                const wasActive = b.classList.contains('active');
+                wrap.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+                if (wasActive && (b.dataset.val || '') !== '') {
+                    if (input) input.value = '';
+                    const anytime = wrap.querySelector('button[data-val=""]');
+                    if (anytime) anytime.classList.add('active');
+                } else {
+                    if (input) input.value = b.dataset.val || '';
+                    b.classList.add('active');
+                }
+            });
+        });
         plQa.querySelectorAll('[data-qa-minutes] button').forEach(b => {
             b.addEventListener('click', () => {
                 const form = b.closest('[data-qa-panel]');
@@ -4067,6 +4373,14 @@
                 plQa.querySelectorAll('[data-qa-minutes] button').forEach(x => x.classList.remove('active'));
                 input.value = wasActive ? '' : b.dataset.min;
                 if (!wasActive) b.classList.add('active');
+            });
+        });
+        plQa.querySelectorAll('[data-qa-add-new]').forEach(b => {
+            b.addEventListener('click', () => {
+                const form = b.closest('[data-qa-panel]');
+                if (!form) return;
+                if (b.dataset.qaAddNew === 'routine') submitQuickRoutine(form, true);
+                else submitQuickTask(form, true);
             });
         });
         document.addEventListener('keydown', function (e) {
@@ -4082,12 +4396,12 @@
         body.insertAdjacentHTML('afterbegin', (html || '').trim());
     }
 
-    async function submitQuickTask(form) {
+    async function submitQuickTask(form, keepOpen) {
         const titleInput = form.querySelector('[name="title"]');
         const title = titleInput.value.trim();
-        if (!title) { titleInput.focus(); return false; }
-        const btn = form.querySelector('button[type="submit"]');
-        btn.disabled = true;
+        if (!title) { qaShowError(form, QA_I18N.needTitle); titleInput.focus(); return false; }
+        qaHideError(form);
+        qaSetLoading(form, true);
         try {
             const res = await plFetch(form.dataset.url, {
                 method: 'POST',
@@ -4102,148 +4416,285 @@
                     estimated_minutes: form.querySelector('[name="estimated_minutes"]').value || null,
                 }),
             });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
+            if (!res.ok) {
+                let message = QA_I18N.genericError;
+                try { const err = await res.json(); if (err && err.message) message = err.message; } catch (_) { /* keep generic */ }
+                throw new Error(message);
+            }
             const json = await res.json();
             const gb = window.plEnsureGroup ? window.plEnsureGroup(json.group || 'anytime') : null;
+            let addedEl = null;
             if (gb) {
                 const wrap = document.createElement('div');
                 wrap.innerHTML = json.html.trim();
-                gb.appendChild(wrap.firstElementChild);
+                addedEl = wrap.firstElementChild;
+                gb.appendChild(addedEl);
             } else {
                 plInsertRow('plPendingBody', json.html);
             }
             refreshCounters();
-            closeQuickAdd();
-            form.reset();
-            plQa.querySelectorAll('[data-qa-minutes] button').forEach(x => x.classList.remove('active'));
-            plShowToast(@json(__('Task added')), () => plUndoDelete('task', json.task.id));
+            if (window.plRefreshDayProgress) window.plRefreshDayProgress();
+            if (keepOpen) {
+                /* Stack mode: clear only the title + estimate, keep prefs, track + spotlight. */
+                titleInput.value = '';
+                const est = form.querySelector('[name="estimated_minutes"]');
+                if (est) est.value = '';
+                form.querySelectorAll('[data-qa-minutes] button').forEach(x => x.classList.remove('active'));
+                qaTrackAdded(form, title);
+                qaSyncSubmit(form);
+                titleInput.focus();
+                if (addedEl) {
+                    addedEl.classList.add('pl-flash');
+                    setTimeout(() => addedEl.classList.remove('pl-flash'), 1700);
+                }
+            } else {
+                closeQuickAdd();
+                form.reset();
+                qaSyncControls(form);
+                plShowToast(@json(__('Task added')), () => plUndoDelete('task', json.task.id));
+            }
             refreshNextUp();
         } catch (e) {
             console.error('[Planner] quick add task failed', e);
+            qaShowError(form, e.message && !String(e.message).startsWith('HTTP ') ? e.message : QA_I18N.genericError);
         } finally {
-            btn.disabled = false;
+            qaSetLoading(form, false);
+            qaSyncSubmit(form);
         }
         return false;
     }
 
-    /* ── Empty-day CTA: schedule an existing unscheduled task into this day.
-       Same endpoints the week view uses (backlog + schedule), just day rows. ── */
-    (function () {
-        const root = document.getElementById('plBacklogAdd');
-        if (!root) { return; }
-        const BACKLOG_URL = @json(route('planner.backlog'));
-        const SCHEDULE_URL = id => `{{ route('planner.tasks.schedule', ['task' => '__ID__']) }}`.replace('__ID__', id);
-        const toggle = document.getElementById('plBacklogToggle');
-        const panel = document.getElementById('plBacklogPanel');
+    /* ── Backlog picker modal: pull existing unscheduled tasks into this day.
+       Same endpoints the week view uses (backlog + schedule), multi-select. ── */
+    const plBacklogModal = document.getElementById('plBacklogModal');
+    const BL_I18N = {
+        selectAll: @json(__('Select all')),
+        deselectAll: @json(__('Deselect all')),
+        addToDay: @json(__('Add (:count) to day')),
+        moved: @json(__(':count tasks moved to this day')),
+        noMatch: @json(__('No matching task in your inbox.')),
+        inboxEmpty: @json(__('Your inbox is empty — every task has a date.')),
+        loadFail: @json(__('Could not load your inbox.')),
+        scheduleFail: @json(__('Could not schedule the task.')),
+        loading: @json(__('Loading…')),
+    };
+
+    function openBacklogModal() {
+        if (!plBacklogModal) return;
+        blSelected.clear();
         const search = document.getElementById('plBacklogSearch');
-        const clear = document.getElementById('plBacklogClear');
+        if (search) search.value = '';
+        blSetPrio('');
+        plBacklogModal.hidden = false;
+        document.body.classList.add('pl-modal-open');
+        blLoad('');
+        setTimeout(() => { if (search) search.focus(); }, 40);
+    }
+
+    function closeBacklogModal() {
+        if (!plBacklogModal) return;
+        plBacklogModal.hidden = true;
+        document.body.classList.remove('pl-modal-open');
+    }
+
+    const blSelected = new Set();
+    let blTasks = [];
+    let blBusy = false;
+    const BL_PRIO = { high: '#dc2626', medium: '#d97706', low: '#16a34a' };
+
+    function blDay() {
+        return (plBacklogModal && plBacklogModal.dataset.date) || '';
+    }
+
+    function blNote(text, icon) {
         const list = document.getElementById('plBacklogList');
-        const dayEl = document.querySelector('[data-next-date]');
-        const day = dayEl ? dayEl.dataset.nextDate : '';
-        const PRIO = { high: '#dc2626', medium: '#d97706', low: '#16a34a' };
-        let searchT = null;
+        if (!list) return;
+        list.replaceChildren();
+        const div = document.createElement('div');
+        div.className = 'pl-qadd-note';
+        const i = document.createElement('i');
+        i.className = 'bi ' + (icon || 'bi-inbox');
+        div.appendChild(i);
+        div.appendChild(document.createTextNode(text));
+        list.appendChild(div);
+    }
 
-        const busy = b => { b.disabled = true; b.querySelector('.pl-qadd-go').innerHTML = '<span class="spinner-border spinner-border-sm" style="width:.7rem;height:.7rem"></span>'; };
+    function blVisibleTasks() {
+        const active = document.querySelector('[data-bl-filters] button.active');
+        const prio = active ? (active.dataset.prio || '') : '';
+        return prio ? blTasks.filter(t => (t.priority || '') === prio) : blTasks.slice();
+    }
 
-        function setOpen(open) {
-            panel.hidden = !open;
-            toggle.setAttribute('aria-expanded', String(open));
-            if (open) { load(''); setTimeout(() => search.focus(), 30); }
-        }
-        function note(text, icon) {
-            list.innerHTML = '<div class="pl-qadd-note"><i class="bi ' + (icon || 'bi-inbox') + '"></i>' + text + '</div>';
-        }
-
-        async function load(q) {
-            clear.hidden = !q;
-            note(@json(__('Loading…')), 'bi-arrow-repeat');
-            try {
-                const res = await plFetch(BACKLOG_URL + (q ? '?q=' + encodeURIComponent(q) : ''), {
-                    headers: { 'Accept': 'application/json' },
+    function blRender() {
+        const list = document.getElementById('plBacklogList');
+        if (!list) return;
+        const search = document.getElementById('plBacklogSearch');
+        const q = search ? search.value.trim() : '';
+        const tasks = blVisibleTasks();
+        /* Drop selections for tasks that are no longer listed. */
+        const ids = new Set(tasks.map(t => t.id));
+        [...blSelected].forEach(id => { if (!ids.has(id)) blSelected.delete(id); });
+        list.replaceChildren();
+        if (!tasks.length) {
+            blNote(q ? BL_I18N.noMatch : BL_I18N.inboxEmpty, 'bi-check2-circle');
+        } else {
+            tasks.forEach(t => {
+                const row = document.createElement('label');
+                row.className = 'pl-qadd-item' + (blSelected.has(t.id) ? ' selected' : '');
+                row.setAttribute('role', 'option');
+                row.setAttribute('aria-selected', blSelected.has(t.id) ? 'true' : 'false');
+                const check = document.createElement('input');
+                check.type = 'checkbox';
+                check.className = 'pl-qadd-check';
+                check.checked = blSelected.has(t.id);
+                check.setAttribute('aria-label', t.title);
+                check.addEventListener('change', () => {
+                    if (check.checked) blSelected.add(t.id); else blSelected.delete(t.id);
+                    row.classList.toggle('selected', check.checked);
+                    row.setAttribute('aria-selected', check.checked ? 'true' : 'false');
+                    blSyncFoot();
                 });
-                if (!res.ok) { throw new Error('HTTP ' + res.status); }
-                const json = await res.json();
-                const tasks = json.tasks || [];
-                if (!tasks.length) {
-                    note(q ? @json(__('No matching task in your inbox.')) : @json(__('Your inbox is empty — every task has a date.')), 'bi-check2-circle');
-                    return;
+                const dot = document.createElement('span');
+                dot.className = 'pl-qadd-dot';
+                dot.style.background = BL_PRIO[t.priority] || '#94a3b8';
+                const name = document.createElement('span');
+                name.className = 'pl-qadd-name';
+                name.textContent = t.title;
+                row.appendChild(check);
+                row.appendChild(dot);
+                row.appendChild(name);
+                if (t.project) {
+                    const proj = document.createElement('span');
+                    proj.className = 'pl-qadd-proj';
+                    proj.textContent = t.project;
+                    row.appendChild(proj);
                 }
-                list.innerHTML = '';
-                tasks.forEach(t => {
-                    const b = document.createElement('button');
-                    b.type = 'button';
-                    b.className = 'pl-qadd-item';
-                    b.setAttribute('role', 'option');
-                    b.innerHTML = '<span class="pl-qadd-dot"></span>' +
-                        '<span class="pl-qadd-name"></span>' +
-                        (t.project ? '<span class="pl-qadd-proj"></span>' : '') +
-                        '<span class="pl-qadd-go"><i class="bi bi-arrow-left"></i></span>';
-                    b.querySelector('.pl-qadd-dot').style.background = PRIO[t.priority] || '#94a3b8';
-                    b.querySelector('.pl-qadd-name').textContent = t.title;
-                    if (t.project) { b.querySelector('.pl-qadd-proj').textContent = t.project; }
-                    b.addEventListener('click', () => pull(b, t));
-                    list.appendChild(b);
-                });
-            } catch (e) {
-                console.error('[Planner] backlog load failed', e);
-                note(@json(__('Could not load your inbox.')), 'bi-exclamation-triangle');
-            }
+                list.appendChild(row);
+            });
         }
+        blSyncFoot();
+    }
 
-        async function pull(btn, t) {
-            busy(btn);
+    function blSyncFoot() {
+        const addBtn = document.querySelector('[data-bl-add]');
+        const addLabel = document.querySelector('[data-bl-add-label]');
+        const selectBtn = document.querySelector('[data-bl-select-all]');
+        const selectLabel = document.querySelector('[data-bl-select-all-label]');
+        const n = blSelected.size;
+        if (addLabel) addLabel.textContent = BL_I18N.addToDay.replace(':count', plNum(n));
+        if (addBtn) {
+            addBtn.disabled = blBusy || n === 0;
+            addBtn.classList.toggle('is-loading', blBusy);
+        }
+        const tasks = blVisibleTasks();
+        const allOn = tasks.length > 0 && tasks.every(t => blSelected.has(t.id));
+        if (selectLabel) selectLabel.textContent = allOn ? BL_I18N.deselectAll : BL_I18N.selectAll;
+        if (selectBtn) selectBtn.disabled = blBusy || tasks.length === 0;
+    }
+
+    function blSetPrio(prio) {
+        document.querySelectorAll('[data-bl-filters] button').forEach(b =>
+            b.classList.toggle('active', (b.dataset.prio || '') === (prio || '')));
+    }
+
+    async function blLoad(q) {
+        const clear = document.getElementById('plBacklogClear');
+        if (clear) clear.hidden = !q;
+        blNote(BL_I18N.loading, 'bi-arrow-repeat');
+        try {
+            const res = await plFetch(@json(route('planner.backlog')) + (q ? '?q=' + encodeURIComponent(q) : ''), {
+                headers: { 'Accept': 'application/json' },
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            blTasks = json.tasks || [];
+            blRender();
+        } catch (e) {
+            console.error('[Planner] backlog load failed', e);
+            blNote(BL_I18N.loadFail, 'bi-exclamation-triangle');
+        }
+    }
+
+    async function blAddSelected() {
+        const ids = [...blSelected];
+        if (!ids.length || blBusy) return;
+        blBusy = true;
+        blSyncFoot();
+        const SCHEDULE_URL = id => `{{ route('planner.tasks.schedule', ['task' => '__ID__']) }}`.replace('__ID__', id);
+        let ok = 0;
+        for (const id of ids) {
             try {
-                const res = await plFetch(SCHEDULE_URL(t.id), {
+                const res = await plFetch(SCHEDULE_URL(id), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ due_date: day, view: 'day' }),
+                    body: JSON.stringify({ due_date: blDay(), view: 'day' }),
                 });
-                if (!res.ok) { throw new Error('HTTP ' + res.status); }
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 const json = await res.json();
                 const gb = window.plEnsureGroup ? window.plEnsureGroup(json.group || 'anytime') : null;
+                let addedEl = null;
                 if (gb) {
                     const wrap = document.createElement('div');
                     wrap.innerHTML = json.html.trim();
-                    gb.appendChild(wrap.firstElementChild);
+                    addedEl = wrap.firstElementChild;
+                    gb.appendChild(addedEl);
                 } else {
                     plInsertRow('plPendingBody', json.html);
                 }
-                refreshCounters();
-                refreshNextUp();
-                /* Undo must not delete a task the user already owned: it just
-                   takes it back out of this day (same call the row's own
-                   "clear date" action uses). */
-                plShowToast(@json(__('Task moved to this day')), () => plUnscheduleTask(t.id));
+                if (addedEl) {
+                    addedEl.classList.add('pl-flash');
+                    setTimeout(() => addedEl.classList.remove('pl-flash'), 1700);
+                }
+                blTasks = blTasks.filter(t => t.id !== id);
+                blSelected.delete(id);
+                ok++;
+                blRender();
             } catch (e) {
                 console.error('[Planner] schedule failed', e);
-                btn.disabled = false;
-                btn.querySelector('.pl-qadd-go').innerHTML = '<i class="bi bi-arrow-left"></i>';
-                plShowToast(@json(__('Could not schedule the task.')));
             }
         }
+        blBusy = false;
+        blRender();
+        refreshCounters();
+        if (window.plRefreshDayProgress) window.plRefreshDayProgress();
+        if (window.refreshNextUp) window.refreshNextUp();
+        plShowToast(ok ? BL_I18N.moved.replace(':count', plNum(ok)) : BL_I18N.scheduleFail);
+    }
 
-        toggle.addEventListener('click', () => setOpen(panel.hidden));
-        clear.addEventListener('click', () => { search.value = ''; search.focus(); load(''); });
-        search.addEventListener('input', () => {
+    (function blWire() {
+        if (!plBacklogModal) return;
+        let searchT = null;
+        const search = document.getElementById('plBacklogSearch');
+        const clear = document.getElementById('plBacklogClear');
+        plBacklogModal.querySelectorAll('[data-bl-close]').forEach(b => b.addEventListener('click', closeBacklogModal));
+        if (clear) clear.addEventListener('click', () => { search.value = ''; search.focus(); blLoad(''); });
+        if (search) search.addEventListener('input', () => {
             clearTimeout(searchT);
             const q = search.value.trim();
-            searchT = setTimeout(() => load(q), 250);
+            searchT = setTimeout(() => blLoad(q), 250);
         });
-        document.addEventListener('click', ev => {
-            if (panel.hidden || root.contains(ev.target)) { return; }
-            setOpen(false);
+        document.querySelectorAll('[data-bl-filters] button').forEach(b =>
+            b.addEventListener('click', () => { blSetPrio(b.dataset.prio || ''); blRender(); if (search) search.focus(); }));
+        const selectAll = document.querySelector('[data-bl-select-all]');
+        if (selectAll) selectAll.addEventListener('click', () => {
+            const tasks = blVisibleTasks();
+            const allOn = tasks.length > 0 && tasks.every(t => blSelected.has(t.id));
+            tasks.forEach(t => { if (allOn) blSelected.delete(t.id); else blSelected.add(t.id); });
+            blRender();
         });
+        const addBtn = document.querySelector('[data-bl-add]');
+        if (addBtn) addBtn.addEventListener('click', blAddSelected);
         document.addEventListener('keydown', ev => {
-            if (ev.key === 'Escape' && !panel.hidden) { setOpen(false); toggle.focus(); }
+            if (ev.key === 'Escape' && plBacklogModal && !plBacklogModal.hidden) closeBacklogModal();
         });
     })();
 
-    async function submitQuickRoutine(form) {
+    async function submitQuickRoutine(form, keepOpen) {
         const titleInput = form.querySelector('[name="title"]');
         const title = titleInput.value.trim();
-        if (!title) { titleInput.focus(); return false; }
-        const btn = form.querySelector('button[type="submit"]');
-        btn.disabled = true;
+        if (!title) { qaShowError(form, QA_I18N.needTitle); titleInput.focus(); return false; }
+        qaHideError(form);
+        qaSetLoading(form, true);
         try {
             const res = await plFetch(form.dataset.url, {
                 method: 'POST',
@@ -4255,18 +4706,33 @@
                     time_period: form.querySelector('[name="time_period"]').value || null,
                 }),
             });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
+            if (!res.ok) {
+                let message = QA_I18N.genericError;
+                try { const err = await res.json(); if (err && err.message) message = err.message; } catch (_) { /* keep generic */ }
+                throw new Error(message);
+            }
             const json = await res.json();
             plInsertRow('plRoutinesBody', json.html);
             refreshRoutineCounters();
-            closeQuickAdd();
-            form.reset();
-            plShowToast(@json(__('Routine added')), () => plUndoDelete('routine', json.routine.id));
+            if (window.plRefreshDayProgress) window.plRefreshDayProgress();
+            if (keepOpen) {
+                titleInput.value = '';
+                qaTrackAdded(form, title);
+                qaSyncSubmit(form);
+                titleInput.focus();
+            } else {
+                closeQuickAdd();
+                form.reset();
+                qaSyncControls(form);
+                plShowToast(@json(__('Routine added')), () => plUndoDelete('routine', json.routine.id));
+            }
             refreshNextUp();
         } catch (e) {
             console.error('[Planner] quick add routine failed', e);
+            qaShowError(form, e.message && !String(e.message).startsWith('HTTP ') ? e.message : QA_I18N.genericError);
         } finally {
-            btn.disabled = false;
+            qaSetLoading(form, false);
+            qaSyncSubmit(form);
         }
         return false;
     }

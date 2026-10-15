@@ -2200,7 +2200,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const title = input.value.trim();
         if (!title || form.dataset.busy) return;
         const ch = form.closest('.cu-chapter');
-        const projectId = ch?.querySelector('[data-ch-quickadd]')?.dataset.chQuickadd || null;
+        const projectSelect = form.querySelector('[data-ch-quickproject]');
+        const projectId = projectSelect ? (projectSelect.value || null) : null;
         form.dataset.busy = '1';
         const send = () => fetch(`{{ route('tasks.quick-store') }}`, {
             method: 'POST',

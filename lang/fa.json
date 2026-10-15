@@ -1915,5 +1915,17 @@
     "{done} of {total} done": "{done} از {total} انجام شد",
     "Log a slip in this slot": "ثبت لغزش در این مرحله",
     "Slips in this slot today": "لغزش‌های امروز این مرحله",
-    "Set :n": "ست :n"
+    "Set :n": "ست :n",
+    "Add task to this day": "افزودن تسک به این روز",
+    "Add & new": "افزودن و جدید",
+    "Added (:count)": "اضافه شد (:count)",
+    "Please write a title first": "اول عنوان را بنویس",
+    "Estimate": "تخمین زمان",
+    "Add routine to this day": "افزودن روتین به این روز",
+    "Add existing tasks": "افزودن تسک‌های موجود",
+    "Add existing task to this day": "افزودن تسک موجود به این روز",
+    "Select all": "انتخاب همه",
+    "Deselect all": "لغو انتخاب همه",
+    "Add (:count) to day": "افزودن (:count) به روز",
+    ":count tasks moved to this day": ":count تسک به این روز منتقل شد"
 }

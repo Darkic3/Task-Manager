@@ -108,7 +108,7 @@ class TaskController extends Controller
             'status' => 'nullable|in:to_do,in_progress,on_hold,in_review,completed',
         ]);
 
-        $projectId = ($data['project_id'] ?? null) === 0 ? null : ($data['project_id'] ?? null);
+        $projectId = $data['project_id'] ? ($data['project_id'] === 0 ? null : $data['project_id']) : null;
 
         $task = Task::create([
             'title' => $data['title'],

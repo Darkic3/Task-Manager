@@ -120,6 +120,16 @@
                     </div>
 
                     <div class="form-group">
+                        <label class="form-label">{{ __('Project') }}</label>
+                        <select name="project_id" class="form-select">
+                            <option value="">{{ __('No Project') }}</option>
+                            @foreach($projects as $proj)
+                                <option value="{{ $proj->id }}" {{ old('project_id') == $proj->id ? 'selected' : '' }}>{{ $proj->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="form-group">
                         <label class="form-label">{{ __('Priority') }} *</label>
                         <div class="priority-options">
                             <div class="priority-option">
