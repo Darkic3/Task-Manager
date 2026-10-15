@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'My Day')
+@section('title', $view === 'month' ? __('My Month') : ($view === 'week' ? __('My Week') : __('My Day')))
 
 @push('styles')
 <style>
@@ -1263,6 +1263,34 @@
     .pw-backlog .t{flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#1f2328;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .pw-backlog .p{font-size:10px;color:#8a8f98;flex:none;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .pw-pop-hint{font-size:11px;color:#b9bec7;text-align:center;padding:8px 4px 2px;}
+    /* ── Month view: compact calendar overview ── */
+    .pm-grid{background:#fff;border:1px solid #e3e4e8;border-radius:14px;overflow:hidden;}
+    .pm-weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#fafbfc;border-bottom:1px solid #eef0f3;}
+    .pm-weekdays span{padding:9px 4px;text-align:center;font-size:11px;font-weight:800;color:#8a8f98;text-transform:uppercase;letter-spacing:.4px;}
+    .pm-days{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#eef0f3;}
+    .pm-day{background:#fff;min-height:96px;padding:7px 8px;display:flex;flex-direction:column;gap:4px;text-decoration:none;color:inherit;transition:background .12s;}
+    .pm-day:hover{background:#f5f0ff;}
+    .pm-day.is-out{opacity:.42;}
+    .pm-num{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;color:#3d4149;font-variant-numeric:tabular-nums;}
+    .pm-day.is-today .pm-num{background:#7c3aed;color:#fff;box-shadow:0 2px 8px rgba(124,58,237,.35);}
+    .pm-tasks{display:flex;flex-direction:column;gap:3px;min-height:2px;}
+    .pm-t{font-size:11px;font-weight:600;color:#4c1d95;background:#f5f0ff;border-radius:6px;padding:2px 7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .pm-day.is-out .pm-t{background:#f4f4f5;color:#8a8f98;}
+    .pm-more{font-size:10.5px;font-weight:700;color:#8a8f98;padding-inline-start:7px;}
+    .pm-meta{margin-top:auto;display:flex;align-items:center;gap:8px;padding-top:3px;}
+    .pm-m{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;color:#6b7385;font-variant-numeric:tabular-nums;}
+    .pm-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none;}
+    .pm-dot.t{background:#3b82f6;}
+    .pm-dot.d{background:#16a34a;}
+    .pm-dot.r{background:#7c3aed;}
+    .pm-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:#8a8f98;font-weight:600;}
+    .pm-legend span{display:inline-flex;align-items:center;gap:5px;}
+    .pm-legend .pm-hint{margin-inline-start:auto;color:#b9bec7;font-weight:500;}
+    @media(max-width:640px){
+        .pm-day{min-height:64px;padding:5px 6px;}
+        .pm-t,.pm-more{display:none;}
+        .pm-weekdays span{font-size:10px;padding:7px 2px;}
+    }
     /* floating move menu */
     .pw-move{position:fixed;z-index:1200;min-width:200px;background:#fff;border:1px solid #e3e4e8;border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.2);padding:6px;animation:pwIn .13s ease-out;}
     .pw-move[hidden]{display:none;}
@@ -1978,19 +2006,27 @@
             } else {
                 $navDateLabel = app_date($date, 'j F');
             }
+        } elseif ($view === 'month') {
+            $monthStartLB = $monthStart ?? $date->copy()->startOfMonth();
+            $navDateLabel = $monthStartLB->isCurrentMonth() ? __('This Month') : __('Month');
+            $rangeLabel = $isFa
+                ? app_num(\Morilog\Jalali\Jalalian::fromCarbon($monthStartLB)->format('F Y'))
+                : $monthStartLB->format('F Y');
         } else {
             $navDateLabel = $date->isCurrentWeek() ? __('This Week') : __('Week');
         }
         $rangeLabel = $view === 'week'
             ? ($isFa ? app_date($start, 'd F') . ' – ' . app_date($end, 'd F Y') : $start->format('M j') . ' – ' . $end->format('M j, Y'))
-            : app_human_date($date);
-        $prevDate = $view === 'week' ? $date->copy()->subWeek() : $date->copy()->subDay();
-        $nextDate = $view === 'week' ? $date->copy()->addWeek() : $date->copy()->addDay();
+            : ($rangeLabel ?? app_human_date($date));
+        $prevDate = $view === 'week' ? $date->copy()->subWeek()
+            : ($view === 'month' ? $date->copy()->subMonthNoOverflow()->startOfMonth() : $date->copy()->subDay());
+        $nextDate = $view === 'week' ? $date->copy()->addWeek()
+            : ($view === 'month' ? $date->copy()->addMonthNoOverflow()->startOfMonth() : $date->copy()->addDay());
     @endphp
 
     {{-- Header --}}
     <div class="pl-header">
-        <h1 class="pl-header-title">{{ $view === 'week' ? __('My Week') : __('My Day') }}</h1>
+        <h1 class="pl-header-title">{{ $view === 'week' ? __('My Week') : ($view === 'month' ? __('My Month') : __('My Day')) }}</h1>
         <p class="pl-header-sub">{{ $rangeLabel }}{{ $relativeLabel }}</p>
     </div>
 
@@ -2004,6 +2040,10 @@
             <a href="{{ route('planner.index', ['view' => 'week', 'date' => $date->toDateString()]) }}"
                class="pl-toggle-btn {{ $view === 'week' ? 'active' : '' }}">
                 <i class="bi bi-calendar-week"></i> {{ __('Week') }}
+            </a>
+            <a href="{{ route('planner.index', ['view' => 'month', 'date' => $date->toDateString()]) }}"
+               class="pl-toggle-btn {{ $view === 'month' ? 'active' : '' }}">
+                <i class="bi bi-calendar-month"></i> {{ __('Month') }}
             </a>
         </div>
         <div class="pl-toolbar-right">
@@ -2354,6 +2394,63 @@
                 </div>
             </details>
         @endif
+    @elseif($view === 'month')
+        {{-- Month view: compact calendar overview, cells link to the day view --}}
+        @php
+            $pmWeekdays = $isFa
+                ? ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه']
+                : ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+            $pmDayNum = fn ($d) => $isFa
+                ? app_num(\Morilog\Jalali\Jalalian::fromCarbon($d['date'])->format('j'))
+                : $d['date']->day;
+        @endphp
+        <div class="pl-stats">
+            <div class="pl-stat"><i class="bi bi-list-check"></i> {{ __('Open tasks') }} <strong>{{ app_num($monthStats['tasksOpen']) }}</strong></div>
+            <div class="pl-stat"><i class="bi bi-check-circle"></i> {{ __('Done tasks') }} <strong>{{ app_num($monthStats['tasksDone']) }}</strong></div>
+            <div class="pl-stat"><i class="bi bi-arrow-repeat"></i> {{ __('Routines') }} <strong>{{ app_num($monthStats['routinesDone']) }}<span style="color:#adb0b8;font-weight:600;">/{{ app_num($monthStats['routinesTotal']) }}</span></strong></div>
+        </div>
+        <div class="pm-grid">
+            <div class="pm-weekdays">
+                @foreach($pmWeekdays as $wd)
+                    <span>{{ $wd }}</span>
+                @endforeach
+            </div>
+            <div class="pm-days">
+                @foreach($monthDays as $d)
+                    <a href="{{ route('planner.index', ['view' => 'day', 'date' => $d['key']]) }}"
+                       class="pm-day {{ $d['inMonth'] ? '' : 'is-out' }} {{ $d['isToday'] ? 'is-today' : '' }}">
+                        <span class="pm-num">{{ $pmDayNum($d) }}</span>
+                        <span class="pm-tasks">
+                            @foreach($d['taskTitles'] as $t)
+                                <span class="pm-t">{{ $t }}</span>
+                            @endforeach
+                            @if($d['taskExtra'] > 0)
+                                <span class="pm-more">+{{ app_num($d['taskExtra']) }}</span>
+                            @endif
+                        </span>
+                        @if($d['tasksOpen'] > 0 || $d['tasksDone'] > 0 || $d['routinesTotal'] > 0)
+                            <span class="pm-meta">
+                                @if($d['tasksOpen'] > 0)
+                                    <span class="pm-m"><i class="pm-dot t"></i>{{ app_num($d['tasksOpen']) }}</span>
+                                @endif
+                                @if($d['tasksDone'] > 0)
+                                    <span class="pm-m"><i class="pm-dot d"></i>{{ app_num($d['tasksDone']) }}</span>
+                                @endif
+                                @if($d['routinesTotal'] > 0)
+                                    <span class="pm-m"><i class="pm-dot r"></i>{{ app_num($d['routinesDone']) }}/{{ app_num($d['routinesTotal']) }}</span>
+                                @endif
+                            </span>
+                        @endif
+                    </a>
+                @endforeach
+            </div>
+        </div>
+        <div class="pm-legend">
+            <span><i class="pm-dot t"></i> {{ __('Open tasks') }}</span>
+            <span><i class="pm-dot d"></i> {{ __('Done') }}</span>
+            <span><i class="pm-dot r"></i> {{ __('Routines done/planned') }}</span>
+            <span class="pm-hint">{{ __('Select a day to plan it') }}</span>
+        </div>
     @else
         {{-- Week view: clean day columns with period sections + inline add --}}
         @php

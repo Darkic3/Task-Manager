@@ -304,6 +304,48 @@ class WorkoutSessionTest extends TestCase
         $this->assertSame('00:00', WorkoutSession::formatDuration(0));
     }
 
+    public function test_beating_previous_best_weight_marks_and_persists_pr(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Lateral Raise', 'normalized_name' => 'lateral-raise']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $user->id);
+        $day = $plan->days()->first();
+        $workoutExercise = $day->exercises()->first();
+
+        // Baseline session: 10kg is not a PR (nothing to beat yet).
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-20']);
+        $previous = WorkoutSession::latest('id')->firstOrFail();
+        $this->actingAs($user)->postJson(route('workouts.sessions.sets.store', $previous), [
+            'workout_exercise_id' => $workoutExercise->id,
+            'set_number' => 1, 'reps' => 20, 'weight' => 10,
+        ])->assertOk()->assertJsonPath('is_pr', false);
+
+        // New session with 12kg beats the 10kg best → PR.
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-27']);
+        $session = WorkoutSession::latest('id')->firstOrFail();
+        $this->actingAs($user)->postJson(route('workouts.sessions.sets.store', $session), [
+            'workout_exercise_id' => $workoutExercise->id,
+            'set_number' => 1, 'reps' => 15, 'weight' => 12,
+        ])->assertOk()->assertJsonPath('is_pr', true);
+
+        $this->assertTrue($session->exerciseLogs()->firstOrFail()->setLogs()->firstOrFail()->is_pr);
+
+        // The PR survives a reload: golden row + badge are server-rendered.
+        $html = $this->actingAs($user)->get(route('workouts.sessions.show', $session))->assertOk()->getContent();
+        $this->assertStringContainsString('is-saved is-pr"', $html);
+        $this->assertStringContainsString('<span class="pr-badge"', $html);
+
+        // Lowering the weight on re-save clears the stale PR.
+        $this->actingAs($user)->postJson(route('workouts.sessions.sets.store', $session), [
+            'workout_exercise_id' => $workoutExercise->id,
+            'set_number' => 1, 'reps' => 15, 'weight' => 9,
+        ])->assertOk()->assertJsonPath('is_pr', false);
+
+        $this->assertFalse($session->exerciseLogs()->firstOrFail()->setLogs()->firstOrFail()->fresh()->is_pr);
+        $html = $this->actingAs($user)->get(route('workouts.sessions.show', $session))->assertOk()->getContent();
+        $this->assertStringNotContainsString('<span class="pr-badge"', $html);
+    }
+
     private function planPayload(int $exerciseId): array
     {
         return [

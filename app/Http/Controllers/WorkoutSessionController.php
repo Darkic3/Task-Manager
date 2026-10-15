@@ -111,12 +111,27 @@ class WorkoutSessionController extends Controller
             'skip_reason' => $data['skip_reason'] ?? $exerciseLog->skip_reason,
         ]);
 
+        // PR check runs on the incoming values (best weight across the user's
+        // OTHER sessions) so the flag can be persisted with the set itself.
+        // A re-save recomputes it, so lowering the weight clears a stale PR.
+        $exerciseId = $exercise->exercise_id;
+        $previousBestWeight = (float) (WorkoutSetLog::whereHas('exerciseLog', function ($q) use ($exerciseId, $workoutSession) {
+            $q->whereHas('workoutExercise', fn ($we) => $we->where('exercise_id', $exerciseId))
+              ->whereHas('session', fn ($s) => $s->where('user_id', auth()->id())->where('id', '!=', $workoutSession->id));
+        })->max('weight') ?? 0);
+
+        $incomingWeight = (float) ($data['weight'] ?? 0);
+        $isPr = ($incomingWeight > 0 && $previousBestWeight > 0 && $incomingWeight > $previousBestWeight);
+
         $set = $exerciseLog->setLogs()->updateOrCreate(
             ['set_number' => $data['set_number']],
             collect($data)->only([
                 'reps', 'weight', 'duration_seconds', 'rir', 'form_rating',
                 'pain_level', 'completed', 'note',
-            ])->merge(['completed' => filter_var($data['completed'] ?? true, FILTER_VALIDATE_BOOLEAN)])->all()
+            ])->merge([
+                'completed' => filter_var($data['completed'] ?? true, FILTER_VALIDATE_BOOLEAN),
+                'is_pr' => $isPr,
+            ])->all()
         );
 
         $targetSets = $exercise->requiredSetCount();
@@ -128,14 +143,6 @@ class WorkoutSessionController extends Controller
         $weight = (float) ($set->weight ?? 0);
         $reps = (float) ($set->reps ?? 0);
         $estimated1RM = ($reps > 0 && $weight > 0) ? round($weight * (1 + ($reps / 30)), 1) : 0;
-
-        $exerciseId = $exercise->exercise_id;
-        $previousBestWeight = (float) (WorkoutSetLog::whereHas('exerciseLog', function ($q) use ($exerciseId, $workoutSession) {
-            $q->whereHas('workoutExercise', fn ($we) => $we->where('exercise_id', $exerciseId))
-              ->whereHas('session', fn ($s) => $s->where('user_id', auth()->id())->where('id', '!=', $workoutSession->id));
-        })->max('weight') ?? 0);
-
-        $isPr = ($weight > 0 && $previousBestWeight > 0 && $weight > $previousBestWeight);
 
         return response()->json([
             'ok' => true,

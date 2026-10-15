@@ -1951,5 +1951,10 @@
     "Search tasks": "جست‌وجوی تسک‌ها",
     "Search tasks… (unscheduled, overdue, no time)": "جست‌وجوی تسک‌ها… (بدون تاریخ، عقب‌افتاده، بدون زمان)",
     "No date": "بدون تاریخ",
-    "Project not found.": "پروژه پیدا نشد."
+    "Project not found.": "پروژه پیدا نشد.",
+    "My Month": "ماه من",
+    "This Month": "این ماه",
+    "Done tasks": "تسک‌های انجام‌شده",
+    "Routines done/planned": "روتین‌های انجام‌شده/برنامه‌ریزی‌شده",
+    "Select a day to plan it": "یک روز را برای برنامه‌ریزی انتخاب کن"
 }

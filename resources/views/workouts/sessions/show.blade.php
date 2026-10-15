@@ -52,6 +52,7 @@
     
     /* Clean Big-Tap Set Rows */
     .set-row-clean {
+        position: relative;
         display: grid;
         grid-template-columns: 36px minmax(70px, 1.2fr) minmax(70px, 1fr) 40px 104px;
         gap: 8px; align-items: center;
@@ -68,6 +69,21 @@
     .set-row-clean:hover { background: #fafbfc; }
     .set-row-clean.is-saved { background: #f0fdf4; }
     .set-row-clean.is-skipped { background: #fef2f2; text-decoration: line-through; }
+
+    /* PR record row: soft golden wash + a gold edge on the reading-start
+       side (logical property, so it mirrors correctly in RTL). */
+    .set-row-clean.is-pr {
+        background: linear-gradient(90deg, rgba(251, 191, 36, 0.16), rgba(251, 191, 36, 0.05) 55%, rgba(240, 253, 244, 0.6));
+        border-inline-start: 3px solid #f59e0b;
+    }
+    .set-row-clean.is-pr:hover {
+        background: linear-gradient(90deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.08) 55%, rgba(240, 253, 244, 0.7));
+    }
+    .set-row-clean.is-pr .set-num-badge {
+        background: linear-gradient(135deg, #fbbf24, #d97706);
+        color: #fff;
+        box-shadow: 0 2px 6px rgba(217, 119, 6, 0.4);
+    }
     
     .set-num-badge {
         width: 28px; height: 28px; border-radius: 50%;
@@ -111,14 +127,27 @@
     }
     .set-more-fields.show { display: grid; }
 
-    /* PR Golden Badge */
+    /* PR Golden Badge — floats over the row corner so it never joins the
+       5-column grid (a 6th grid item would wrap into a full-width strip
+       and push the save button out of the row). */
     .pr-badge {
+        position: absolute;
+        top: -10px;
+        inset-inline-start: 10px;
+        z-index: 3;
         display: inline-flex; align-items: center; gap: 3px;
         background: linear-gradient(135deg, #fbbf24, #d97706);
         color: white; font-size: 10px; font-weight: 800;
+        white-space: nowrap;
         padding: 2px 7px; border-radius: 12px;
+        border: 1px solid #fff;
         box-shadow: 0 2px 6px rgba(217, 119, 6, 0.3);
-        animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                   pr-glow 2.6s ease-in-out 0.5s infinite;
+    }
+    @keyframes pr-glow {
+        0%, 100% { box-shadow: 0 2px 6px rgba(217, 119, 6, 0.3); }
+        50% { box-shadow: 0 2px 14px rgba(217, 119, 6, 0.6); }
     }
     @keyframes pop-in { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
@@ -289,11 +318,14 @@
                             $ghostReps = $prevSet['reps'] ?? $workoutExercise->rep_min ?? '';
                             $ghostDuration = $prevSet['duration_seconds'] ?? $workoutExercise->duration_seconds ?? '45';
                         @endphp
-                        <div class="set-row-clean {{ $isTimedMovement ? 'time-mode' : '' }} {{ $set?->completed ? 'is-saved' : '' }}" 
-                             data-set-row 
+                        <div class="set-row-clean {{ $isTimedMovement ? 'time-mode' : '' }} {{ $set?->completed ? 'is-saved' : '' }} {{ $set?->is_pr ? 'is-pr' : '' }}"
+                             data-set-row
                              data-set-number="{{ $setNumber }}">
-                            
+
                             <div class="set-num-badge">{{ $setNumber }}</div>
+                            @if($set?->is_pr)
+                                <span class="pr-badge">{{ __('🏆 NEW PR!') }}</span>
+                            @endif
 
                             @if($isTimedMovement)
                                 {{-- Timed / Mobility Mode Input --}}
@@ -784,6 +816,7 @@
             // PR Hunter Celebration!
             if (data.is_pr) {
                 playChime();
+                row.classList.add('is-pr');
                 let prEl = row.querySelector('.pr-badge');
                 if (!prEl) {
                     prEl = document.createElement('span');
@@ -792,6 +825,9 @@
                     row.querySelector('.set-num-badge').after(prEl);
                 }
                 toast(I18N_WS.prCelebration);
+            } else {
+                row.classList.remove('is-pr');
+                row.querySelector('.pr-badge')?.remove();
             }
 
             // Update 1RM display

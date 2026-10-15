@@ -12,12 +12,12 @@ class WorkoutSetLog extends Model
 
     protected $fillable = [
         'workout_exercise_log_id', 'set_number', 'reps', 'weight', 'duration_seconds',
-        'rir', 'form_rating', 'pain_level', 'completed', 'note',
+        'rir', 'form_rating', 'pain_level', 'completed', 'is_pr', 'note',
     ];
 
     protected $casts = [
         'reps' => 'decimal:2', 'weight' => 'decimal:2', 'rir' => 'decimal:1',
-        'completed' => 'boolean',
+        'completed' => 'boolean', 'is_pr' => 'boolean',
     ];
 
     public function exerciseLog(): BelongsTo

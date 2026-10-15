@@ -21,12 +21,16 @@ class PlannerController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $view = $request->input('view') === 'week' ? 'week' : 'day';
+        $view = in_array($request->input('view'), ['day', 'week', 'month'], true)
+            ? $request->input('view')
+            : 'day';
         $date = $this->parseDate($request->input('date'));
 
-        return $view === 'week'
-            ? $this->weekView($user, $date)
-            : $this->dayView($user, $date);
+        return match ($view) {
+            'week' => $this->weekView($user, $date),
+            'month' => $this->monthView($user, $date),
+            default => $this->dayView($user, $date),
+        };
     }
 
     private function dayView($user, Carbon $date)
@@ -251,6 +255,98 @@ class PlannerController extends Controller
             'end' => $end,
             'days' => $days,
             'isToday' => now()->between($start->copy()->startOfDay(), $end->copy()->endOfDay()),
+            'backlogProjects' => $this->backlogProjectOptions($user->id),
+        ]);
+    }
+
+    /**
+     * Month overview: a compact calendar grid. Each cell aggregates that
+     * day's tasks (open/done + a few titles) and routine occurrences
+     * (scheduled vs completed) so the whole month fits on one screen.
+     * Cells link through to the day view for actual planning.
+     */
+    private function monthView($user, Carbon $date)
+    {
+        $monthStart = $date->copy()->startOfMonth()->startOfDay();
+        $monthEnd = $date->copy()->endOfMonth()->startOfDay();
+
+        // Saturday-first grid (matches the week view), 4–6 rows.
+        $gridStart = $monthStart->copy()->startOfWeek(Carbon::SATURDAY)->startOfDay();
+        $leadDays = $gridStart->diffInDays($monthStart);
+        $weeks = (int) ceil(($leadDays + $monthStart->daysInMonth) / 7);
+        $gridEnd = $gridStart->copy()->addDays($weeks * 7 - 1)->startOfDay();
+
+        // One task query for the whole grid.
+        $tasksByDate = Task::where('user_id', $user->id)
+            ->whereBetween('due_date', [$gridStart->toDateString(), $gridEnd->toDateString()])
+            ->orderBy('due_date')
+            ->get(['id', 'title', 'status', 'priority', 'due_date'])
+            ->groupBy(fn ($t) => Carbon::parse($t->due_date)->toDateString());
+
+        // One routine fetch + one completions query, then pure-PHP math.
+        $routines = $user->routines()->get(['id', 'user_id', 'frequency', 'days', 'month_days', 'every_n_days', 'created_at']);
+        $this->preloadRoutineCompletions($user->id, $routines, $gridStart, $gridEnd);
+
+        $occurrencesByDate = [];
+        foreach ($routines as $routine) {
+            foreach ($routine->occurrenceDates($gridStart, $gridEnd) as $key) {
+                $occurrencesByDate[$key] = ($occurrencesByDate[$key] ?? 0) + 1;
+            }
+        }
+        // Done routines per day: a routine counts once per day it both occurs
+        // on and has a done completion for.
+        $doneByDate = [];
+        foreach ($routines as $routine) {
+            $done = array_flip($routine->completionDateKeys($gridStart, $gridEnd));
+            foreach ($routine->occurrenceDates($gridStart, $gridEnd) as $key) {
+                if (isset($done[$key])) {
+                    $doneByDate[$key] = ($doneByDate[$key] ?? 0) + 1;
+                }
+            }
+        }
+
+        $today = today()->toDateString();
+        $days = [];
+        $cursor = $gridStart->copy();
+        while ($cursor->lte($gridEnd)) {
+            $key = $cursor->toDateString();
+            $dayTasks = $tasksByDate->get($key, collect());
+            $open = $dayTasks->where('status', '!=', 'completed')->values();
+
+            $days[] = [
+                'date' => $cursor->copy(),
+                'key' => $key,
+                'inMonth' => $cursor->month === $monthStart->month,
+                'isToday' => $key === $today,
+                'tasksOpen' => $open->count(),
+                'tasksDone' => $dayTasks->count() - $open->count(),
+                'taskTitles' => $open->take(2)->pluck('title')->all(),
+                'taskExtra' => max(0, $open->count() - 2),
+                'routinesTotal' => $occurrencesByDate[$key] ?? 0,
+                'routinesDone' => $doneByDate[$key] ?? 0,
+            ];
+            $cursor->addDay();
+        }
+
+        // Month-scope totals (padding days excluded) for the stats strip.
+        $monthDays = array_filter($days, fn ($d) => $d['inMonth']);
+        $monthTasksOpen = array_sum(array_column($monthDays, 'tasksOpen'));
+        $monthTasksDone = array_sum(array_column($monthDays, 'tasksDone'));
+        $monthRoutinesTotal = array_sum(array_column($monthDays, 'routinesTotal'));
+        $monthRoutinesDone = array_sum(array_column($monthDays, 'routinesDone'));
+
+        return view('planner.index', [
+            'view' => 'month',
+            'date' => $date->copy(),
+            'monthStart' => $monthStart,
+            'monthEnd' => $monthEnd,
+            'monthDays' => $days,
+            'monthStats' => [
+                'tasksOpen' => $monthTasksOpen,
+                'tasksDone' => $monthTasksDone,
+                'routinesDone' => $monthRoutinesDone,
+                'routinesTotal' => $monthRoutinesTotal,
+            ],
             'backlogProjects' => $this->backlogProjectOptions($user->id),
         ]);
     }
