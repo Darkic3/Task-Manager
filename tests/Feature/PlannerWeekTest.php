@@ -42,6 +42,7 @@ class PlannerWeekTest extends TestCase
         $this->assertStringContainsString('data-period-group="morning"', $html);
         $this->assertStringContainsString('data-week-add', $html);
         $this->assertStringContainsString('data-week-pop', $html);
+        $this->assertStringContainsString('data-week-project', $html);
         $this->assertStringContainsString('id="pwMoveMenu"', $html);
     }
 
@@ -62,15 +63,22 @@ class PlannerWeekTest extends TestCase
         $this->assertStringContainsString('Week quickie', $response->json('html'));
     }
 
-    public function test_backlog_lists_only_unscheduled_open_tasks(): void
+    public function test_backlog_lists_unscheduled_overdue_and_time_less_open_tasks(): void
     {
         $user = User::factory()->create();
         $other = User::factory()->create();
         $inbox = Task::factory()->create([
             'user_id' => $user->id, 'title' => 'Inbox gem', 'status' => 'to_do', 'due_date' => null,
         ]);
+        $overdue = Task::factory()->create([
+            'user_id' => $user->id, 'title' => 'Overdue gem', 'status' => 'to_do',
+            'due_date' => today()->subDay()->toDateString(),
+            'time_period' => 'morning', 'due_time' => '09:00:00',
+        ]);
         Task::factory()->create([
-            'user_id' => $user->id, 'title' => 'Already scheduled', 'status' => 'to_do', 'due_date' => $this->monday(),
+            'user_id' => $user->id, 'title' => 'Already scheduled', 'status' => 'to_do',
+            'due_date' => today()->addDays(2)->toDateString(),
+            'time_period' => 'evening', 'due_time' => '20:00:00',
         ]);
         Task::factory()->create([
             'user_id' => $user->id, 'title' => 'Done one', 'status' => 'completed', 'due_date' => null,
@@ -82,9 +90,10 @@ class PlannerWeekTest extends TestCase
         $json = $this->actingAs($user)->getJson(route('planner.backlog'))->assertOk()->json();
 
         $this->assertTrue($json['ok']);
-        $this->assertCount(1, $json['tasks']);
-        $this->assertSame($inbox->id, $json['tasks'][0]['id']);
-        $this->assertSame('Inbox gem', $json['tasks'][0]['title']);
+        $ids = collect($json['tasks'])->pluck('id')->all();
+        $this->assertContains($inbox->id, $ids);
+        $this->assertContains($overdue->id, $ids);
+        $this->assertCount(2, $json['tasks']);
     }
 
     public function test_backlog_search_filters_by_title(): void

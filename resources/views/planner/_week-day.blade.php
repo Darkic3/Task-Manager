@@ -99,7 +99,10 @@
         <div class="pw-pop-div"><span>{{ __('or pick existing') }}</span></div>
         <div class="pw-pop-sec">
             <input type="text" data-week-search autocomplete="off"
-                   placeholder="{{ __('Search inbox…') }}" aria-label="{{ __('Search unscheduled tasks') }}">
+                   placeholder="{{ __('Search tasks…') }}" aria-label="{{ __('Search tasks') }}">
+            <select data-week-project aria-label="{{ __('Filter by project') }}">
+                @include('planner._backlog-project-options')
+            </select>
             <div class="pw-pop-list" data-week-backlog></div>
         </div>
     </div>

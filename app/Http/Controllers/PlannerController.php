@@ -114,6 +114,7 @@ class PlannerController extends Controller
                 ->whereNotIn('status', ['completed', 'closed'])
                 ->orderBy('name')
                 ->get(['id', 'name']),
+            'backlogProjects' => $this->backlogProjectOptions($user->id),
         ]);
     }
 
@@ -250,6 +251,7 @@ class PlannerController extends Controller
             'end' => $end,
             'days' => $days,
             'isToday' => now()->between($start->copy()->startOfDay(), $end->copy()->endOfDay()),
+            'backlogProjects' => $this->backlogProjectOptions($user->id),
         ]);
     }
 
@@ -407,33 +409,120 @@ class PlannerController extends Controller
     }
 
     /**
-     * Unscheduled inbox: open tasks with no due date, searchable.
-     * Feeds the week view "add existing task" picker.
+     * Add-existing-task picker: open tasks that are unscheduled (no due
+     * date), overdue (due before today) or have no time set (neither a
+     * time-of-day period nor an exact due time). Searchable + filterable by
+     * project (a project filter also covers its sub-projects). Tasks already
+     * sitting on the target day are excluded. Feeds the day "add existing
+     * tasks" modal and the week view picker.
      */
     public function backlog(Request $request)
     {
         $user = Auth::user();
         $q = trim((string) $request->input('q', ''));
+        $today = today()->toDateString();
 
         $query = Task::where('user_id', $user->id)
             ->where('status', '!=', 'completed')
-            ->whereNull('due_date')
+            ->where(function ($w) use ($today) {
+                $w->whereNull('due_date')
+                    ->orWhereDate('due_date', '<', $today)
+                    ->orWhere(function ($w) {
+                        $w->whereNull('time_period')->whereNull('due_time');
+                    });
+            })
             ->with('project:id,name');
         if ($q !== '') {
             $query->where('title', 'like', "%{$q}%");
         }
-        $tasks = $query->orderByDesc('id')->limit(30)->get();
+
+        // Project filter: 'none' = unassigned, numeric id = that project
+        // plus every descendant (sub-project) underneath it.
+        $projectFilter = $request->input('project_id');
+        if ($projectFilter === 'none') {
+            $query->whereNull('project_id');
+        } elseif (is_numeric($projectFilter) && (int) $projectFilter > 0) {
+            $root = Project::where('user_id', $user->id)->whereKey((int) $projectFilter)->first();
+            if (! $root) {
+                return response()->json(['ok' => false, 'message' => __('Project not found.')], 422);
+            }
+            $query->whereIn('project_id', $this->projectTreeIds($user->id, (int) $root->id));
+        }
+
+        // Don't offer tasks already scheduled on the target day.
+        $target = null;
+        if ($request->filled('date')) {
+            try {
+                $target = Carbon::parse($request->input('date'))->toDateString();
+            } catch (\Throwable $e) {
+                $target = null;
+            }
+        }
+        if ($target) {
+            $query->where(function ($w) use ($target) {
+                $w->whereNull('due_date')->orWhereDate('due_date', '!=', $target);
+            });
+        }
+
+        $tasks = $query
+            ->orderByRaw('due_date IS NULL, due_date ASC')
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
 
         return response()->json([
             'ok' => true,
-            'tasks' => $tasks->map(fn ($t) => [
-                'id' => $t->id,
-                'title' => $t->title,
-                'project' => $t->project?->name,
-                'priority' => $t->priority,
-                'time_period' => $t->time_period,
-            ])->values(),
+            'tasks' => $tasks->map(function ($t) use ($today) {
+                $due = $t->due_date ? Carbon::parse($t->due_date)->startOfDay() : null;
+
+                return [
+                    'id' => $t->id,
+                    'title' => $t->title,
+                    'project' => $t->project?->name,
+                    'project_id' => $t->project_id,
+                    'priority' => $t->priority,
+                    'time_period' => $t->time_period,
+                    'due_date' => $due?->toDateString(),
+                    'due_label' => $due ? $due->diffForHumans() : __('No date'),
+                    'is_overdue' => (bool) ($due && $due->lt($today)),
+                    'has_time' => $t->time_period !== null || $t->due_time !== null,
+                ];
+            })->values(),
         ]);
+    }
+
+    /**
+     * Flat project options for the backlog picker (id, name, parent_id so
+     * the view can render the tree indented, sub-projects included).
+     */
+    private function backlogProjectOptions(int $userId): \Illuminate\Support\Collection
+    {
+        return Project::where('user_id', $userId)
+            ->orderBy('name')
+            ->get(['id', 'name', 'parent_id']);
+    }
+
+    /**
+     * A project id plus every descendant id below it (sub-projects),
+     * scoped to the user. Iterative with a guard against deep chains.
+     *
+     * @return array<int>
+     */
+    private function projectTreeIds(int $userId, int $rootId): array
+    {
+        $ids = [$rootId];
+        $stack = [$rootId];
+        $guard = 0;
+        while (! empty($stack) && $guard++ < 1000) {
+            $children = Project::where('user_id', $userId)
+                ->whereIn('parent_id', $stack)
+                ->pluck('id')
+                ->all();
+            $stack = array_diff($children, $ids);
+            $ids = array_merge($ids, $stack);
+        }
+
+        return array_values(array_unique(array_map('intval', $ids)));
     }
 
     /**

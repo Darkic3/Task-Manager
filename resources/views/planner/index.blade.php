@@ -1254,6 +1254,8 @@
     .pw-pop-div::before,.pw-pop-div::after{content:'';flex:1;height:1px;background:#eef0f3;}
     .pw-pop-sec input[data-week-search]{width:100%;border:1px solid #e3e4e8;border-radius:9px;padding:7px 10px;font-size:12.5px;outline:none;font-family:inherit;color:#1f2328;box-sizing:border-box;}
     .pw-pop-sec input[data-week-search]:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    .pw-pop-sec select[data-week-project]{width:100%;border:1px solid #e3e4e8;border-radius:9px;padding:7px 10px;font-size:12.5px;outline:none;font-family:inherit;color:#1f2328;box-sizing:border-box;margin-top:6px;background:#fff;}
+    .pw-pop-sec select[data-week-project]:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
     .pw-pop-list{display:flex;flex-direction:column;gap:4px;margin-top:6px;max-height:180px;overflow-y:auto;}
     .pw-backlog{display:flex;align-items:center;gap:7px;width:100%;text-align:start;border:1px solid #eef0f3;background:#fff;border-radius:9px;padding:7px 9px;cursor:pointer;font-family:inherit;transition:all .12s;box-sizing:border-box;}
     .pw-backlog:hover{border-color:#c4b5fd;background:#faf5ff;}
@@ -2598,10 +2600,15 @@
                 <div class="pl-qadd-search pl-bl-search">
                     <i class="bi bi-search" aria-hidden="true"></i>
                     <input type="search" id="plBacklogSearch" autocomplete="off"
-                           placeholder="{{ __('Search your unscheduled tasks…') }}"
-                           aria-label="{{ __('Search your unscheduled tasks') }}">
+                           placeholder="{{ __('Search tasks… (unscheduled, overdue, no time)') }}"
+                           aria-label="{{ __('Search tasks') }}">
                     <button type="button" class="pl-qadd-clear" id="plBacklogClear" hidden
                             aria-label="{{ __('Close') }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                </div>
+                <div style="padding:8px 14px 0;">
+                    <select id="plBacklogProject" class="form-select form-select-sm" aria-label="{{ __('Filter by project') }}">
+                        @include('planner._backlog-project-options')
+                    </select>
                 </div>
                 <div class="pl-qadd-filters" data-bl-filters role="group" aria-label="{{ __('Priority') }}">
                     <button type="button" data-prio="" class="active">{{ __('All') }}</button>
@@ -4564,10 +4571,12 @@
                 row.appendChild(check);
                 row.appendChild(dot);
                 row.appendChild(name);
-                if (t.project) {
+                const meta = [t.project, t.due_label].filter(Boolean).join(' · ');
+                if (meta) {
                     const proj = document.createElement('span');
                     proj.className = 'pl-qadd-proj';
-                    proj.textContent = t.project;
+                    proj.textContent = meta;
+                    if (t.is_overdue) proj.style.color = '#dc2626';
                     row.appendChild(proj);
                 }
                 list.appendChild(row);
@@ -4598,12 +4607,23 @@
             b.classList.toggle('active', (b.dataset.prio || '') === (prio || '')));
     }
 
+    function blParams(q) {
+        const p = new URLSearchParams();
+        if (q) p.set('q', q);
+        const proj = document.getElementById('plBacklogProject');
+        if (proj && proj.value) p.set('project_id', proj.value);
+        if (blDay()) p.set('date', blDay());
+        const s = p.toString();
+
+        return s ? '?' + s : '';
+    }
+
     async function blLoad(q) {
         const clear = document.getElementById('plBacklogClear');
         if (clear) clear.hidden = !q;
         blNote(BL_I18N.loading, 'bi-arrow-repeat');
         try {
-            const res = await plFetch(@json(route('planner.backlog')) + (q ? '?q=' + encodeURIComponent(q) : ''), {
+            const res = await plFetch(@json(route('planner.backlog')) + blParams(q), {
                 headers: { 'Accept': 'application/json' },
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -4673,6 +4693,11 @@
             clearTimeout(searchT);
             const q = search.value.trim();
             searchT = setTimeout(() => blLoad(q), 250);
+        });
+        const projSel = document.getElementById('plBacklogProject');
+        if (projSel) projSel.addEventListener('change', () => {
+            blLoad(search ? search.value.trim() : '');
+            if (search) search.focus();
         });
         document.querySelectorAll('[data-bl-filters] button').forEach(b =>
             b.addEventListener('click', () => { blSetPrio(b.dataset.prio || ''); blRender(); if (search) search.focus(); }));
@@ -5770,7 +5795,13 @@
             const list = pop.querySelector('[data-week-backlog]');
             if (!list) return;
             try {
-                const res = await plFetch(BACKLOG_URL + (q ? '?q=' + encodeURIComponent(q) : ''), {
+                const proj = pop.querySelector('[data-week-project]');
+                const params = new URLSearchParams();
+                if (q) params.set('q', q);
+                if (proj && proj.value) params.set('project_id', proj.value);
+                if (pop.dataset.date) params.set('date', pop.dataset.date);
+                const qs = params.toString();
+                const res = await plFetch(BACKLOG_URL + (qs ? '?' + qs : ''), {
                     headers: { 'Accept': 'application/json' },
                 });
                 if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -5790,7 +5821,10 @@
                     b.innerHTML = '<span class="dot"></span><span class="t"></span><span class="p"></span>';
                     b.querySelector('.dot').style.background = PW_PRIO[t.priority] || '#94a3b8';
                     b.querySelector('.t').textContent = t.title;
-                    b.querySelector('.p').textContent = t.project || '';
+                    const meta = [t.project, t.due_label].filter(Boolean).join(' · ');
+                    const pEl = b.querySelector('.p');
+                    pEl.textContent = meta;
+                    if (t.is_overdue) pEl.style.color = '#dc2626';
                     list.appendChild(b);
                 });
             } catch (e) {
@@ -5981,6 +6015,12 @@
             const q = e.target.value.trim();
             clearTimeout(searchT);
             searchT = setTimeout(() => loadBacklog(pop, q), 250);
+        });
+        grid.addEventListener('change', e => {
+            if (!e.target.matches?.('[data-week-project]')) return;
+            const pop = e.target.closest('[data-week-pop]');
+            const search = pop.querySelector('[data-week-search]');
+            loadBacklog(pop, search ? search.value.trim() : '');
         });
         document.addEventListener('click', e => {
             if (!e.target.closest?.('[data-week-pop]') && !e.target.closest?.('[data-week-add]')) closePops();
