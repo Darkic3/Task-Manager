@@ -102,13 +102,22 @@ class TaskController extends Controller
      */
     public function quickStore(Request $request)
     {
+        // The "No project" section posts project_id 0/"0" (data-ch-project="0" is
+        // truthy in JS, so it survives the `|| null` fallback). Normalize every
+        // "no project" marker to null before validation, otherwise the `exists`
+        // rule rejects it with a 422.
+        $rawProjectId = $request->input('project_id');
+        if ($rawProjectId === 0 || $rawProjectId === '0' || $rawProjectId === '') {
+            $request->merge(['project_id' => null]);
+        }
+
         $data = $request->validate([
             'title' => 'required|string|max:255',
             'project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
             'status' => 'nullable|in:to_do,in_progress,on_hold,in_review,completed',
         ]);
 
-        $projectId = $data['project_id'] ? ($data['project_id'] === 0 ? null : $data['project_id']) : null;
+        $projectId = $data['project_id'] ?? null;
 
         $task = Task::create([
             'title' => $data['title'],

@@ -60,6 +60,22 @@ class TaskQuickStoreTest extends TestCase
         ])->assertStatus(422);
     }
 
+    public function test_quick_store_accepts_null_and_zero_project_id(): void
+    {
+        $user = User::factory()->create();
+
+        foreach ([null, 0, '0', ''] as $projectId) {
+            $title = 'No project task ' . var_export($projectId, true);
+            $response = $this->actingAs($user)->postJson(route('tasks.quick-store'), [
+                'title' => $title,
+                'project_id' => $projectId,
+            ]);
+
+            $response->assertOk()->assertJsonPath('ok', true);
+            $this->assertNull(Task::where('title', $title)->firstOrFail()->project_id);
+        }
+    }
+
     public function test_projects_view_renders_quick_add_buttons(): void
     {
         $user = User::factory()->create(['locale' => 'fa']);
