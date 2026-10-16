@@ -39,11 +39,13 @@ class Routine extends Model
         'count_violations',
         'time_period',
         'sort_order',
+        'is_active',
         'days',
         'weeks',
         'months',
         'month_days',
         'every_n_days',
+        'schedule_shifts',
         'start_time',
         'end_time',
         'tracking_mode',
@@ -57,8 +59,16 @@ class Routine extends Model
         'weeks' => 'array',
         'months' => 'array',
         'month_days' => 'array',
+        'schedule_shifts' => 'array',
         'count_violations' => 'boolean',
+        'is_active' => 'boolean',
     ];
+
+    /** Memoized postpone chain sorted by `from` ascending. */
+    protected ?array $shiftsMemo = null;
+
+    /** Raw schedule_shifts value the memo was built from (cache key). */
+    protected ?string $shiftsMemoKey = null;
 
     public function user(): BelongsTo
     {
@@ -88,6 +98,20 @@ class Routine extends Model
     public function isTracked(): bool
     {
         return in_array($this->tracking_mode, [self::TRACKING_VALUE, self::TRACKING_SETS], true);
+    }
+
+    /**
+     * Only active routines are listed anywhere (routines page, planner,
+     * dashboard, track, reports). Disabled ones keep all their history.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function isActive(): bool
+    {
+        return (bool) ($this->is_active ?? true);
     }
 
     /**
@@ -462,20 +486,108 @@ class Routine extends Model
                 return true;
 
             case 'weekly':
-                return in_array(strtolower($date->format('l')), $this->decodedDays(), true);
+                return in_array(strtolower($date->format('l')), $this->effectiveDaysFor($date), true);
 
             case 'monthly':
                 return in_array((int) $date->day, $this->decodedMonthDays(), true);
 
             case 'every_n_days':
                 $n = max(2, (int) $this->every_n_days);
-                $base = $this->created_at ? $this->created_at->copy()->startOfDay() : $date->copy();
+                $shift = $this->lastShiftOnOrBefore($date);
+                $base = $shift
+                    ? Carbon::parse($shift['from'])->startOfDay()
+                    : ($this->created_at ? $this->created_at->copy()->startOfDay() : $date->copy());
 
-                /* Anchored to creation day: runs on day 0, n, 2n, … */
+                /* Day 0, n, 2n, … from the latest anchor in effect that day */
                 return (int) round($date->copy()->diffInDays($base, true)) % $n === 0;
         }
 
         return false;
+    }
+
+    /**
+     * Postpone chain entries ({from, days?}) sorted by `from` ascending.
+     */
+    public function decodedShifts(): array
+    {
+        $key = json_encode($this->schedule_shifts ?? []);
+
+        if ($this->shiftsMemo !== null && $this->shiftsMemoKey === $key) {
+            return $this->shiftsMemo;
+        }
+
+        $shifts = array_values(array_filter(
+            $this->decode($this->schedule_shifts),
+            fn ($s) => is_array($s) && ! empty($s['from'])
+        ));
+        usort($shifts, fn ($a, $b) => strcmp($a['from'], $b['from']));
+
+        $this->shiftsMemoKey = $key;
+
+        return $this->shiftsMemo = $shifts;
+    }
+
+    /**
+     * The latest postpone entry taking effect on the given date, if any.
+     */
+    private function lastShiftOnOrBefore($date): ?array
+    {
+        $key = $date instanceof Carbon ? $date->toDateString() : Carbon::parse($date)->toDateString();
+
+        $last = null;
+        foreach ($this->decodedShifts() as $shift) {
+            if ($shift['from'] <= $key) {
+                $last = $shift;
+            } else {
+                break;
+            }
+        }
+
+        return $last;
+    }
+
+    /**
+     * Weekly days in effect on the given date — shifted by the postpone
+     * chain when one applies, the stored `days` otherwise.
+     */
+    public function effectiveDaysFor($date): array
+    {
+        $shift = $this->lastShiftOnOrBefore($date);
+
+        return $shift['days'] ?? $this->decodedDays();
+    }
+
+    /**
+     * Re-anchor the routine from the day after $date (postpone). Weekly
+     * routines shift every weekday one day forward; interval routines get a
+     * new anchor date. History before `from` keeps the old schedule.
+     */
+    public function postponeFrom($date): void
+    {
+        $date = $date instanceof Carbon ? $date->copy()->startOfDay() : Carbon::parse($date)->startOfDay();
+        $entry = ['from' => $date->copy()->addDay()->toDateString()];
+
+        if ($this->frequency === 'weekly') {
+            $entry['days'] = array_map(
+                fn ($d) => $this->nextWeekDay($d),
+                $this->effectiveDaysFor($date)
+            );
+        }
+
+        $shifts = $this->decodedShifts();
+        $shifts[] = $entry;
+
+        $this->forceFill(['schedule_shifts' => $shifts])->save();
+        $this->shiftsMemoKey = json_encode($shifts);
+        $this->shiftsMemo = $shifts;
+    }
+
+    private function nextWeekDay(string $day): string
+    {
+        $order = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        $i = array_search($day, $order, true);
+
+        return $i === false ? $day : $order[($i + 1) % 7];
     }
 
     public function completedOn($date): bool

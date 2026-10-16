@@ -161,6 +161,20 @@
                         onclick="skipRoutine(this)">
                     <i class="bi bi-x-lg"></i>
                 </button>
+                {{-- Interval/weekly routines can move to tomorrow and re-anchor. --}}
+                @if(!$isDone && in_array($routine->frequency, ['every_n_days', 'weekly'], true))
+                    <button type="button"
+                            class="pl-routine-postpone"
+                            data-postpone-url="{{ route('planner.routines.postpone', $routine) }}"
+                            data-id="{{ $routine->id }}"
+                            data-date="{{ $routineDate->toDateString() }}"
+                            title="{{ __('Move to tomorrow and re-anchor the schedule') }}"
+                            aria-label="{{ __('Move to tomorrow and re-anchor the schedule') }}"
+                            onclick="postponeRoutine(this)">
+                        <i class="bi bi-arrow-right-short"></i>
+                        <span>{{ __('Tomorrow') }}</span>
+                    </button>
+                @endif
             @endif
             @if($settledPartial)
                 <span class="pl-settled-tag" data-settled-tag title="{{ __('Every step is resolved') }}">

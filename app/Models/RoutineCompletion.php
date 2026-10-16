@@ -19,6 +19,7 @@ class RoutineCompletion extends Model
         'no_time' => 'No time',
         'low_energy' => 'Low energy',
         'off_plan' => 'Off plan',
+        'postponed' => 'Postponed',
     ];
 
     /**

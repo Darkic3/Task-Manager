@@ -134,6 +134,11 @@
         <h1 class="rh-title">{{ __('Routines') }}</h1>
         <span class="rh-count">{{ $routines->count() }}</span>
         <a href="{{ route('routines.create') }}" class="rh-btn primary"><i class="bi bi-plus-lg"></i> {{ __('New Routine') }}</a>
+        @if($showingDisabled ?? false)
+            <a href="{{ route('routines.index') }}" class="rh-btn"><i class="bi bi-eye"></i> {{ __('Show active') }}</a>
+        @elseif(($disabledCount ?? 0) > 0)
+            <a href="{{ route('routines.index', ['show' => 'disabled']) }}" class="rh-btn"><i class="bi bi-eye-slash"></i> {{ __('Disabled') }} ({{ $disabledCount }})</a>
+        @endif
     </div>
 
     {{-- Weekly consistency score --}}
@@ -215,6 +220,9 @@
                                 @if(!empty($it['remainder']))
                                     <span class="rh-step-tag" title="{{ ($it['remainder_count'] ?? 0) . ' ' . __('steps without time') }}"><i class="bi bi-inbox"></i>{{ __('other steps') }}</span>
                                 @endif
+                                @if(! $routine->isActive())
+                                    <span class="rh-step-tag" style="background:#f1f5f9;color:#64748b;" title="{{ __('Disabled — hidden from planner, dashboard, track and reports. History is kept.') }}"><i class="bi bi-eye-slash"></i>{{ __('disabled') }}</span>
+                                @endif
                             @endif
                         </div>
                         <div class="rh-row-meta">
@@ -254,6 +262,14 @@
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><a class="dropdown-item" href="{{ route('routines.stats', $routine->id) }}"><i class="bi bi-graph-up me-2"></i>{{ __('Stats') }}</a></li>
+                                <li>
+                                    <form action="{{ route('routines.toggle-active', $routine->id) }}" method="POST">
+                                        @csrf
+                                        <button class="dropdown-item" type="submit">
+                                            <i class="bi bi-{{ $routine->isActive() ? 'pause-circle' : 'play-circle' }} me-2"></i>{{ $routine->isActive() ? __('Disable') : __('Enable') }}
+                                        </button>
+                                    </form>
+                                </li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
                                     <button class="dropdown-item text-danger" onclick="archiveRoutine{{ md5($routine->id) }}()">
@@ -269,9 +285,15 @@
         @empty
             <div class="rh-empty">
                 <i class="bi bi-arrow-repeat"></i>
-                <h5>{{ __('No routines yet') }}</h5>
-                <p>{{ __('Build your first daily or weekly routine to get started.') }}</p>
-                <a href="{{ route('routines.create') }}" class="rh-btn primary" style="display:inline-flex;"><i class="bi bi-plus-lg"></i>{{ __('Create Routine') }}</a>
+                @if($showingDisabled ?? false)
+                    <h5>{{ __('No disabled routines') }}</h5>
+                    <p>{{ __('Disabled routines are hidden from planner, dashboard, track and reports. Their history is kept.') }}</p>
+                    <a href="{{ route('routines.index') }}" class="rh-btn primary" style="display:inline-flex;"><i class="bi bi-eye"></i>{{ __('Show active') }}</a>
+                @else
+                    <h5>{{ __('No routines yet') }}</h5>
+                    <p>{{ __('Build your first daily or weekly routine to get started.') }}</p>
+                    <a href="{{ route('routines.create') }}" class="rh-btn primary" style="display:inline-flex;"><i class="bi bi-plus-lg"></i>{{ __('Create Routine') }}</a>
+                @endif
             </div>
         @endforelse
     </div>

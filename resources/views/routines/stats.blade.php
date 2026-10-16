@@ -94,6 +94,9 @@
         </div>
         <h1 class="rs-header-title">{{ $routine->title }}</h1>
         <p class="rs-header-sub">
+            @if(! $routine->isActive())
+                <span style="background:#f1f5f9;color:#64748b;border-radius:20px;padding:1px 8px;font-weight:700;">{{ __('disabled') }}</span> &middot;
+            @endif
             @if(!empty($avoid))
                 <span style="background:#fee2e2;color:#b91c1c;border-radius:20px;padding:1px 8px;font-weight:700;">🚫 ترک‌کردنی</span> &middot;
             @endif
@@ -109,6 +112,12 @@
             @csrf
             <button type="submit" style="background:white;border:1px solid #e3e4e8;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#7c3aed;cursor:pointer;">
                 <i class="bi bi-arrow-repeat"></i> {{ __('Start new cycle') }}
+            </button>
+        </form>
+        <form method="POST" action="{{ route('routines.toggle-active', $routine) }}" style="margin-top:8px;position:relative;z-index:1;">
+            @csrf
+            <button type="submit" style="background:white;border:1px solid #e3e4e8;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;">
+                <i class="bi bi-{{ $routine->isActive() ? 'pause-circle' : 'play-circle' }}"></i> {{ $routine->isActive() ? __('Disable routine') : __('Enable routine') }}
             </button>
         </form>
         {{-- Habit-type banner: links this routine to its Track tab --}}

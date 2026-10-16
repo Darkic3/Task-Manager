@@ -38,7 +38,7 @@ class ProfileController extends Controller
     public function edit()
     {
         $user = Auth::user();
-        $wakeRoutines = $user->routines()
+        $wakeRoutines = $user->routines()->active()
             ->where('tracking_mode', Routine::TRACKING_VALUE)
             ->where('value_kind', 'time')
             ->orderBy('title')

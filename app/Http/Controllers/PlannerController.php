@@ -284,7 +284,7 @@ class PlannerController extends Controller
             ->groupBy(fn ($t) => Carbon::parse($t->due_date)->toDateString());
 
         // One routine fetch + one completions query, then pure-PHP math.
-        $routines = $user->routines()->get(['id', 'user_id', 'frequency', 'days', 'month_days', 'every_n_days', 'created_at']);
+        $routines = $user->routines()->active()->get(['id', 'user_id', 'frequency', 'days', 'month_days', 'every_n_days', 'created_at']);
         $this->preloadRoutineCompletions($user->id, $routines, $gridStart, $gridEnd);
 
         $occurrencesByDate = [];
@@ -747,6 +747,7 @@ class PlannerController extends Controller
     public function toggleRoutine(Request $request, Routine $routine)
     {
         abort_if($routine->user_id !== Auth::id(), 403);
+        abort_if(! $routine->isActive(), 404);
         // Avoid habits have no check: a tick would mean doing the forbidden
         // thing. Slips are logged through the slip endpoint instead.
         abort_if($routine->isAvoid(), 422, 'Avoid habits cannot be checked off.');
@@ -871,6 +872,7 @@ class PlannerController extends Controller
     public function skipRoutine(Request $request, Routine $routine)
     {
         abort_if($routine->user_id !== Auth::id(), 403);
+        abort_if(! $routine->isActive(), 404);
         // Avoid habits already track failure via slips; a ✗ would double-count.
         abort_if($routine->isAvoid(), 422, 'Avoid habits record slips instead of skips.');
 
@@ -913,6 +915,53 @@ class PlannerController extends Controller
     }
 
     /**
+     * Postpone an interval/weekly routine to tomorrow: today's occurrence is
+     * recorded as skipped and the whole schedule re-anchors from tomorrow
+     * (every_n_days -> new anchor day, weekly -> every weekday shifts +1).
+     * History before tomorrow keeps the old schedule via the shift chain.
+     */
+    public function postponeRoutine(Request $request, Routine $routine)
+    {
+        abort_if($routine->user_id !== Auth::id(), 403);
+        abort_if(! $routine->isActive(), 404);
+        abort_if($routine->isAvoid(), 422, 'Avoid habits record slips instead of skips.');
+        abort_if(! in_array($routine->frequency, ['every_n_days', 'weekly'], true),
+            422, 'Only interval and weekly routines can be postponed.');
+
+        $data = $request->validate([
+            'date' => 'nullable|date',
+        ]);
+
+        $date = $this->parseDate($data['date'] ?? null)->startOfDay();
+        $key = $date->toDateString();
+
+        abort_if($date->isFuture(), 422, 'Cannot postpone a future occurrence.');
+        abort_if(! $routine->occursOn($date), 422, 'Routine does not occur on that date.');
+
+        $record = $routine->completionRecord($date);
+        $isDone = $record !== null
+            && ($record->status ?? RoutineCompletion::STATUS_DONE) === RoutineCompletion::STATUS_DONE;
+        abort_if($isDone, 422, 'A completed day cannot be postponed.');
+
+        if ($record !== null && $record->status === RoutineCompletion::STATUS_SKIPPED) {
+            // Already skipped manually — just tag the reason; skipOn would undo it.
+            $record->update(['skip_reason' => 'postponed']);
+        } else {
+            $routine->skipOn($date, 'postponed');
+        }
+        $routine->postponeFrom($date);
+
+        return response()->json([
+            'ok' => true,
+            'skipped' => true,
+            'date' => $key,
+            'moved_to' => $date->copy()->addDay()->toDateString(),
+            'routine_skipped' => true,
+            'streak' => $routine->fresh()->streakStats($date)['current'],
+        ]);
+    }
+
+    /**
      * Toggle a single step of a routine; when every step is done the routine
      * itself completes for that day (and un-completes if a step is undone).
      * Skipped steps never count as done; completing a step reopens a
@@ -921,6 +970,7 @@ class PlannerController extends Controller
     public function toggleCheckItem(Request $request, RoutineChecklistItem $item)
     {
         abort_if($item->user_id !== Auth::id(), 403);
+        abort_if(! $item->routine->isActive(), 404);
         abort_if($item->routine->isAvoid(), 422, 'Avoid-habit steps cannot be checked off.');
 
         $date = $this->parseDate($request->input('date'));
@@ -1020,6 +1070,7 @@ class PlannerController extends Controller
     public function skipCheckItem(Request $request, RoutineChecklistItem $item)
     {
         abort_if($item->user_id !== Auth::id(), 403);
+        abort_if(! $item->routine->isActive(), 404);
         abort_if($item->routine->isAvoid(), 422, 'Avoid-habit steps record slips instead of skips.');
 
         $data = $request->validate([
@@ -1103,6 +1154,7 @@ class PlannerController extends Controller
     public function logViolation(Request $request, Routine $routine)
     {
         abort_if($routine->user_id !== Auth::id(), 403);
+        abort_if(! $routine->isActive(), 404);
         abort_if(! $routine->isAvoid(), 422, 'Only avoid habits accept slips.');
 
         $date = $this->parseDate($request->input('date'));
@@ -1168,6 +1220,7 @@ class PlannerController extends Controller
     public function logStepViolation(Request $request, RoutineChecklistItem $item)
     {
         abort_if($item->user_id !== Auth::id(), 403);
+        abort_if(! $item->routine->isActive(), 404);
         abort_if(! $item->routine->isAvoid(), 422, 'Only avoid-habit steps accept slips.');
 
         $routine = $item->routine;
@@ -1302,6 +1355,7 @@ class PlannerController extends Controller
     public function avoidSuggestions(Request $request, Routine $routine)
     {
         abort_if($routine->user_id !== Auth::id(), 403);
+        abort_if(! $routine->isActive(), 404);
 
         $q = trim((string) $request->input('q', ''));
 
@@ -1380,6 +1434,7 @@ class PlannerController extends Controller
     public function avoidHistory(Request $request, Routine $routine)
     {
         abort_if($routine->user_id !== Auth::id(), 403);
+        abort_if(! $routine->isActive(), 404);
 
         $data = $request->validate([
             'type' => 'nullable|in:all,slip,craving,note',
@@ -1484,6 +1539,7 @@ class PlannerController extends Controller
     public function logRoutineNote(Request $request, Routine $routine)
     {
         abort_if($routine->user_id !== Auth::id(), 403);
+        abort_if(! $routine->isActive(), 404);
 
         $date = $this->parseDate($request->input('date'));
         $data = $request->validate([
@@ -1835,7 +1891,7 @@ class PlannerController extends Controller
      */
     private function fetchRoutines($user)
     {
-        return $user->routines()->with(['checklistItems' => function ($q) {
+        return $user->routines()->active()->with(['checklistItems' => function ($q) {
             $q->orderBy('sort_order')->orderBy('id');
         }])->get();
     }
@@ -2173,6 +2229,7 @@ class PlannerController extends Controller
     public function logRoutine(Request $request, Routine $routine)
     {
         abort_if($routine->user_id !== Auth::id(), 403);
+        abort_if(! $routine->isActive(), 404);
         abort_if(! $routine->isTracked(), 422, 'Routine is not tracked.');
 
         $date = $this->parseDate($request->input('date'))->startOfDay();

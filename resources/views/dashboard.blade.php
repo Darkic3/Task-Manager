@@ -713,6 +713,14 @@
     .pl-routine-skip.active { background: #ef4444; border-color: #ef4444; color: #fff; }
     .pl-routine-skip:disabled { opacity: .5; cursor: wait; }
     .pl-routine-skip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(239,68,68,.25); }
+    .pl-routine-postpone {
+        width:auto;min-height:20px;flex-shrink:0;display:inline-flex;align-items:center;gap:4px;
+        border:1px solid #dbeafe;background:#eff6ff;color:#2563eb;border-radius:999px;
+        font-size:11px;line-height:1;cursor:pointer;padding:0 6px;transition:all .12s;
+    }
+    .pl-routine-postpone:hover { border-color:#93c5fd;background:#dbeafe;color:#1d4ed8; }
+    .pl-routine-postpone:disabled { opacity: .5; cursor: wait; }
+    .pl-routine-postpone:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,.25); }
     .pl-skip-tag {
         font-size: 10.5px; font-weight: 700; color: #b91c1c; background: #fee2e2;
         border-radius: 20px; padding: 1px 8px; display: inline-flex; align-items: center; gap: 4px;
@@ -1010,6 +1018,27 @@
             const box = row.querySelector('input[type="checkbox"]');
             if (box) box.checked = completed;
         });
+    }
+
+    /* ↔ move an interval/weekly routine to tomorrow, then refresh the list */
+    async function postponeRoutine(btn) {
+        const url = btn.dataset.postponeUrl;
+        const date = btn.dataset.date;
+        btn.disabled = true;
+        try {
+            const res = await plFetch(url + (url.includes('?') ? '&' : '?') + 'date=' + encodeURIComponent(date), {
+                method: 'POST',
+                headers: { 'Accept': 'application/json' },
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            await res.json();
+            plShowToast(@json(__('Moved to tomorrow — the schedule restarts from tomorrow.')));
+            setTimeout(() => window.location.reload(), 600);
+        } catch (e) {
+            console.error('[Dashboard] routine postpone failed', e);
+            plShowToast(@json(__('Could not move the routine.')));
+            btn.disabled = false;
+        }
     }
 
     function syncStepButtons(id, date, completed) {

@@ -13,17 +13,22 @@ class RoutineController extends Controller
         'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
     ];
 
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
         $today = now()->startOfDay();
+        // Disabled routines are hidden everywhere; this page can list them
+        // (instead of the active ones) so they can be re-enabled.
+        $showingDisabled = $request->query('show') === 'disabled';
         // One shared order everywhere (sortKey): period slot → manual drag
         // order → exact time → title — so My Day mirrors this page exactly.
         // Routines WITHOUT their own schedule but WITH timed steps (e.g.
         // Cobra Pose: morning/noon/night steps) are "exploded" into one row
         // per timed step, so each step can be sorted/prioritized in its own
         // time-of-day group against the other routines.
-        $routines = $user->routines()->with(['checklistItems' => fn ($q) => $q->orderBy('sort_order')->orderBy('id')])->get();
+        $routines = $user->routines()
+            ->when($showingDisabled, fn ($q) => $q->where('is_active', false), fn ($q) => $q->active())
+            ->with(['checklistItems' => fn ($q) => $q->orderBy('sort_order')->orderBy('id')])->get();
 
         // Batch: one completions query for [today-1y .. today]; ring math is pure PHP.
         $from = $today->copy()->subYear()->startOfDay();
@@ -65,7 +70,11 @@ class RoutineController extends Controller
         // into one row per timed step (e.g. Cobra Pose → Morning/Noon/Night).
         $displayItems = $this->buildDisplayItems($routines);
 
-        return view('routines.index', compact('routines', 'weekly', 'displayItems'));
+        $disabledCount = $showingDisabled
+            ? $routines->count()
+            : $user->routines()->where('is_active', false)->count();
+
+        return view('routines.index', compact('routines', 'weekly', 'displayItems', 'showingDisabled', 'disabledCount'));
     }
 
     /**
@@ -304,10 +313,50 @@ class RoutineController extends Controller
         $this->authorizeRoutine($routine);
 
         $data = $this->validated($request);
+
+        // Editing the recurrence itself starts fresh: the postpone chain
+        // (schedule_shifts) described the OLD cadence and no longer applies.
+        $newDays = $data['days'] ?? [];
+        $newMonthDays = $data['month_days'] ?? [];
+        sort($newDays);
+        sort($newMonthDays);
+        $oldDays = $routine->decodedDays();
+        $oldMonthDays = $routine->decodedMonthDays();
+        sort($oldDays);
+        sort($oldMonthDays);
+
+        $scheduleChanged = $routine->frequency !== $data['frequency']
+            || (int) $routine->every_n_days !== (int) ($data['every_n_days'] ?? 0)
+            || $oldDays !== $newDays
+            || $oldMonthDays !== array_map('intval', $newMonthDays);
+        if ($scheduleChanged) {
+            $data['schedule_shifts'] = null;
+        }
+
+        // Active flag comes from the edit-form checkbox (hidden 0 + checkbox 1).
+        $data['is_active'] = $request->boolean('is_active');
+
         $routine->update($data);
         $this->syncItems($routine, $request->input('items', []));
 
         return redirect()->route('routines.index')->with('success', __('Routine updated successfully.'));
+    }
+
+    /**
+     * Disable / re-enable a routine without deleting anything: a disabled
+     * routine disappears from every list but keeps its full history.
+     */
+    public function toggleActive(Routine $routine)
+    {
+        $this->authorizeRoutine($routine);
+
+        $routine->update(['is_active' => ! $routine->is_active]);
+
+        return redirect()
+            ->route('routines.index', $routine->is_active ? [] : ['show' => 'disabled'])
+            ->with('success', $routine->is_active
+                ? __('Routine enabled.')
+                : __('Routine disabled. It is hidden everywhere but its history is kept.'));
     }
 
     public function destroy(Routine $routine)
@@ -328,7 +377,7 @@ class RoutineController extends Controller
     {
         $this->authorizeRoutine($routine);
 
-        $copy = $routine->replicate(['deleted_at']);
+        $copy = $routine->replicate(['deleted_at', 'schedule_shifts']);
         $copy->parent_id = $routine->id;
         $copy->cycle_no = ((int) $routine->cycle_no) + 1;
         $copy->save();

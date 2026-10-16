@@ -99,6 +99,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('imports/{workoutImport}/confirm', [WorkoutImportController::class, 'confirm'])->name('imports.confirm');
     });
     Route::post('routines/{routine}/new-cycle', [RoutineController::class, 'newCycle'])->name('routines.new-cycle');
+    Route::post('routines/{routine}/toggle-active', [RoutineController::class, 'toggleActive'])->name('routines.toggle-active');
     Route::get('routines/{routine}/stats', [RoutineController::class, 'stats'])->name('routines.stats');
     Route::get('routines/showAll', [RoutineController::class, 'showAll'])->name('routines.showAll');
     Route::get('routines/daily', [RoutineController::class, 'showDaily'])->name('routines.showDaily');
@@ -155,6 +156,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/planner/tasks/{task}/toggle', [PlannerController::class, 'toggleTask'])->name('planner.tasks.toggle');
     Route::post('/planner/routines/{routine}/toggle', [PlannerController::class, 'toggleRoutine'])->name('planner.routines.toggle');
     Route::post('/planner/routines/{routine}/skip', [PlannerController::class, 'skipRoutine'])->name('planner.routines.skip');
+
+    Route::post('/planner/routines/{routine}/postpone', [PlannerController::class, 'postponeRoutine'])->name('planner.routines.postpone');
     Route::post('/planner/routines/{routine}/log', [PlannerController::class, 'logRoutine'])->name('planner.routines.log');
     Route::post('/planner/check-items/{item}/toggle', [PlannerController::class, 'toggleCheckItem'])->name('planner.check-items.toggle');
     Route::post('/planner/check-items/{item}/skip', [PlannerController::class, 'skipCheckItem'])->name('planner.check-items.skip');

@@ -507,6 +507,19 @@
                     </div>
                 </div>
 
+                {{-- Visibility: disabling hides the routine everywhere but keeps its history --}}
+                <div class="cu-section">
+                    <div class="cu-section-body">
+                        <input type="hidden" name="is_active" value="0">
+                        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#1a1d23;cursor:pointer;">
+                            <input type="checkbox" name="is_active" value="1"
+                                {{ old('is_active', $routine->is_active ?? true) ? 'checked' : '' }}
+                                style="accent-color:#16a34a;width:16px;height:16px;">
+                            {{ __('Active — show this routine in planner, dashboard, track and reports') }}
+                        </label>
+                    </div>
+                </div>
+
                 <div class="cu-action-bar" style="background:white;border:1px solid #e3e4e8;border-radius:8px;">
                     <a href="{{ route('routines.index') }}" class="cu-btn-cancel">{{ __('Cancel') }}</a>
                     <button type="submit" class="cu-btn-save">

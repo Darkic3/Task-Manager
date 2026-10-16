@@ -175,7 +175,7 @@ class DayLogController extends Controller
             }
         }
 
-        $routineNames = Auth::user()->routines()->pluck('title')
+        $routineNames = Auth::user()->routines()->active()->pluck('title')
             ->map(fn ($title) => DayLog::normalizedTitle($title))
             ->filter()
             ->all();

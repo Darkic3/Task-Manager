@@ -17,7 +17,7 @@ class DashboardController extends Controller
 
         // Basic counts
         $tasksCount = $user->tasks()->count();
-        $routinesCount = $user->routines()->count();
+        $routinesCount = $user->routines()->active()->count();
         $notesCount = $user->notes()->count();
         $remindersCount = $user->reminders()->count();
         $filesCount = $user->files()->count();

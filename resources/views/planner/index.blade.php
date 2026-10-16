@@ -249,6 +249,15 @@
     .pl-routine-skip.active{background:#ef4444;border-color:#ef4444;color:#fff;}
     .pl-routine-skip:disabled{opacity:.5;cursor:wait;}
     .pl-routine-skip:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(239,68,68,.25);}
+    /* ↔ "move to tomorrow" button for interval/weekly routines */
+    .pl-routine-postpone{
+        width:auto;min-height:21px;flex-shrink:0;display:inline-flex;align-items:center;gap:4px;
+        border:1px solid #dbeafe;background:#eff6ff;color:#2563eb;border-radius:999px;
+        font-size:11px;line-height:1;cursor:pointer;padding:0 6px;transition:all .12s;
+    }
+    .pl-routine-postpone:hover{border-color:#93c5fd;background:#dbeafe;color:#1d4ed8;}
+    .pl-routine-postpone:disabled{opacity:.5;cursor:wait;}
+    .pl-routine-postpone:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(37,99,235,.25);}
     .pl-skip-tag{
         font-size:10.5px;font-weight:700;color:#b91c1c;background:#fee2e2;
         border-radius:20px;padding:1px 8px;display:inline-flex;align-items:center;gap:4px;
@@ -2744,6 +2753,9 @@
         undo: @json(__('Undo skip')),
         markStep: @json(__('Mark step as not done')),
         settled: @json(__('Settled')),
+        postponed: @json(__('Postponed')),
+        movedTomorrow: @json(__('Moved to tomorrow — the schedule restarts from tomorrow.')),
+        postponeFail: @json(__('Could not move the routine.')),
     };
     const PL_FAIL_I18N = {
         failed: @json(__('Failed')),
@@ -2964,6 +2976,37 @@
             setStreak(id, json.streak ?? 0, !json.skipped);
         } catch (e) {
             if (e.message !== 'GONE') console.error('[Planner] routine skip failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    /* ── ↔ move an interval/weekly routine to tomorrow and re-anchor ── */
+    async function postponeRoutine(btn) {
+        const url = btn.dataset.postponeUrl;
+        const id = btn.dataset.id;
+        const date = btn.dataset.date;
+        btn.disabled = true;
+        try {
+            const json = await plFetch(url + (url.includes('?') ? '&' : '?') + 'date=' + encodeURIComponent(date), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
+            }).then(res => {
+                if (res.status === 404) { plHandleGone(); throw new Error('GONE'); }
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            });
+            /* Today is now skipped; the schedule re-anchors from tomorrow. */
+            applyRoutineSkip(id, date, true);
+            refreshStepCounts();
+            refreshRoutineCounters();
+            setStreak(id, json.streak ?? 0, true);
+            plShowToast(PL_SKIP_I18N.movedTomorrow);
+        } catch (e) {
+            if (e.message !== 'GONE') {
+                console.error('[Planner] routine postpone failed', e);
+                plShowToast(PL_SKIP_I18N.postponeFail);
+            }
         } finally {
             btn.disabled = false;
         }

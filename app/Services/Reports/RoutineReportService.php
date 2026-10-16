@@ -14,7 +14,7 @@ final class RoutineReportService
 {
     public static function summarize(int $userId, Carbon $from, Carbon $to): array
     {
-        $routines = Routine::where('user_id', $userId)
+        $routines = Routine::where('user_id', $userId)->active()
             ->with(['checklistItems' => fn ($q) => $q->orderBy('sort_order')->orderBy('id')])
             ->get();
 

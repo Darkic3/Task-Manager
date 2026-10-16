@@ -35,9 +35,9 @@ class TrackController extends Controller
         $yearAgo = $today->copy()->subYear()->startOfDay();
 
         $counts = [
-            'build' => (clone $user->routines())->where('behavior_type', '!=', Routine::BEHAVIOR_AVOID)->where('tracking_mode', Routine::TRACKING_NONE)->count(),
-            'measurable' => (clone $user->routines())->where('tracking_mode', '!=', Routine::TRACKING_NONE)->count(),
-            'avoid' => (clone $user->routines())->where('behavior_type', Routine::BEHAVIOR_AVOID)->count(),
+            'build' => (clone $user->routines())->active()->where('behavior_type', '!=', Routine::BEHAVIOR_AVOID)->where('tracking_mode', Routine::TRACKING_NONE)->count(),
+            'measurable' => (clone $user->routines())->active()->where('tracking_mode', '!=', Routine::TRACKING_NONE)->count(),
+            'avoid' => (clone $user->routines())->active()->where('behavior_type', Routine::BEHAVIOR_AVOID)->count(),
         ];
         $counts['all'] = $counts['build'] + $counts['measurable'] + $counts['avoid'];
 
@@ -48,7 +48,7 @@ class TrackController extends Controller
         $avoidSummary = null;
 
         if (in_array($tab, ['all', 'build'])) {
-            $buildRoutines = $user->routines()
+            $buildRoutines = $user->routines()->active()
                 ->where('behavior_type', '!=', Routine::BEHAVIOR_AVOID)
                 ->where('tracking_mode', Routine::TRACKING_NONE)
                 ->with('checklistItems')
@@ -69,7 +69,7 @@ class TrackController extends Controller
         }
 
         if (in_array($tab, ['all', 'measurable'])) {
-            $routines = $user->routines()
+            $routines = $user->routines()->active()
                 ->where('tracking_mode', '!=', Routine::TRACKING_NONE)
                 ->when($kind, fn ($q) => $q->where('value_kind', $kind))
                 ->with('checklistItems')
@@ -86,7 +86,7 @@ class TrackController extends Controller
                 : collect();
 
             $cards = $routines->map(fn ($r) => $this->card($r, $logsByRoutine->get($r->id, collect())))->values();
-            $kinds = $user->routines()
+            $kinds = $user->routines()->active()
                 ->where('tracking_mode', '!=', Routine::TRACKING_NONE)
                 ->whereNotNull('value_kind')
                 ->distinct()
@@ -96,7 +96,7 @@ class TrackController extends Controller
         }
 
         if (in_array($tab, ['all', 'avoid'])) {
-            $avoidRoutines = $user->routines()
+            $avoidRoutines = $user->routines()->active()
                 ->where('behavior_type', Routine::BEHAVIOR_AVOID)
                 ->with('checklistItems')
                 ->orderBy('title')

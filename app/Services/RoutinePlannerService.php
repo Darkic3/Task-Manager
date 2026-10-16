@@ -16,7 +16,7 @@ class RoutinePlannerService
      */
     public function fetchRoutines($user)
     {
-        return $user->routines()->with(['checklistItems' => function ($q) {
+        return $user->routines()->active()->with(['checklistItems' => function ($q) {
             $q->orderBy('sort_order')->orderBy('id');
         }])->get();
     }

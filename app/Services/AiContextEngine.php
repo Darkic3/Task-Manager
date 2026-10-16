@@ -342,7 +342,7 @@ class AiContextEngine
                     'tasks_total' => (int) ($taskAgg->total ?? 0),
                     'tasks_open' => (int) ($taskAgg->open_count ?? 0),
                     'reminders_pending' => Reminder::where('user_id', $uid)->where('is_completed', false)->count(),
-                    'routines' => Routine::where('user_id', $uid)->count(),
+                    'routines' => Routine::where('user_id', $uid)->active()->count(),
                     'notes' => Note::where('user_id', $uid)->count(),
                     'files' => File::where('user_id', $uid)->count(),
                 ],
@@ -484,7 +484,7 @@ class AiContextEngine
             return [];
         }
 
-        return Routine::where('user_id', $userId)
+        return Routine::where('user_id', $userId)->active()
             ->orderByDesc('id')
             ->limit(10)
             ->get(['id', 'title', 'frequency'])
