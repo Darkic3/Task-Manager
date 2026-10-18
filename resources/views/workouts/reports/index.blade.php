@@ -294,6 +294,75 @@
             </div>
         </div>
 
+        {{-- Strength Trend Charts --}}
+        @if(count($strengthCharts ?? []))
+            <div class="wr-card p-3 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-graph-up-arrow text-primary"></i>
+                        <h6 class="fw-bold m-0">Strength Trends</h6>
+                    </div>
+                    <span class="badge bg-light text-muted border small">{{ __('Reps per set') }}</span>
+                </div>
+
+                <div class="row g-3">
+                    @foreach(($strengthCharts ?? []) as $key => $chart)
+                        @php
+                            $canvasId = 'strengthChart_' . $key;
+                        @endphp
+                        <div class="col-lg-6">
+                            <div class="wr-card p-3 h-100">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="fw-bold" style="font-size:13px;">{{ $chart['label'] }}</div>
+                                </div>
+                                <div style="height: 240px; position: relative;">
+                                    <canvas id="{{ $canvasId }}"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        {{-- Bodyweight + Compliance Charts --}}
+        <div class="row g-3 mb-4">
+            <div class="col-lg-6">
+                <div class="wr-card p-3 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-body-text text-success"></i>
+                            <h6 class="fw-bold m-0">Bodyweight</h6>
+                        </div>
+                        <span class="badge bg-light text-muted border small">{{ __('Daily + weekly avg') }}</span>
+                    </div>
+                    <div style="height: 240px; position: relative;">
+                        <canvas id="bodyweightChart"></canvas>
+                    </div>
+                    <div class="small text-muted mt-2 d-flex justify-content-between">
+                        <span>{{ __('Weekly avg change') }}</span>
+                        <span class="fw-bold {{ ($summary['bodyweight_week_delta'] ?? 0) >= 0 ? 'text-success' : 'text-danger' }}">
+                            {{ $summary['bodyweight_week_delta'] !== null ? ( ($summary['bodyweight_week_delta'] >= 0 ? '+' : '') . number_format($summary['bodyweight_week_delta'], 2) . ' kg') : '—' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="wr-card p-3 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-check2-circle text-primary"></i>
+                            <h6 class="fw-bold m-0">Adherence & Time</h6>
+                        </div>
+                        <span class="badge bg-light text-muted border small">{{ __('Minutes + set completion') }}</span>
+                    </div>
+                    <div style="height: 240px; position: relative;">
+                        <canvas id="complianceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- Calendar Grid --}}
         @if($mode === 'week' || $mode === 'month')
             <div class="wr-grid mb-4 {{ $mode === 'month' ? 'month' : '' }}">
@@ -418,6 +487,152 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 plugins: {
                     legend: { display: false }
+                }
+            }
+        });
+    }
+
+    // Strength Charts (Pull-up / Chin-up / Pike / Bulgarian)
+    const strengthCharts = @json($strengthCharts ?? []);
+    Object.keys(strengthCharts).forEach((key) => {
+        const canvas = document.getElementById('strengthChart_' + key);
+        if (!canvas) return;
+        const chart = strengthCharts[key];
+
+        new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: chart.labels,
+                datasets: chart.datasets.map(ds => ({
+                    label: ds.label,
+                    data: ds.data,
+                    borderColor: ds.color,
+                    backgroundColor: ds.color,
+                    borderWidth: 2,
+                    tension: 0.25,
+                    pointRadius: 3,
+                    spanGaps: false,
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'bottom' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Reps' },
+                        grid: { color: '#f1f5f9' }
+                    },
+                    x: {
+                        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    });
+
+    // Bodyweight Trend
+    const bw = @json($bodyweightChart ?? null);
+    const bwCanvas = document.getElementById('bodyweightChart');
+    if (bwCanvas && bw && bw.labels && bw.labels.length) {
+        new Chart(bwCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: bw.labels,
+                datasets: [
+                    {
+                        label: 'Daily weight (kg)',
+                        data: bw.daily,
+                        borderColor: '#16a34a',
+                        backgroundColor: 'rgba(22,163,74,0.12)',
+                        borderWidth: 2,
+                        tension: 0.25,
+                        pointRadius: 3,
+                        spanGaps: true,
+                    },
+                    {
+                        label: 'Weekly avg (kg)',
+                        data: bw.weekly,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99,102,241,0.08)',
+                        borderWidth: 2,
+                        tension: 0.2,
+                        pointRadius: 2,
+                        borderDash: [6, 6],
+                        spanGaps: true,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'bottom' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grid: { color: '#f1f5f9' },
+                        title: { display: true, text: 'kg' }
+                    },
+                    x: { grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 10 } }
+                }
+            }
+        });
+    }
+
+    // Compliance & Time
+    const comp = @json($complianceChart ?? null);
+    const compCanvas = document.getElementById('complianceChart');
+    if (compCanvas && comp && comp.labels && comp.labels.length) {
+        new Chart(compCanvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: comp.labels,
+                datasets: [
+                    {
+                        label: 'Minutes',
+                        data: comp.minutes,
+                        backgroundColor: 'rgba(79,70,229,0.25)',
+                        borderColor: '#4f46e5',
+                        borderWidth: 2,
+                        yAxisID: 'y'
+                    },
+                    {
+                        type: 'line',
+                        label: 'Set completion %',
+                        data: comp.setCompletion,
+                        borderColor: '#0ea5e9',
+                        backgroundColor: 'rgba(14,165,233,0.12)',
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'bottom' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'min' },
+                        grid: { color: '#f1f5f9' }
+                    },
+                    y1: {
+                        beginAtZero: true,
+                        suggestedMax: 100,
+                        title: { display: true, text: '%' },
+                        grid: { drawOnChartArea: false }
+                    },
+                    x: { grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 8 } }
                 }
             }
         });

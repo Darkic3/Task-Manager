@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Exercise;
+use App\Models\WorkoutExercise;
 use App\Models\WorkoutSession;
 use App\Models\WorkoutSetLog;
 use Carbon\Carbon;
@@ -76,6 +77,10 @@ class WorkoutReportController extends Controller
         $summary['bodyweight_week_avg'] = $bodyweight['avg_curr'];
         $summary['bodyweight_week_delta'] = $bodyweight['delta'];
 
+        $strengthCharts = $this->strengthTrendChartsBetween($start, $end);
+        $bodyweightChart = $this->bodyweightTrendChartBetween($start, $end);
+        $complianceChart = $this->complianceAndTimeChartBetween($sessions);
+
         // Calculate sets per muscle group for Weekly Muscle Radar
         $muscleVolume = [
             'Chest' => 0,
@@ -130,7 +135,261 @@ class WorkoutReportController extends Controller
             'sessions' => $sessions,
             'summary' => $summary,
             'muscleVolume' => $muscleVolume,
+            'strengthCharts' => $strengthCharts,
+            'bodyweightChart' => $bodyweightChart,
+            'complianceChart' => $complianceChart,
         ]);
+    }
+
+    private function strengthTrendChartsBetween(Carbon $start, Carbon $end): array
+    {
+        $userId = auth()->id();
+        if (! $userId) {
+            return [];
+        }
+
+        $ranges = [
+            'pull-up' => [
+                'label' => 'Pull-up',
+                'query' => fn ($q) => $q
+                    ->whereRaw('lower(normalized_name) like ?', ['%pull%'])
+                    ->whereRaw('lower(normalized_name) like ?', ['%up%']),
+                'colors' => ['both' => '#4f46e5'],
+            ],
+            'chin-up' => [
+                'label' => 'Chin-up',
+                'query' => fn ($q) => $q
+                    ->whereRaw('lower(normalized_name) like ?', ['%chin%'])
+                    ->whereRaw('lower(normalized_name) like ?', ['%up%']),
+                'colors' => ['both' => '#0ea5e9'],
+            ],
+            'pike-push-up' => [
+                'label' => 'Pike Push-up',
+                'query' => fn ($q) => $q
+                    ->whereRaw('lower(normalized_name) like ?', ['%pike%'])
+                    ->whereRaw('lower(normalized_name) like ?', ['%push%'])
+                    ->whereRaw('lower(normalized_name) like ?', ['%up%']),
+                'colors' => ['both' => '#16a34a'],
+            ],
+            'bulgarian-split-squat' => [
+                'label' => 'Bulgarian Split Squat',
+                'query' => fn ($q) => $q
+                    ->whereRaw('lower(normalized_name) like ?', ['%bulgarian%'])
+                    ->whereRaw('lower(normalized_name) like ?', ['%split%'])
+                    ->whereRaw('lower(normalized_name) like ?', ['%squat%']),
+                'colors' => ['left' => '#f97316', 'right' => '#fbbf24'],
+            ],
+        ];
+
+        $fromKey = $start->toDateString();
+        $endKey = $end->toDateString();
+        $out = [];
+
+        foreach ($ranges as $key => $meta) {
+            $exerciseIds = Exercise::query()
+                ->forUser($userId)
+                ->tap(fn ($q) => ($meta['query'])($q))
+                ->pluck('id')
+                ->all();
+
+            if (empty($exerciseIds)) {
+                continue;
+            }
+
+            $sets = WorkoutSetLog::query()
+                ->whereHas('exerciseLog.workoutExercise.exercise', fn ($q) => $q->whereIn('id', $exerciseIds))
+                ->whereHas('exerciseLog.session', fn ($q) => $q
+                    ->where('user_id', $userId)
+                    ->where('status', WorkoutSession::COMPLETED)
+                    ->whereBetween('workout_date', [$fromKey, $endKey]))
+                ->with(['exerciseLog.session', 'exerciseLog.workoutExercise.exercise'])
+                ->get();
+
+            if ($sets->isEmpty()) {
+                continue;
+            }
+
+            $entries = $sets
+                ->sortBy(fn ($s) => $s->exerciseLog->session->workout_date->toDateString().'|'.($s->created_at?->timestamp ?? 0))
+                ->values();
+
+            $labels = [];
+            $repsBySide = [
+                'left' => [],
+                'right' => [],
+                'both' => [],
+            ];
+
+            $hasLeft = false;
+            $hasRight = false;
+
+            foreach ($entries as $set) {
+                $dateKey = $set->exerciseLog->session->workout_date->toDateString();
+                $side = $set->side ?? 'both';
+                $sideShort = $side === 'left' ? 'L' : ($side === 'right' ? 'R' : '');
+                $label = $dateKey.' S'.$set->set_number.($sideShort ? ' '.$sideShort : '');
+                $labels[] = $label;
+
+                $reps = $set->reps !== null ? (float) $set->reps : null;
+                foreach (['left', 'right', 'both'] as $s) {
+                    if ($side === 'both' && $s === 'both') {
+                        $repsBySide[$s][] = $reps;
+                    } elseif ($side === $s) {
+                        $repsBySide[$s][] = $reps;
+                    } else {
+                        $repsBySide[$s][] = null;
+                    }
+                }
+
+                if ($side === 'left') {
+                    $hasLeft = true;
+                } elseif ($side === 'right') {
+                    $hasRight = true;
+                }
+            }
+
+            $datasets = [];
+            if ($hasLeft) {
+                $datasets[] = [
+                    'label' => $key.' Left',
+                    'data' => $repsBySide['left'],
+                    'color' => $meta['colors']['left'] ?? '#f97316',
+                ];
+            }
+            if ($hasRight) {
+                $datasets[] = [
+                    'label' => $key.' Right',
+                    'data' => $repsBySide['right'],
+                    'color' => $meta['colors']['right'] ?? '#fbbf24',
+                ];
+            }
+            if (! $hasLeft && ! $hasRight) {
+                $datasets[] = [
+                    'label' => $key.' (Both)',
+                    'data' => $repsBySide['both'],
+                    'color' => $meta['colors']['both'] ?? '#4f46e5',
+                ];
+            }
+
+            $out[$key] = [
+                'label' => $meta['label'],
+                'labels' => $labels,
+                'datasets' => $datasets,
+            ];
+        }
+
+        return $out;
+    }
+
+    private function bodyweightTrendChartBetween(Carbon $start, Carbon $end): array
+    {
+        $userId = auth()->id();
+        if (! $userId) {
+            return [];
+        }
+
+        $sessions = WorkoutSession::query()
+            ->where('user_id', $userId)
+            ->whereBetween('workout_date', [$start->toDateString(), $end->toDateString()])
+            ->whereNotNull('bodyweight_kg')
+            ->orderBy('workout_date')
+            ->orderBy('bodyweight_recorded_at')
+            ->get(['workout_date', 'bodyweight_kg', 'bodyweight_recorded_at']);
+
+        // Take the latest recorded bodyweight per day.
+        $byDay = [];
+        foreach ($sessions as $s) {
+            $k = $s->workout_date->toDateString();
+            if (! isset($byDay[$k]) || ($byDay[$k]['recorded_at'] ? $s->bodyweight_recorded_at?->timestamp : null) >= ($byDay[$k]['recorded_at'] ? $byDay[$k]['recorded_at']->timestamp : null)) {
+                $byDay[$k] = [
+                    'kg' => (float) $s->bodyweight_kg,
+                    'recorded_at' => $s->bodyweight_recorded_at,
+                ];
+            }
+        }
+
+        $labels = [];
+        $daily = [];
+
+        $cursor = $start->copy()->startOfDay();
+        while ($cursor->lte($end->copy()->startOfDay())) {
+            $k = $cursor->toDateString();
+            $labels[] = $cursor->format('M j');
+            $daily[] = isset($byDay[$k]) ? (float) $byDay[$k]['kg'] : null;
+            $cursor->addDay();
+        }
+
+        // Weekly average aligned to each day.
+        $weekAvgByKey = [];
+        foreach ($byDay as $dayKey => $row) {
+            $date = Carbon::parse($dayKey)->startOfWeek(Carbon::SATURDAY);
+            $wk = $date->toDateString();
+            $weekAvgByKey[$wk]['sum'] = ($weekAvgByKey[$wk]['sum'] ?? 0) + (float) $row['kg'];
+            $weekAvgByKey[$wk]['count'] = ($weekAvgByKey[$wk]['count'] ?? 0) + 1;
+        }
+        foreach ($weekAvgByKey as $wk => $r) {
+            $weekAvgByKey[$wk] = $r['count'] ? $r['sum'] / $r['count'] : null;
+        }
+
+        $weekly = [];
+        $cursor = $start->copy()->startOfDay();
+        while ($cursor->lte($end->copy()->startOfDay())) {
+            $k = $cursor->toDateString();
+            $wk = $cursor->copy()->startOfWeek(Carbon::SATURDAY)->toDateString();
+            $weekly[] = $weekAvgByKey[$wk] ?? null;
+            $cursor->addDay();
+        }
+
+        return [
+            'labels' => $labels,
+            'daily' => $daily,
+            'weekly' => $weekly,
+        ];
+    }
+
+    private function complianceAndTimeChartBetween($sessions): array
+    {
+        // Only completed sessions for adherence.
+        $completed = $sessions->where('status', WorkoutSession::COMPLETED)->values();
+        if ($completed->isEmpty()) {
+            return [];
+        }
+
+        $labels = [];
+        $minutes = [];
+        $setCompletion = [];
+
+        foreach ($completed as $session) {
+            $labels[] = $session->workout_date->format('M j');
+            $minutes[] = (int) ($session->durationMinutes() ?? 0);
+
+            $plannedSets = (int) ($session->day?->exercises?->sum(fn ($we) => $we->requiredSetCount()) ?? 0);
+            $completedSets = 0;
+            $exerciseLogs = $session->exerciseLogs;
+
+            foreach ($exerciseLogs as $elog) {
+                $sideMode = $elog->workoutExercise?->side_mode ?: 'bilateral';
+                $completedSetRows = $elog->setLogs->where('completed', true);
+                if ($sideMode === 'per_side') {
+                    $bySet = $completedSetRows->groupBy('set_number');
+                    foreach ($bySet as $rows) {
+                        if ($rows->pluck('side')->unique()->count() >= 2) {
+                            $completedSets++;
+                        }
+                    }
+                } else {
+                    $completedSets += $completedSetRows->pluck('set_number')->unique()->count();
+                }
+            }
+
+            $setCompletion[] = $plannedSets > 0 ? round(($completedSets / $plannedSets) * 100, 1) : null;
+        }
+
+        return [
+            'labels' => $labels,
+            'minutes' => $minutes,
+            'setCompletion' => $setCompletion,
+        ];
     }
 
     public function export(Request $request)
