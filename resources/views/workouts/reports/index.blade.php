@@ -33,6 +33,7 @@
     .wr-stat-label { font-size: 0.6875rem; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 4px; }
 
     .wr-grid { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); gap: 8px; overflow-x: auto; padding-bottom: 8px; }
+    .wr-grid.month { grid-template-columns: repeat(7, minmax(95px, 1fr)); }
     .wr-day { min-height: 160px; background: #fff; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 10px; }
     .wr-day.today { border-color: #6366f1; box-shadow: 0 0 0 2px #e0e7ff; }
     .wr-day-head { display: flex; justify-content: space-between; gap: 5px; }
@@ -62,9 +63,24 @@
 @endpush
 
 @php
-    $previousDate = ($mode === 'day' ? $date : $start)->copy()->subDays($mode === 'day' ? 1 : 7);
-    $nextDate = ($mode === 'day' ? $date : $start)->copy()->addDays($mode === 'day' ? 1 : 7);
-    $label = $mode === 'day' ? $date->format('D, M j, Y') : $start->format('M j') . ' – ' . $end->format('M j, Y');
+    $previousDate = match ($mode) {
+        'day' => $date->copy()->subDay(),
+        'week' => $start->copy()->subDays(7),
+        'month' => $date->copy()->subMonth(),
+        default => $start->copy(),
+    };
+    $nextDate = match ($mode) {
+        'day' => $date->copy()->addDay(),
+        'week' => $start->copy()->addDays(7),
+        'month' => $date->copy()->addMonth(),
+        default => $start->copy(),
+    };
+    $label = match ($mode) {
+        'day' => $date->format('D, M j, Y'),
+        'week' => $start->format('M j') . ' – ' . $end->format('M j, Y'),
+        'month' => $date->format('M Y'),
+        default => __('Overall'),
+    };
 @endphp
 
 @section('content')
@@ -86,11 +102,43 @@
             <div class="wr-toggle">
                 <a class="{{ $mode === 'day' ? 'active' : '' }}" href="{{ route('workouts.reports.index', ['view' => 'day', 'date' => $date->toDateString()]) }}">{{ __('Daily') }}</a>
                 <a class="{{ $mode === 'week' ? 'active' : '' }}" href="{{ route('workouts.reports.index', ['view' => 'week', 'date' => $date->toDateString()]) }}">{{ __('Weekly') }}</a>
+                <a class="{{ $mode === 'month' ? 'active' : '' }}" href="{{ route('workouts.reports.index', ['view' => 'month', 'date' => $date->toDateString()]) }}">{{ __('Monthly') }}</a>
+                <a class="{{ $mode === 'overall' ? 'active' : '' }}" href="{{ route('workouts.reports.index', ['view' => 'overall']) }}">{{ __('Overall') }}</a>
             </div>
-            <a class="wr-btn" href="{{ route('workouts.reports.index', ['view' => $mode, 'date' => $previousDate->toDateString()]) }}" title="{{ __('Previous') }}"><i class="bi bi-chevron-left"></i></a>
+
+            @if($mode !== 'overall')
+                <a class="wr-btn" href="{{ route('workouts.reports.index', ['view' => $mode, 'date' => $previousDate->toDateString()]) }}" title="{{ __('Previous') }}"><i class="bi bi-chevron-left"></i></a>
+            @endif
             <div class="wr-date">{{ $label }}</div>
-            <a class="wr-btn" href="{{ route('workouts.reports.index', ['view' => $mode, 'date' => $nextDate->toDateString()]) }}" title="{{ __('Next') }}"><i class="bi bi-chevron-right"></i></a>
-            <a class="wr-btn" href="{{ route('workouts.reports.index', ['view' => $mode]) }}">{{ __('Today') }}</a>
+            @if($mode !== 'overall')
+                <a class="wr-btn" href="{{ route('workouts.reports.index', ['view' => $mode, 'date' => $nextDate->toDateString()]) }}" title="{{ __('Next') }}"><i class="bi bi-chevron-right"></i></a>
+            @endif
+            <a class="wr-btn" href="{{ $mode === 'overall' ? route('workouts.reports.index', ['view' => 'overall']) : route('workouts.reports.index', ['view' => $mode]) }}">{{ __('Today') }}</a>
+
+            <div class="d-flex gap-2 flex-wrap">
+                @php
+                    $exportBase = ['view' => $mode];
+                    if ($mode !== 'overall') {
+                        $exportBase['date'] = $date->toDateString();
+                    }
+                @endphp
+                <a
+                    class="wr-btn"
+                    href="{{ route('workouts.reports.export', $exportBase + ['download' => 1]) }}"
+                    title="{{ __('Download TXT') }}"
+                >
+                    <i class="bi bi-download"></i><span>{{ __('Export TXT') }}</span>
+                </a>
+                <button
+                    type="button"
+                    class="wr-btn"
+                    data-export-url="{{ route('workouts.reports.export', $exportBase + ['download' => 0]) }}"
+                    id="wrExportViewBtn"
+                    title="{{ __('View / Copy text') }}"
+                >
+                    <i class="bi bi-clipboard"></i><span>{{ __('View Text') }}</span>
+                </button>
+            </div>
         </div>
 
         {{-- Top Summary Stats --}}
@@ -121,14 +169,88 @@
             </div>
         </div>
 
-        {{-- Weekly Muscle Volume Radar & Distribution Section --}}
+        {{-- Management Insights --}}
+        <div class="row g-3 mb-4">
+            <div class="col-lg-6">
+                <div class="wr-card p-3 h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-speedometer2 text-primary"></i>
+                            <h6 class="fw-bold m-0">{{ __('Adherence & Time') }}</h6>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-column gap-2">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">{{ __('Sessions done') }}</span>
+                            <span class="fw-bold">{{ $summary['completed_sessions'] }}/{{ $summary['scheduled_sessions'] ?? '—' }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">{{ __('Adherence') }}</span>
+                            <span class="fw-bold text-primary">{{ $summary['adherence_percent'] !== null ? $summary['adherence_percent'].'%' : '—' }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">{{ __('Training time') }}</span>
+                            <span class="fw-bold">{{ $summary['minutes'] }} {{ __('min') }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">{{ __('Avg / completed session') }}</span>
+                            <span class="fw-bold">{{ $summary['completed_sessions'] ? round($summary['minutes'] / $summary['completed_sessions'], 1) : '—' }} {{ __('min') }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="wr-card p-3 h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-clipboard-data text-success"></i>
+                            <h6 class="fw-bold m-0">{{ __('Planned vs Done') }}</h6>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-column gap-2">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">{{ __('Sets (planned/done)') }}</span>
+                            <span class="fw-bold">{{ $summary['planned_vs_done_sets'] ?? '—' }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">{{ __('Weekly bodyweight avg') }}</span>
+                            <span class="fw-bold">{{ $summary['bodyweight_week_avg'] !== null ? number_format($summary['bodyweight_week_avg'], 1).' kg' : '—' }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">{{ __('Change vs prev week') }}</span>
+                            <span class="fw-bold text-{{ ($summary['bodyweight_week_delta'] ?? 0) >= 0 ? 'success' : 'danger' }}">
+                                {{ $summary['bodyweight_week_delta'] !== null ? ( ($summary['bodyweight_week_delta'] >= 0 ? '+' : '') . number_format($summary['bodyweight_week_delta'], 2).' kg' ) : '—' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    @if(!empty($summary['set_skip_reasons']) || !empty($summary['exercise_skip_reasons']))
+                        <div class="mt-3">
+                            <div class="small fw-bold text-muted mb-2">{{ __('Skipped (Top Reasons)') }}</div>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach($summary['exercise_skip_reasons'] as $reason => $count)
+                                    <span class="badge bg-danger-subtle text-danger border">{{ $reason }}: {{ $count }}</span>
+                                @endforeach
+                                @foreach($summary['set_skip_reasons'] as $reason => $count)
+                                    <span class="badge bg-warning-subtle text-warning border">{{ $reason }}: {{ $count }}</span>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        {{-- Muscle Volume Radar & Distribution Section --}}
         <div class="row g-3 mb-4">
             <div class="col-lg-6">
                 <div class="wr-card p-3 h-100">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div class="d-flex align-items-center gap-2">
                             <i class="bi bi-pie-chart text-primary"></i>
-                            <h6 class="fw-bold m-0">Weekly Muscle Volume Radar</h6>
+                            <h6 class="fw-bold m-0">Muscle Volume Radar</h6>
                         </div>
                         <span class="badge bg-light text-dark border small">Target: 10-20 sets/muscle</span>
                     </div>
@@ -172,9 +294,9 @@
             </div>
         </div>
 
-        {{-- Week Calendar Grid --}}
-        @if($mode === 'week')
-            <div class="wr-grid mb-4">
+        {{-- Calendar Grid --}}
+        @if($mode === 'week' || $mode === 'month')
+            <div class="wr-grid mb-4 {{ $mode === 'month' ? 'month' : '' }}">
                 @foreach($days as $day)
                     <div class="wr-day {{ $day['date']->isToday() ? 'today' : '' }}">
                         <div class="wr-day-head">
@@ -229,6 +351,34 @@
 
     </div>
 </div>
+
+{{-- Export modal (view/copy) --}}
+<div class="modal fade" id="wrExportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content rounded-4 shadow">
+            <div class="modal-header border-0 bg-light p-3">
+                <h6 class="modal-title fw-bold">{{ __('Workout Report Text') }}</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ __('Close') }}"></button>
+            </div>
+            <div class="modal-body p-3">
+                <textarea
+                    id="wrExportTextArea"
+                    class="form-control font-monospace"
+                    rows="18"
+                    style="white-space: pre; min-height: 50vh;"
+                ></textarea>
+            </div>
+            <div class="modal-footer border-0 bg-light p-3">
+                <button type="button" class="btn btn-primary" id="wrCopyTextBtn">
+                    <i class="bi bi-clipboard me-1"></i>{{ __('Copy') }}
+                </button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    {{ __('Close') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -245,7 +395,7 @@ document.addEventListener('DOMContentLoaded', function() {
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Sets Completed This Week',
+                    label: '{{ __('Sets Completed In This Period') }}',
                     data: data,
                     fill: true,
                     backgroundColor: 'rgba(99, 102, 241, 0.2)',
@@ -272,6 +422,51 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('wrExportViewBtn');
+    const modalEl = document.getElementById('wrExportModal');
+    const textarea = document.getElementById('wrExportTextArea');
+    const copyBtn = document.getElementById('wrCopyTextBtn');
+
+    if (!btn || !modalEl || !textarea || !copyBtn) return;
+
+    const modal = new bootstrap.Modal(modalEl);
+
+    btn.addEventListener('click', async function() {
+        textarea.value = '';
+        modal.show();
+
+        try {
+            const url = btn.dataset.exportUrl;
+            const res = await fetch(url, { headers: { 'Accept': 'text/plain' } });
+            const text = await res.text();
+            textarea.value = text;
+        } catch (e) {
+            textarea.value = '{{ __('Could not load export text.') }}';
+        }
+    });
+
+    copyBtn.addEventListener('click', async function() {
+        const text = textarea.value || '';
+        if (!text) return;
+
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                copyBtn.innerHTML = '<i class="bi bi-check2 me-1"></i>{{ __('Copied') }}';
+                setTimeout(() => {
+                    copyBtn.innerHTML = '<i class="bi bi-clipboard me-1"></i>{{ __('Copy') }}';
+                }, 1200);
+            } else {
+                textarea.select();
+                document.execCommand('copy');
+            }
+        } catch (e) {}
+    });
 });
 </script>
 @endpush

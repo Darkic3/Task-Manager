@@ -101,6 +101,72 @@
         </div>
         @endif
 
+        {{-- Set-by-set Performance (per side, safety & progress flags) --}}
+        @if(!empty($setDetailsByDate) && count($setDetailsByDate))
+        <div class="eh-card p-3 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-list-check text-primary"></i>
+                    <h6 class="fw-bold m-0">Set-by-set Performance</h6>
+                </div>
+                <span class="badge bg-light text-muted border small">RIR / Form / Pain</span>
+            </div>
+
+            <div class="d-flex flex-column gap-3">
+                @foreach($setDetailsByDate as $dateKey => $records)
+                    <details>
+                        <summary class="fw-bold small text-dark">{{ \Carbon\Carbon::parse($dateKey)->format('M j, Y') }}</summary>
+                        <div class="mt-2 d-flex flex-column gap-2">
+                            @foreach($records as $rec)
+                                <div class="border rounded-3 p-2" style="font-size:12px; background:#fff;">
+                                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                                        <span class="badge bg-light text-dark border">Set {{ $rec['set_number'] }}</span>
+                                        <span class="badge bg-light text-muted border">{{ ucfirst((string) ($rec['side'] ?? 'both')) }}</span>
+                                        <span class="badge {{ ($rec['completed'] ?? false) ? 'bg-success-subtle text-success border' : 'bg-danger-subtle text-danger border' }}">
+                                            {{ ($rec['completed'] ?? false) ? 'Done' : 'Skipped' }}
+                                        </span>
+                                        @if(!empty($rec['is_pr']))
+                                            <span class="badge bg-warning text-dark border">PR</span>
+                                        @endif
+                                    </div>
+                                    <div class="mt-2 text-muted">
+                                        @if(isset($rec['duration_seconds']) && $rec['duration_seconds'] !== null)
+                                            Duration: {{ $rec['duration_seconds'] }}s
+                                        @else
+                                            {{ $rec['weight'] !== null ? ($rec['weight'].' kg') : '—' }} × {{ $rec['reps'] !== null ? $rec['reps'] : '—' }}
+                                        @endif
+                                    </div>
+                                    <div class="mt-1 small">
+                                        RIR: {{ $rec['rir'] !== null ? $rec['rir'] : '—' }}
+                                        @if($rec['rpe'] !== null) (RPE {{ number_format($rec['rpe'], 1) }}) @endif
+                                        @if($rec['difficulty']) <span class="text-muted">• {{ $rec['difficulty'] }}</span> @endif
+                                    </div>
+                                    <div class="mt-1 small text-muted">
+                                        Form: {{ $rec['form_rating'] ?? '—' }} /5
+                                        • Pain: {{ $rec['pain_level'] ?? 0 }}
+                                        • Rest≈ {{ $rec['rest_estimate_seconds'] !== null ? (int) $rec['rest_estimate_seconds'] : '—' }}s
+                                    </div>
+                                    @if(!empty($rec['skip_reason']))
+                                        <div class="mt-1 small">
+                                            <span class="fw-semibold">Skip reason:</span> {{ $rec['skip_reason'] }}
+                                        </div>
+                                    @endif
+                                    @if(!empty($rec['flags']))
+                                        <div class="mt-2">
+                                            @foreach($rec['flags'] as $f)
+                                                <div class="badge bg-warning-subtle text-warning border mb-1" style="white-space:normal;">{{ $f }}</div>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    </details>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
         {{-- Session History Table --}}
         <div class="eh-card overflow-hidden">
             <div class="p-3 border-bottom bg-light fw-bold">Session History & PR Milestones</div>

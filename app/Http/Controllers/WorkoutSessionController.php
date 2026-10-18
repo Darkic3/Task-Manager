@@ -69,6 +69,7 @@ class WorkoutSessionController extends Controller
                         ->sortBy('set_number')
                         ->map(fn ($row) => [
                             'set_number' => $row->set_number,
+                            'side' => $row->side ?? 'both',
                             'reps' => $row->reps,
                             'weight' => $row->weight,
                             'duration_seconds' => $row->duration_seconds,
@@ -100,6 +101,7 @@ class WorkoutSessionController extends Controller
         $this->authorizeSession($workoutSession);
         $data = $request->validated();
         $exercise = $workoutSession->day()->firstOrFail()->exercises()->whereKey($data['workout_exercise_id'])->firstOrFail();
+        $side = isset($data['side']) && $data['side'] !== '' ? $data['side'] : 'both';
 
         $exerciseLog = WorkoutExerciseLog::firstOrCreate(
             ['workout_session_id' => $workoutSession->id, 'workout_exercise_id' => $exercise->id],
@@ -118,26 +120,44 @@ class WorkoutSessionController extends Controller
         $previousBestWeight = (float) (WorkoutSetLog::whereHas('exerciseLog', function ($q) use ($exerciseId, $workoutSession) {
             $q->whereHas('workoutExercise', fn ($we) => $we->where('exercise_id', $exerciseId))
               ->whereHas('session', fn ($s) => $s->where('user_id', auth()->id())->where('id', '!=', $workoutSession->id));
-        })->max('weight') ?? 0);
+        })->where('side', $side)->max('weight') ?? 0);
 
         $incomingWeight = (float) ($data['weight'] ?? 0);
         $isPr = ($incomingWeight > 0 && $previousBestWeight > 0 && $incomingWeight > $previousBestWeight);
 
         $set = $exerciseLog->setLogs()->updateOrCreate(
-            ['set_number' => $data['set_number']],
+            ['set_number' => $data['set_number'], 'side' => $side],
             collect($data)->only([
                 'reps', 'weight', 'duration_seconds', 'rir', 'form_rating',
                 'pain_level', 'completed', 'note',
             ])->merge([
                 'completed' => filter_var($data['completed'] ?? true, FILTER_VALIDATE_BOOLEAN),
                 'is_pr' => $isPr,
+                'side' => $side,
             ])->all()
         );
 
-        $targetSets = $exercise->requiredSetCount();
-        $completedSets = $exerciseLog->setLogs()->where('completed', true)->count();
+        $targetSetRows = $exercise->requiredSetCount();
+        $sideMode = $exercise->side_mode ?: 'bilateral';
+
+        $completedSetRows = match ($sideMode) {
+            'per_side' => WorkoutSetLog::query()
+                ->where('workout_exercise_log_id', $exerciseLog->id)
+                ->where('completed', true)
+                ->whereIn('side', ['left', 'right'])
+                ->groupBy('set_number')
+                ->havingRaw('COUNT(DISTINCT side) = 2')
+                ->count(),
+            default => WorkoutSetLog::query()
+                ->where('workout_exercise_log_id', $exerciseLog->id)
+                ->where('completed', true)
+                ->select('set_number')
+                ->distinct()
+                ->count(),
+        };
+        $exerciseCompleted = ! empty($data['skip_reason']) ? false : $completedSetRows >= $targetSetRows;
         $exerciseLog->update([
-            'completed' => ! empty($data['skip_reason']) ? false : $completedSets >= $targetSets,
+            'completed' => $exerciseCompleted,
         ]);
 
         $weight = (float) ($set->weight ?? 0);
@@ -147,12 +167,31 @@ class WorkoutSessionController extends Controller
         return response()->json([
             'ok' => true,
             'set' => $set->fresh(),
-            'exercise_completed' => $exerciseLog->completed,
-            'completed_sets' => $completedSets,
-            'target_sets' => $targetSets,
+            'exercise_completed' => $exerciseCompleted,
+            'completed_sets' => $completedSetRows,
+            'target_sets' => $targetSetRows,
             'is_pr' => $isPr,
             'estimated_1rm' => $estimated1RM,
             'previous_best_weight' => $previousBestWeight,
+        ]);
+    }
+
+    public function saveBodyweight(Request $request, WorkoutSession $workoutSession): JsonResponse
+    {
+        $this->authorizeSession($workoutSession);
+
+        $data = $request->validate([
+            'bodyweight_kg' => ['nullable', 'numeric', 'min:0', 'max:600'],
+        ]);
+
+        $workoutSession->update([
+            'bodyweight_kg' => isset($data['bodyweight_kg']) ? (float) $data['bodyweight_kg'] : null,
+            'bodyweight_recorded_at' => $data['bodyweight_kg'] !== null ? now() : null,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'bodyweight_kg' => $workoutSession->bodyweight_kg,
         ]);
     }
 

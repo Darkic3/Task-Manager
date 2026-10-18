@@ -21,12 +21,14 @@ class WorkoutSession extends Model
     protected $fillable = [
         'user_id', 'workout_day_id', 'workout_date', 'status', 'started_at',
         'ended_at', 'duration_seconds', 'session_note', 'pain_note',
+        'bodyweight_kg', 'bodyweight_recorded_at',
     ];
 
     protected $casts = [
         'workout_date' => 'date',
         'started_at' => 'datetime',
         'ended_at' => 'datetime',
+        'bodyweight_recorded_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

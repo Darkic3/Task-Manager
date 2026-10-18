@@ -16,6 +16,7 @@ class SaveWorkoutSetRequest extends FormRequest
         return [
             'workout_exercise_id' => ['required', 'integer', 'exists:workout_exercises,id'],
             'set_number' => ['required', 'integer', 'min:1', 'max:99'],
+            'side' => ['nullable', 'string', 'in:left,right,both'],
             'reps' => ['nullable', 'numeric', 'min:0', 'max:10000'],
             'weight' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'duration_seconds' => ['nullable', 'integer', 'min:0', 'max:86400'],

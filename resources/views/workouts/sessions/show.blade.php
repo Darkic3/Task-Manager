@@ -204,10 +204,35 @@
                 </div>
             </div>
 
-            <div class="progress" style="height: 6px;">
-                <div class="progress-bar bg-primary" id="progressFill" style="width: {{ $exerciseCount ? round($completedCount / $exerciseCount * 100) : 0 }}%"></div>
+        <div class="progress" style="height: 6px;">
+            <div class="progress-bar bg-primary" id="progressFill" style="width: {{ $exerciseCount ? round($completedCount / $exerciseCount * 100) : 0 }}%"></div>
+        </div>
+
+        <div class="mt-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <div class="small text-muted fw-bold">{{ __('Bodyweight (kg)') }}</div>
+                    <div class="small text-muted">{{ __('Saved for this session') }}</div>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="600"
+                        id="bodyweightInput"
+                        class="form-control form-control-sm"
+                        style="width: 140px;"
+                        value="{{ $workoutSession->bodyweight_kg }}"
+                        placeholder="kg"
+                    />
+                    <button type="button" class="btn btn-sm btn-primary" id="bodyweightSaveBtn">
+                        <i class="bi bi-save2 me-1"></i>{{ __('Save') }}
+                    </button>
+                </div>
             </div>
         </div>
+    </div>
 
         @if($workoutSession->day->notes)
             <div class="alert alert-light border p-3 small mb-3 text-secondary">
@@ -221,7 +246,9 @@
                 $log = $exerciseLogs->get($workoutExercise->id);
                 $previous = $previousByExercise->get($workoutExercise->exercise_id);
                 $targetSets = $workoutExercise->requiredSetCount();
-                $setRows = max($targetSets, $log?->setLogs?->count() ?? 0);
+                $setRows = max($targetSets, (int) ($log?->setLogs?->max('set_number') ?? 0));
+
+                $sideMode = $workoutExercise->side_mode ?: 'bilateral';
                 
                 // Check if this movement is time/duration based (e.g. mobility, stretching, planks)
                 $isTimedMovement = !empty($workoutExercise->duration_seconds) 
@@ -232,7 +259,8 @@
                      data-exercise-card 
                      data-exercise-id="{{ $workoutExercise->id }}" 
                      data-rest="{{ $workoutExercise->rest_seconds ?: 90 }}"
-                     data-is-timed="{{ $isTimedMovement ? '1' : '0' }}">
+                     data-is-timed="{{ $isTimedMovement ? '1' : '0' }}"
+                     data-side-mode="{{ $sideMode }}">
                 
                 {{-- Exercise Head --}}
                 <div class="ws-card-ex-head">
@@ -313,17 +341,33 @@
                     @for($setNumber = 1; $setNumber <= $setRows; $setNumber++)
                         @php
                             $set = $log?->setLogs?->firstWhere('set_number', $setNumber);
-                            $prevSet = $previous ? collect($previous['sets'])->firstWhere('set_number', $setNumber) : null;
-                            $ghostWeight = $prevSet['weight'] ?? '';
-                            $ghostReps = $prevSet['reps'] ?? $workoutExercise->rep_min ?? '';
-                            $ghostDuration = $prevSet['duration_seconds'] ?? $workoutExercise->duration_seconds ?? '45';
+
+                            $setLeft = $sideMode === 'per_side'
+                                ? $log?->setLogs?->firstWhere(fn($r) => (int) $r->set_number === $setNumber && ($r->side ?? 'both') === 'left')
+                                : null;
+                            $setRight = $sideMode === 'per_side'
+                                ? $log?->setLogs?->firstWhere(fn($r) => (int) $r->set_number === $setNumber && ($r->side ?? 'both') === 'right')
+                                : null;
+
+                            $prevLeft = $previous ? collect($previous['sets'])->firstWhere(fn($r) => (int) ($r['set_number'] ?? 0) === $setNumber && ($r['side'] ?? 'both') === 'left') : null;
+                            $prevRight = $previous ? collect($previous['sets'])->firstWhere(fn($r) => (int) ($r['set_number'] ?? 0) === $setNumber && ($r['side'] ?? 'both') === 'right') : null;
+
+                            $prevAny = $previous ? collect($previous['sets'])->firstWhere('set_number', $setNumber) : null;
+                            $ghostWeightAny = $prevAny['weight'] ?? '';
+                            $ghostRepsAny = $prevAny['reps'] ?? $workoutExercise->rep_min ?? '';
+                            $ghostDurationAny = $prevAny['duration_seconds'] ?? $workoutExercise->duration_seconds ?? '45';
+
+                            $ghostWeightLeft = $prevLeft['weight'] ?? '';
+                            $ghostRepsLeft = $prevLeft['reps'] ?? $workoutExercise->rep_min ?? '';
+                            $ghostWeightRight = $prevRight['weight'] ?? '';
+                            $ghostRepsRight = $prevRight['reps'] ?? $workoutExercise->rep_min ?? '';
                         @endphp
-                        <div class="set-row-clean {{ $isTimedMovement ? 'time-mode' : '' }} {{ $set?->completed ? 'is-saved' : '' }} {{ $set?->is_pr ? 'is-pr' : '' }}"
-                             data-set-row
-                             data-set-number="{{ $setNumber }}">
+                        <div class="set-row-clean {{ $isTimedMovement ? 'time-mode' : '' }} {{ $sideMode === 'per_side' ? (($setLeft?->completed && $setRight?->completed) ? 'is-saved' : '') : (($set?->completed) ? 'is-saved' : '') }} {{ $sideMode === 'per_side' ? (($setLeft?->is_pr || $setRight?->is_pr) ? 'is-pr' : '') : (($set?->is_pr) ? 'is-pr' : '') }}"
+                              data-set-row
+                              data-set-number="{{ $setNumber }}">
 
                             <div class="set-num-badge">{{ $setNumber }}</div>
-                            @if($set?->is_pr)
+                            @if($sideMode === 'per_side' ? ($setLeft?->is_pr || $setRight?->is_pr) : ($set?->is_pr))
                                 <span class="pr-badge">{{ __('🏆 NEW PR!') }}</span>
                             @endif
 
@@ -333,7 +377,7 @@
                                     <div class="input-group input-group-sm">
                                         <input type="number" step="1" min="0" class="ws-input-big form-control" data-field="duration_seconds" 
                                                value="{{ $set?->duration_seconds }}" 
-                                               placeholder="{{ $ghostDuration ? $ghostDuration . 's' : __('seconds') }}">
+                                         placeholder="{{ $ghostDurationAny ? $ghostDurationAny . 's' : __('seconds') }}">
                                         <span class="input-group-text bg-light text-muted small">{{ __('sec') }}</span>
                                     </div>
                                 </div>
@@ -344,17 +388,53 @@
                                 </div>
                             @else
                                 {{-- Weight & Reps Lifting Mode Input --}}
-                                <div>
-                                    <input type="number" step="0.5" min="0" class="ws-input-big" data-field="weight" 
-                                           value="{{ $set?->weight }}" 
-                                           placeholder="{{ $ghostWeight ? $ghostWeight . ' kg' : __('kg') }}">
-                                </div>
+                                @if($sideMode === 'per_side')
+                                    <div>
+                                        <div class="small text-muted fw-bold">L</div>
+                                        <input type="number" step="0.5" min="0" class="ws-input-big" data-field="weight" data-side="left"
+                                               value="{{ $setLeft?->weight }}"
+                                               placeholder="{{ $ghostWeightLeft ? $ghostWeightLeft . ' kg' : __('kg') }}">
+                                        <div class="small text-muted fw-bold mt-1">R</div>
+                                        <input type="number" step="0.5" min="0" class="ws-input-big" data-field="weight" data-side="right"
+                                               value="{{ $setRight?->weight }}"
+                                               placeholder="{{ $ghostWeightRight ? $ghostWeightRight . ' kg' : __('kg') }}">
+                                    </div>
 
-                                <div>
-                                    <input type="number" step="1" min="0" class="ws-input-big" data-field="reps" 
-                                           value="{{ $set?->reps }}" 
-                                           placeholder="{{ $ghostReps ? $ghostReps . ' reps' : __('reps') }}">
-                                </div>
+                                    <div>
+                                        <div class="small text-muted fw-bold">L</div>
+                                        <input type="number" step="1" min="0" class="ws-input-big" data-field="reps" data-side="left"
+                                               value="{{ $setLeft?->reps }}"
+                                               placeholder="{{ $ghostRepsLeft ? $ghostRepsLeft . ' reps' : __('reps') }}">
+                                        <div class="small text-muted fw-bold mt-1">R</div>
+                                        <input type="number" step="1" min="0" class="ws-input-big" data-field="reps" data-side="right"
+                                               value="{{ $setRight?->reps }}"
+                                               placeholder="{{ $ghostRepsRight ? $ghostRepsRight . ' reps' : __('reps') }}">
+                                    </div>
+                                @else
+                                    @if($sideMode === 'alternating')
+                                        @php
+                                            $altSide = $set?->side ?? 'left';
+                                        @endphp
+                                    @endif
+
+                                    <div>
+                                        <input type="number" step="0.5" min="0" class="ws-input-big" data-field="weight" 
+                                               value="{{ $set?->weight }}" 
+                                               placeholder="{{ $ghostWeightAny ? $ghostWeightAny . ' kg' : __('kg') }}">
+                                    </div>
+
+                                    <div>
+                                        @if($sideMode === 'alternating')
+                                            <select class="form-select form-select-sm" data-field="side">
+                                                <option value="left" @selected(($altSide ?? 'left') === 'left')>Left</option>
+                                                <option value="right" @selected(($altSide ?? 'left') === 'right')>Right</option>
+                                            </select>
+                                        @endif
+                                        <input type="number" step="1" min="0" class="ws-input-big" data-field="reps" 
+                                               value="{{ $set?->reps }}" 
+                                               placeholder="{{ $ghostRepsAny ? $ghostRepsAny . ' reps' : __('reps') }}">
+                                    </div>
+                                @endif
                             @endif
 
                             <button type="button" class="btn-more-toggle" onclick="toggleSetMore(this)" title="{{ __('Advanced set options') }}">
@@ -371,28 +451,77 @@
                             {{-- Collapsible Advanced More Options --}}
                             <div class="set-more-fields col-12" style="grid-column: 1 / -1;">
                                 @if(!$isTimedMovement)
-                                <div>
-                                    <label class="small text-muted">{{ __('RIR (in reserve)') }}</label>
-                                    <input type="number" min="0" max="10" step="0.5" class="form-control form-control-sm" data-field="rir" value="{{ $set?->rir }}" placeholder="{{ __('Target:') }} {{ $workoutExercise->target_rir ?? '—' }}">
-                                </div>
+                                    @if($sideMode === 'per_side')
+                                        <div>
+                                            <label class="small text-muted">{{ __('RIR (in reserve)') }} (L)</label>
+                                            <input type="number" min="0" max="10" step="0.5" class="form-control form-control-sm" data-field="rir" data-side="left" value="{{ $setLeft?->rir }}" placeholder="{{ __('Target:') }} {{ $workoutExercise->target_rir ?? '—' }}">
+                                        </div>
+                                        <div>
+                                            <label class="small text-muted">{{ __('RIR (in reserve)') }} (R)</label>
+                                            <input type="number" min="0" max="10" step="0.5" class="form-control form-control-sm" data-field="rir" data-side="right" value="{{ $setRight?->rir }}" placeholder="{{ __('Target:') }} {{ $workoutExercise->target_rir ?? '—' }}">
+                                        </div>
+                                    @else
+                                        <div>
+                                            <label class="small text-muted">{{ __('RIR (in reserve)') }}</label>
+                                            <input type="number" min="0" max="10" step="0.5" class="form-control form-control-sm" data-field="rir" value="{{ $set?->rir }}" placeholder="{{ __('Target:') }} {{ $workoutExercise->target_rir ?? '—' }}">
+                                        </div>
+                                    @endif
                                 @endif
-                                <div>
-                                    <label class="small text-muted">{{ __('Form Rating') }}</label>
-                                    <select class="form-select form-select-sm" data-field="form_rating">
-                                        <option value="">—</option>
-                                        @for($r=1; $r<=5; $r++)
-                                            <option value="{{ $r }}" @selected((int) $set?->form_rating === $r)>{{ $r }}/5 ⭐</option>
-                                        @endfor
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="small text-muted">{{ __('Pain Level (0-10)') }}</label>
-                                    <input type="number" min="0" max="10" class="form-control form-control-sm" data-field="pain_level" value="{{ $set?->pain_level }}" placeholder="0">
-                                </div>
-                                <div>
-                                    <label class="small text-muted">{{ __('Set Note / Reason') }}</label>
-                                    <input type="text" class="form-control form-control-sm" data-field="note" value="{{ $set?->note }}" placeholder="{{ __('Optional notes') }}">
-                                </div>
+
+                                @if($sideMode === 'per_side')
+                                    <div>
+                                        <label class="small text-muted">{{ __('Form Rating') }} (L)</label>
+                                        <select class="form-select form-select-sm" data-field="form_rating" data-side="left">
+                                            <option value="">—</option>
+                                            @for($r=1; $r<=5; $r++)
+                                                <option value="{{ $r }}" @selected((int) ($setLeft?->form_rating ?? 0) === $r)>{{ $r }}/5 ⭐</option>
+                                            @endfor
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="small text-muted">{{ __('Form Rating') }} (R)</label>
+                                        <select class="form-select form-select-sm" data-field="form_rating" data-side="right">
+                                            <option value="">—</option>
+                                            @for($r=1; $r<=5; $r++)
+                                                <option value="{{ $r }}" @selected((int) ($setRight?->form_rating ?? 0) === $r)>{{ $r }}/5 ⭐</option>
+                                            @endfor
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="small text-muted">{{ __('Pain Level (0-10)') }} (L)</label>
+                                        <input type="number" min="0" max="10" class="form-control form-control-sm" data-field="pain_level" data-side="left" value="{{ $setLeft?->pain_level }}" placeholder="0">
+                                    </div>
+                                    <div>
+                                        <label class="small text-muted">{{ __('Pain Level (0-10)') }} (R)</label>
+                                        <input type="number" min="0" max="10" class="form-control form-control-sm" data-field="pain_level" data-side="right" value="{{ $setRight?->pain_level }}" placeholder="0">
+                                    </div>
+                                    <div>
+                                        <label class="small text-muted">{{ __('Set Note / Reason') }} (L)</label>
+                                        <input type="text" class="form-control form-control-sm" data-field="note" data-side="left" value="{{ $setLeft?->note }}" placeholder="{{ __('Optional notes') }}">
+                                    </div>
+                                    <div>
+                                        <label class="small text-muted">{{ __('Set Note / Reason') }} (R)</label>
+                                        <input type="text" class="form-control form-control-sm" data-field="note" data-side="right" value="{{ $setRight?->note }}" placeholder="{{ __('Optional notes') }}">
+                                    </div>
+                                @else
+                                    <div>
+                                        <label class="small text-muted">{{ __('Form Rating') }}</label>
+                                        <select class="form-select form-select-sm" data-field="form_rating">
+                                            <option value="">—</option>
+                                            @for($r=1; $r<=5; $r++)
+                                                <option value="{{ $r }}" @selected((int) $set?->form_rating === $r)>{{ $r }}/5 ⭐</option>
+                                            @endfor
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="small text-muted">{{ __('Pain Level (0-10)') }}</label>
+                                        <input type="number" min="0" max="10" class="form-control form-control-sm" data-field="pain_level" value="{{ $set?->pain_level }}" placeholder="0">
+                                    </div>
+                                    <div>
+                                        <label class="small text-muted">{{ __('Set Note / Reason') }}</label>
+                                        <input type="text" class="form-control form-control-sm" data-field="note" value="{{ $set?->note }}" placeholder="{{ __('Optional notes') }}">
+                                    </div>
+                                @endif
                                 <div class="d-flex align-items-end">
                                     <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="openSkipSetModal({{ $workoutExercise->id }}, {{ $setNumber }}, '{{ addslashes($workoutExercise->exercise->name) }}')">
                                         <i class="bi bi-slash-circle me-1"></i> {{ __('Skip Set :num', ['num' => $setNumber]) }}
@@ -534,6 +663,7 @@
     const WS_TOKEN = '{{ csrf_token() }}';
     const SET_URL = '{{ route("workouts.sessions.sets.store", $workoutSession) }}';
     const EX_NOTE_URL = '{{ route("workouts.sessions.exercise-note.store", $workoutSession) }}';
+    const BODYWEIGHT_URL = '{{ route("workouts.sessions.bodyweight.store", $workoutSession) }}';
     const I18N_WS = {
         done: @json(__('Done')),
         save: @json(__('Save')),
@@ -570,6 +700,38 @@
         kg: @json(__('kg')),
         reps: @json(__('reps'))
     };
+
+    // Save bodyweight for this session (used for later weekly analytics)
+    async function saveBodyweight() {
+        const input = document.getElementById('bodyweightInput');
+        if (!input) return;
+        const btn = document.getElementById('bodyweightSaveBtn');
+        const value = input.value;
+
+        const payload = { bodyweight_kg: value === '' ? null : Number(value) };
+
+        btn && (btn.disabled = true);
+        try {
+            const res = await fetch(BODYWEIGHT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': WS_TOKEN
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Error');
+            toast('✓ Saved');
+        } catch (e) {
+            toast(e.message);
+        } finally {
+            btn && (btn.disabled = false);
+        }
+    }
+
+    document.getElementById('bodyweightSaveBtn')?.addEventListener('click', saveBodyweight);
 
     // ── Live Session Timer ───────────────────────────────────────────────
     // Elapsed time is always derived from the server-anchored start instant,
@@ -786,17 +948,16 @@
         const card = btn.closest('[data-exercise-card]');
         btn.disabled = true;
 
-        const payload = {
+        const sideMode = card.dataset.sideMode || 'bilateral';
+        const setNumber = row.dataset.setNumber;
+
+        const base = {
             workout_exercise_id: card.dataset.exerciseId,
-            set_number: row.dataset.setNumber,
-            completed: true
+            set_number: setNumber,
+            completed: true,
         };
 
-        row.querySelectorAll('[data-field]').forEach(input => {
-            if (input.value !== '') payload[input.dataset.field] = input.value;
-        });
-
-        try {
+        const post = async (payload) => {
             const res = await fetch(SET_URL, {
                 method: 'POST',
                 headers: {
@@ -808,13 +969,45 @@
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || I18N_WS.errorSavingSet);
+            return data;
+        };
+
+        try {
+            let results = [];
+
+            if (sideMode === 'per_side') {
+                const sides = ['left', 'right'];
+                results = await Promise.all(
+                    sides.map(side => {
+                        const payload = { ...base, side };
+                        row.querySelectorAll('[data-field][data-side]').forEach(input => {
+                            if ((input.dataset.side || '') !== side) return;
+                            if (input.value !== '') payload[input.dataset.field] = input.value;
+                        });
+                        // note/reps/weight fields are side-scoped in per_side mode.
+                        // Timed + side inputs (if any) still work via same rule.
+                        return post(payload);
+                    })
+                );
+            } else {
+                // bilateral or alternating: collect any data-field inputs in the row.
+                const payload = { ...base };
+                row.querySelectorAll('[data-field]').forEach(input => {
+                    if (input.value !== '') payload[input.dataset.field] = input.value;
+                });
+                results = [await post(payload)];
+            }
+
+            const exerciseCompleted = results.some(r => !!r.exercise_completed);
+            const anyPr = results.some(r => !!r.is_pr);
+            const bestEstimated1rm = Math.max(0, ...results.map(r => Number(r.estimated_1rm || 0)));
 
             row.classList.add('is-saved');
             btn.classList.add('saved');
             btn.innerHTML = `<i class="bi bi-check-lg"></i><span>${I18N_WS.done}</span>`;
 
             // PR Hunter Celebration!
-            if (data.is_pr) {
+            if (anyPr) {
                 playChime();
                 row.classList.add('is-pr');
                 let prEl = row.querySelector('.pr-badge');
@@ -831,17 +1024,17 @@
             }
 
             // Update 1RM display
-            if (data.estimated_1rm > 0) {
+            if (bestEstimated1rm > 0) {
                 const ex1rmEl = document.getElementById('ex-1rm-' + card.dataset.exerciseId);
-                if (ex1rmEl) ex1rmEl.innerHTML = `${I18N_WS.est1rm} <strong>${data.estimated_1rm} kg</strong>`;
+                if (ex1rmEl) ex1rmEl.innerHTML = `${I18N_WS.est1rm} <strong>${bestEstimated1rm} kg</strong>`;
             }
 
             // Update completed badge
             const status = card.querySelector('[data-exercise-status]');
             if (status) {
-                status.textContent = data.exercise_completed ? I18N_WS.completed : I18N_WS.inProgress;
-                status.className = `badge ${data.exercise_completed ? 'bg-success text-white' : 'bg-light text-muted border'}`;
-                card.classList.toggle('is-completed', data.exercise_completed);
+                status.textContent = exerciseCompleted ? I18N_WS.completed : I18N_WS.inProgress;
+                status.className = `badge ${exerciseCompleted ? 'bg-success text-white' : 'bg-light text-muted border'}`;
+                card.classList.toggle('is-completed', exerciseCompleted);
             }
 
             updateSessionProgress();
@@ -877,6 +1070,7 @@
         const list = card.querySelector('.set-list');
         const count = list.querySelectorAll('[data-set-row]').length + 1;
         const isTimed = card.dataset.isTimed === '1';
+        const sideMode = card.dataset.sideMode || 'bilateral';
 
         const row = document.createElement('div');
         row.className = `set-row-clean ${isTimed ? 'time-mode' : ''}`;
@@ -910,11 +1104,53 @@
                     </div>
                 </div>
             `;
+        } else if (sideMode === 'per_side') {
+            row.innerHTML = `
+                <div class="set-num-badge">${count}</div>
+                <div>
+                    <div class="small text-muted fw-bold">L</div>
+                    <input type="number" step="0.5" min="0" class="ws-input-big" data-field="weight" data-side="left" placeholder="${I18N_WS.kg}">
+                    <div class="small text-muted fw-bold mt-1">R</div>
+                    <input type="number" step="0.5" min="0" class="ws-input-big" data-field="weight" data-side="right" placeholder="${I18N_WS.kg}">
+                </div>
+                <div>
+                    <div class="small text-muted fw-bold">L</div>
+                    <input type="number" step="1" min="0" class="ws-input-big" data-field="reps" data-side="left" placeholder="${I18N_WS.reps}">
+                    <div class="small text-muted fw-bold mt-1">R</div>
+                    <input type="number" step="1" min="0" class="ws-input-big" data-field="reps" data-side="right" placeholder="${I18N_WS.reps}">
+                </div>
+                <button type="button" class="btn-more-toggle" onclick="toggleSetMore(this)"><i class="bi bi-sliders"></i></button>
+                <div class="d-flex align-items-center gap-1">
+                    <button type="button" class="btn-save-set w-100" onclick="saveSetRow(this)">
+                        <i class="bi bi-check2"></i> ${I18N_WS.save}
+                    </button>
+                </div>
+                <div class="set-more-fields col-12" style="grid-column: 1 / -1;">
+                    <div><label class="small text-muted">${I18N_WS.rir} (L)</label><input type="number" min="0" max="10" step="0.5" class="form-control form-control-sm" data-field="rir" data-side="left" placeholder="${I18N_WS.rir}"></div>
+                    <div><label class="small text-muted">${I18N_WS.rir} (R)</label><input type="number" min="0" max="10" step="0.5" class="form-control form-control-sm" data-field="rir" data-side="right" placeholder="${I18N_WS.rir}"></div>
+                    <div><label class="small text-muted">${I18N_WS.form} (L)</label><select class="form-select form-select-sm" data-field="form_rating" data-side="left"><option value="">—</option><option value="5">5/5 ⭐</option><option value="4">4/5</option><option value="3">3/5</option></select></div>
+                    <div><label class="small text-muted">${I18N_WS.form} (R)</label><select class="form-select form-select-sm" data-field="form_rating" data-side="right"><option value="">—</option><option value="5">5/5 ⭐</option><option value="4">4/5</option><option value="3">3/5</option></select></div>
+                    <div><label class="small text-muted">${I18N_WS.pain} (L)</label><input type="number" min="0" max="10" class="form-control form-control-sm" data-field="pain_level" data-side="left" placeholder="0"></div>
+                    <div><label class="small text-muted">${I18N_WS.pain} (R)</label><input type="number" min="0" max="10" class="form-control form-control-sm" data-field="pain_level" data-side="right" placeholder="0"></div>
+                    <div><label class="small text-muted">${I18N_WS.note} (L)</label><input type="text" class="form-control form-control-sm" data-field="note" data-side="left" placeholder="${I18N_WS.optional}"></div>
+                    <div><label class="small text-muted">${I18N_WS.note} (R)</label><input type="text" class="form-control form-control-sm" data-field="note" data-side="right" placeholder="${I18N_WS.optional}"></div>
+                    <div class="d-flex align-items-end">
+                        <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="openSkipSetModal(${card.dataset.exerciseId}, ${count}, '${card.querySelector('.ws-ex-name')?.textContent || 'Exercise'}')">
+                            <i class="bi bi-slash-circle me-1"></i> ${I18N_WS.skipSetBtn.replace(':num', count)}
+                        </button>
+                    </div>
+                </div>
+            `;
         } else {
+            // bilateral or alternating
+            const altSelect = sideMode === 'alternating'
+                ? `<select class="form-select form-select-sm" data-field="side"><option value="left">Left</option><option value="right">Right</option></select>`
+                : '';
+
             row.innerHTML = `
                 <div class="set-num-badge">${count}</div>
                 <div><input type="number" step="0.5" min="0" class="ws-input-big" data-field="weight" placeholder="${I18N_WS.kg}"></div>
-                <div><input type="number" step="1" min="0" class="ws-input-big" data-field="reps" placeholder="${I18N_WS.reps}"></div>
+                <div>${altSelect}<input type="number" step="1" min="0" class="ws-input-big" data-field="reps" placeholder="${I18N_WS.reps}"></div>
                 <button type="button" class="btn-more-toggle" onclick="toggleSetMore(this)"><i class="bi bi-sliders"></i></button>
                 <div class="d-flex align-items-center gap-1">
                     <button type="button" class="btn-save-set w-100" onclick="saveSetRow(this)">
@@ -947,14 +1183,23 @@
             prevSets.forEach(ps => {
                 const row = card.querySelector(`[data-set-number="${ps.set_number}"]`);
                 if (row) {
-                    if (ps.weight !== null && row.querySelector('[data-field="weight"]')) {
-                        row.querySelector('[data-field="weight"]').value = ps.weight;
+                    const psSide = ps.side || 'both';
+
+                    const setInput = (field, side) => {
+                        return row.querySelector(`[data-field="${field}"][data-side="${side}"]`) || row.querySelector(`[data-field="${field}"]`);
+                    };
+
+                    if (ps.weight !== null) {
+                        const el = setInput('weight', psSide);
+                        if (el) el.value = ps.weight;
                     }
-                    if (ps.reps !== null && row.querySelector('[data-field="reps"]')) {
-                        row.querySelector('[data-field="reps"]').value = ps.reps;
+                    if (ps.reps !== null) {
+                        const el = setInput('reps', psSide);
+                        if (el) el.value = ps.reps;
                     }
-                    if (ps.duration_seconds !== null && row.querySelector('[data-field="duration_seconds"]')) {
-                        row.querySelector('[data-field="duration_seconds"]').value = ps.duration_seconds;
+                    if (ps.duration_seconds !== null) {
+                        const el = setInput('duration_seconds', psSide);
+                        if (el) el.value = ps.duration_seconds;
                     }
                 }
             });
@@ -996,30 +1241,39 @@
         const reason = document.getElementById('skipReasonInput').value.trim() || 'Skipped';
         const card = document.querySelector(`[data-exercise-card][data-exercise-id="${exerciseId}"]`);
 
-        const payload = {
+        const sideMode = card?.dataset.sideMode || 'bilateral';
+        const base = {
             workout_exercise_id: exerciseId,
             set_number: parseInt(setNumber, 10),
             completed: false
         };
 
+        const payloads = [];
         if (mode === 'exercise') {
-            payload.skip_reason = reason;
+            payloads.push({ ...base, skip_reason: reason });
         } else {
-            payload.note = 'Skipped: ' + reason;
+            if (sideMode === 'per_side') {
+                payloads.push({ ...base, side: 'left', note: 'Skipped: ' + reason });
+                payloads.push({ ...base, side: 'right', note: 'Skipped: ' + reason });
+            } else {
+                payloads.push({ ...base, note: 'Skipped: ' + reason, side: 'both' });
+            }
         }
 
         try {
-            const res = await fetch(SET_URL, {
+            const results = await Promise.all(payloads.map(p => fetch(SET_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': WS_TOKEN
                 },
-                body: JSON.stringify(payload)
-            });
+                body: JSON.stringify(p)
+            })));
 
-            if (res.ok) {
+            const ok = results.every(r => r.ok);
+
+            if (ok) {
                 bootstrap.Modal.getInstance(document.getElementById('skipMovementModal'))?.hide();
                 if (mode === 'exercise' && card) {
                     card.classList.add('is-skipped');
