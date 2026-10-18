@@ -148,35 +148,55 @@ class WorkoutReportController extends Controller
             return [];
         }
 
+        $allExercises = Exercise::query()
+            ->forUser($userId)
+            ->get(['id', 'normalized_name', 'aliases']);
+
         $ranges = [
             'pull-up' => [
                 'label' => 'Pull-up',
-                'query' => fn ($q) => $q
-                    ->whereRaw('lower(normalized_name) like ?', ['%pull%'])
-                    ->whereRaw('lower(normalized_name) like ?', ['%up%']),
+                'match' => function (array $ex): bool {
+                    $s = strtolower((string) ($ex['normalized_name'] ?? ''));
+                    $aliases = array_map('strtolower', (array) ($ex['aliases'] ?? []));
+                    return (str_contains($s, 'pull') || in_array(true, array_map(fn ($a) => str_contains($a, 'pull'), $aliases), true))
+                        && (str_contains($s, 'up') || in_array(true, array_map(fn ($a) => str_contains($a, 'up'), $aliases), true));
+                },
                 'colors' => ['both' => '#4f46e5'],
             ],
             'chin-up' => [
                 'label' => 'Chin-up',
-                'query' => fn ($q) => $q
-                    ->whereRaw('lower(normalized_name) like ?', ['%chin%'])
-                    ->whereRaw('lower(normalized_name) like ?', ['%up%']),
+                'match' => function (array $ex): bool {
+                    $s = strtolower((string) ($ex['normalized_name'] ?? ''));
+                    $aliases = array_map('strtolower', (array) ($ex['aliases'] ?? []));
+                    return (str_contains($s, 'chin') || in_array(true, array_map(fn ($a) => str_contains($a, 'chin'), $aliases), true))
+                        && (str_contains($s, 'up') || in_array(true, array_map(fn ($a) => str_contains($a, 'up'), $aliases), true));
+                },
                 'colors' => ['both' => '#0ea5e9'],
             ],
             'pike-push-up' => [
                 'label' => 'Pike Push-up',
-                'query' => fn ($q) => $q
-                    ->whereRaw('lower(normalized_name) like ?', ['%pike%'])
-                    ->whereRaw('lower(normalized_name) like ?', ['%push%'])
-                    ->whereRaw('lower(normalized_name) like ?', ['%up%']),
+                'match' => function (array $ex): bool {
+                    $s = strtolower((string) ($ex['normalized_name'] ?? ''));
+                    $aliases = array_map('strtolower', (array) ($ex['aliases'] ?? []));
+                    $hay = array_merge([$s], $aliases);
+                    $hasPike = in_array(true, array_map(fn ($h) => str_contains($h, 'pike'), $hay), true);
+                    $hasPush = in_array(true, array_map(fn ($h) => str_contains($h, 'push'), $hay), true);
+                    $hasUp = in_array(true, array_map(fn ($h) => str_contains($h, 'up'), $hay), true);
+                    return $hasPike && $hasPush && $hasUp;
+                },
                 'colors' => ['both' => '#16a34a'],
             ],
             'bulgarian-split-squat' => [
                 'label' => 'Bulgarian Split Squat',
-                'query' => fn ($q) => $q
-                    ->whereRaw('lower(normalized_name) like ?', ['%bulgarian%'])
-                    ->whereRaw('lower(normalized_name) like ?', ['%split%'])
-                    ->whereRaw('lower(normalized_name) like ?', ['%squat%']),
+                'match' => function (array $ex): bool {
+                    $s = strtolower((string) ($ex['normalized_name'] ?? ''));
+                    $aliases = array_map('strtolower', (array) ($ex['aliases'] ?? []));
+                    $hay = array_merge([$s], $aliases);
+                    $hasBulgarian = in_array(true, array_map(fn ($h) => str_contains($h, 'bulgarian'), $hay), true);
+                    $hasSplit = in_array(true, array_map(fn ($h) => str_contains($h, 'split'), $hay), true);
+                    $hasSquat = in_array(true, array_map(fn ($h) => str_contains($h, 'squat'), $hay), true);
+                    return $hasBulgarian && $hasSplit && $hasSquat;
+                },
                 'colors' => ['left' => '#f97316', 'right' => '#fbbf24'],
             ],
         ];
@@ -186,9 +206,8 @@ class WorkoutReportController extends Controller
         $out = [];
 
         foreach ($ranges as $key => $meta) {
-            $exerciseIds = Exercise::query()
-                ->forUser($userId)
-                ->tap(fn ($q) => ($meta['query'])($q))
+            $exerciseIds = $allExercises
+                ->filter(fn ($ex) => ($meta['match'])((array) $ex))
                 ->pluck('id')
                 ->all();
 
@@ -220,8 +239,16 @@ class WorkoutReportController extends Controller
                 'both' => [],
             ];
 
+            $weightBySide = [
+                'left' => [],
+                'right' => [],
+                'both' => [],
+            ];
+
             $hasLeft = false;
             $hasRight = false;
+            $hasWeightLeft = false;
+            $hasWeightRight = false;
 
             foreach ($entries as $set) {
                 $dateKey = $set->exerciseLog->session->workout_date->toDateString();
@@ -231,20 +258,32 @@ class WorkoutReportController extends Controller
                 $labels[] = $label;
 
                 $reps = $set->reps !== null ? (float) $set->reps : null;
+                $w = $set->weight !== null ? (float) $set->weight : null;
                 foreach (['left', 'right', 'both'] as $s) {
                     if ($side === 'both' && $s === 'both') {
                         $repsBySide[$s][] = $reps;
+                        $weightBySide[$s][] = $w;
                     } elseif ($side === $s) {
                         $repsBySide[$s][] = $reps;
+                        $weightBySide[$s][] = $w;
                     } else {
                         $repsBySide[$s][] = null;
+                        $weightBySide[$s][] = null;
                     }
                 }
 
                 if ($side === 'left') {
                     $hasLeft = true;
+                    if ($w !== null) $hasWeightLeft = true;
                 } elseif ($side === 'right') {
                     $hasRight = true;
+                    if ($w !== null) $hasWeightRight = true;
+                }
+
+                if ($side === 'both' && $w !== null) {
+                    if (! $hasWeightLeft && ! $hasWeightRight) {
+                        // for bilateral-only moves we still render a weight series
+                    }
                 }
             }
 
@@ -254,6 +293,7 @@ class WorkoutReportController extends Controller
                     'label' => $key.' Left',
                     'data' => $repsBySide['left'],
                     'color' => $meta['colors']['left'] ?? '#f97316',
+                    'yAxis' => 'y',
                 ];
             }
             if ($hasRight) {
@@ -261,6 +301,7 @@ class WorkoutReportController extends Controller
                     'label' => $key.' Right',
                     'data' => $repsBySide['right'],
                     'color' => $meta['colors']['right'] ?? '#fbbf24',
+                    'yAxis' => 'y',
                 ];
             }
             if (! $hasLeft && ! $hasRight) {
@@ -268,7 +309,37 @@ class WorkoutReportController extends Controller
                     'label' => $key.' (Both)',
                     'data' => $repsBySide['both'],
                     'color' => $meta['colors']['both'] ?? '#4f46e5',
+                    'yAxis' => 'y',
                 ];
+            }
+
+            // Weight (kg) overlay
+            $hasAnyWeight = $sets->whereNotNull('weight')->isNotEmpty();
+            if ($hasAnyWeight) {
+                if ($hasWeightLeft) {
+                    $datasets[] = [
+                        'label' => $key.' Left (kg)',
+                        'data' => $weightBySide['left'],
+                        'color' => $meta['colors']['left'] ?? '#f97316',
+                        'yAxis' => 'y1',
+                    ];
+                }
+                if ($hasWeightRight) {
+                    $datasets[] = [
+                        'label' => $key.' Right (kg)',
+                        'data' => $weightBySide['right'],
+                        'color' => $meta['colors']['right'] ?? '#fbbf24',
+                        'yAxis' => 'y1',
+                    ];
+                }
+                if (! $hasWeightLeft && ! $hasWeightRight) {
+                    $datasets[] = [
+                        'label' => $key.' (kg)',
+                        'data' => $weightBySide['both'],
+                        'color' => $meta['colors']['both'] ?? '#4f46e5',
+                        'yAxis' => 'y1',
+                    ];
+                }
             }
 
             $out[$key] = [

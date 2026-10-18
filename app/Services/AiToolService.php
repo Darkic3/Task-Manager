@@ -310,7 +310,7 @@ class AiToolService
                                         'rep_max' => ['type' => 'integer'],
                                         'duration_seconds' => ['type' => 'integer', 'description' => 'For timed moves like Plank 40-60s use 40-60 range midpoint or max; prefer duration_seconds over reps'],
                                         'target_weight' => ['type' => 'number'],
-                                        'target_rir' => ['type' => 'number'],
+                                        'target_rir' => ['type' => 'number', 'description' => 'RIR target number. If the user states a range like "3–4" or "3 to 4", output the midpoint (e.g. 3.5) as a number. Never output a string range.'],
                                         'rest_seconds' => ['type' => 'integer'],
                                         'tempo' => ['type' => 'string'],
                                         'side_mode' => ['type' => 'string', 'enum' => ['bilateral', 'per_side', 'alternating']],

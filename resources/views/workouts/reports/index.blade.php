@@ -511,7 +511,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     borderWidth: 2,
                     tension: 0.25,
                     pointRadius: 3,
-                    spanGaps: false,
+                    spanGaps: true,
+                    yAxisID: ds.yAxis || 'y',
                 }))
             },
             options: {
@@ -525,6 +526,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         beginAtZero: true,
                         title: { display: true, text: 'Reps' },
                         grid: { color: '#f1f5f9' }
+                    },
+                    y1: {
+                        beginAtZero: true,
+                        position: 'right',
+                        title: { display: true, text: 'kg' },
+                        grid: { drawOnChartArea: false },
                     },
                     x: {
                         ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
