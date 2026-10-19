@@ -450,7 +450,13 @@ class AiProviderService
         if ($stream) $payload['stream_options'] = ['include_usage' => true];
         if (! empty($tools)) {
             $payload['tools'] = $tools;
-            $payload['tool_choice'] = 'auto';
+            // When we intentionally narrow to a single tool (e.g. workout_plan_propose),
+            // force the model to produce that tool call instead of wasting the turn.
+            if (count($tools) === 1 && isset($tools[0]['function']['name'])) {
+                $payload['tool_choice'] = ['type' => 'function', 'function' => ['name' => $tools[0]['function']['name']]];
+            } else {
+                $payload['tool_choice'] = 'auto';
+            }
         }
 
         // OpenRouter supports a fallback list via the `models` array.

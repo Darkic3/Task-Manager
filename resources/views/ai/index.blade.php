@@ -987,7 +987,14 @@ footer, .topnav { display: none !important; }
         try {
             const res = await fetch(STREAM_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // We expect an SSE stream; using the right Accept helps prevent
+                    // framework fallbacks that return HTML error/login pages.
+                    'Accept': 'text/event-stream',
+                    'X-CSRF-TOKEN': CSRF,
+                },
                 body: JSON.stringify({ message: text, conversation_id: activeConvId, history: historyPayload, mode: chatMode }),
             });
 
@@ -1012,9 +1019,15 @@ footer, .topnav { display: none !important; }
             const responseType = res.headers.get('content-type') || '';
             if (!responseType.includes('text/event-stream')) {
                 const where = res.redirected && res.url ? ' Final URL: ' + res.url : '';
+                const status = res.status;
+                let extra = '';
+                if (responseType.includes('text/html') || status === 401 || status === 419) {
+                    extra = ' ' + @json(__('You were redirected (often: session expired or CSRF/auth failure). Please reload the page and try again.'));
+                }
                 appendError(@json(__('AI stream failed: expected SSE but received ":type".')).replace(':type', responseType || @json(__('unknown content type')))
-                    + ' ' + @json(__('This usually means the session expired or the request was redirected.')) + where
-                    + ' ' + @json(__('Please reload the page and log in again if needed.')));
+                    + ' ' + @json(__('Status :status.')).replace(':status', String(status || 0))
+                    + extra + where
+                    + ' ' + @json(__('If this repeats, check your login session and browser console/network.')));
                 activeMessages.pop();
                 return;
             }
@@ -1933,7 +1946,8 @@ footer, .topnav { display: none !important; }
     }
 
     function escHtml(s) {
-        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        s = s ?? '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
     function autoResize() {

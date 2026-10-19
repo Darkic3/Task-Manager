@@ -54,7 +54,9 @@ class AiChatController extends Controller
             'model' => $resolved['model'],
             'type' => $resolved['type'] ?? 'openai',
         ] : null;
-        $agentReady = (bool) $safe && ($safe['type'] ?? 'openai') === 'openai';
+
+        $agentReady = (bool) $safe
+            && \App\Services\AiTooling\ToolCapabilityRouter::supportsTools($safe['type'] ?? 'openai');
 
         return response()->json([
             'resolved' => $safe,
@@ -406,8 +408,8 @@ class AiChatController extends Controller
 
         $messages = $this->buildMessages($user, $context, $history, $request->message, $agentMode ? 'agent' : 'chat', $route);
 
-        // Agent mode needs function-calling: only OpenAI-compatible providers.
-        if ($agentMode && ($resolved['type'] ?? 'openai') !== 'openai') {
+        // Agent mode needs function-calling: anything except Gemini/Anthropic.
+        if ($agentMode && !\App\Services\AiTooling\ToolCapabilityRouter::supportsTools($resolved['type'] ?? 'openai')) {
             AiLogger::log('agent.blocked_non_openai', AiTrace::ids($runId, $rid, $user->id, $conversation->id) + ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $resolved['type'] ?? null]);
             $msg = __('Agent mode needs an OpenAI-compatible provider (e.g. OpenRouter custom provider). Switch to chat mode, or pick an OpenAI-compatible model in AI Settings — nothing was changed.');
             $conversationId = $conversation->id;
@@ -431,7 +433,7 @@ class AiChatController extends Controller
         }
 
         // For OpenAI-compatible providers, do true streaming. For Gemini/Anthropic, do sync then chunk.
-        if (($resolved['type'] ?? 'openai') === 'openai') {
+        if (\App\Services\AiTooling\ToolCapabilityRouter::supportsTools($resolved['type'] ?? 'openai')) {
             AiLogger::log('stream.openai_start', AiTrace::ids($runId, $rid, $user->id, $conversation->id) + ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'agent_mode' => $agentMode]);
 
             return $this->streamOpenAi($resolved, $messages, $conversation, $agentMode, $runId, $rid, $route, [
@@ -503,7 +505,9 @@ class AiChatController extends Controller
         $model = $resolved['model'];
         $cfg = $resolved['config'];
 
-        if ($type === 'openai') {
+        // OpenAI-compatible (OpenAI/OpenRouter/DeepSeek/Meta/custom) goes through
+        // the OpenAI-style adapter.
+        if (\App\Services\AiTooling\ToolCapabilityRouter::supportsTools($type)) {
             return $this->callOpenAiSync($key, $cfg['base_url'], $messages, $model);
         }
         if ($type === 'gemini') {
@@ -567,8 +571,8 @@ class AiChatController extends Controller
     private function callProviderSyncWithTools(array $resolved, array $messages, $user, bool $withTools = true, ?string $runId = null, ?string $rid = null, ?array $route = null, array $toolContext = []): array
     {
         $type = $resolved['type'] ?? 'openai';
-        if ($type !== 'openai' || ! $withTools) {
-            if ($withTools && $type !== 'openai') {
+        if (!\App\Services\AiTooling\ToolCapabilityRouter::supportsTools($type) || ! $withTools) {
+            if ($withTools && !\App\Services\AiTooling\ToolCapabilityRouter::supportsTools($type)) {
                 AiLogger::log('agent.blocked_non_openai', AiTrace::ids($runId, $rid, $user->id ?? null) + ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'type' => $type]);
             }
 
@@ -1001,7 +1005,7 @@ class AiChatController extends Controller
      */
     private function toolsForResolved(array $resolved, ?array $route = null, array $toolContext = [], ?string $runId = null, ?string $rid = null, $user = null): ?array
     {
-        if (($resolved['type'] ?? 'openai') !== 'openai') {
+        if (!\App\Services\AiTooling\ToolCapabilityRouter::supportsTools($resolved['type'] ?? 'openai')) {
             return null;
         }
         if ($route !== null) {
@@ -1062,7 +1066,7 @@ class AiChatController extends Controller
      */
     private function allowedToolsFor(array $resolved, ?array $route, array $toolContext = []): ?array
     {
-        if (($resolved['type'] ?? 'openai') !== 'openai') {
+        if (!\App\Services\AiTooling\ToolCapabilityRouter::supportsTools($resolved['type'] ?? 'openai')) {
             return [];
         }
         if ($route === null) {
@@ -2476,8 +2480,8 @@ PROMPT;
             'resolved' => $safeResolved,
             'enabled' => $enabled,
             'note' => $safeResolved ? null : __('No provider configured — Lina runs in offline read-only mode and can never create anything.'),
-            'agent_ready' => (bool) $safeResolved && ($safeResolved['type'] ?? 'openai') === 'openai',
-            'agent_block_reason' => ! $safeResolved ? 'no_provider' : ((($safeResolved['type'] ?? 'openai') !== 'openai') ? 'non_openai_provider_needs_openrouter_custom' : null),
+            'agent_ready' => (bool) $safeResolved && \App\Services\AiTooling\ToolCapabilityRouter::supportsTools($safeResolved['type'] ?? 'openai'),
+            'agent_block_reason' => ! $safeResolved ? 'no_provider' : (!\App\Services\AiTooling\ToolCapabilityRouter::supportsTools($safeResolved['type'] ?? 'openai') ? 'non_openai_provider_needs_openrouter_custom' : null),
             'recent_pending_actions' => $pending,
             'recent_plans' => $plans,
             // Security Boundary: per-user log tail only. The ai log file is

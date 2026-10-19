@@ -58,13 +58,16 @@ class WorkoutImportController extends Controller
         $plan = $this->imports->confirm($workoutImport, auth()->id());
 
         if (request()->wantsJson()) {
+            // `workouts.plans.show` is not registered (resource excludes `show`).
+            // The UI only needs a stable link; use the edit route for both.
+            $editUrl = route('workouts.plans.edit', $plan);
             return response()->json([
                 'ok' => true,
                 'plan' => [
                     'id' => $plan->id,
                     'title' => $plan->title,
-                    'url' => route('workouts.plans.show', $plan),
-                    'edit_url' => route('workouts.plans.edit', $plan),
+                    'url' => $editUrl,
+                    'edit_url' => $editUrl,
                 ],
                 'message' => __('Workout imported. New movements were added to your exercise library.')
             ]);

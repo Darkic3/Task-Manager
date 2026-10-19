@@ -44,7 +44,11 @@ final class ToolCapabilityRouter
     /** Does this provider type support function-calling in this codebase? */
     public static function supportsTools(?string $providerType): bool
     {
-        return ($providerType ?? 'openai') === 'openai';
+        // Only Gemini/Anthropic lack OpenAI-style function/tool calling here.
+        // Everything else is treated as OpenAI-compatible (OpenAI, OpenRouter,
+        // DeepSeek, Meta, or custom user-defined openai-compatible types).
+        $t = strtolower((string) ($providerType ?? 'openai'));
+        return $t !== 'gemini' && $t !== 'anthropic';
     }
 
     /**
@@ -107,6 +111,18 @@ final class ToolCapabilityRouter
 
         // 4) Medium confidence → fail-open (today's behavior) to protect recall.
         if ($confidence !== AiIntentRouter::CONF_HIGH) {
+            // For workout-plan requests, even at medium confidence we should
+            // keep the payload focused on workout_plan_propose.
+            // Otherwise the model may waste the turn on workspace_search and
+            // never emit the workout tool call.
+            if ($intent === AiIntentRouter::INTENT_WORKOUT) {
+                return [
+                    'tools' => ToolCapabilityRegistry::toolsForCategories(['workout']),
+                    'categories' => ['workout'],
+                    'reason' => 'workout_medium_only',
+                ];
+            }
+
             return ['tools' => null, 'categories' => [], 'reason' => 'medium_confidence_fail_open'];
         }
 

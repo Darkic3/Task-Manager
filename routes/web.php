@@ -84,6 +84,12 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('workouts')->name('workouts.')->group(function () {
         Route::resource('exercises', ExerciseController::class)->except(['show']);
         Route::resource('plans', WorkoutPlanController::class)->except(['show'])->parameters(['plans' => 'workoutPlan']);
+        // Support GET /workouts/plans/{id} by redirecting to edit UI.
+        // Without this, only update/delete verbs exist and GET throws MethodNotAllowed.
+        Route::get('plans/{workoutPlan}', [WorkoutPlanController::class, 'edit'])->name('plans.show');
+        // Some clients may accidentally submit POST to the update endpoint;
+        // support it as an alias to PUT/PATCH to avoid MethodNotAllowed.
+        Route::post('plans/{workoutPlan}', [WorkoutPlanController::class, 'update'])->name('plans.update.post');
         Route::post('plans/{workoutPlan}/new-cycle', [WorkoutPlanController::class, 'newCycle'])->name('plans.new-cycle');
         Route::get('days/{workoutDay}', [WorkoutDayController::class, 'show'])->name('days.show');
         Route::post('days/{workoutDay}/session', [WorkoutSessionController::class, 'start'])->name('sessions.start');

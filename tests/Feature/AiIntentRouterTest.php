@@ -144,6 +144,21 @@ class AiIntentRouterTest extends TestCase
         $this->assertNotSame('workout_plan', $this->route('برنامه')['intent']);
     }
 
+    public function test_workout_rest_day_followup_is_still_workout(): void
+    {
+        $followUp = "1. به عنوان روز استراحت ثبت بشه . بعدا اگر خواستم ادیتی توش انجام بدم بهت میگم.";
+        $r = $this->route($followUp);
+        $this->assertSame('workout_plan', $r['intent']);
+        $this->assertContains($r['confidence'], ['medium', 'high']);
+    }
+
+    public function test_deload_prompt_is_workout_plan(): void
+    {
+        $msg = "برنامه تمرینی هفته Deload\n\nاهداف این هفته - کاهش حجم تمرین نسبت به هفته‌های عادی - حفظ حرکات اصلی\n\n## روز ۱ — Pull سبک\n\n## روز ۶ — جلسه اختیاری بسیار سبک";
+        $r = $this->route($msg);
+        $this->assertSame('workout_plan', $r['intent']);
+    }
+
     /* ── reports ─────────────────────────────────────────── */
 
     public function test_report_requests(): void

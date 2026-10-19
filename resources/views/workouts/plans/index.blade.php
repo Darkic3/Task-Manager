@@ -466,6 +466,9 @@
     $activePlans = $plans->where('status', 'active');
     $totalMovements = $plans->sum(fn ($plan) => $plan->days->sum('exercises_count'));
     $todayPlans = $plans->filter(function ($plan) use ($todayWeekday) {
+        if (($plan->status ?? null) !== 'active') {
+            return false;
+        }
         $todayDay = $plan->days->firstWhere('weekday', $todayWeekday);
         return $todayDay && in_array($todayDay->type, ['training', 'recovery'], true);
     });
@@ -631,7 +634,7 @@
                         </div>
 
                         {{-- Start Today Action --}}
-                        @if($isTodayTraining)
+                        @if(($plan->status ?? null) === 'active' && $isTodayTraining)
                             <div class="d-flex gap-2 mt-2">
                                 <form method="POST" action="{{ route('workouts.sessions.start', $todayDay) }}" class="flex-grow-1">
                                     @csrf
@@ -644,6 +647,11 @@
                                 <a href="{{ route('workouts.days.show', $todayDay) }}" class="wp-btn flex-shrink-0 align-self-stretch d-inline-flex align-items-center" title="{{ __('View workout details without starting') }}">
                                     <i class="bi bi-eye"></i> <span>{{ __('Details') }}</span>
                                 </a>
+                            </div>
+                        @elseif(($plan->status ?? null) !== 'active')
+                            <div class="wp-start-today rest mt-2">
+                                <i class="bi bi-ban text-muted"></i>
+                                <span>Plan is not active</span>
                             </div>
                         @else
                             <div class="wp-start-today rest mt-2">

@@ -20,7 +20,7 @@
 <div class="wb-shell"><div class="wb-wrap">
     <div class="wb-head"><div class="wb-head-main"><a class="wb-back" href="{{ route('workouts.plans.index') }}"><i class="bi bi-arrow-left"></i> {{ __('Workout plans') }}</a><h1>{{ $plan ? __('Edit workout plan') : __('Build a workout plan') }}</h1><p>{{ __('One structured week, seven days, reusable movements.') }}</p></div><a class="wb-btn" href="{{ route('workouts.exercises.index') }}"><i class="bi bi-heart-pulse"></i><span>{{ __('Exercise library') }}</span></a></div>
     @if($errors->any())<div class="alert alert-danger wb-error"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-    <form method="POST" action="{{ $plan ? route('workouts.plans.update', $plan) : route('workouts.plans.store') }}" id="workoutBuilder">
+    <form method="POST" action="{{ $plan ? route('workouts.plans.update', $plan, false) : route('workouts.plans.store', [], false) }}" id="workoutBuilder">
         @csrf @if($plan) @method('PUT') @endif
         <div class="wb-layout">
             <aside class="wb-panel">

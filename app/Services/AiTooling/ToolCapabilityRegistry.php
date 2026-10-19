@@ -206,7 +206,8 @@ final class ToolCapabilityRegistry
     /** Only OpenAI-compatible providers support function-calling. */
     public static function providerSupportsTools(array $resolved): bool
     {
-        return ($resolved['type'] ?? 'openai') === 'openai';
+        $t = strtolower((string) ($resolved['type'] ?? 'openai'));
+        return $t !== 'gemini' && $t !== 'anthropic';
     }
 
     /* ── Routing ─────────────────────────────────────────────── */

@@ -270,6 +270,15 @@ final class AiIntentRouter
         $dayN = (bool) preg_match('/(day\s*\d|روز\s*\d|week\s*\d|هفته\s*\d)/u', $norm);
         $explicitBuild = self::containsAny($norm, ['برنامه تمرینی', 'برنامه ورزشی', 'workout plan', 'training plan', 'پلن تمرینی', 'پلن ورزشی']);
 
+        // Follow-up adjustments after the assistant asks workout clarifications.
+        // Common example: numbered replies that confirm a rest day, e.g.:
+        // "1. به عنوان روز استراحت ثبت بشه".
+        $restAdjust = self::containsAny($norm, ['استراحت', 'rest day', 'rest'])
+            && self::containsAny($norm, ['روز', 'day']);
+        if ($restAdjust && ! empty($entities['list_detected'])) {
+            return self::CONF_MEDIUM;
+        }
+
         if ($explicitBuild || ($hasTraining && ($hits >= 1 || ($setsReps && $dayN)))) {
             return self::CONF_HIGH;
         }

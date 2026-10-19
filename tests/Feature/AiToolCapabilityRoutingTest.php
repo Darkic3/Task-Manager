@@ -116,6 +116,18 @@ class AiToolCapabilityRoutingTest extends TestCase
         $this->assertSame(['workout_plan_propose'], $sel['tools']);
     }
 
+    public function test_workout_request_medium_confidence_still_only_exposes_workout_tool(): void
+    {
+        $route = [
+            'intent' => AiIntentRouter::INTENT_WORKOUT,
+            'confidence' => AiIntentRouter::CONF_MEDIUM,
+            'entities' => ['objects' => []],
+        ];
+        $sel = ToolCapabilityRouter::select($route, $this->agentContext());
+
+        $this->assertSame(['workout_plan_propose'], $sel['tools']);
+    }
+
     /* ── Composite (multi-category) requests ── */
 
     public function test_composite_task_reminder_note_unions_categories(): void
