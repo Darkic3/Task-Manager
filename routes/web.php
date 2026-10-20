@@ -91,6 +91,7 @@ Route::middleware(['auth'])->group(function () {
         // support it as an alias to PUT/PATCH to avoid MethodNotAllowed.
         Route::post('plans/{workoutPlan}', [WorkoutPlanController::class, 'update'])->name('plans.update.post');
         Route::post('plans/{workoutPlan}/new-cycle', [WorkoutPlanController::class, 'newCycle'])->name('plans.new-cycle');
+        Route::post('plans/{workoutPlan}/activate', [WorkoutPlanController::class, 'activate'])->name('plans.activate');
         Route::get('days/{workoutDay}', [WorkoutDayController::class, 'show'])->name('days.show');
         Route::post('days/{workoutDay}/session', [WorkoutSessionController::class, 'start'])->name('sessions.start');
         Route::get('sessions/{workoutSession}', [WorkoutSessionController::class, 'show'])->name('sessions.show');

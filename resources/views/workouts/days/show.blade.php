@@ -61,7 +61,7 @@
                     <a href="{{ route('workouts.sessions.show', $todaySession) }}" class="wd-btn-start" style="background: linear-gradient(135deg,#f59e0b,#d97706);">
                         <i class="bi bi-play-circle-fill"></i> {{ __('Continue Workout') }}
                     </a>
-                @elseif(in_array($day->type, ['training', 'recovery'], true))
+                @elseif(in_array($day->type, ['training', 'recovery'], true) && ($day->plan->status ?? null) === 'active')
                     <form method="POST" action="{{ route('workouts.sessions.start', $day) }}" class="m-0">
                         @csrf
                         <input type="hidden" name="date" value="{{ now()->toDateString() }}">
@@ -69,6 +69,10 @@
                             <i class="bi bi-play-circle-fill"></i> {{ __('Start Workout Session') }}
                         </button>
                     </form>
+                @elseif(in_array($day->type, ['training', 'recovery'], true))
+                    <div class="alert alert-light border p-3 small mb-0 text-secondary">
+                        <i class="bi bi-pause-circle text-warning me-1"></i> {{ __('This plan is not active — activate it to start workouts.') }}
+                    </div>
                 @endif
                 <a href="{{ route('workouts.plans.edit', $day->plan) }}" class="wd-btn-ghost">
                     <i class="bi bi-pencil"></i> {{ __('Edit Plan') }}

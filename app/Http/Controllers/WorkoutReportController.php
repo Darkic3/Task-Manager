@@ -93,7 +93,7 @@ class WorkoutReportController extends Controller
 
         foreach ($sessions as $session) {
             foreach ($session->exerciseLogs as $elog) {
-                $exercise = $elog->workoutExercise?->exercise;
+                $exercise = $elog->resolvedExercise();
                 if (! $exercise) {
                     continue;
                 }
@@ -587,12 +587,14 @@ class WorkoutReportController extends Controller
                 $lines[] = $plannedLine;
             }
             $lines[] = '';
+
             return implode("\n", $lines);
         }
-
         $first = $daySessions->first();
-        if ($first->day?->title) {
-            $lines[] = 'Planned day: '.$first->day->title.' ('.$first->day?->plan?->title.')';
+        $plannedTitle = $first->displayDayTitle();
+        if ($plannedTitle) {
+            $planTitle = $first->displayPlanTitle();
+            $lines[] = 'Planned day: '.$plannedTitle.($planTitle ? ' ('.$planTitle.')' : '');
         }
         if (! empty($first->day?->notes)) {
             $lines[] = 'Day notes: '.$this->singleLine((string) $first->day->notes);
@@ -613,59 +615,39 @@ class WorkoutReportController extends Controller
                 $lines[] = 'Pain note: '.$this->singleLine((string) $session->pain_note);
             }
 
-            // Exercise order follows the workout day template.
-            $exerciseLogsByWE = $session->exerciseLogs?->keyBy('workout_exercise_id') ?? collect();
+            // Exercise order follows the workout day template when it still
+            // exists; otherwise every logged movement is listed directly
+            // from its snapshot so deleted plans keep full detail.
             $orderedExercises = $session->day?->exercises ?? collect();
+            if ($orderedExercises->isNotEmpty()) {
+                $exerciseLogsByWE = $session->exerciseLogs?->keyBy('workout_exercise_id') ?? collect();
 
-            foreach ($orderedExercises as $we) {
-                $elog = $exerciseLogsByWE->get($we->id);
-                if (! $elog) {
-                    continue;
-                }
-
-                $weModel = $elog->workoutExercise;
-                $targetSets = $weModel?->requiredSetCount();
-                $completedSets = $elog->setLogs->where('completed', true)->count();
-                $skipReason = $elog->skip_reason;
-                $lines[] = '';
-                $lines[] = '- Exercise: '.($weModel?->exercise?->name ?? $weModel?->id ?? 'Unknown');
-                if ($weModel) {
-                    $lines[] = '  Target: '.$weModel->targetLabel();
-                    if (! empty($weModel->notes)) {
-                        $lines[] = '  Planned exercise note: '.$this->singleLine((string) $weModel->notes);
+                foreach ($orderedExercises as $we) {
+                    $elog = $exerciseLogsByWE->get($we->id);
+                    if (! $elog) {
+                        continue;
                     }
-                }
-                if ($targetSets !== null) {
-                    $lines[] = '  Target sets: '.$targetSets.' | Completed sets: '.$completedSets;
-                }
-                if (! empty($elog->note)) {
-                    $lines[] = '  Exercise note: '.$this->singleLine((string) $elog->note);
-                }
-                if (! empty($skipReason)) {
-                    $lines[] = '  Skip reason: '.$this->singleLine((string) $skipReason);
+
+                    foreach ($this->exportExerciseLines($elog) as $line) {
+                        $lines[] = $line;
+                    }
                 }
 
-                foreach ($elog->setLogs as $set) {
-                    $setStatus = $set->completed ? 'DONE' : 'SKIPPED';
-                    $pr = $set->is_pr ? ' | PR' : '';
-                    $lines[] = '  Set '.$set->set_number.': ['.$setStatus.'] reps='.
-                        ($set->reps ?? 0).' weight='.
-                        ($set->weight ?? 0).'kg duration='.
-                        ($set->duration_seconds ?? 0).'s';
-                    if ($set->rir !== null) {
-                        $lines[count($lines) - 1] .= ' RIR='.($set->rir ?? '');
+                // Logs detached from the template (edited plan) are not
+                // keyed above — append them as well.
+                $coveredIds = $exerciseLogsByWE->filter()->keys()->all();
+                foreach (($session->exerciseLogs ?? collect()) as $elog) {
+                    if ($elog->workout_exercise_id && in_array($elog->workout_exercise_id, $coveredIds, true)) {
+                        continue;
                     }
-                    if ($set->form_rating !== null) {
-                        $lines[count($lines) - 1] .= ' form='.(string) $set->form_rating;
+                    foreach ($this->exportExerciseLines($elog) as $line) {
+                        $lines[] = $line;
                     }
-                    if ((int) ($set->pain_level ?? 0) > 0) {
-                        $lines[count($lines) - 1] .= ' pain='.$set->pain_level;
-                    }
-                    if ($pr) {
-                        $lines[count($lines) - 1] .= $pr;
-                    }
-                    if (! empty($set->note)) {
-                        $lines[] = '    note: '.$this->singleLine((string) $set->note);
+                }
+            } else {
+                foreach (($session->exerciseLogs ?? collect()) as $elog) {
+                    foreach ($this->exportExerciseLines($elog) as $line) {
+                        $lines[] = $line;
                     }
                 }
             }
@@ -673,6 +655,65 @@ class WorkoutReportController extends Controller
 
         $lines[] = '';
         return implode("\n", $lines);
+    }
+
+    /**
+     * Plain-text lines for one logged movement, snapshot-aware so the
+     * export stays complete after the plan template is edited/deleted.
+     */
+    private function exportExerciseLines($elog): array
+    {
+        $weModel = $elog->workoutExercise;
+        $targetSets = $weModel?->requiredSetCount();
+        $completedSets = $elog->setLogs->where('completed', true)->count();
+        $skipReason = $elog->skip_reason;
+        $lines = [];
+        $lines[] = '';
+        $lines[] = '- Exercise: '.$elog->displayExerciseName();
+        $targetLabel = $elog->displayTargetLabel();
+        if ($targetLabel) {
+            $lines[] = '  Target: '.$targetLabel;
+        }
+        if (! empty($weModel?->notes)) {
+            $lines[] = '  Planned exercise note: '.$this->singleLine((string) $weModel->notes);
+        }
+        if ($targetSets !== null) {
+            $lines[] = '  Target sets: '.$targetSets.' | Completed sets: '.$completedSets;
+        } else {
+            $lines[] = '  Completed sets: '.$completedSets;
+        }
+        if (! empty($elog->note)) {
+            $lines[] = '  Exercise note: '.$this->singleLine((string) $elog->note);
+        }
+        if (! empty($skipReason)) {
+            $lines[] = '  Skip reason: '.$this->singleLine((string) $skipReason);
+        }
+
+        foreach ($elog->setLogs as $set) {
+            $setStatus = $set->completed ? 'DONE' : 'SKIPPED';
+            $pr = $set->is_pr ? ' | PR' : '';
+            $lines[] = '  Set '.$set->set_number.': ['.$setStatus.'] reps='.
+                ($set->reps ?? 0).' weight='.
+                ($set->weight ?? 0).'kg duration='.
+                ($set->duration_seconds ?? 0).'s';
+            if ($set->rir !== null) {
+                $lines[count($lines) - 1] .= ' RIR='.($set->rir ?? '');
+            }
+            if ($set->form_rating !== null) {
+                $lines[count($lines) - 1] .= ' form='.(string) $set->form_rating;
+            }
+            if ((int) ($set->pain_level ?? 0) > 0) {
+                $lines[count($lines) - 1] .= ' pain='.$set->pain_level;
+            }
+            if ($pr) {
+                $lines[count($lines) - 1] .= $pr;
+            }
+            if (! empty($set->note)) {
+                $lines[] = '    note: '.$this->singleLine((string) $set->note);
+            }
+        }
+
+        return $lines;
     }
 
     private function singleLine(string $s): string
@@ -701,8 +742,11 @@ class WorkoutReportController extends Controller
         abort_if($exercise->user_id !== null && $exercise->user_id !== auth()->id(), 403);
 
         $sets = WorkoutSetLog::query()
-            ->with(['exerciseLog.session.day.plan', 'exerciseLog.workoutExercise'])
-            ->whereHas('exerciseLog.workoutExercise', fn ($query) => $query->where('exercise_id', $exercise->id))
+            ->with(['exerciseLog.session.day.plan', 'exerciseLog.workoutExercise', 'exerciseLog.exercise'])
+            ->whereHas('exerciseLog', function ($query) use ($exercise): void {
+                $query->whereHas('workoutExercise', fn ($we) => $we->where('exercise_id', $exercise->id))
+                    ->orWhere('exercise_id', $exercise->id);
+            })
             ->whereHas('exerciseLog.session', fn ($query) => $query->where('user_id', auth()->id())->where('status', WorkoutSession::COMPLETED))
             ->orderBy('created_at')
             ->get();
@@ -851,7 +895,7 @@ class WorkoutReportController extends Controller
     {
         return auth()->user()->workoutSessions()
             ->whereBetween('workout_date', [$start->toDateString(), $end->toDateString()])
-            ->with(['day.plan', 'day.exercises', 'exerciseLogs.workoutExercise.exercise', 'exerciseLogs.setLogs'])
+            ->with(['day.plan', 'plan', 'day.exercises', 'exerciseLogs.workoutExercise.exercise', 'exerciseLogs.exercise', 'exerciseLogs.setLogs'])
             ->orderBy('workout_date')
             ->orderBy('started_at')
             ->get();
@@ -860,6 +904,7 @@ class WorkoutReportController extends Controller
     private function plannedDaysBetween(Carbon $start, Carbon $end): array
     {
         $plans = auth()->user()->workoutPlans()
+            ->withTrashed()
             ->with('days')
             ->where(function ($query) use ($end): void {
                 $query->whereNull('start_date')->orWhereDate('start_date', '<=', $end->toDateString());
@@ -870,7 +915,7 @@ class WorkoutReportController extends Controller
         $planned = [];
 
         for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
-            $plan = $plans->first(fn ($candidate) => ! $candidate->start_date || $candidate->start_date->lte($date));
+            $plan = $this->scheduledPlanForDate($plans, $date);
             $weekday = strtolower($date->format('l'));
             $planned[$date->toDateString()] = $plan?->days
                 ->where('weekday', $weekday)
@@ -879,6 +924,19 @@ class WorkoutReportController extends Controller
         }
 
         return $planned;
+    }
+
+    /**
+     * Which plan counts as "scheduled" for a date: the active plan when it
+     * covers the date, otherwise the latest covering plan (including
+     * archived ones) so past reports stay stable after deletion.
+     */
+    private function scheduledPlanForDate($plans, Carbon $date)
+    {
+        $covering = static fn ($candidate) => ! $candidate->start_date || $candidate->start_date->lte($date);
+
+        return $plans->first(fn ($candidate) => ($candidate->status ?? null) === 'active' && $covering($candidate))
+            ?? $plans->first($covering);
     }
 
     private function summarizeSessions($sessions): array
@@ -924,7 +982,7 @@ class WorkoutReportController extends Controller
 
     private function plannedSessionsAndSetsBetween(Carbon $start, Carbon $end): array
     {
-        $plans = auth()->user()->workoutPlans()->with(['days.exercises'])->
+        $plans = auth()->user()->workoutPlans()->withTrashed()->with(['days.exercises'])->
             where(function ($query) use ($end): void {
                 $query->whereNull('start_date')->orWhereDate('start_date', '<=', $end->toDateString());
             })
@@ -936,7 +994,7 @@ class WorkoutReportController extends Controller
         $scheduledSets = 0;
 
         for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
-            $plan = $plans->first(fn ($candidate) => ! $candidate->start_date || $candidate->start_date->lte($date));
+            $plan = $this->scheduledPlanForDate($plans, $date);
             $weekday = strtolower($date->format('l'));
 
             $day = $plan?->days

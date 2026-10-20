@@ -1067,6 +1067,40 @@ document.addEventListener('DOMContentLoaded', function () {
         rows.slice(1).forEach(tr => { out += '| ' + cells(tr).join(' | ') + ' |\n'; });
         return out;
     }
+    // Visible text of a <pre>: newlines survive even when the browser stored
+    // them as <br> or wrapped the lines in <div>/<p>.
+    function preText(pre) {
+        let out = '';
+        const walk = (n) => {
+            if (n.nodeType === 3) {
+                out += n.nodeValue || '';
+                return;
+            }
+            if (n.nodeType !== 1) return;
+            const tag = n.tagName;
+            if (tag === 'BR') {
+                out += '\n';
+                return;
+            }
+            if (/^(DIV|P|LI|TR)$/.test(tag) && out && !out.endsWith('\n')) out += '\n';
+            n.childNodes.forEach(walk);
+            if (/^(DIV|P|LI|TR)$/.test(tag) && !out.endsWith('\n')) out += '\n';
+        };
+        pre.childNodes.forEach(walk);
+
+        const raw = out || (pre.textContent || '');
+        return raw.replace(/\u00a0/g, ' ').replace(/\r\n?/g, '\n').replace(/^\n+|\n+$/g, '');
+    }
+    function preLang(pre) {
+        const code = pre.querySelector('code');
+        const m = code && String(code.className || '').match(/language-([\w-]+)/);
+        return m ? m[1] : '';
+    }
+    function fenceFor(text) {
+        const runs = text.match(/`{3,}/g) || [];
+        const len = Math.max(3, ...runs.map(r => r.length + 1));
+        return '`'.repeat(len);
+    }
     function blockMd(node) {
         const tag = node.tagName;
         if (tag === 'H1') return '# ' + inlineMd(node).trim() + '\n\n';
@@ -1077,7 +1111,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const t = node.innerText || '';
             return t.split('\n').map(l => '> ' + l).join('\n') + '\n\n';
         }
-        if (tag === 'PRE') return '```\n' + (node.textContent || '').replace(/^\n+|\n+$/g, '') + '\n```\n\n';
+        if (tag === 'PRE') {
+            const text = preText(node);
+            const fence = fenceFor(text);
+            return fence + preLang(node) + '\n' + text + '\n' + fence + '\n\n';
+        }
         if (tag === 'HR') return '---\n\n';
         if (tag === 'UL' || tag === 'OL') {
             return Array.from(node.children).filter(c => c.tagName === 'LI').map(liMd).join('\n') + '\n\n';
@@ -1167,6 +1205,32 @@ document.addEventListener('DOMContentLoaded', function () {
             r.insertNode(t.content.cloneNode(true));
         }
         onChange();
+    }
+    // Insert literal text (newlines included) without letting the browser wrap
+    // it in <div>/<br>, which would be lost when converting back to Markdown.
+    function insertPlainText(text) {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const node = document.createTextNode(String(text).replace(/\r\n?/g, '\n'));
+        range.insertNode(node);
+        range.setStartAfter(node);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        onChange();
+    }
+    function selectionInPre() {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return false;
+        let n = sel.getRangeAt(0).startContainer;
+        if (n && n.nodeType === 3) n = n.parentNode;
+        while (n && n !== rich) {
+            if (n.tagName === 'PRE') return true;
+            n = n.parentNode;
+        }
+        return false;
     }
     function makeTodo() {
         const blk = currentBlock();
@@ -1443,6 +1507,15 @@ document.addEventListener('DOMContentLoaded', function () {
     rich.addEventListener('paste', function (e) {
         const html = (e.clipboardData || {}).getData ? e.clipboardData.getData('text/html') : '';
         const text = (e.clipboardData || {}).getData ? e.clipboardData.getData('text/plain') : '';
+
+        // Inside a code block only the plain text matters; keeping the source's
+        // HTML would turn every line into a <div> and collapse the newlines.
+        if (selectionInPre()) {
+            e.preventDefault();
+            insertPlainText(text);
+            return;
+        }
+
         if (!html || /urn:schemas-microsoft-com|w:word/i.test(html)) return; // plain-text path below
         e.preventDefault();
         try {
@@ -1489,16 +1562,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
         }
-        // PRE: plain newline instead of nested divs
-        const inPre = (function () {
-            let n = window.getSelection().rangeCount ? window.getSelection().getRangeAt(0).startContainer : null;
-            if (n && n.nodeType === 3) n = n.parentNode;
-            while (n && n !== rich) { if (n.tagName === 'PRE') return true; n = n.parentNode; }
-            return false;
-        })();
-        if (e.key === 'Enter' && inPre && !mod) {
+        // PRE: a real line break, never a <div> wrapper.
+        if (e.key === 'Enter' && selectionInPre() && !mod) {
             e.preventDefault();
-            document.execCommand('insertText', false, '\n');
+            insertPlainText('\n');
             return;
         }
         // Todo: Enter continues, empty item exits to paragraph

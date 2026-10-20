@@ -18,13 +18,33 @@ class WorkoutSessionController extends Controller
     public function start(Request $request, WorkoutDay $workoutDay): RedirectResponse
     {
         $this->authorizeDay($workoutDay);
+        $plan = $workoutDay->plan;
+        abort_if(! $plan || $plan->status !== 'active', 422, __('Only the active workout plan can be executed.'));
         $data = $request->validate(['date' => ['nullable', 'date']]);
         $date = isset($data['date']) ? Carbon::parse($data['date'])->toDateString() : now()->toDateString();
 
         $session = WorkoutSession::firstOrCreate(
             ['workout_day_id' => $workoutDay->id, 'workout_date' => $date],
-            ['user_id' => auth()->id(), 'status' => WorkoutSession::IN_PROGRESS, 'started_at' => now()]
+            [
+                'user_id' => auth()->id(),
+                'workout_plan_id' => $plan->id,
+                'plan_title' => $plan->title,
+                'day_title' => $workoutDay->title,
+                'weekday' => $workoutDay->weekday,
+                'status' => WorkoutSession::IN_PROGRESS,
+                'started_at' => now(),
+            ]
         );
+
+        // Backfill snapshots for sessions created before snapshots existed.
+        if (! $session->day_title || ! $session->plan_title) {
+            $session->update([
+                'workout_plan_id' => $session->workout_plan_id ?? $plan->id,
+                'plan_title' => $session->plan_title ?? $plan->title,
+                'day_title' => $session->day_title ?? $workoutDay->title,
+                'weekday' => $session->weekday ?? $workoutDay->weekday,
+            ]);
+        }
 
         // Stamp the start the moment the session opens; never overwrite an
         // in-progress start, and never resurrect a finished one.
@@ -42,24 +62,35 @@ class WorkoutSessionController extends Controller
             'day.plan',
             'day.exercises.exercise',
             'exerciseLogs.setLogs',
+            'exerciseLogs.exercise',
+            'plan',
         ]);
+
+        // Template row deleted after the workout: render the immutable
+        // history view (built from snapshots) instead of the live player.
+        if (! $workoutSession->day) {
+            return view('workouts.sessions.history', compact('workoutSession'));
+        }
 
         $exerciseIds = $workoutSession->day->exercises->pluck('exercise_id')->unique()->values();
         $previousRows = WorkoutSetLog::query()
             ->whereHas('exerciseLog', function ($query) use ($exerciseIds, $workoutSession): void {
-                $query->whereHas('workoutExercise', fn ($exerciseQuery) => $exerciseQuery->whereIn('exercise_id', $exerciseIds))
+                $query->where(function ($inner) use ($exerciseIds): void {
+                    $inner->whereHas('workoutExercise', fn ($exerciseQuery) => $exerciseQuery->whereIn('exercise_id', $exerciseIds))
+                        ->orWhereIn('exercise_id', $exerciseIds->all());
+                })
                     ->whereHas('session', function ($sessionQuery) use ($workoutSession): void {
                         $sessionQuery->where('user_id', auth()->id())
                             ->where('status', WorkoutSession::COMPLETED)
                             ->where('id', '!=', $workoutSession->id);
                     });
             })
-            ->with(['exerciseLog.workoutExercise', 'exerciseLog.session'])
+            ->with(['exerciseLog.workoutExercise', 'exerciseLog.exercise', 'exerciseLog.session'])
             ->get()
             ->sortByDesc(fn (WorkoutSetLog $row) => $row->exerciseLog->session->workout_date->timestamp);
 
         $previousByExercise = $previousRows
-            ->groupBy(fn (WorkoutSetLog $row) => $row->exerciseLog->workoutExercise->exercise_id)
+            ->groupBy(fn (WorkoutSetLog $row) => $row->exerciseLog->workoutExercise?->exercise_id ?? $row->exerciseLog->exercise_id)
             ->map(function ($rows): array {
                 $latestDate = $rows->first()->exerciseLog->session->workout_date->toDateString();
 
@@ -105,8 +136,22 @@ class WorkoutSessionController extends Controller
 
         $exerciseLog = WorkoutExerciseLog::firstOrCreate(
             ['workout_session_id' => $workoutSession->id, 'workout_exercise_id' => $exercise->id],
-            ['completed' => false]
+            [
+                'completed' => false,
+                'exercise_id' => $exercise->exercise_id,
+                'exercise_name' => $exercise->exercise?->name,
+                'target_label' => $exercise->targetLabel(),
+            ]
         );
+
+        // Backfill snapshots for logs created before snapshots existed.
+        if (! $exerciseLog->exercise_name || ! $exerciseLog->target_label) {
+            $exerciseLog->update([
+                'exercise_id' => $exerciseLog->exercise_id ?? $exercise->exercise_id,
+                'exercise_name' => $exerciseLog->exercise_name ?? $exercise->exercise?->name,
+                'target_label' => $exerciseLog->target_label ?? $exercise->targetLabel(),
+            ]);
+        }
 
         $exerciseLog->update([
             'note' => $data['exercise_note'] ?? $exerciseLog->note,
@@ -118,8 +163,10 @@ class WorkoutSessionController extends Controller
         // A re-save recomputes it, so lowering the weight clears a stale PR.
         $exerciseId = $exercise->exercise_id;
         $previousBestWeight = (float) (WorkoutSetLog::whereHas('exerciseLog', function ($q) use ($exerciseId, $workoutSession) {
-            $q->whereHas('workoutExercise', fn ($we) => $we->where('exercise_id', $exerciseId))
-              ->whereHas('session', fn ($s) => $s->where('user_id', auth()->id())->where('id', '!=', $workoutSession->id));
+            $q->where(function ($inner) use ($exerciseId): void {
+                $inner->whereHas('workoutExercise', fn ($we) => $we->where('exercise_id', $exerciseId))
+                    ->orWhere('exercise_id', $exerciseId);
+            })->whereHas('session', fn ($s) => $s->where('user_id', auth()->id())->where('id', '!=', $workoutSession->id));
         })->where('side', $side)->max('weight') ?? 0);
 
         $incomingWeight = (float) ($data['weight'] ?? 0);
@@ -207,7 +254,12 @@ class WorkoutSessionController extends Controller
 
         $exerciseLog = WorkoutExerciseLog::firstOrCreate(
             ['workout_session_id' => $workoutSession->id, 'workout_exercise_id' => $exercise->id],
-            ['completed' => false]
+            [
+                'completed' => false,
+                'exercise_id' => $exercise->exercise_id,
+                'exercise_name' => $exercise->exercise?->name,
+                'target_label' => $exercise->targetLabel(),
+            ]
         );
 
         $note = trim((string) ($data['note'] ?? ''));

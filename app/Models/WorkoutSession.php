@@ -19,7 +19,8 @@ class WorkoutSession extends Model
     public const SKIPPED = 'skipped';
 
     protected $fillable = [
-        'user_id', 'workout_day_id', 'workout_date', 'status', 'started_at',
+        'user_id', 'workout_plan_id', 'workout_day_id', 'plan_title', 'day_title',
+        'weekday', 'workout_date', 'status', 'started_at',
         'ended_at', 'duration_seconds', 'session_note', 'pain_note',
         'bodyweight_kg', 'bodyweight_recorded_at',
     ];
@@ -39,6 +40,33 @@ class WorkoutSession extends Model
     public function day(): BelongsTo
     {
         return $this->belongsTo(WorkoutDay::class, 'workout_day_id');
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(WorkoutPlan::class, 'workout_plan_id');
+    }
+
+    /**
+     * Display title of the trained day. Prefers the live template row,
+     * falls back to the snapshot taken when the session started so
+     * history stays readable after the plan is edited or deleted.
+     */
+    public function displayDayTitle(): string
+    {
+        return $this->day?->title
+            ?? $this->day_title
+            ?? ($this->weekday ? ucfirst($this->weekday) : __('Workout'));
+    }
+
+    /**
+     * Display title of the plan this session belonged to.
+     */
+    public function displayPlanTitle(): ?string
+    {
+        return $this->plan?->title
+            ?? $this->day?->plan?->title
+            ?? $this->plan_title;
     }
 
     public function exerciseLogs(): HasMany

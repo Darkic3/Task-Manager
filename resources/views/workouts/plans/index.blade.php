@@ -617,6 +617,14 @@
                                 <a class="wp-icon-btn" href="{{ route('workouts.plans.edit', $plan) }}" title="Edit Plan">
                                     <i class="bi bi-pencil"></i>
                                 </a>
+                                @if(($plan->status ?? null) !== 'active')
+                                    <form method="POST" action="{{ route('workouts.plans.activate', $plan) }}" onsubmit="return confirmSwal(this, '{{ __('Activate this plan? Other plans will move to draft.') }}', { isDelete: false })" class="d-inline">
+                                        @csrf
+                                        <button class="wp-icon-btn text-success" type="submit" title="{{ __('Activate Plan') }}">
+                                            <i class="bi bi-play-circle"></i>
+                                        </button>
+                                    </form>
+                                @endif
                                 <form method="POST" action="{{ route('workouts.plans.new-cycle', $plan) }}" onsubmit="return confirmSwal(this, '{{ __('Create a new cycle from this plan?') }}', { isDelete: false })" class="d-inline">
                                     @csrf
                                     <button class="wp-icon-btn" type="submit" title="Duplicate as New Cycle">

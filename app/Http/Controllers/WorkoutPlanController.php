@@ -71,6 +71,14 @@ class WorkoutPlanController extends Controller
             ->with('success', __('Cycle :num created. The previous plan and its history were left unchanged.', ['num' => $copy->cycle_no]));
     }
 
+    public function activate(WorkoutPlan $workoutPlan): RedirectResponse
+    {
+        $this->authorizePlan($workoutPlan);
+        $this->plans->activate($workoutPlan);
+
+        return redirect()->route('workouts.plans.index')->with('success', __('Plan activated. Other plans were moved to draft.'));
+    }
+
     public function destroy(WorkoutPlan $workoutPlan): RedirectResponse
     {
         $this->authorizePlan($workoutPlan);

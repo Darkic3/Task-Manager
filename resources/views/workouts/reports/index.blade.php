@@ -377,7 +377,7 @@
                         </div>
                         @forelse($day['sessions'] as $session)
                             <a class="wr-session {{ $session->status }}" href="{{ route('workouts.sessions.show', $session) }}">
-                                {{ $session->day->title }}
+                                {{ $session->displayDayTitle() }}
                                 <div class="small opacity-75">{{ $session->status }} • {{ $session->durationMinutes() ?? 0 }}m</div>
                             </a>
                         @empty
@@ -399,12 +399,14 @@
                         <div>
                             <span class="text-muted small d-block">{{ $session->workout_date->format('M j, Y') }}</span>
                             <a class="fw-bold text-dark text-decoration-none" href="{{ route('workouts.sessions.show', $session) }}">
-                                {{ $session->day->title }}
+                                {{ $session->displayDayTitle() }}
                             </a>
-                            <span class="text-muted small ms-2">• {{ $session->day->plan->title }}</span>
+                            @if($session->displayPlanTitle())
+                                <span class="text-muted small ms-2">• {{ $session->displayPlanTitle() }}</span>
+                            @endif
                         </div>
                         <div class="d-flex align-items-center gap-3">
-                            <span class="badge bg-light text-dark border">{{ $session->exerciseLogs->where('completed', true)->count() }}/{{ $session->day->exercises->count() }} movements</span>
+                            <span class="badge bg-light text-dark border">{{ $session->exerciseLogs->where('completed', true)->count() }}/{{ $session->day?->exercises?->count() ?? $session->exerciseLogs->count() }} movements</span>
                             <span class="badge bg-primary-subtle text-primary">{{ $session->exerciseLogs->flatMap->setLogs->where('completed', true)->count() }} sets</span>
                             <span class="small text-muted">{{ $session->durationMinutes() ?? 0 }} min</span>
                         </div>

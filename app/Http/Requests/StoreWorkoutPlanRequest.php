@@ -84,6 +84,11 @@ class StoreWorkoutPlanRequest extends FormRequest
                 foreach (['is_amrap', 'is_circuit'] as $boolean) {
                     $exercise[$boolean] = filter_var($exercise[$boolean] ?? false, FILTER_VALIDATE_BOOLEAN);
                 }
+                // The builder sends "" for "Both sides" — store it as null
+                // (bilateral) so validation and reporting stay consistent.
+                if (empty($exercise['side_mode'])) {
+                    $exercise['side_mode'] = null;
+                }
 
                 return $exercise;
             }, $day['exercises'] ?? []));

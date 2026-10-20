@@ -450,7 +450,7 @@
     .nt-reader-body ul, .nt-reader-body ol { margin: 0 0 .95em; padding-inline-start: 1.4em; }
     .nt-reader-body li { margin-bottom: .3em; }
     .nt-reader-body code { background: var(--gray-100); padding: .12em .38em; border-radius: 5px; font-size: .86em; font-family: ui-monospace, monospace; }
-    .nt-reader-body pre { background: var(--gray-900); color: #e2e8f0; padding: 12px 14px; border-radius: 10px; overflow-x: auto; font-size: .82rem; line-height: 1.6; }
+    .nt-reader-body pre { background: var(--gray-900); color: #e2e8f0; padding: 12px 14px; border-radius: 10px; overflow-x: auto; font-size: .82rem; line-height: 1.6; max-width: 100%; width: 100%; box-sizing: border-box; white-space: pre-wrap; overflow-wrap: anywhere; }
     .nt-reader-body pre code { background: none; color: inherit; padding: 0; }
     .nt-reader-body blockquote { margin: 0 0 .95em; padding: .5em .9em; border-inline-start: 3px solid var(--primary-500); background: var(--primary-50); border-radius: 0 8px 8px 0; color: var(--gray-600); }
     .nt-reader-body img { max-width: 100%; border-radius: 10px; }
@@ -754,8 +754,9 @@
     }
     .nt-page-back:hover { border-color: var(--primary-500); color: var(--primary-700); background: var(--primary-50); }
 
-    .nt-editor-grid { display: grid; grid-template-columns: 1fr 300px; gap: 14px; align-items: start; }
-    @media (max-width: 992px) { .nt-editor-grid { grid-template-columns: 1fr; } }
+    .nt-editor-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+    .nt-editor-grid > * { min-width: 0; }
+    @media (max-width: 992px) { .nt-editor-grid { grid-template-columns: minmax(0, 1fr); } }
     .nt-editor-side > .nt-panel { position: sticky; top: 12px; }
     @media (max-width: 992px) { .nt-editor-side > .nt-panel { position: static; } }
 
@@ -832,13 +833,15 @@
         padding: .12em .38em; border-radius: 6px;
         background: var(--gray-100); border: 1px solid var(--gray-200);
         font-size: .85em; color: #be185d; font-family: inherit;
+        overflow-wrap: anywhere;
     }
     .nt-prose pre {
-        margin: 1em 0; padding: 13px 15px; overflow-x: auto;
+        margin: 1em 0; padding: 13px 15px; overflow-x: auto; max-width: 100%; width: 100%; box-sizing: border-box;
         background: #0f172a; color: #e2e8f0;
-        border-radius: var(--radius-md); font-size: .82rem; line-height: 1.85;
+        border-radius: var(--radius-md); font-size: .82rem; line-height: 1.7;
+        white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
     }
-    .nt-prose pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; }
+    .nt-prose pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; white-space: inherit; }
     .nt-prose hr { margin: 1.6em 0; border: none; border-top: 1px solid var(--gray-200); }
     .nt-prose img { max-width: 100%; height: auto; border-radius: var(--radius-md); }
     .nt-prose table {
@@ -912,12 +915,13 @@
         padding: .1em .4em; border-radius: 6px; font-size: .86em;
         font-family: ui-monospace, SFMono-Regular, monospace;
     }
-    .nt-rich pre {
-        background: #0f172a; color: #e2e8f0; border-radius: 12px;
-        padding: 13px 15px; margin: .9em 0; overflow-x: auto;
-        font-size: .84rem; line-height: 1.8;
-    }
-    .nt-rich pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; }
+     .nt-rich pre {
+         background: #0f172a; color: #e2e8f0; border-radius: 12px;
+         padding: 13px 15px; margin: .9em 0; overflow-x: auto; max-width: 100%; width: 100%; box-sizing: border-box;
+         font-size: .84rem; line-height: 1.7;
+         white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
+     }
+    .nt-rich pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; white-space: inherit; }
     .nt-rich blockquote {
         margin: .9em 0; padding: .55em 1em;
         border-inline-start: 3px solid var(--primary-500);

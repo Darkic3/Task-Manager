@@ -2474,6 +2474,24 @@
             ])->values();
         @endphp
         <div class="pw-grid" id="plWeek" data-week-days='@json($weekDaysMeta)' data-periods='@json($weekPeriodsMeta)'>
+            @if(isset($activeWorkoutPlan) && isset($workoutWeek))
+                <div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#f5f3ff;border:1px solid #ede9fe;border-radius:12px;padding:10px 14px;margin-bottom:4px;">
+                    <span style="font-size:12px;font-weight:800;color:#5b21b6;display:inline-flex;align-items:center;gap:6px;">
+                        <i class="bi bi-lightning-charge-fill"></i> {{ $activeWorkoutPlan->title }}
+                    </span>
+                    <span style="font-size:10px;font-weight:800;color:#7c3aed;background:#ede9fe;border-radius:20px;padding:2px 8px;">{{ __('ACTIVE PLAN') }}</span>
+                    <span style="display:flex;gap:6px;flex-wrap:wrap;margin-inline-start:auto;">
+                        @foreach($days as $wday)
+                            @php $wWorkout = $workoutWeek[$wday['date']->toDateString()] ?? null; @endphp
+                            @if($wWorkout)
+                                <a href="{{ route('workouts.days.show', $wWorkout) }}" title="{{ $wWorkout->title }} — {{ __('View details') }}" style="font-size:11px;font-weight:700;text-decoration:none;border-radius:8px;padding:3px 8px;{{ in_array($wWorkout->type, ['training', 'recovery'], true) ? 'background:#fff;color:#6d28d9;border:1px solid #ddd6fe;' : 'background:transparent;color:#94a3b8;border:1px solid #e2e8f0;' }}">
+                                    {{ $wday['date']->format('D') }}: {{ $wWorkout->type === 'rest' ? __('Rest') : $wWorkout->title }}
+                                </a>
+                            @endif
+                        @endforeach
+                    </span>
+                </div>
+            @endif
             @foreach($days as $day)
                 @include('planner._week-day', [
                     'day' => $day,

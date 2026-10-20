@@ -31,6 +31,11 @@ class NoteMentionService
      */
     public function extract(string $text): array
     {
+        // Mentions inside code are not intended to create links.
+        // We strip fenced code blocks (```...```) and inline code (`...`)
+        // before running the token regex.
+        $text = $this->stripCodeSegments($text);
+
         $pattern = '/(?<![\w\p{L}\p{N}])([@#])([\p{L}\p{N}_][\p{L}\p{N}_\-\x{200C}]*)/u';
 
         preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE);
@@ -45,6 +50,17 @@ class NoteMentionService
         }
 
         return $out;
+    }
+
+    private function stripCodeSegments(string $text): string
+    {
+        // Fenced blocks: ```lang\n...\n```
+        $text = preg_replace('/```[^\n\r]*\r?\n.*?```/s', ' ', $text) ?? $text;
+
+        // Inline code: `...`
+        $text = preg_replace('/`[^`]*`/u', ' ', $text) ?? $text;
+
+        return $text;
     }
 
     /**

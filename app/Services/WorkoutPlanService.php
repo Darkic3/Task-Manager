@@ -19,6 +19,8 @@ class WorkoutPlanService
                 $plan = WorkoutPlan::create(collect($data)->except(['days', 'rules'])->merge(['user_id' => $userId])->all());
             }
 
+            $this->enforceSingleActive($plan);
+
             foreach ($data['rules'] ?? [] as $order => $rule) {
                 $plan->rules()->create(['rule_text' => $rule, 'sort_order' => $order]);
             }
@@ -47,6 +49,35 @@ class WorkoutPlanService
                     ])->all());
                 }
             }
+
+            return $plan->fresh(['days.exercises.exercise', 'rules']);
+        });
+    }
+
+    /**
+     * Only one plan per user may be active at a time: activating this
+     * plan archives every other active plan of the same user.
+     */
+    public function enforceSingleActive(WorkoutPlan $plan): void
+    {
+        if (($plan->status ?? null) !== 'active') {
+            return;
+        }
+
+        WorkoutPlan::where('user_id', $plan->user_id)
+            ->whereKeyNot($plan->id)
+            ->where('status', 'active')
+            ->update(['status' => 'draft']);
+    }
+
+    /**
+     * Activate a plan (and deactivate the rest) in one transaction.
+     */
+    public function activate(WorkoutPlan $plan): WorkoutPlan
+    {
+        return DB::transaction(function () use ($plan): WorkoutPlan {
+            $plan->update(['status' => 'active']);
+            $this->enforceSingleActive($plan);
 
             return $plan->fresh(['days.exercises.exercise', 'rules']);
         });

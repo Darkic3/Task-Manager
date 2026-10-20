@@ -11,7 +11,7 @@ class WorkoutExerciseLog extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['workout_session_id', 'workout_exercise_id', 'completed', 'skip_reason', 'note'];
+    protected $fillable = ['workout_session_id', 'workout_exercise_id', 'exercise_id', 'exercise_name', 'target_label', 'completed', 'skip_reason', 'note'];
 
     protected $casts = ['completed' => 'boolean'];
 
@@ -23,6 +23,39 @@ class WorkoutExerciseLog extends Model
     public function workoutExercise(): BelongsTo
     {
         return $this->belongsTo(WorkoutExercise::class);
+    }
+
+    public function exercise(): BelongsTo
+    {
+        return $this->belongsTo(Exercise::class);
+    }
+
+    /**
+     * Library exercise for this log: live template first, then the
+     * direct link, so detached history still resolves.
+     */
+    public function resolvedExercise(): ?Exercise
+    {
+        return $this->workoutExercise?->exercise ?? $this->exercise;
+    }
+
+    /**
+     * Human-readable movement name that survives template deletion.
+     */
+    public function displayExerciseName(): string
+    {
+        return $this->workoutExercise?->exercise?->name
+            ?? $this->exercise?->name
+            ?? $this->exercise_name
+            ?? __('Exercise');
+    }
+
+    /**
+     * Planned target label for this log (snapshot-aware).
+     */
+    public function displayTargetLabel(): ?string
+    {
+        return $this->workoutExercise?->targetLabel() ?? $this->target_label;
     }
 
     public function setLogs(): HasMany

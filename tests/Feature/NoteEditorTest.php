@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Note;
+use App\Models\NoteLabel;
+use App\Models\NoteSubject;
 use App\Models\User;
 use App\Support\MarkdownRenderer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -213,5 +215,18 @@ class NoteEditorTest extends TestCase
         $this->assertStringContainsString('<a class="nt-token nt-token-psn" href="/notes?linked_type=subject">@ali</a>', $html);
         // Inside code blocks the token stays plain text.
         $this->assertStringContainsString('<code>@ali</code>', $html);
+    }
+
+    public function test_code_blocks_do_not_create_people_or_topics(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post(route('notes.store'), [
+            'title' => 'Code mentions',
+            'content' => "```js\nconst who = '@alice';\n// #ideas\n```\nJust text outside code.",
+        ])->assertRedirect();
+
+        $this->assertSame(0, NoteSubject::ofUser($user->id)->count());
+        $this->assertSame(0, NoteLabel::ofUser($user->id)->count());
     }
 }

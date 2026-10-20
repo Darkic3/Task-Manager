@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', __('Live Workout Session') . ' | ' . $workoutSession->day->title)
+@section('title', __('Live Workout Session') . ' | ' . ($workoutSession->day?->title ?? $workoutSession->day_title ?? ''))
 
 @push('styles')
 <style>
@@ -182,9 +182,10 @@
                     <a href="{{ route('workouts.plans.index') }}" class="small text-muted text-decoration-none">
                         <i class="bi bi-arrow-left"></i> {{ __('All Workout Plans') }}
                     </a>
-                    <h1 class="ws-title mt-1">{{ $workoutSession->day->title }}</h1>
+                    <h1 class="ws-title mt-1">{{ $workoutSession->displayDayTitle() }}</h1>
                     <div class="ws-sub">
-                        {{ __(ucfirst($workoutSession->day->weekday)) }} • {{ $workoutSession->workout_date->format('Y-m-d') }} • {{ $workoutSession->day->plan->title }}
+                        @php $wsWeekday = $workoutSession->weekday ?? $workoutSession->day?->weekday; @endphp
+                        @if($wsWeekday) {{ __(ucfirst($wsWeekday)) }} • @endif{{ $workoutSession->workout_date->format('Y-m-d') }}@if($workoutSession->displayPlanTitle()) • {{ $workoutSession->displayPlanTitle() }}@endif
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">

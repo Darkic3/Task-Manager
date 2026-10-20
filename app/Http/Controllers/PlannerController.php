@@ -76,8 +76,9 @@ class PlannerController extends Controller
         $capacityPercentage = min(round(($totalEstimatedHours / max($dailyCapacityHours, 0.1)) * 100), 150);
 
         $todayWeekday = strtolower($selected->format('l'));
-        $activeWorkoutPlan = $user->workoutPlans()->where('status', 'active')->first()
-            ?? $user->workoutPlans()->latest()->first();
+        // Only the ACTIVE plan is executable and visible in My Day.
+        // Draft (or archived) plans never leak into the daily program.
+        $activeWorkoutPlan = $user->workoutPlans()->where('status', 'active')->latest()->first();
 
         $todayWorkoutDay = null;
         $todayWorkoutSession = null;
@@ -256,6 +257,8 @@ class PlannerController extends Controller
             'days' => $days,
             'isToday' => now()->between($start->copy()->startOfDay(), $end->copy()->endOfDay()),
             'backlogProjects' => $this->backlogProjectOptions($user->id),
+            'activeWorkoutPlan' => $this->activeWorkoutPlanFor($user),
+            'workoutWeek' => $this->workoutWeekFor($user, $start),
         ]);
     }
 
@@ -349,6 +352,37 @@ class PlannerController extends Controller
             ],
             'backlogProjects' => $this->backlogProjectOptions($user->id),
         ]);
+    }
+
+    /**
+     * The single executable workout plan: only a plan with status
+     * "active" ever appears in the daily/weekly program.
+     */
+    private function activeWorkoutPlanFor($user)
+    {
+        return $user->workoutPlans()->where('status', 'active')->latest()->first();
+    }
+
+    /**
+     * Active plan's seven days keyed by date string for the week grid.
+     *
+     * @return array<string, \App\Models\WorkoutDay|null>
+     */
+    private function workoutWeekFor($user, Carbon $start): array
+    {
+        $plan = $this->activeWorkoutPlanFor($user);
+        if (! $plan) {
+            return [];
+        }
+
+        $byWeekday = $plan->days()->with(['exercises.exercise'])->get()->keyBy('weekday');
+        $week = [];
+        for ($i = 0; $i < 7; $i++) {
+            $day = $start->copy()->addDays($i);
+            $week[$day->toDateString()] = $byWeekday->get(strtolower($day->format('l')));
+        }
+
+        return $week;
     }
 
     public function toggleTask(Task $task)

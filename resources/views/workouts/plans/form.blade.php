@@ -98,7 +98,7 @@ function addExercise(dayIndex, values = {}) {
     const prefix = `days[${dayIndex}][exercises][${index}]`;
     const row = document.createElement('div'); row.className = 'wb-ex';
     row.innerHTML = `<div class="wb-ex-top"><i class="bi bi-grip-vertical wb-drag"></i><select class="wb-select" name="${prefix}[exercise_id]" required>${optionMarkup(values.exercise_id)}</select><button class="wb-remove" type="button" title="${I18N_FORM.remove}"><i class="bi bi-x-lg"></i></button></div>
-        <div class="wb-ex-fields"><div class="wb-ex-field"><label>${I18N_FORM.section}</label><select name="${prefix}[section]"><option value="warmup">${I18N_FORM.warmup}</option><option value="main" selected>${I18N_FORM.main}</option><option value="accessory">${I18N_FORM.accessory}</option><option value="cooldown">${I18N_FORM.cooldown}</option></select></div><div class="wb-ex-field"><label>${I18N_FORM.sets}</label><input type="number" min="1" max="99" name="${prefix}[target_sets]" value="${esc(values.target_sets)}"></div><div class="wb-ex-field"><label>${I18N_FORM.minReps}</label><input type="number" min="1" name="${prefix}[rep_min]" value="${esc(values.rep_min)}"></div><div class="wb-ex-field"><label>${I18N_FORM.maxReps}</label><input type="number" min="1" name="${prefix}[rep_max]" value="${esc(values.rep_max)}"></div><div class="wb-ex-field"><label>${I18N_FORM.rirTarget}</label><input type="number" min="0" max="10" step="0.5" name="${prefix}[target_rir]" value="${esc(values.target_rir)}"></div><div class="wb-ex-field"><label>${I18N_FORM.restSec}</label><input type="number" min="0" name="${prefix}[rest_seconds]" value="${esc(values.rest_seconds)}"></div><div class="wb-ex-field"><label>${I18N_FORM.durationSec}</label><input type="number" min="1" name="${prefix}[duration_seconds]" value="${esc(values.duration_seconds)}"></div><div class="wb-ex-field"><label>${I18N_FORM.weight}</label><input type="number" min="0" step="0.01" name="${prefix}[target_weight]" value="${esc(values.target_weight)}"></div><div class="wb-ex-field"><label>${I18N_FORM.tempo}</label><input type="text" maxlength="40" name="${prefix}[tempo]" value="${esc(values.tempo)}" placeholder="3-1-1"></div><div class="wb-ex-field"><label>${I18N_FORM.side}</label><select name="${prefix}[side_mode]"><option value="">${I18N_FORM.both}</option><option value="per_side" ${values.side_mode === 'per_side' ? 'selected' : ''}>${I18N_FORM.perSide}</option><option value="alternating" ${values.side_mode === 'alternating' ? 'selected' : ''}>${I18N_FORM.alternating}</option></select></div><div class="wb-ex-field"><label>${I18N_FORM.amrap}</label><select name="${prefix}[is_amrap]"><option value="0">${I18N_FORM.no}</option><option value="1" ${values.is_amrap ? 'selected' : ''}>${I18N_FORM.yes}</option></select></div><div class="wb-ex-field"><label>${I18N_FORM.circuit}</label><select name="${prefix}[is_circuit]"><option value="0">${I18N_FORM.no}</option><option value="1" ${values.is_circuit ? 'selected' : ''}>${I18N_FORM.yes}</option></select></div></div>
+        <div class="wb-ex-fields"><div class="wb-ex-field"><label>${I18N_FORM.section}</label><select name="${prefix}[section]"><option value="warmup" ${values.section === 'warmup' ? 'selected' : ''}>${I18N_FORM.warmup}</option><option value="main" ${!values.section || values.section === 'main' ? 'selected' : ''}>${I18N_FORM.main}</option><option value="accessory" ${values.section === 'accessory' ? 'selected' : ''}>${I18N_FORM.accessory}</option><option value="cooldown" ${values.section === 'cooldown' ? 'selected' : ''}>${I18N_FORM.cooldown}</option></select></div><div class="wb-ex-field"><label>${I18N_FORM.sets}</label><input type="number" min="1" max="99" name="${prefix}[target_sets]" value="${esc(values.target_sets)}"></div><div class="wb-ex-field"><label>${I18N_FORM.minReps}</label><input type="number" min="1" name="${prefix}[rep_min]" value="${esc(values.rep_min)}"></div><div class="wb-ex-field"><label>${I18N_FORM.maxReps}</label><input type="number" min="1" name="${prefix}[rep_max]" value="${esc(values.rep_max)}"></div><div class="wb-ex-field"><label>${I18N_FORM.rirTarget}</label><input type="number" min="0" max="10" step="0.5" name="${prefix}[target_rir]" value="${esc(values.target_rir)}"></div><div class="wb-ex-field"><label>${I18N_FORM.restSec}</label><input type="number" min="0" name="${prefix}[rest_seconds]" value="${esc(values.rest_seconds)}"></div><div class="wb-ex-field"><label>${I18N_FORM.durationSec}</label><input type="number" min="1" name="${prefix}[duration_seconds]" value="${esc(values.duration_seconds)}"></div><div class="wb-ex-field"><label>${I18N_FORM.weight}</label><input type="number" min="0" step="0.01" name="${prefix}[target_weight]" value="${esc(values.target_weight)}"></div><div class="wb-ex-field"><label>${I18N_FORM.tempo}</label><input type="text" maxlength="40" name="${prefix}[tempo]" value="${esc(values.tempo)}" placeholder="3-1-1"></div><div class="wb-ex-field"><label>${I18N_FORM.side}</label><select name="${prefix}[side_mode]"><option value="">${I18N_FORM.both}</option><option value="per_side" ${values.side_mode === 'per_side' ? 'selected' : ''}>${I18N_FORM.perSide}</option><option value="alternating" ${values.side_mode === 'alternating' ? 'selected' : ''}>${I18N_FORM.alternating}</option></select></div><div class="wb-ex-field"><label>${I18N_FORM.amrap}</label><select name="${prefix}[is_amrap]"><option value="0">${I18N_FORM.no}</option><option value="1" ${values.is_amrap ? 'selected' : ''}>${I18N_FORM.yes}</option></select></div><div class="wb-ex-field"><label>${I18N_FORM.circuit}</label><select name="${prefix}[is_circuit]"><option value="0">${I18N_FORM.no}</option><option value="1" ${values.is_circuit ? 'selected' : ''}>${I18N_FORM.yes}</option></select></div></div>
         <div class="wb-ex-fields"><div class="wb-ex-field"><label>${I18N_FORM.circuitRounds}</label><input type="number" min="1" max="30" name="${prefix}[circuit_rounds]" value="${esc(values.circuit_rounds)}"></div><div class="wb-ex-field"><label>${I18N_FORM.roundRestSec}</label><input type="number" min="0" name="${prefix}[circuit_rest_seconds]" value="${esc(values.circuit_rest_seconds)}"></div></div><select class="wb-select mt-2" name="${prefix}[alternatives][]" multiple title="${I18N_FORM.altMovements}">${alternativeMarkup(values.alternatives)}</select><input class="wb-ex-note" maxlength="2000" name="${prefix}[notes]" value="${esc(values.notes)}" placeholder="${I18N_FORM.movementNotes}">`;
     row.querySelector('.wb-remove').addEventListener('click', () => { row.remove(); updateDayCount(dayIndex); });
     container.appendChild(row); updateDayCount(dayIndex);
@@ -109,5 +109,87 @@ document.querySelectorAll('[data-day-tab]').forEach(tab => tab.addEventListener(
 document.querySelectorAll('.day-title-input').forEach(input => input.addEventListener('input', () => { document.querySelector(`[data-day-label="${input.dataset.index}"]`).textContent = input.value || I18N_FORM.untitledDay; document.querySelector(`[data-day-heading="${input.dataset.index}"]`).textContent = input.value || I18N_FORM.untitledDay; }));
 document.querySelectorAll('input[type="radio"][name*="[type]"]').forEach(input => input.addEventListener('change', () => updateDayCount(input.name.match(/days\[(\d+)\]/)[1])));
 initialDays.forEach((day, dayIndex) => (day.exercises || []).forEach(exercise => addExercise(dayIndex, exercise))); initialRules.forEach(rule => addRule(rule));
+// Submit the builder as JSON instead of urlencoded form data.
+// Some Windows php-cgi stacks (Apache + mod_fcgid) silently deliver an
+// EMPTY $_POST for urlencoded bodies larger than ~16KB (the raw body is
+// intact in php://input, so the CSRF token check fails with a 419 that
+// has nothing to do with the session). A JSON body is decoded by Laravel
+// from php://input and parses fine at any size. CSRF is still enforced
+// via the X-CSRF-TOKEN header (plus _token in the payload) — unlike a
+// CSRF exemption, this keeps the protection intact.
+(function () {
+    const form = document.getElementById('workoutBuilder');
+    if (!form || form.dataset.jsonSubmit === '1') return;
+    form.dataset.jsonSubmit = '1';
+    const saveBtn = form.querySelector('button[type="submit"]');
+    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const parseName = name => {
+        const parts = [];
+        const re = /([^\[\]]+)|\[(.*?)\]/g;
+        let m;
+        while ((m = re.exec(name)) !== null) parts.push(m[1] !== undefined ? m[1] : m[2]);
+        return parts;
+    };
+    const assignDeep = (root, parts, value) => {
+        let node = root;
+        for (let i = 0; i < parts.length; i++) {
+            const key = parts[i];
+            const last = i === parts.length - 1;
+            const next = parts[i + 1];
+            const nextIsArray = next === '' || /^\d+$/.test(next || '');
+            if (key === '') {
+                if (last) { node.push(value); return; }
+                const holder = nextIsArray ? [] : {};
+                node.push(holder);
+                node = holder;
+                continue;
+            }
+            if (last) {
+                if (key in node) {
+                    if (!Array.isArray(node[key])) node[key] = [node[key]];
+                    node[key].push(value);
+                } else node[key] = value;
+                return;
+            }
+            if (!(key in node) || typeof node[key] !== 'object' || node[key] === null) node[key] = nextIsArray ? [] : {};
+            node = node[key];
+        }
+    };
+    const compact = node => {
+        if (Array.isArray(node)) return node.filter(v => v !== null && v !== undefined).map(compact);
+        if (node && typeof node === 'object') {
+            const out = {};
+            Object.keys(node).forEach(k => { out[k] = compact(node[k]); });
+            return out;
+        }
+        return node;
+    };
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (form.dataset.sending === '1') return;
+        const data = {};
+        new FormData(form).forEach((value, name) => assignDeep(data, parseName(name), value));
+        const payload = compact(data);
+        form.dataset.sending = '1';
+        const originalLabel = saveBtn ? saveBtn.innerHTML : '';
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '...'; }
+        try {
+            const res = await fetch(form.action, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'text/html,application/xhtml+xml', 'X-CSRF-TOKEN': csrf() },
+                body: JSON.stringify(payload),
+            });
+            // Laravel answers with a redirect (success → edit page, errors
+            // → back with messages). fetch follows it; loading the final
+            // URL renders the page together with the flashed messages.
+            window.location.assign(res.url);
+        } catch (err) {
+            form.dataset.sending = '';
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalLabel; }
+            form.submit();
+        }
+    });
+})();
 </script>
 @endpush
