@@ -228,6 +228,34 @@ class TasksChaptersTest extends TestCase
         $response->assertSee(route('projects.tasks.index', $project), false);
     }
 
+    public function test_completed_tasks_sink_below_open_tasks_in_project_sections(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->create(['user_id' => $user->id, 'status' => 'in_progress']);
+
+        // Completed first in insertion order, so without the fix it would lead.
+        Task::factory()->create([
+            'user_id' => $user->id, 'project_id' => $project->id,
+            'title' => 'Done task', 'status' => 'completed',
+        ]);
+        Task::factory()->create([
+            'user_id' => $user->id, 'project_id' => $project->id,
+            'title' => 'Open task', 'status' => 'to_do',
+        ]);
+
+        $html = $this->actingAs($user)->get(route('tasks.index'))->assertOk()->getContent();
+
+        $section = strpos($html, 'data-chapter="p-' . $project->id . '"');
+        $this->assertNotFalse($section, 'project section is missing');
+
+        $openPos = strpos($html, 'data-title="open task"', $section);
+        $donePos = strpos($html, 'data-title="done task"', $section);
+
+        $this->assertNotFalse($openPos, 'open task row is missing');
+        $this->assertNotFalse($donePos, 'completed task row is missing');
+        $this->assertLessThan($donePos, $openPos, 'completed tasks must render below open ones');
+    }
+
     public function test_bulk_update_changes_status_of_owned_tasks(): void
     {
         $user = User::factory()->create();

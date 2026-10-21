@@ -42,6 +42,8 @@
 <div class="cu-ch-row {{ $isDone ? 'is-done' : '' }}"
      data-id="{{ $task->id }}"
      data-root="{{ $rootId }}"
+     data-depth="{{ $depth }}"
+     data-parent="{{ $task->parent_id ?? '' }}"
      data-title="{{ strtolower($task->title) }}"
      data-priority="{{ $task->priority }}"
      data-project="{{ $task->project_id }}"

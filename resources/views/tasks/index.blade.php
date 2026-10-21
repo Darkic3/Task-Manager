@@ -940,7 +940,8 @@
     {{-- PROJECTS VIEW (global page only) — one collapsible section per project --}}
     @if(!isset($project))
         @php
-            $orphanTasks = $flatAll->filter(fn ($t) => $t->project_id === null)->values();
+            $orphanTasks = $flatAll->filter(fn ($t) => $t->project_id === null)->values()
+                ->sortBy(fn ($t) => $t->status === 'completed' ? 1 : 0)->values();
             $projectsWithTasks = $projects->filter(
                 fn ($p) => $flatAll->contains(fn ($t) => (int) $t->project_id === (int) $p->id)
             )->values();
@@ -959,7 +960,8 @@
             @endif
             @foreach($projectsWithTasks as $proj)
                 @php
-                    $pTasks   = $flatAll->filter(fn ($t) => (int) $t->project_id === (int) $proj->id)->values();
+                    $pTasks   = $flatAll->filter(fn ($t) => (int) $t->project_id === (int) $proj->id)->values()
+                        ->sortBy(fn ($t) => $t->status === 'completed' ? 1 : 0)->values();
                     $pGrouped = $pTasks->groupBy('parent_id');
                     $pRoots   = $pTasks->filter(fn ($t) => $t->parent_id === null)->values();
                 @endphp
@@ -1886,6 +1888,40 @@ document.addEventListener('DOMContentLoaded', function () {
         ch.dataset.done = done;
     }
 
+    /* Projects view: completed rows sink below the open ones while subtasks
+       stay attached to their parent. */
+    function reorderChapterRows(ch) {
+        const body = ch.querySelector('.cu-chapter-body');
+        if (!body) return;
+        const rows = [...body.querySelectorAll(':scope > .cu-ch-row')];
+        if (!rows.length) return;
+
+        const root = { children: [] };
+        const stack = [root];
+        rows.forEach((row, idx) => {
+            const depth = parseInt(row.dataset.depth || '0', 10);
+            while (stack.length - 1 > depth) stack.pop();
+            const node = { row, idx, children: [] };
+            stack[stack.length - 1].children.push(node);
+            stack.push(node);
+        });
+
+        const sortNodes = nodes => {
+            nodes.sort((a, b) => {
+                const ad = a.row.dataset.status === 'completed' ? 1 : 0;
+                const bd = b.row.dataset.status === 'completed' ? 1 : 0;
+                return ad - bd || a.idx - b.idx;
+            });
+            nodes.forEach(n => sortNodes(n.children));
+        };
+        sortNodes(root.children);
+
+        const frag = document.createDocumentFragment();
+        const append = nodes => nodes.forEach(n => { frag.appendChild(n.row); append(n.children); });
+        append(root.children);
+        body.appendChild(frag);
+    }
+
     /* A task can appear in several views at once (board + chapters + projects + list + tree):
        always sync/remove EVERY copy. */
     function syncTaskDoneUI(id, status, moveCard = true) {
@@ -1921,7 +1957,10 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll(`[data-id="${id}"]`).forEach(el=>{
             if(el.dataset) el.dataset.status = status;
         });
-        touched.forEach(ch => refreshChapter(ch));
+        touched.forEach(ch => {
+            refreshChapter(ch);
+            if (ch.closest('#cuProjects')) reorderChapterRows(ch);
+        });
     }
 
     function removeTaskNodes(id) {
