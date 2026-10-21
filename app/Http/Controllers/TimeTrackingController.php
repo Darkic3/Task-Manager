@@ -95,12 +95,16 @@ class TimeTrackingController extends Controller
         return response()->json(['ok' => true, 'active' => $this->serialize($entry->fresh())]);
     }
 
-    public function stop(TimeEntry $entry)
+    public function stop(Request $request, TimeEntry $entry)
     {
         $this->authorizeEntry($entry);
         $entry->stop();
 
-        return response()->json(['ok' => true, 'active' => null, 'duration' => $entry->duration_seconds]);
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'active' => null, 'duration' => $entry->duration_seconds]);
+        }
+
+        return back()->with('success', __('Time entry stopped.'));
     }
 
     public function store(Request $request)

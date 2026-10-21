@@ -79,4 +79,25 @@ class TimerStoreSyncTest extends TestCase
             ->assertOk()
             ->assertJsonPath('active', null);
     }
+
+    public function test_plain_form_stop_redirects_back_instead_of_showing_json(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->create(['user_id' => $user->id]);
+
+        $entryId = $this->actingAs($user)
+            ->postJson(route('time.start'), ['project_id' => $project->id])
+            ->json('active.id');
+
+        $this->actingAs($user)
+            ->from(route('dashboard'))
+            ->post(route('time.stop', $entryId))
+            ->assertRedirect(route('dashboard'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('time_entries', [
+            'id' => $entryId,
+            'status' => \App\Models\TimeEntry::STATUS_STOPPED,
+        ]);
+    }
 }
