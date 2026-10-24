@@ -560,11 +560,16 @@ footer, .topnav { display: none !important; }
                         <span class="lina-cap-ico">📋</span>
                         <span><b>{{ __('Today’s tasks') }}</b><span>{{ __('What is due and overdue') }}</span></span>
                     </button>
+                    <button type="button" class="lina-cap" onclick="fillExample(this)" data-mode="agent" data-text="ساختار کتاب روان‌شناسی شناختی کنکور ارشد را بساز: یک پروژه کتاب با فصل‌ها (هر فصل یک زیرپروژه) و درسنامه‌ها به‌صورت تسک با خرده‌مبحث‌ها. با بسته اول شروع کن: پروژه کتاب + فصل‌های ۱ تا ۳. تعداد صفحه هر درسنامه را اگر بگویم در weight ثبت کن.">
+                        <span class="lina-cap-ico">📚</span>
+                        <span><b>{{ __('Study structure') }}</b><span>{{ __('Konkur book: chapters + lessons, chunk by chunk') }}</span></span>
+                    </button>
                 </div>
                 <div class="lina-welcome-chips">
                     <span class="lina-chip" onclick="askChip(this)">{{ __('What tasks are due today?') }}</span>
                     <span class="lina-chip" onclick="askChip(this)">{{ __('Show high priority tasks') }}</span>
                     <span class="lina-chip" onclick="askChip(this)">{{ __('Summarize my projects') }}</span>
+                    <span class="lina-chip" data-mode="agent" onclick="askChip(this)">{{ __('Build my Konkur book structure') }}</span>
                 </div>
             </div>
         </div>
@@ -1175,12 +1180,16 @@ footer, .topnav { display: none !important; }
     };
 
     window.askChip = function (el) {
+        // Build chips carry data-mode="agent": switch first, otherwise the
+        // server (authoritative) would ignore the plan in chat mode.
+        if (el.dataset && el.dataset.mode) window.setMode(el.dataset.mode);
         input.value = el.textContent.trim();
         autoResize(); updateCharCount(); sendMessage();
     };
 
     /* Capability gallery: fill the input so the user can edit before sending */
     window.fillExample = function (btn) {
+        if (btn.dataset && btn.dataset.mode) window.setMode(btn.dataset.mode);
         input.value = (btn.dataset.text || '').trim();
         autoResize(); updateCharCount(); input.focus();
         scrollBottom();
@@ -1634,6 +1643,9 @@ footer, .topnav { display: none !important; }
             if ((totals.subprojects || 0) > 0) parts.push(totals.subprojects + ' sub-project(s)');
             parts.push((totals.tasks || 0) + ' task(s)');
             parts.push((totals.subtasks || 0) + ' subtask(s)');
+            // Forward-compatible: shown once the server sends them (study builds).
+            if ((totals.pages || 0) > 0) parts.push('📄 ' + totals.pages + ' page(s)');
+            if ((totals.goals || 0) > 0) parts.push('🎯 ' + totals.goals + ' goal(s)');
             if ((totals.reminders || 0) > 0) parts.push(totals.reminders + ' reminder(s)');
             if ((totals.notes || 0) > 0) parts.push(totals.notes + ' note(s)');
             if ((totals.members || 0) > 0) parts.push(totals.members + ' member(s)');
@@ -1668,6 +1680,8 @@ footer, .topnav { display: none !important; }
         const taskHtml = (t) => {
             let s = escPlan(t.title);
             if (t.due_date) s += ' <span class="lina-plan-due">' + escPlan(t.due_date) + '</span>';
+            // Study builds: per-lesson pages (weight), once the server sends it.
+            if (t.weight !== undefined && t.weight !== null && t.weight !== '') s += ' <span class="lina-plan-due">📄 ' + escPlan(t.weight) + '</span>';
             const subs = t.subtasks || [];
             if (subs.length) {
                 const shown = subs.slice(0, 8).map(x => '<li>• ' + escPlan(x) + '</li>').join('');
@@ -1687,6 +1701,10 @@ footer, .topnav { display: none !important; }
                 if (p.attached) {
                     html += ' <span class="lina-plan-due" title="به پروژه‌ی موجود وصل می‌شود، پروژه‌ی جدید ساخته نمی‌شود">↩︎ موجود از قبل</span>';
                 }
+                // Study builds: daily-goal badge, once the server sends it.
+                if (p.daily_goal_value) {
+                    html += ' <span class="lina-plan-subs">🎯 ' + escPlan(p.daily_goal_value) + ' ' + escPlan(p.daily_goal_unit || '') + '/day</span>';
+                }
                 if ((p.members || []).length) {
                     html += ' <span class="lina-plan-subs">👥 ' + p.members.map(escPlan).join(', ') + '</span>';
                 }
@@ -1696,6 +1714,9 @@ footer, .topnav { display: none !important; }
                     html += '<li>📂 <strong>' + escPlan(s.name) + '</strong>';
                     if (s.attached) {
                         html += ' <span class="lina-plan-due" title="به زیرپروژه‌ی موجود وصل می‌شود">↩︎ موجود از قبل</span>';
+                    }
+                    if (s.daily_goal_value) {
+                        html += ' <span class="lina-plan-subs">🎯 ' + escPlan(s.daily_goal_value) + ' ' + escPlan(s.daily_goal_unit || '') + '/day</span>';
                     }
                     html += '<ul>';
                     (s.tasks || []).forEach(t => { html += taskHtml(t); });
@@ -1840,6 +1861,18 @@ footer, .topnav { display: none !important; }
             body.appendChild(cancel);
         } else if (plan.status === 'done') {
             body.innerHTML = '<div class="lina-plan-note ok" style="background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;color:#16a34a;font-weight:700;">✅ پروژه و تمامی تسک‌ها با موفقیت ساخته شدند. <div class="mt-2"><a href="/projects" class="btn btn-sm btn-primary px-3 rounded-pill fw-bold" style="font-size:12px;"><i class="bi bi-folder-check me-1"></i> مشاهده در Projects</a></div></div>';
+            // Chunked study builds: one tap stages the "next chunk" prompt —
+            // the user only edits the chapter range, then sends.
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'lina-tool-reject';
+            nextBtn.style.cssText = 'margin-top:8px;font-size:12px;';
+            nextBtn.innerHTML = '📦 بسته بعدی ساختار';
+            nextBtn.onclick = () => {
+                input.value = 'بسته بعدی ساختار کتاب «' + (plan.title || '') + '»: فصل‌های بعدی را به همین پروژه‌های موجود وصل کن و بساز. تعداد صفحه هر درسنامه را اگر بگویم در weight ثبت کن.';
+                autoResize(); updateCharCount(); input.focus();
+                scrollBottom();
+            };
+            body.appendChild(nextBtn);
         } else {
             body.innerHTML = '<div class="lina-plan-note muted">پلن ' + escPlan(plan.status) + ' شد — تغییری ایجاد نشد.</div>';
         }
