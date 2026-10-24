@@ -85,7 +85,7 @@ class TrackController extends Controller
                     ->groupBy('routine_id')
                 : collect();
 
-            $cards = $routines->map(fn ($r) => $this->card($r, $logsByRoutine->get($r->id, collect())))->values();
+            $cards = $routines->map(fn ($r) => $this->card($r, $logsByRoutine->get($r->id, collect()), $today, $from30))->values();
             $kinds = $user->routines()->active()
                 ->where('tracking_mode', '!=', Routine::TRACKING_NONE)
                 ->whereNotNull('value_kind')
@@ -234,54 +234,237 @@ class TrackController extends Controller
         ];
     }
 
-    private function card(Routine $routine, $logs): array
+    private function card(Routine $routine, $logs, ?Carbon $today = null, ?Carbon $from30 = null): array
     {
+        $today = ($today ?? now())->copy()->startOfDay();
+        $from30 = ($from30 ?? $today->copy()->subDays(29))->copy()->startOfDay();
         $unit = $routine->tracking_mode === Routine::TRACKING_SETS
             ? null
             : ($routine->value_unit ?: null);
+        $isTime = $routine->isTimeValue();
+
+        // Full 30-day calendar so gaps are visible (the old spark only kept
+        // logged dates, so misses/trends were invisible).
+        $dayKeys = [];
+        $cursor = $from30->copy();
+        while ($cursor->lte($today)) {
+            $dayKeys[] = $cursor->toDateString();
+            $cursor->addDay();
+        }
+        $createdDay = $routine->created_at ? $routine->created_at->copy()->startOfDay()->toDateString() : null;
+        $occursOn = function (string $day) use ($routine, $createdDay): bool {
+            if ($createdDay && $day < $createdDay) {
+                return false;
+            }
+            try {
+                return $routine->occursOn($day);
+            } catch (\Throwable $e) {
+                return true;
+            }
+        };
 
         if ($routine->tracking_mode === Routine::TRACKING_VALUE) {
             $byDate = $logs->whereNull('checklist_item_id')->groupBy(fn ($l) => $this->key($l));
-            $dates = $byDate->keys()->sort()->values();
-            $points = $dates->map(fn ($d) => ['date' => $d, 'value' => (float) $byDate[$d]->first()->value])->values();
-            $latest = $points->last();
-            $prev = $points->count() > 1 ? $points[$points->count() - 2] : null;
+            $series = [];
+            foreach ($dayKeys as $d) {
+                $v = $byDate->has($d) ? (float) $byDate[$d]->first()->value : null;
+                $occurs = $occursOn($d);
+                $isToday = $d === $today->toDateString();
+                $state = $v !== null ? 'logged' : ($occurs ? ($isToday ? 'today' : 'missed') : 'off');
+                $series[] = ['date' => $d, 'value' => $v, 'occurs' => $occurs, 'state' => $state];
+            }
+            $logged = array_values(array_filter($series, fn ($s) => $s['value'] !== null));
+            $vals = array_column($logged, 'value');
+            $latest = end($logged) ?: null;
+            $prev = count($logged) > 1 ? $logged[count($logged) - 2] : null;
+            $delta = ($latest && $prev) ? round($latest['value'] - $prev['value'], 2) : null;
+
+            $avg = $vals ? round(array_sum($vals) / count($vals), 2) : null;
+            $last7Vals = array_column(array_slice($logged, -7), 'value');
+            $avg7 = $last7Vals ? round(array_sum($last7Vals) / count($last7Vals), 2) : null;
+            $min = $vals ? min($vals) : null;
+            $max = $vals ? max($vals) : null;
+            $minDate = null;
+            $maxDate = null;
+            foreach ($logged as $p) {
+                if ($min !== null && $p['value'] == $min && $minDate === null) {
+                    $minDate = $p['date'];
+                }
+                if ($max !== null && $p['value'] == $max) {
+                    $maxDate = $p['date'];
+                }
+            }
+            // Trend: least-squares slope over the last ≤14 logged points.
+            $trend = $this->trendSlope(array_column(array_slice($logged, -14), 'value'));
+            // Scheduled adherence (today excluded until logged, like elsewhere).
+            $schedDays = array_filter($series, fn ($s) => $s['occurs'] && $s['date'] !== $today->toDateString());
+            // If today is logged, count it too.
+            if (($latest['date'] ?? null) === $today->toDateString()) {
+                $schedDays[] = ['date' => $today->toDateString()];
+            }
+            $schedCount = count($schedDays);
+            $loggedCount = count($vals);
+            $rate = $schedCount ? (int) round(min($loggedCount, $schedCount) / $schedCount * 100) : 0;
+
+            // Chart domain with padding so small variations (e.g. 06:50 vs
+            // 07:10 wake-ups) are actually visible — the old v/max scaling
+            // rendered every bar at ~95-100% height.
+            [$cMin, $cMax] = $this->chartDomain($vals, $isTime);
 
             return [
                 'routine' => $routine,
-                'is_time' => $routine->isTimeValue(),
+                'mode' => 'value',
+                'is_time' => $isTime,
                 'latest' => $latest['value'] ?? null,
                 'latest_date' => $latest['date'] ?? null,
-                'delta' => ($latest && $prev) ? round($latest['value'] - $prev['value'], 2) : null,
+                'delta' => $delta,
+                'delta_prev_date' => $prev['date'] ?? null,
                 'unit' => $unit,
-                'spark' => $points->take(-14)->pluck('value')->all(),
-                'spark_labels' => $points->take(-14)->pluck('date')->all(),
+                'series' => $series,
+                'values' => $vals,
+                'logged_count' => $loggedCount,
+                'sched_count' => $schedCount,
+                'rate' => $rate,
+                'avg' => $avg,
+                'avg7' => $avg7,
+                'min' => $min,
+                'min_date' => $minDate,
+                'max' => $max,
+                'max_date' => $maxDate,
+                'trend' => $trend,
+                'chart_min' => $cMin,
+                'chart_max' => $cMax,
+                // Back-compat for old partials/tests.
+                'spark' => array_column(array_slice($logged, -14), 'value'),
+                'spark_labels' => array_column(array_slice($logged, -14), 'date'),
             ];
         }
 
-        // Sets mode: activity spark = sets logged per day; latest session detail.
+        // Sets mode: daily volume (sum of set values) — same metric as the
+        // stats page (the old card used set counts, which disagreed).
         $stepLogs = $logs->whereNotNull('checklist_item_id');
         $byDate = $stepLogs->groupBy(fn ($l) => $this->key($l));
-        $dates = $byDate->keys()->sort()->values();
-        $latestDate = $dates->last();
+        $series = [];
+        foreach ($dayKeys as $d) {
+            $g = $byDate->has($d) ? $byDate[$d] : collect();
+            $vol = $g->count() ? round($g->sum(fn ($l) => (float) $l->value), 2) : null;
+            $occurs = $occursOn($d);
+            $isToday = $d === $today->toDateString();
+            $state = $vol !== null ? 'logged' : ($occurs ? ($isToday ? 'today' : 'missed') : 'off');
+            $series[] = ['date' => $d, 'value' => $vol, 'sets' => $g->count() ?: null, 'occurs' => $occurs, 'state' => $state];
+        }
+        $logged = array_values(array_filter($series, fn ($s) => $s['value'] !== null));
+        $vals = array_column($logged, 'value');
+        $latestEntry = end($logged) ?: null;
+        $latestDate = $latestEntry['date'] ?? null;
         $latestSets = $latestDate ? $byDate[$latestDate] : collect();
         $stepNames = $routine->checklistItems->keyBy('id');
         $perStep = $latestSets->groupBy('checklist_item_id')->map(fn ($g, $itemId) => [
             'name' => $stepNames->get($itemId)?->name ?? ('Step #' . $itemId),
             'sets' => $g->sortBy('set_no')->map(fn ($l) => (float) $l->value)->values()->all(),
         ])->values();
+        $prevEntry = count($logged) > 1 ? $logged[count($logged) - 2] : null;
+        $delta = ($latestEntry && $prevEntry) ? round($latestEntry['value'] - $prevEntry['value'], 2) : null;
+        $avg = $vals ? round(array_sum($vals) / count($vals), 2) : null;
+        $last7Vals = array_column(array_slice($logged, -7), 'value');
+        $avg7 = $last7Vals ? round(array_sum($last7Vals) / count($last7Vals), 2) : null;
+        $trend = $this->trendSlope(array_column(array_slice($logged, -14), 'value'));
+        $schedCount = count(array_filter($series, fn ($s) => $s['occurs'] && $s['date'] !== $today->toDateString()))
+            + ((($latestEntry['date'] ?? null) === $today->toDateString()) ? 1 : 0);
+        $rate = $schedCount ? (int) round(min(count($vals), $schedCount) / $schedCount * 100) : 0;
+        [$cMin, $cMax] = $this->chartDomain($vals, false);
 
         return [
             'routine' => $routine,
-            'latest' => $latestSets->count() ?: null,
+            'mode' => 'sets',
+            'latest' => $latestEntry['value'] ?? null,
             'latest_date' => $latestDate,
-            'latest_suffix' => 'sets',
-            'delta' => null,
+            'latest_suffix' => 'total',
+            'latest_sets_count' => $latestSets->count() ?: null,
+            'delta' => $delta,
+            'delta_prev_date' => $prevEntry['date'] ?? null,
             'unit' => null,
-            'spark' => $dates->take(-14)->map(fn ($d) => $byDate[$d]->count())->all(),
-            'spark_labels' => $dates->take(-14)->all(),
+            'series' => $series,
+            'values' => $vals,
+            'logged_count' => count($vals),
+            'sched_count' => $schedCount,
+            'rate' => $rate,
+            'avg' => $avg,
+            'avg7' => $avg7,
+            'min' => $vals ? min($vals) : null,
+            'max' => $vals ? max($vals) : null,
+            'trend' => $trend,
+            'chart_min' => $cMin,
+            'chart_max' => $cMax,
+            'spark' => array_column(array_slice($logged, -14), 'value'),
+            'spark_labels' => array_column(array_slice($logged, -14), 'date'),
             'per_step' => $perStep,
         ];
+    }
+
+    /**
+     * Least-squares slope per logged point (null when <3 points or flat).
+     */
+    private function trendSlope(array $vals): ?float
+    {
+        $n = count($vals);
+        if ($n < 3) {
+            return null;
+        }
+        $xs = range(0, $n - 1);
+        $xMean = array_sum($xs) / $n;
+        $yMean = array_sum($vals) / $n;
+        $num = 0.0;
+        $den = 0.0;
+        for ($i = 0; $i < $n; $i++) {
+            $num += ($xs[$i] - $xMean) * ($vals[$i] - $yMean);
+            $den += ($xs[$i] - $xMean) ** 2;
+        }
+        if ($den == 0) {
+            return null;
+        }
+        $slope = $num / $den;
+        // Ignore noise smaller than 0.5% of the mean per step.
+        if ($yMean != 0 && abs($slope) < abs($yMean) * 0.005) {
+            return 0.0;
+        }
+
+        return round($slope, 3);
+    }
+
+    /**
+     * Padded chart domain so near-constant series (e.g. wake-up times
+     * 06:50–07:10) still show variation instead of a flat line at ~100%.
+     */
+    private function chartDomain(array $vals, bool $isTime): array
+    {
+        if (! $vals) {
+            return [0, 1];
+        }
+        $min = min($vals);
+        $max = max($vals);
+        $span = $max - $min;
+        if ($span <= 0) {
+            $pad = $isTime ? 30 : (abs($max) > 0 ? max(abs($max) * 0.1, 1) : 1);
+            // For clock times keep the domain inside the day.
+            if ($isTime) {
+                return [max(0, $min - $pad), min(1439, $max + $pad)];
+            }
+
+            return [$min - $pad, $max + $pad];
+        }
+        $pad = $isTime ? max(15, $span * 0.3) : max($span * 0.2, $span > 0 ? $span * 0.2 : 1);
+        $lo = $min - $pad;
+        $hi = $max + $pad;
+        if ($isTime) {
+            $lo = max(0, $lo);
+            $hi = min(1439, $hi);
+        } elseif ($min >= 0 && $lo < 0) {
+            // Non-negative kinds (weight/reps/…) keep zero in view when close.
+            $lo = min(0, $min - $span * 0.1);
+        }
+
+        return [$lo, $hi];
     }
 
     private function key($log): string

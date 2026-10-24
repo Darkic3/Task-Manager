@@ -70,6 +70,27 @@
     .tk-sq.today{box-shadow:inset 0 0 0 1.5px #0e7490;background:#ecfeff;}
     .tk-sq.future{background:#fafbfc;box-shadow:inset 0 0 0 1px #eef0f3;}
     .tk-sq.violated{background:#ef4444;}
+    /* ── Measurable: zoomed line chart + stats ── */
+    .tk-m .tk-latest{font-size:30px;}
+    .tk-m-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+    .tk-m-badges{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+    .tk-chart{display:flex;gap:8px;margin-top:12px;}
+    .tk-chart-y{display:flex;flex-direction:column;justify-content:space-between;font-size:10px;font-weight:700;color:#8a8f98;padding:2px 0 18px;text-align:right;min-width:38px;font-variant-numeric:tabular-nums;}
+    .tk-chart-main{flex:1;min-width:0;}
+    .tk-svg{width:100%;height:76px;display:block;background:#fafbfc;border:1px solid #eef0f3;border-radius:8px;overflow:visible;}
+    .tk-svg .tk-grid{stroke:#eef0f3;stroke-width:1;vector-effect:non-scaling-stroke;}
+    .tk-svg .tk-avg{stroke:#f59e0b;stroke-width:1.5;stroke-dasharray:5 4;vector-effect:non-scaling-stroke;opacity:.9;}
+    .tk-svg .tk-line{fill:none;stroke:#0e7490;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;}
+    .tk-svg .tk-dot{fill:#0e7490;stroke:#fff;stroke-width:2;vector-effect:non-scaling-stroke;}
+    .tk-chart-x{display:flex;justify-content:space-between;font-size:10px;color:#adb0b8;font-weight:600;margin-top:4px;}
+    .tk-m-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
+    @media(max-width:560px){.tk-m-stats{grid-template-columns:repeat(2,1fr);}}
+    .tk-m-stat{background:#f8fafc;border:1px solid #eef0f3;border-radius:8px;padding:7px 10px;min-width:0;}
+    .tk-m-stat b{display:block;font-size:14px;color:#1a1d23;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tk-m-stat small{font-size:10px;color:#adb0b8;}
+    .tk-m-lbl{font-size:10px;color:#8a8f98;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+    .tk-trend{font-size:11.5px;font-weight:700;margin-top:8px;}
+    .tk-trend.up{color:#16a34a;} .tk-trend.down{color:#dc2626;} .tk-trend.flat{color:#8a8f98;}
     .tk-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
     .tk-pill{font-size:11px;font-weight:600;background:#f8fafc;border:1px solid #eef0f3;border-radius:12px;padding:2px 9px;color:#475569;}
     .tk-pill.danger{background:#fef2f2;border-color:#fecaca;color:#b91c1c;}

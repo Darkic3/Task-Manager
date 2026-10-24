@@ -290,6 +290,10 @@
                         $fmtV = fn ($v) => $v === null ? '—' : ($isTimeV ? \App\Models\Routine::minutesToTimeValue($v) : $v);
                         $unitV = $isTimeV ? '' : ($valueStats['unit'] ?? '');
                     @endphp
+                    @php
+                        $peakVal = $isTimeV ? $min : $max;
+                        $prLbl = $valueStats['pr_label'] ?? __('Personal record');
+                    @endphp
                     <div class="tr-stats">
                         <div class="tr-stat">
                             <div class="tr-val">{{ $fmtV($valueStats['latest']['value']) }} {{ $unitV }}</div>
@@ -297,18 +301,21 @@
                         </div>
                         <div class="tr-stat">
                             <div class="tr-val">{{ $fmtV($valueStats['pr']) }} {{ $unitV }}</div>
-                            <div class="tr-lbl">{{ __('Personal record') }}</div>
+                            <div class="tr-lbl">{{ $prLbl }}</div>
                         </div>
                         <div class="tr-stat">
                             <div class="tr-val">{{ $fmtV($valueStats['avg']) }}{{ $valueStats['avg'] !== null && $unitV !== '' ? ' ' . $unitV : '' }}</div>
                             <div class="tr-lbl">{{ $valueStats['mode'] === 'value' ? __('Average') : __('Sessions') }} ({{ count($pts) }})</div>
                         </div>
                     </div>
+                    @if($isTimeV)
+                        <div style="font-size:11px;color:#8a8f98;margin-bottom:8px;">{{ __('Range') }}: {{ $fmtV($min) }} – {{ $fmtV($max) }} · {{ __('lower is earlier') }}</div>
+                    @endif
                     <div class="tr-chart" style="height:110px;">
                         @foreach($pts as $p)
                             @php $h = 8 + round(($p['value'] - $min) / $span * 92); @endphp
                             <div class="tr-bar-wrap" title="{{ $p['date'] }} — {{ $fmtV($p['value']) }}">
-                                <div class="tr-bar {{ $p['value'] == $max ? 'is-peak' : '' }}" style="height:{{ $h }}%;"></div>
+                                <div class="tr-bar {{ $p['value'] == $peakVal ? 'is-peak' : '' }}" style="height:{{ $h }}%;"></div>
                             </div>
                         @endforeach
                     </div>

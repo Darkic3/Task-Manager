@@ -575,12 +575,18 @@ class RoutineController extends Controller
                 ->map(fn ($g, $d) => ['date' => $d, 'value' => (float) $g->first()->value])
                 ->sortBy('date')->values();
 
+            $isTime = $routine->isTimeValue();
+
             return [
                 'mode' => 'value',
-                'is_time' => $routine->isTimeValue(),
+                'is_time' => $isTime,
                 'points' => $points->all(),
                 'latest' => $points->last(),
-                'pr' => $points->max('value'),
+                // Clock times: "best" is the earliest wake-up (min), not max.
+                'pr' => $isTime ? $points->min('value') : $points->max('value'),
+                'pr_label' => $isTime ? __('Earliest') : __('Personal record'),
+                'min' => $points->min('value'),
+                'max' => $points->max('value'),
                 'avg' => $points->count() ? round($points->avg('value'), 2) : null,
                 'unit' => $routine->value_unit,
                 'label' => $routine->trackingLabel(),
