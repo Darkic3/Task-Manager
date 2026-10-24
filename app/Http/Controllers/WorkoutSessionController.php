@@ -192,6 +192,7 @@ class WorkoutSessionController extends Controller
                 ->where('workout_exercise_log_id', $exerciseLog->id)
                 ->where('completed', true)
                 ->whereIn('side', ['left', 'right'])
+                ->select('set_number')
                 ->groupBy('set_number')
                 ->havingRaw('COUNT(DISTINCT side) = 2')
                 ->count(),
