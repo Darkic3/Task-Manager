@@ -278,13 +278,23 @@ class AiProviderService
             return ['ok' => false, 'message' => __('Blocked provider URL (SSRF guard): :reason', ['reason' => $reason])];
         }
 
+        // P3 metrics context: every connectivity probe is recorded like any
+        // other provider round-trip (counts + outcome only, never secrets).
+        $callCtx = [
+            'operation' => 'connection_test',
+            'user_id' => $provider->user_id ?? null,
+            'provider' => $provider->type,
+            'model' => $model,
+            'type' => $provider->type,
+        ];
+
         try {
             if ($provider->type === 'gemini') {
                 $url = rtrim($provider->base_url, '/') . '/' . $model . ':generateContent?key=' . $key;
                 $res = $this->postJson($url, [
                     'contents' => [['role' => 'user', 'parts' => [['text' => 'ping']]]],
                     'generationConfig' => ['maxOutputTokens' => 5],
-                ], [], 30);
+                ], [], self::TIMEOUT_TEST, $callCtx);
                 if ($res->failed()) {
                     return ['ok' => false, 'message' => $this->formatErrorResponse($res)];
                 }
@@ -299,7 +309,7 @@ class AiProviderService
                 ], [
                     'x-api-key'         => $key,
                     'anthropic-version' => '2023-06-01',
-                ], 30);
+                ], self::TIMEOUT_TEST, $callCtx);
                 if ($res->failed()) {
                     return ['ok' => false, 'message' => $this->formatErrorResponse($res)];
                 }
@@ -315,7 +325,7 @@ class AiProviderService
                 $endpoint
             );
             $payload['max_tokens'] = 5;
-            $res = $this->postJson($endpoint, $payload, ['Authorization' => 'Bearer ' . $key], 30);
+            $res = $this->postJson($endpoint, $payload, ['Authorization' => 'Bearer ' . $key], self::TIMEOUT_TEST, $callCtx);
             if ($res->failed()) {
                 return ['ok' => false, 'message' => $this->formatErrorResponse($res)];
             }
@@ -327,16 +337,51 @@ class AiProviderService
 
     // ── HTTP helpers ────────────────────────────────────────────────
 
+    /** Per-operation timeouts (seconds). Small pings fail fast; long
+     * chain revisions get headroom. LLM calls are side-effect free, so a
+     * timeout never duplicates server state (mutations stay behind
+     * idempotent confirm endpoints). */
+    public const TIMEOUT_CHAT = 60;
+
+    public const TIMEOUT_STREAM = 60;
+
+    public const TIMEOUT_REVISE = 90;
+
+    public const TIMEOUT_TEST = 30;
+
+    /** Retry at most 3 attempts, only for retryable failures (429 / 5xx /
+     * timeouts / connection errors). 4xx (except 429) never retries. */
+    public const MAX_ATTEMPTS = 3;
+
+    /** Backoff between retries in milliseconds (1.5s, 3s). */
+    public const BACKOFF_MS = [1500, 3000];
+
     /**
-     * POST JSON with automatic retry/backoff on 429 and 5xx.
+     * POST JSON with automatic retry/backoff on retryable failures.
      * Adds OpenRouter-recommended attribution headers (harmless elsewhere).
      *
      * TLS verification is MANDATORY (config `ai.tls_verify`, default true).
      * It may only be disabled for local dev via AI_TLS_VERIFY=false.
+     *
+     * $callCtx (optional, opt-in metrics): ['operation','user_id',
+     * 'conversation_id','provider','model','type']. When 'operation' is
+     * set, the call is recorded to ai_provider_calls with verbatim token
+     * counts (or NULL when the provider reports none — never estimated).
+     * $meta (optional out-param): ['attempts'=>int] for callers that need
+     * to know whether a retry happened.
      */
-    public function postJson(string $url, array $payload, array $headers = [], int $timeout = 60): \Illuminate\Http\Client\Response
+    public function postJson(string $url, array $payload, array $headers = [], int $timeout = 60, array $callCtx = [], ?array &$meta = null): \Illuminate\Http\Client\Response
     {
-        $this->assertUrlSafe($url);
+        $startedAt = microtime(true);
+        $attempts = 0;
+        try {
+            $this->assertUrlSafe($url);
+        } catch (\App\Exceptions\AiProviderException $e) {
+            $meta = ['attempts' => 0];
+            $this->recordCall($callCtx, $attempts, $startedAt, \App\Models\AiProviderCall::OUTCOME_BLOCKED, 'ssrf_blocked', null);
+
+            throw $e;
+        }
 
         $headers = array_merge([
             'Content-Type' => 'application/json',
@@ -346,8 +391,8 @@ class AiProviderService
 
         $verify = (bool) config('ai.tls_verify', true);
 
-        $maxAttempts = 3;
         for ($attempt = 1; ; $attempt++) {
+            $attempts = $attempt;
             try {
                 $response = Http::withHeaders($headers)
                     ->withOptions(['verify' => $verify])
@@ -355,10 +400,20 @@ class AiProviderService
                     ->post($url, $payload);
             } catch (\Illuminate\Http\Client\ConnectionException $e) {
                 // cURL 52 Empty reply / timeout / DNS — retry, then surface as provider error
-                if ($attempt < $maxAttempts) {
-                    usleep(1500 * 1000 * $attempt); // 1.5s, 3s
+                if ($attempt < self::MAX_ATTEMPTS) {
+                    usleep((self::BACKOFF_MS[$attempt - 1] ?? 3000) * 1000);
                     continue;
                 }
+                $meta = ['attempts' => $attempts];
+                $timeoutHit = self::isTimeoutMessage($e->getMessage());
+                $this->recordCall(
+                    $callCtx,
+                    $attempts,
+                    $startedAt,
+                    $timeoutHit ? \App\Models\AiProviderCall::OUTCOME_TIMEOUT : \App\Models\AiProviderCall::OUTCOME_CONNECTION_ERROR,
+                    $timeoutHit ? 'timeout' : 'connection_error',
+                    null
+                );
                 throw new AiProviderException(
                     $e->getMessage(),
                     parse_url($url, PHP_URL_HOST) ?: 'unknown',
@@ -370,12 +425,47 @@ class AiProviderService
             }
 
             $status = $response->status();
-            if (($status === 429 || $status >= 500) && $attempt < $maxAttempts) {
-                usleep(1500 * 1000 * $attempt); // 1.5s, 3s
+            if (($status === 429 || $status >= 500) && $attempt < self::MAX_ATTEMPTS) {
+                usleep((self::BACKOFF_MS[$attempt - 1] ?? 3000) * 1000);
                 continue;
             }
+            $meta = ['attempts' => $attempts];
+            if ($response->failed()) {
+                [$prompt, $completion] = \App\Services\AiProviderCallLog::parseUsage($response->json(), (string) ($callCtx['type'] ?? 'openai'));
+                $this->recordCall($callCtx, $attempts, $startedAt, \App\Models\AiProviderCall::OUTCOME_HTTP_ERROR, 'http_'.$status, ['prompt_tokens' => $prompt, 'completion_tokens' => $completion]);
+            } else {
+                [$prompt, $completion] = \App\Services\AiProviderCallLog::parseUsage($response->json(), (string) ($callCtx['type'] ?? 'openai'));
+                $this->recordCall($callCtx, $attempts, $startedAt, \App\Models\AiProviderCall::OUTCOME_OK, null, ['prompt_tokens' => $prompt, 'completion_tokens' => $completion]);
+            }
+
             return $response;
         }
+    }
+
+    /** Timeout signatures from the HTTP client (cURL 28, Laravel timeouts). */
+    public static function isTimeoutMessage(string $message): bool
+    {
+        return (bool) preg_match('/timed?\s*out|cURL error 28|operation timed out/i', $message);
+    }
+
+    private function recordCall(array $callCtx, int $attempts, float $startedAt, string $outcome, ?string $errorCode, ?array $usage): void
+    {
+        if (empty($callCtx['operation'])) {
+            return;
+        }
+        \App\Services\AiProviderCallLog::record([
+            'user_id' => $callCtx['user_id'] ?? null,
+            'conversation_id' => $callCtx['conversation_id'] ?? null,
+            'operation' => $callCtx['operation'],
+            'provider' => $callCtx['provider'] ?? null,
+            'model' => $callCtx['model'] ?? null,
+            'latency_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            'attempts' => $attempts,
+            'prompt_tokens' => $usage['prompt_tokens'] ?? null,
+            'completion_tokens' => $usage['completion_tokens'] ?? null,
+            'outcome' => $outcome,
+            'error_code' => $errorCode,
+        ]);
     }
 
     /**

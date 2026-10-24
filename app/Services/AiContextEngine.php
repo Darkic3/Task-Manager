@@ -777,4 +777,160 @@ class AiContextEngine
 
         return $this->sectionHeader($key, count($lines))."\n".implode("\n", $lines);
     }
+
+    /**
+     * P3 structured package context for one execution/revision step.
+     *
+     * Unlike build() (relevance retrieval over the whole workspace), this
+     * assembles ONLY server-owned facts the model needs: master identity +
+     * version, package index/scope, dependency states, prior results from
+     * created_items ledgers, owned project ids, caps, and the last error.
+     * No conversation history, no full outline, no workspace dump — every
+     * byte is bounded and measurable (see meta.chars / meta.est_tokens).
+     */
+    public function buildPackageContext($user, \App\Models\AiPlan $plan, \App\Models\AiStudyBuild $build): array
+    {
+        $idx = $plan->package_index !== null ? (int) $plan->package_index : null;
+        $total = (int) $build->total_chunks;
+        $lines = [];
+        $included = ['master', 'package', 'scope', 'deps', 'projects', 'results', 'limits'];
+
+        $lines[] = 'MASTER id='.$build->id.' version='.(int) $build->version.' approved='.($build->approved_version !== null ? (int) $build->approved_version : 'none').' title='.mb_substr((string) $build->title, 0, 80);
+        $lines[] = 'PACKAGE index='.($idx ?? '?').'/'.$total.' id='.$plan->id.' status='.$plan->status.' title='.mb_substr((string) $plan->title, 0, 80);
+
+        // Scope titles only (no ids — ids are injected server-side, never asked).
+        $chunks = [];
+        foreach ((array) ($build->chunks_json ?? []) as $ch) {
+            if (isset($ch['chunk_index'])) {
+                $chunks[(int) $ch['chunk_index']] = $ch;
+            }
+        }
+        $scopeNames = [];
+        if ($idx !== null && isset($chunks[$idx])) {
+            foreach (array_slice((array) ($chunks[$idx]['subprojects'] ?? []), 0, 5) as $sub) {
+                if (isset($sub['title']) && $sub['title'] !== '') {
+                    $scopeNames[] = mb_substr((string) $sub['title'], 0, 80);
+                }
+            }
+        }
+        if ($scopeNames === []) {
+            foreach (array_slice((array) ($plan->structure['projects'][0]['subprojects'] ?? []), 0, 5) as $sub) {
+                if (isset($sub['name']) && $sub['name'] !== '') {
+                    $scopeNames[] = mb_substr((string) $sub['name'], 0, 80);
+                }
+            }
+        }
+        $lines[] = 'SCOPE: '.($scopeNames !== [] ? implode(' | ', $scopeNames) : '(empty)');
+
+        // Dependencies with server-side states.
+        if ($idx !== null && $idx > 1) {
+            $prev = \App\Models\AiPlan::where('user_id', $user->id)
+                ->where('master_build_id', $build->id)
+                ->where('package_index', $idx - 1)
+                ->first(['id', 'status']);
+            $lines[] = 'DEPENDS_ON: package '.($idx - 1).' status='.($prev ? $prev->status : 'missing');
+        } else {
+            $lines[] = 'DEPENDS_ON: none (first package)';
+        }
+
+        // Owned project ids the package may attach to (verified, not guessed).
+        $bookId = $build->book_project_id;
+        if ($bookId) {
+            $book = \App\Models\Project::where('id', (int) $bookId)->where('user_id', $user->id)->first(['id', 'name']);
+            $lines[] = $book
+                ? 'BOOK_PROJECT id='.$book->id.' name='.mb_substr((string) $book->name, 0, 80)
+                : 'BOOK_PROJECT id='.(int) $bookId.' (deleted)';
+        } else {
+            $lines[] = 'BOOK_PROJECT: none yet (first package creates it)';
+        }
+        $createdIds = array_map('intval', (array) ($plan->created_items['projects'] ?? []));
+        if ($createdIds !== []) {
+            $names = \App\Models\Project::where('user_id', $user->id)->whereIn('id', $createdIds)->pluck('name', 'id')->all();
+            $parts = [];
+            foreach (array_slice($createdIds, 0, 5) as $pid) {
+                $parts[] = '#'.$pid.' '.mb_substr((string) ($names[$pid] ?? '?'), 0, 40);
+            }
+            $lines[] = 'OWN_PROJECTS: '.implode(' | ', $parts);
+        }
+
+        // Prior results are ledgers, never model summaries.
+        $done = \App\Models\AiPlan::where('user_id', $user->id)
+            ->where('master_build_id', $build->id)
+            ->where('status', \App\Models\AiPlan::STATUS_DONE)
+            ->get(['package_index', 'created_items']);
+        $resParts = [];
+        foreach ($done as $d) {
+            $ci = $d->created_items ?? [];
+            $resParts[] = 'pkg'.(int) $d->package_index.' tasks='.count((array) ($ci['tasks'] ?? [])).' subtasks='.count((array) ($ci['subtasks'] ?? []));
+        }
+        $lines[] = 'PRIOR_RESULTS: '.($resParts !== [] ? implode(' ; ', $resParts) : 'none');
+
+        $lines[] = 'LIMITS: subprojects<='.\App\Models\AiPlan::MAX_SUBPROJECTS.' tasks<='.\App\Models\AiPlan::MAX_TASKS.' subtasks<='.\App\Models\AiPlan::MAX_SUBTASKS.' reminders<='.\App\Models\AiPlan::MAX_REMINDERS.' notes<='.\App\Models\AiPlan::MAX_NOTES;
+        if ($plan->last_error) {
+            $lines[] = 'LAST_ERROR: '.mb_substr((string) $plan->last_error, 0, 200).' — fix only the failed part, retry is explicit.';
+        }
+        $lines[] = 'RULES: use ONLY the ids listed above; never invent project/task ids; reply with the package args JSON only.';
+
+        $text = implode("\n", $lines);
+        if (mb_strlen($text) > 2000) {
+            $text = mb_substr($text, 0, 1997).'…';
+        }
+
+        return [
+            'text' => $text,
+            'meta' => [
+                'chars' => mb_strlen($text),
+                'est_tokens' => (int) ceil(mb_strlen($text) / 4),
+                'included' => $included,
+            ],
+        ];
+    }
+
+    /**
+     * Scope titles from a plan_propose structure (titles only — every
+     * *-id key is stripped so identities stay server-owned).
+     */
+    public static function scopeTextFromStructure(array $structure): string
+    {
+        $out = [];
+        $roots = $structure['projects'] ?? null;
+        if (! is_array($roots) || $roots === []) {
+            $roots = [];
+            if (isset($structure['project']) && is_array($structure['project'])) {
+                $first = $structure['project'];
+                $first['subprojects'] = $structure['subprojects'] ?? [];
+                $roots = [$first];
+            }
+        }
+        foreach (array_slice(array_values((array) $roots), 0, 5) as $r) {
+            if (! is_array($r)) {
+                continue;
+            }
+            $out[] = '📌 '.mb_substr(trim((string) ($r['name'] ?? '')), 0, 120);
+            foreach (array_slice((array) ($r['subprojects'] ?? []), 0, 8) as $s) {
+                if (! is_array($s) || trim((string) ($s['name'] ?? '')) === '') {
+                    continue;
+                }
+                $out[] = '  - '.mb_substr(trim((string) $s['name']), 0, 120);
+                foreach (array_slice((array) ($s['tasks'] ?? []), 0, 10) as $t) {
+                    if (! is_array($t) || trim((string) ($t['title'] ?? '')) === '') {
+                        continue;
+                    }
+                    $out[] = '    · '.mb_substr(trim((string) $t['title']), 0, 120);
+                }
+            }
+            foreach (array_slice((array) ($r['tasks'] ?? []), 0, 10) as $t) {
+                if (! is_array($t) || trim((string) ($t['title'] ?? '')) === '') {
+                    continue;
+                }
+                $out[] = '  · '.mb_substr(trim((string) $t['title']), 0, 120);
+            }
+        }
+        $text = implode("\n", $out);
+        if (mb_strlen($text) > 1500) {
+            $text = mb_substr($text, 0, 1497).'…';
+        }
+
+        return $text;
+    }
 }

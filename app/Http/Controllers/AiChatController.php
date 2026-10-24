@@ -179,10 +179,23 @@ class AiChatController extends Controller
         $contextProfile = \App\Services\AiIntentRouter::profileFor($agentMode ? 'agent' : 'chat', $route);
         AiLogger::log('intent.routed', AiTrace::ids($runId, $rid, $user->id) + ['rid' => $rid, 'intent' => $route['intent'], 'confidence' => $route['confidence'], 'profile' => $contextProfile, 'requires_clarification' => $route['requires_clarification']]);
 
+        // P3 flow decision (deterministic): invalid → safe refusal without
+        // provider/tools/DB; master → versioned chain fast-path; clarify →
+        // existing hint path; simple → unchanged single-turn flow.
+        $message = (string) $request->message;
+        $detected = $agentMode ? \App\Services\Study\StudyBuildOrchestrator::detectFromMessage($message) : null;
+        $flow = \App\Services\AiIntentRouter::decideFlow($message, $route, $detected);
+        AiLogger::log('request.flow', AiTrace::ids($runId, $rid, $user->id) + ['flow' => $flow['flow'], 'reason' => $flow['reason']]);
+        if ($flow['flow'] === \App\Services\AiIntentRouter::FLOW_INVALID) {
+            AiLogger::log('request.refused', AiTrace::ids($runId, $rid, $user->id) + ['reason' => $flow['reason'], 'latency_ms' => AiTrace::elapsedMs($startedAt)]);
+
+            return response()->json(['reply' => \App\Services\AiIntentRouter::refusalText(), 'proposals' => []], 200);
+        }
+
         // Study-chain fast path (server-side, no LLM): same detector as the
         // stream endpoint, JSON transport instead of SSE.
         if ($agentMode) {
-            $studyChat = $this->chatStudyChain($user, (string) $request->message, $resolved, $runId, $rid, $startedAt);
+            $studyChat = $this->chatStudyChain($user, $message, $resolved, $runId, $rid, $startedAt, $detected);
             if ($studyChat !== null) {
                 return $studyChat;
             }
@@ -218,7 +231,16 @@ class AiChatController extends Controller
         $messages = $this->buildMessages($user, $context, $history, $request->message, $agentMode ? 'agent' : 'chat', $route);
 
         try {
-            $result = $this->callProviderSyncWithTools($resolved, $messages, $user, $agentMode, $runId, $rid, $route);
+            // P3 metrics: this chat round-trip is recorded (opt-in context;
+            // verbatim token counts only, no payload content ever stored).
+            $callCtx = [
+                'operation' => 'chat_completion',
+                'user_id' => $user->id,
+                'provider' => $resolved['provider'],
+                'model' => $resolved['model'],
+                'type' => $resolved['type'] ?? 'openai',
+            ];
+            $result = $this->callProviderSyncWithTools($resolved, $messages, $user, $agentMode, $runId, $rid, $route, [], $callCtx);
             \Log::info('AI chat response', ['user_id' => $user->id, 'provider' => $resolved['provider'], 'model' => $resolved['model'], 'mode' => $agentMode ? 'agent' : 'chat']);
             $toolNames = collect($result['proposals'] ?? [])->map(fn ($p) => $p['tool'] ?? (isset($p['plan']) ? 'plan_propose' : (isset($p['import']) ? 'workout_plan_propose' : null)))->filter()->all();
             $proposalCount = count($result['proposals'] ?? []);
@@ -348,6 +370,26 @@ class AiChatController extends Controller
         $contextProfile = \App\Services\AiIntentRouter::profileFor($agentMode ? 'agent' : 'chat', $route);
         AiLogger::log('intent.routed', AiTrace::ids($runId, $rid, $user->id) + ['intent' => $route['intent'], 'confidence' => $route['confidence'], 'profile' => $contextProfile, 'requires_clarification' => $route['requires_clarification']]);
 
+        // P3 flow decision before any conversation/message row is created:
+        // invalid requests are refused over SSE with zero side effects.
+        $detected = $agentMode ? \App\Services\Study\StudyBuildOrchestrator::detectFromMessage((string) $request->message) : null;
+        $flow = \App\Services\AiIntentRouter::decideFlow((string) $request->message, $route, $detected);
+        AiLogger::log('request.flow', AiTrace::ids($runId, $rid, $user->id) + ['flow' => $flow['flow'], 'reason' => $flow['reason']]);
+        if ($flow['flow'] === \App\Services\AiIntentRouter::FLOW_INVALID) {
+            $refusal = \App\Services\AiIntentRouter::refusalText();
+            $sseFlush = $this->sseFlushClosure();
+            AiLogger::log('request.refused', AiTrace::ids($runId, $rid, $user->id) + ['reason' => $flow['reason'], 'latency_ms' => AiTrace::elapsedMs($startedAt)]);
+
+            return response()->stream(function () use ($sseFlush, $refusal) {
+                foreach (mb_str_split($refusal, 40) as $piece) {
+                    echo 'data: '.json_encode(['choices' => [['delta' => ['content' => $piece]]]])."\n\n";
+                    $sseFlush();
+                }
+                echo "data: [DONE]\n\n";
+                $sseFlush();
+            }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
+        }
+
         // Resolve or create conversation.
         // Security Boundary: a foreign conversation_id is NEVER silently
         // forked into a new conversation — that would mask IDOR probing.
@@ -384,9 +426,10 @@ class AiChatController extends Controller
 
         // Study-chain fast path (server-side, no LLM, works offline): a
         // pasted multi-chunk book outline with an explicit build demand is
-        // parsed and proposed deterministically in agent mode.
+        // parsed and proposed deterministically in agent mode. The outline
+        // was already detected for the flow decision — reused, not re-sent.
         if ($agentMode) {
-            $studyStream = $this->streamStudyChain($user, $conversation, (string) $request->message, $resolved, $runId, $rid, $startedAt);
+            $studyStream = $this->streamStudyChain($user, $conversation, (string) $request->message, $resolved, $runId, $rid, $startedAt, $detected);
             if ($studyStream !== null) {
                 return $studyStream;
             }
@@ -577,13 +620,13 @@ class AiChatController extends Controller
      * Raw OpenAI-compatible sync call with optional tools.
      * Returns ['text'=>string,'tool_calls'=>array].
      */
-    private function callOpenAiSyncRaw(string $key, string $baseUrl, array $messages, string $model, ?array $tools): array
+    private function callOpenAiSyncRaw(string $key, string $baseUrl, array $messages, string $model, ?array $tools, array $callCtx = []): array
     {
         $endpoint = $this->ai->endpointFor($baseUrl, 'openai');
         $payload = $this->ai->openAiPayload($messages, $model, false, $endpoint, $tools);
         $response = $this->ai->postJson($endpoint, $payload, [
             'Authorization' => 'Bearer '.$key,
-        ], 60);
+        ], \App\Services\AiProviderService::TIMEOUT_CHAT, $callCtx);
 
         if ($response->failed()) {
             $detail = $this->ai->formatErrorResponse($response);
@@ -612,7 +655,7 @@ class AiChatController extends Controller
      * Sync dispatch that also supports tool proposals for OpenAI-compatible providers.
      * Returns ['reply'=>string] or ['reply'=>string,'proposal'=>array].
      */
-    private function callProviderSyncWithTools(array $resolved, array $messages, $user, bool $withTools = true, ?string $runId = null, ?string $rid = null, ?array $route = null, array $toolContext = []): array
+    private function callProviderSyncWithTools(array $resolved, array $messages, $user, bool $withTools = true, ?string $runId = null, ?string $rid = null, ?array $route = null, array $toolContext = [], array $callCtx = []): array
     {
         $type = $resolved['type'] ?? 'openai';
         if (!\App\Services\AiTooling\ToolCapabilityRouter::supportsTools($type) || ! $withTools) {
@@ -626,7 +669,7 @@ class AiChatController extends Controller
         // Visibility set: exactly what was sent to the model. Enforcement below
         // rejects anything outside it (server-side, not prompt).
         $allowedNames = $tools === null ? null : collect($tools)->map(fn ($d) => $d['function']['name'] ?? null)->filter()->all();
-        $raw = $this->callOpenAiSyncRaw($resolved['key'], $resolved['config']['base_url'], $messages, $resolved['model'], $tools);
+        $raw = $this->callOpenAiSyncRaw($resolved['key'], $resolved['config']['base_url'], $messages, $resolved['model'], $tools, $callCtx);
         $tokenUsage = $this->readTokenUsage($raw);
         AiLogger::log('provider.tool_calls', AiTrace::ids($runId, $rid, $user->id ?? null) + ['provider' => $resolved['provider'], 'model' => $resolved['model'], 'tool_call_count' => count($raw['tool_calls'] ?? []), 'tool_names' => collect($raw['tool_calls'] ?? [])->map(fn ($tc) => $tc['function']['name'] ?? '?')->all(), 'reply_len' => mb_strlen($raw['text'] ?? ''), 'token_usage' => $tokenUsage]);
 
@@ -1225,9 +1268,11 @@ class AiChatController extends Controller
      *
      * @return null|array{build: \App\Models\AiStudyBuild, plan: \App\Models\AiPlan, serialized: array, reply: string}
      */
-    private function startStudyChain($user, $conversationId, string $message, ?string $rid = null): ?array
+    private function startStudyChain($user, $conversationId, string $message, ?string $rid = null, ?array $detected = null): ?array
     {
-        $detected = \App\Services\Study\StudyBuildOrchestrator::detectFromMessage($message);
+        // Pre-detected outlines are reused (parsed once per request); the
+        // detector stays the single source of truth either way.
+        $detected ??= \App\Services\Study\StudyBuildOrchestrator::detectFromMessage($message);
         if ($detected === null) {
             return null;
         }
@@ -1253,9 +1298,9 @@ class AiChatController extends Controller
      * SSE transport for the study-chain fast path (stream endpoint).
      * Returns a streaming response, or null to fall through.
      */
-    private function streamStudyChain($user, $conversation, string $message, $resolved, ?string $runId, ?string $rid, float $startedAt)
+    private function streamStudyChain($user, $conversation, string $message, $resolved, ?string $runId, ?string $rid, float $startedAt, ?array $detected = null)
     {
-        $study = $this->startStudyChain($user, $conversation->id, $message, $rid);
+        $study = $this->startStudyChain($user, $conversation->id, $message, $rid, $detected);
         if ($study === null) {
             return null;
         }
@@ -1304,9 +1349,9 @@ class AiChatController extends Controller
      * JSON transport for the study-chain fast path (non-stream chat endpoint).
      * Returns a JSON response, or null to fall through.
      */
-    private function chatStudyChain($user, string $message, $resolved, ?string $runId, ?string $rid, float $startedAt)
+    private function chatStudyChain($user, string $message, $resolved, ?string $runId, ?string $rid, float $startedAt, ?array $detected = null)
     {
-        $study = $this->startStudyChain($user, null, $message, $rid);
+        $study = $this->startStudyChain($user, null, $message, $rid, $detected);
         if ($study === null) {
             return null;
         }

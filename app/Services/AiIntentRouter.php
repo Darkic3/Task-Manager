@@ -102,6 +102,70 @@ final class AiIntentRouter
         return self::result(self::INTENT_AMBIGUOUS, self::CONF_LOW, $message, $entities);
     }
 
+    /* ── Request flow decision (P3) ─────────────────────────────── */
+
+    public const FLOW_SIMPLE = 'simple';
+
+    public const FLOW_CLARIFY = 'clarify';
+
+    public const FLOW_MASTER = 'master';
+
+    public const FLOW_INVALID = 'invalid';
+
+    /**
+     * P3 flow decision: which execution path a request takes.
+     *
+     * Deterministic — built ONLY from intent features (route, structure
+     * signals, injection cues), never from word counts or model guesses:
+     * - invalid: prompt-injection / role-override attempt → safe refusal,
+     *   no provider call, no tools, no DB writes.
+     * - clarify: ambiguous route → ask ONE question first (existing hint).
+     * - master:  a multi-chunk study outline with a build demand (server
+     *   detector, same one the chain uses) → versioned Master Plan flow.
+     *   Only study outlines qualify today; other bulk plan_build requests
+     *   stay on the single-plan path (chain infra is domain-agnostic, but
+     *   no orchestrator is generalized without a proven domain need).
+     * - simple:  everything else → existing single-turn paths, unchanged.
+     */
+    public static function decideFlow(string $message, array $route, ?array $masterOutline): array
+    {
+        if (self::looksLikeInjection($message)) {
+            return ['flow' => self::FLOW_INVALID, 'reason' => 'injection_cues', 'route' => $route];
+        }
+        if ($masterOutline !== null && ($route['intent'] ?? null) === self::INTENT_PLAN) {
+            return ['flow' => self::FLOW_MASTER, 'reason' => 'study_outline_bulk', 'route' => $route];
+        }
+        if (! empty($route['requires_clarification'])) {
+            return ['flow' => self::FLOW_CLARIFY, 'reason' => 'ambiguous_intent', 'route' => $route];
+        }
+
+        return ['flow' => self::FLOW_SIMPLE, 'reason' => 'single_turn', 'route' => $route];
+    }
+
+    /**
+     * Narrow prompt-injection / role-override cues (fa/en). First-line
+     * defense only — the pipeline still gates every tool call server-side.
+     */
+    public static function looksLikeInjection(string $message): bool
+    {
+        $norm = self::normalize($message);
+
+        return self::containsAny($norm, [
+            'ignore previous', 'ignore all previous', 'forget your instructions',
+            'دستورات قبلی را نادیده', 'دستورات قبلی رو نادیده', 'نقش جدید',
+            'you are now', 'as a new role', 'system prompt را', 'system prompt رو',
+            'jailbreak', 'do anything now',
+        ]);
+    }
+
+    /** Safe refusal text for invalid-flow requests (no provider involved). */
+    public static function refusalText(): string
+    {
+        return app()->getLocale() === 'fa'
+            ? 'این درخواست قابل اجرا نیست. لطفاً به‌صورت شفاف بگویید چه کاری می‌خواهید انجام شود (ساخت تسک، گزارش، برنامه‌ریزی یا سؤال).'
+            : 'This request cannot be handled. Please state clearly what you would like to do.';
+    }
+
     /**
      * Effective context-engine profile for (UI mode, route).
      * Only general_chat narrows to 'minimal'; everything else keeps the

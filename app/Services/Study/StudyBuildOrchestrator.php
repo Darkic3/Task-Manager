@@ -608,9 +608,15 @@ class StudyBuildOrchestrator
             return ['ok' => false, 'code' => 'no_provider', 'error' => __('No AI provider is configured.')];
         }
         try {
-            $raw = self::requestRevisionModel($providers, $resolved, $currentOutline, $feedback);
+            $raw = self::requestRevisionModel($providers, $resolved, $currentOutline, $feedback, $user, $conversationId);
             $decoded = self::decodeModelJson($raw);
             $outline = self::sanitizeOutline(is_array($decoded) ? $decoded : []);
+        } catch (\App\Exceptions\AiProviderException $e) {
+            // Transport failure after the built-in retries (timeout /
+            // connection / 5xx). Nothing was stored — retry is a repeat.
+            AiLogger::error('study_build.revise_provider_failed', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $locked->id, 'error' => mb_substr($e->getMessage(), 0, 300), 'retryable' => $e->isRetryable()]);
+
+            return ['ok' => false, 'code' => 'provider_error', 'error' => self::providerErrorText($e)];
         } catch (\RuntimeException $e) {
             AiLogger::error('study_build.revise_provider_failed', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $locked->id, 'error' => mb_substr($e->getMessage(), 0, 300)]);
 
@@ -702,7 +708,7 @@ class StudyBuildOrchestrator
      *
      * @throws \RuntimeException on provider failure or unusable output.
      */
-    private static function requestRevisionModel($providers, array $resolved, array $outline, string $feedback): string
+    private static function requestRevisionModel($providers, array $resolved, array $outline, string $feedback, $user, $conversationId): string
     {
         $schema = '{"book_title":"...","chapters":[{"title":"...","lessons":[{"title":"...","topics":["..."]}]}]}';
         $system = 'You revise a book outline. Reply with JSON ONLY matching this schema: '.$schema
@@ -712,16 +718,26 @@ class StudyBuildOrchestrator
         $userText = 'Current outline JSON: '.json_encode($outline, JSON_UNESCAPED_UNICODE)
             ."\n\nRequested change: ".$feedback;
 
-        return self::requestJsonModel($providers, $resolved, $system, $userText);
+        return self::requestJsonModel($providers, $resolved, $system, $userText, 'master_revise', $user, $conversationId);
     }
 
     /**
      * Shared JSON-model transport (openai/gemini/anthropic branches).
+     * Every call is recorded to ai_provider_calls with verbatim token
+     * counts (or NULL when unreported) — never payload content.
      *
      * @throws \RuntimeException on provider failure.
      */
-    private static function requestJsonModel($providers, array $resolved, string $system, string $userText): string
+    private static function requestJsonModel($providers, array $resolved, string $system, string $userText, string $operation, $user, $conversationId): string
     {
+        $ctx = [
+            'operation' => $operation,
+            'user_id' => $user->id ?? null,
+            'conversation_id' => $conversationId,
+            'provider' => $resolved['provider'] ?? null,
+            'model' => $resolved['model'] ?? null,
+            'type' => $resolved['type'] ?? 'openai',
+        ];
         $messages = [
             ['role' => 'system', 'content' => $system],
             ['role' => 'user', 'content' => $userText],
@@ -730,7 +746,7 @@ class StudyBuildOrchestrator
         if ($resolved['type'] === 'gemini') {
             $cfg = $resolved['config'];
             $url = rtrim($cfg['base_url'], '/').'/'.$resolved['model'].':generateContent?key='.$resolved['key'];
-            $response = $providers->postJson($url, ['contents' => [['role' => 'user', 'parts' => [['text' => $system."\n\n".$userText]]]], 'generationConfig' => ['responseMimeType' => 'application/json']], [], 90);
+            $response = $providers->postJson($url, ['contents' => [['role' => 'user', 'parts' => [['text' => $system."\n\n".$userText]]]], 'generationConfig' => ['responseMimeType' => 'application/json']], [], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx);
             if ($response->failed()) {
                 throw new \RuntimeException($providers->formatErrorResponse($response));
             }
@@ -739,7 +755,7 @@ class StudyBuildOrchestrator
         }
         if ($resolved['type'] === 'anthropic') {
             $cfg = $resolved['config'];
-            $response = $providers->postJson($cfg['base_url'], ['model' => $resolved['model'], 'max_tokens' => 6000, 'system' => $system, 'messages' => [['role' => 'user', 'content' => $userText]]], ['x-api-key' => $resolved['key'], 'anthropic-version' => '2023-06-01'], 90);
+            $response = $providers->postJson($cfg['base_url'], ['model' => $resolved['model'], 'max_tokens' => 6000, 'system' => $system, 'messages' => [['role' => 'user', 'content' => $userText]]], ['x-api-key' => $resolved['key'], 'anthropic-version' => '2023-06-01'], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx);
             if ($response->failed()) {
                 throw new \RuntimeException($providers->formatErrorResponse($response));
             }
@@ -750,12 +766,26 @@ class StudyBuildOrchestrator
         $cfg = $resolved['config'];
         $payload = $providers->openAiPayload($messages, $resolved['model'], false, $cfg['base_url']);
         $payload['response_format'] = ['type' => 'json_object'];
-        $response = $providers->postJson($providers->endpointFor($cfg['base_url'], $resolved['type']), $payload, ['Authorization' => 'Bearer '.$resolved['key']], 90);
+        $response = $providers->postJson($providers->endpointFor($cfg['base_url'], $resolved['type']), $payload, ['Authorization' => 'Bearer '.$resolved['key']], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx);
         if ($response->failed()) {
             throw new \RuntimeException($providers->formatErrorResponse($response));
         }
 
         return (string) data_get($response->json(), 'choices.0.message.content', '');
+    }
+
+    /**
+     * User-facing text for a transport failure that survived the built-in
+     * retries. Timeouts get an actionable message; other errors surface the
+     * (already sanitized) provider detail.
+     */
+    private static function providerErrorText(\App\Exceptions\AiProviderException $e): string
+    {
+        if (\App\Services\AiProviderService::isTimeoutMessage($e->getMessage())) {
+            return __('The AI provider timed out after several retries — nothing was changed. Please try again.');
+        }
+
+        return $e->getMessage();
     }
 
     private static function decodeModelJson(string $content): array
@@ -1000,8 +1030,27 @@ class StudyBuildOrchestrator
             return ['ok' => false, 'code' => 'no_provider', 'error' => __('No AI provider is configured.')];
         }
         try {
-            $raw = self::requestJsonModel($providers, $resolved, self::packageRevisionPrompt(), 'Current package JSON: '.json_encode($plan->structure, JSON_UNESCAPED_UNICODE)."\n\nRequested change: ".$feedback);
+            // P3 structured package context (server-owned facts only — no
+            // history, no full workspace, no ids for the model to echo).
+            // Titles travel one-way for revision; identities are re-attached
+            // by the server afterwards.
+            $pkgCtx = app(\App\Services\AiContextEngine::class)->buildPackageContext($user, $plan, $build);
+            AiLogger::log('study_build.pkg_context', AiTrace::ids(null, $rid, $user->id, $build->conversation_id) + ['build_id' => $build->id, 'plan_id' => $plan->id] + $pkgCtx['meta']);
+            $scopeText = \App\Services\AiContextEngine::scopeTextFromStructure((array) $plan->structure);
+            $raw = self::requestJsonModel(
+                $providers,
+                $resolved,
+                self::packageRevisionPrompt(),
+                $pkgCtx['text']."\n\nSCOPE TITLES (revise only within this scope):\n".$scopeText."\n\nRequested change: ".$feedback,
+                'package_revise',
+                $user,
+                $build->conversation_id
+            );
             $args = self::decodeModelJson($raw);
+        } catch (\App\Exceptions\AiProviderException $e) {
+            AiLogger::error('study_build.pkg_revise_provider_failed', AiTrace::ids(null, $rid, $user->id, $build->conversation_id) + ['build_id' => $build->id, 'plan_id' => $plan->id, 'error' => mb_substr($e->getMessage(), 0, 300), 'retryable' => $e->isRetryable()]);
+
+            return ['ok' => false, 'code' => 'provider_error', 'error' => self::providerErrorText($e)];
         } catch (\RuntimeException $e) {
             AiLogger::error('study_build.pkg_revise_provider_failed', AiTrace::ids(null, $rid, $user->id, $build->conversation_id) + ['build_id' => $build->id, 'plan_id' => $plan->id, 'error' => mb_substr($e->getMessage(), 0, 300)]);
 
@@ -1018,6 +1067,12 @@ class StudyBuildOrchestrator
         if (($scopeErr = self::checkPackageScope($plan->structure, $check['resolved']['structure'], (int) $user->id)) !== null) {
             return ['ok' => false, 'code' => 'scope_changed', 'error' => $scopeErr];
         }
+        // P3 anti-hallucination: identities come from the server, never from
+        // the model. If the model dropped the book attach while the book
+        // still exists, re-attach it here (logged); a *different* explicit
+        // id was already rejected above. A deleted book stays detached so
+        // the package can rebuild it.
+        $check = self::injectBookRef($check, $plan->structure, (int) $user->id, $rid, $build);
 
         return \Illuminate\Support\Facades\DB::transaction(function () use ($plan, $user, $build, $check, $rid) {
             $lockedPlan = \App\Models\AiPlan::where('id', $plan->id)->lockForUpdate()->first();
@@ -1076,6 +1131,37 @@ class StudyBuildOrchestrator
                 'packages' => self::packageList($freshBuild),
             ];
         });
+    }
+
+    /**
+     * Re-attach the server-owned book id when the model omitted it. The
+     * prompt sends titles only (no ids), so a missing attach is the normal
+     * case — not a scope change. Only fires when the old book still exists.
+     */
+    private static function injectBookRef(array $check, array $oldStructure, int $userId, ?string $rid, AiStudyBuild $build): array
+    {
+        $refOf = function (array $s): ?int {
+            $id = $s['project']['project_id'] ?? $s['projects'][0]['project_id'] ?? null;
+
+            return $id !== null ? (int) $id : null;
+        };
+        $oldRef = $refOf($oldStructure);
+        if ($oldRef === null) {
+            return $check;
+        }
+        $exists = \App\Models\Project::where('id', $oldRef)->where('user_id', $userId)->exists();
+        if (! $exists || $refOf($check['resolved']['structure']) !== null) {
+            return $check;
+        }
+        $check['resolved']['structure']['projects'][0]['project_id'] = $oldRef;
+        $check['resolved']['structure']['projects'][0]['attached'] = true;
+        if (isset($check['resolved']['structure']['project']) && is_array($check['resolved']['structure']['project'])) {
+            $check['resolved']['structure']['project']['project_id'] = $oldRef;
+            $check['resolved']['structure']['project']['attached'] = true;
+        }
+        AiLogger::log('study_build.pkg_book_injected', AiTrace::ids(null, $rid, $userId, $build->conversation_id) + ['build_id' => $build->id, 'project_id' => $oldRef]);
+
+        return $check;
     }
 
     private static function packageRevisionPrompt(): string
