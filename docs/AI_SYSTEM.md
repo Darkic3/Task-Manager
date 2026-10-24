@@ -352,6 +352,7 @@ PROJECTS (n):
 - `cancel`: → `cancelled` (آیتم‌های ساخته‌شده می‌مانند) + پیام «already-created items stay».
 - `serialize(plan)`: شکل کارت stepper برای فرانت. پکت‌های SSE مرتبط: `plan_proposal` / `plan_phase_update` (repaint ضمنی).
 - اعتبارسنجی ساختار: عنوان تسک ≤۱۲۰، سقف‌های بخش ۳.۵؛ نسخه قدیمی تک‌ریشه (بدون `projects`) هم با همان منطق اجرا می‌شود.
+- **زنجیره مطالعه چندبخشی (مدل B، `AiStudyBuild` + `StudyBuildOrchestrator`):** جدول `ai_study_builds` (outline/chunks، `plan_ids[]`، `done/total_chunks`، `book_project_id`، `last_plan_id`، انقضای ۲۴ ساعته) زنجیره را نگه می‌دارد. paste چندبخشی کتاب با دستور ساخت در حالت agent **پیش از LLM** رهگیری می‌شود (`detectFromMessage`: فعل ساخت + ≥۲ سرفصل + بیش از یک چانک؛ تک‌بخشی‌ها به مسیر مدل می‌روند) — parse (`StudyOutlineParser`: عنوان تمیز، صفحات `(۴۰ صفحه)` → خط اول description + weight) → chunk (هر چانک ≤۳ زیرپروژه/۲۵ تسک/۶۰ ساب‌تسک، `checkChunk`) → propose بسته ۱. بعد از DONE هر head، `advanceIfPlanDone` بسته بعدی را با `project_id` واقعی کتاب propose می‌کند (پاسخ شامل `next_plan` + `study_build`)؛ هر بسته کارت تأیید جدا؛ کنسل head = کنسل زنجیره؛ پاسخ تکراری DONE همان `next_plan` را می‌دهد (`pendingNextPlan`). تست سرتاسری: `AiStudyFullChainTest` (کتاب رشد: ۶ بسته، ۱۶ زیرپروژه، ۴۲ تسک، ۱۵۵ زیرتسک، بدون تکرار).
 
 ---
 
@@ -480,7 +481,7 @@ PROJECTS (n):
 
 ## ۲۰. تست‌ها و گپ‌های مشاهده‌شده (برای AI بازبین — بدون پیشنهاد راه‌حل)
 
-تست‌های موجود (۷ فایل): `AiToolsTest` (validate/execute تکی)، `AiTaskResolveTest` (resolve با title)، `AiPlansTest` (سقف‌ها، فلو سلسله‌مراتب و شاخه routines، mismatch فاز، run_all، ۴۰۳/انقضا)، `AiModesTest` (الگوی `Http::fake`)، `AiMultiProjectTest`، `AiCollabReportTest`، `AiPageRenderTest` (رندر بلید + باز/بسته بودن style). راهنما می‌گوید ۶۴ تست سبز با MySQL `127.0.0.1:3306/task_test`.
+تست‌های موجود: `AiToolsTest`، `AiTaskResolveTest`، `AiPlansTest`، `AiModesTest`، `AiMultiProjectTest`، `AiCollabReportTest`، `AiPageRenderTest` + سوئیت‌های زنجیره مطالعه (`StudyOutlineParserTest`، `StudyPlanChunkerTest`، `StudyDetectTest`، `AiStudyBuildChainTest`، `AiStudyStreamTest`، `AiStudyFullChainTest`) + سوئیت‌های search/ask/capability (`AiSearchBeforeCreateTest`، `AiSearchAndAskTest`، `AiToolCapabilityRoutingTest`، `AiIntentRouterTest`). راهنما می‌گوید ۶۴ تست سبز با MySQL `127.0.0.1:3306/task_test` (عدد قدیمی؛ سوئیت کامل اکنون ~۶۷۰ تست است با چند شکست pre-existing غیر-AI — رجوع به `PHASE_0_CURRENT_STATE_AUDIT.md:198`).
 
 گپ‌های عینی (فقط مشاهده، بدون تجویز):
 1. اعداد سقف در سه‌جا تکرار شده‌اند: مدل (`AiPlan`/`AiPendingAction`)، ولیدیتور، system prompt — امکان ناهمگامی.

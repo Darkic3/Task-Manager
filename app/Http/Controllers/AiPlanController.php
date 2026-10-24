@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\AiMessage;
 use App\Models\AiPlan;
+use App\Models\AiStudyBuild;
 use App\Services\AiLogger;
 use App\Services\AiToolService;
+use App\Services\Study\StudyBuildOrchestrator;
 use App\Support\AiTrace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,6 +20,71 @@ class AiPlanController extends Controller
     public function __construct(AiToolService $tools)
     {
         $this->tools = $tools;
+    }
+
+    /**
+     * Store an already-validated plan_propose resolution as an AiPlan.
+     * Shared by the chat path and the study-build orchestrator so both get
+     * the same idempotency-key derivation and race-safe insert.
+     *
+     * @return array{plan: AiPlan, deduped: bool, race_reused: bool, rotations: int}
+     */
+    public function storeResolvedPlan(int $userId, $conversationId, array $resolved): array
+    {
+        $pipeline = \App\Services\AiTooling\ToolPipeline::class;
+
+        // Stable key from the VALIDATED title + structure: retries,
+        // reconnects and double-sends derive the identical key.
+        $key = $pipeline::derivePlanKey($userId, $conversationId, $resolved['title'], $resolved['structure']);
+
+        // Retry/reconnect safe: reuse the live plan instead of stacking one.
+        $duplicate = $pipeline::findLivePlanByKey($userId, $key);
+        if ($duplicate) {
+            return ['plan' => $duplicate, 'deduped' => true, 'race_reused' => false, 'rotations' => 0];
+        }
+
+        $attrs = [
+            'user_id' => $userId,
+            'conversation_id' => $conversationId,
+            'title' => $resolved['title'],
+            // Deliberately NO trace key inside `structure`: the plan
+            // idempotency key is derived from title + structure
+            // (ToolPipeline::derivePlanKey), so mutating it would break
+            // dedupe. Plans correlate through `plan_id` instead.
+            'structure' => $resolved['structure'],
+            'phases' => $this->tools->buildPlanPhases($resolved['structure']),
+            'status' => AiPlan::STATUS_PROPOSED,
+            'current_phase' => 0,
+            'expires_at' => now()->addMinutes(AiPlan::EXPIRY_MINUTES),
+            'idempotency_key' => $key,
+        ];
+
+        $plan = null;
+        $raceReused = false;
+        $rotations = 0;
+        for ($attempt = 0; $attempt < 3 && $plan === null; $attempt++) {
+            try {
+                $plan = AiPlan::create($attrs);
+            } catch (\Illuminate\Database\QueryException $e) {
+                if (! str_contains(strtolower($e->getMessage()), 'duplicate')) {
+                    throw $e;
+                }
+                $decision = $pipeline::resolvePlanKeyCollision($userId, $attrs['idempotency_key']);
+                if (isset($decision['reuse'])) {
+                    $plan = $decision['reuse'];
+                    $raceReused = true;
+                } else {
+                    $attrs['idempotency_key'] = $decision['key'];
+                    $rotations++;
+                }
+            }
+        }
+        if ($plan === null) {
+            $attrs['idempotency_key'] .= '_'.bin2hex(random_bytes(8));
+            $plan = AiPlan::create($attrs);
+        }
+
+        return ['plan' => $plan, 'deduped' => $raceReused, 'race_reused' => $raceReused, 'rotations' => $rotations];
     }
 
     /**
@@ -106,7 +173,20 @@ class AiPlanController extends Controller
 
             if (! $locked->isActionable() || ! in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING], true)) {
                 if ($locked->status === AiPlan::STATUS_DONE) {
-                    return response()->json(['ok' => true, 'deduped' => true, 'plan' => $this->serialize($locked->fresh())]);
+                    $out = ['ok' => true, 'deduped' => true, 'plan' => $this->serialize($locked->fresh())];
+                    // Retry-safe: a lost advance response still surfaces the
+                    // already-proposed next chunk instead of stalling the chain.
+                    $pending = StudyBuildOrchestrator::pendingNextPlan($locked->fresh(), Auth::user());
+                    if ($pending) {
+                        $out['next_plan'] = $this->serialize($pending);
+                        $chain = AiStudyBuild::where('user_id', Auth::id())
+                            ->where('last_plan_id', $pending->id)->first();
+                        if ($chain) {
+                            $out['study_build'] = $chain->progress();
+                        }
+                    }
+
+                    return response()->json($out);
                 }
                 if ($locked->isSuperseded()) {
                     AiLogger::error('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'superseded_phase_blocked', 'status' => $locked->status, 'replaced_by' => $locked->superseded_by_plan_id]);
@@ -160,7 +240,34 @@ class AiPlanController extends Controller
             AiLogger::log('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'phase_executed', 'phases_run' => $phasesRun, 'run_all' => $request->boolean('run_all'), 'status' => $locked->status, 'messages' => implode(' ', $messages)]);
             $this->note($locked, '✅ ' . implode(' ', $messages));
 
-            return response()->json(['ok' => true, 'plan' => $this->serialize($locked->fresh())]);
+            $out = ['ok' => true, 'plan' => $this->serialize($locked->fresh())];
+
+            // Study chain (Model B): a finished chunk head auto-proposes the
+            // next chunk attached to the real book project id. The user still
+            // confirms every chunk card before anything is built.
+            $advance = StudyBuildOrchestrator::advanceIfPlanDone($locked->fresh(), Auth::user(), $rid);
+            if ($advance !== null) {
+                $out['study_build'] = $advance['build']->progress();
+                if (! empty($advance['error'])) {
+                    $out['next_error'] = $advance['error'];
+                    $this->note($locked, '⚠ '.$advance['error']);
+                } elseif (! empty($advance['next_plan'])) {
+                    $out['next_plan'] = $this->serialize($advance['next_plan']);
+                    $chain = $advance['build'];
+                    $this->note(
+                        $locked,
+                        __('📦 بسته :done از :total ساخته شد — بسته بعدی آماده تأیید است (:title)', [
+                            'done' => $chain->done_chunks,
+                            'total' => $chain->total_chunks,
+                            'title' => $advance['next_plan']->title,
+                        ])
+                    );
+                } elseif (! empty($advance['finished'])) {
+                    $this->note($locked, __('🎉 زنجیره ساخت کتاب کامل شد (:total بسته).', ['total' => $advance['build']->total_chunks]));
+                }
+            }
+
+            return response()->json($out);
         });
     }
 
@@ -248,9 +355,19 @@ class AiPlanController extends Controller
             Log::info('ai.plan.cancelled', ['user_id' => Auth::id(), 'plan_id' => $locked->id]);
             AiLogger::log('plan.updated', $this->traceFor($locked, $rid) + ['transition' => $replacement ? 'superseded' : 'cancelled', 'status' => $locked->status, 'replaced_by' => $replacement?->id]);
 
-            return response()->json(['ok' => true, 'message' => $replacement
+            $out = ['ok' => true, 'message' => $replacement
                 ? __('Plan replaced — already-created items stay.')
-                : __('Plan cancelled — already-created items stay.')]);
+                : __('Plan cancelled — already-created items stay.')];
+
+            // Cancelling a chain head stops the whole chain (already-built
+            // chunks stay — same rule as single plans).
+            $chain = StudyBuildOrchestrator::cancelForPlan($locked->fresh(), Auth::user(), $rid);
+            if ($chain) {
+                $out['study_build'] = $chain->progress();
+                $this->note($locked, __('⛔ زنجیره ساخت کتاب متوقف شد (بسته‌های ساخته‌شده می‌مانند).'));
+            }
+
+            return response()->json($out);
         });
     }
 

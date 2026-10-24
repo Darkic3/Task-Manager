@@ -179,6 +179,15 @@ class AiChatController extends Controller
         $contextProfile = \App\Services\AiIntentRouter::profileFor($agentMode ? 'agent' : 'chat', $route);
         AiLogger::log('intent.routed', AiTrace::ids($runId, $rid, $user->id) + ['rid' => $rid, 'intent' => $route['intent'], 'confidence' => $route['confidence'], 'profile' => $contextProfile, 'requires_clarification' => $route['requires_clarification']]);
 
+        // Study-chain fast path (server-side, no LLM): same detector as the
+        // stream endpoint, JSON transport instead of SSE.
+        if ($agentMode) {
+            $studyChat = $this->chatStudyChain($user, (string) $request->message, $resolved, $runId, $rid, $startedAt);
+            if ($studyChat !== null) {
+                return $studyChat;
+            }
+        }
+
         if (! $resolved) {
             AiLogger::log('request.no_provider', AiTrace::ids($runId, $rid, $user->id) + ['mode' => $agentMode ? 'agent' : 'chat']);
 
@@ -372,6 +381,16 @@ class AiChatController extends Controller
         // owned conversation so a later correction can be told apart from
         // a new request even when history text is truncated away.
         \App\Services\AiRequestState::record($conversation, ['intent' => $route['intent'] ?? null]);
+
+        // Study-chain fast path (server-side, no LLM, works offline): a
+        // pasted multi-chunk book outline with an explicit build demand is
+        // parsed and proposed deterministically in agent mode.
+        if ($agentMode) {
+            $studyStream = $this->streamStudyChain($user, $conversation, (string) $request->message, $resolved, $runId, $rid, $startedAt);
+            if ($studyStream !== null) {
+                return $studyStream;
+            }
+        }
 
         // No provider -> offline fallback (read-only, never creates anything)
         if (! $resolved) {
@@ -1152,65 +1171,22 @@ class AiChatController extends Controller
             return ['error' => $check['error'] ?? __('Invalid plan.'), 'code' => $check['code'] ?? 'validation_error'];
         }
 
-        $pipeline = \App\Services\AiTooling\ToolPipeline::class;
         $controller = app(AiPlanController::class);
 
-        // Stable key from the VALIDATED title + structure: retries,
-        // reconnects and double-sends derive the identical key.
-        $key = $pipeline::derivePlanKey(
-            (int) $user->id, $conversationId,
-            $check['resolved']['title'], $check['resolved']['structure']
-        );
+        $stored = $controller->storeResolvedPlan((int) $user->id, $conversationId, $check['resolved']);
+        $plan = $stored['plan'];
+        $raceReused = $stored['race_reused'];
+        if ($stored['deduped']) {
+            AiLogger::log('plan.proposal_deduped', AiTrace::ids($runId, $rid, $user->id, $conversationId, null, $plan->id));
+            $this->recordPlanState($conversationId, $plan);
 
-        // Retry/reconnect safe: reuse the live plan instead of stacking one.
-        $duplicate = $pipeline::findLivePlanByKey($user->id, $key);
-        if ($duplicate) {
-            AiLogger::log('plan.proposal_deduped', AiTrace::ids($runId, $rid, $user->id, $conversationId, null, $duplicate->id));
-            $this->recordPlanState($conversationId, $duplicate);
-
-            return ['plan' => $controller->serialize($duplicate)] + ['expires_at' => $duplicate->expires_at->toIso8601String(), 'deduped' => true];
+            return ['plan' => $controller->serialize($plan)] + ['expires_at' => $plan->expires_at->toIso8601String(), 'deduped' => true];
         }
-
-        $attrs = [
-            'user_id' => $user->id,
-            'conversation_id' => $conversationId,
-            'title' => $check['resolved']['title'],
-            // Deliberately NO trace key inside `structure`: the plan
-            // idempotency key is derived from title + structure
-            // (ToolPipeline::derivePlanKey), so mutating it would break
-            // dedupe. Plans correlate through `plan_id` →
-            // `plan.proposed` (which carries the run_id) instead.
-            'structure' => $check['resolved']['structure'],
-            'phases' => $service->buildPlanPhases($check['resolved']['structure']),
-            'status' => AiPlan::STATUS_PROPOSED,
-            'current_phase' => 0,
-            'expires_at' => now()->addMinutes(AiPlan::EXPIRY_MINUTES),
-            'idempotency_key' => $key,
-        ];
-
-        $plan = null;
-        $raceReused = false;
-        for ($attempt = 0; $attempt < 3 && $plan === null; $attempt++) {
-            try {
-                $plan = AiPlan::create($attrs);
-            } catch (\Illuminate\Database\QueryException $e) {
-                if (! str_contains(strtolower($e->getMessage()), 'duplicate')) {
-                    throw $e;
-                }
-                $decision = $pipeline::resolvePlanKeyCollision($user->id, $attrs['idempotency_key']);
-                if (isset($decision['reuse'])) {
-                    $plan = $decision['reuse'];
-                    $raceReused = true;
-                    AiLogger::log('plan.proposal_race_reused', AiTrace::ids($runId, $rid, $user->id, $conversationId, null, $plan->id));
-                } else {
-                    $attrs['idempotency_key'] = $decision['key'];
-                    AiLogger::log('plan.proposal_key_rotated', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['attempt' => $attempt + 1]);
-                }
-            }
+        if ($raceReused) {
+            AiLogger::log('plan.proposal_race_reused', AiTrace::ids($runId, $rid, $user->id, $conversationId, null, $plan->id));
         }
-        if ($plan === null) {
-            $attrs['idempotency_key'] .= '_'.bin2hex(random_bytes(8));
-            $plan = AiPlan::create($attrs);
+        foreach (range(1, $stored['rotations']) as $rotation) {
+            AiLogger::log('plan.proposal_key_rotated', AiTrace::ids($runId, $rid, $user->id, $conversationId) + ['attempt' => $rotation]);
         }
 
         AiLogger::log(AiTrace::PLAN_PROPOSED, AiTrace::ids($runId, $rid, $user->id, $conversationId, null, $plan->id) + ['title' => $plan->title, 'status' => 'awaiting_confirmation', 'expires_at' => $plan->expires_at?->toIso8601String(), 'totals' => $check['resolved']['totals'] ?? []]);
@@ -1222,6 +1198,122 @@ class AiChatController extends Controller
         }
 
         return $out;
+    }
+
+    /**
+     * Server-side study-chain fast path: a pasted multi-chunk book outline
+     * with an explicit build demand never reaches the LLM — it is parsed,
+     * chunked and proposed deterministically (works offline, zero tokens).
+     * Returns null when the message is not a multi-chunk study paste (or
+     * when starting the chain fails), letting the normal flow handle it.
+     *
+     * @return null|array{build: \App\Models\AiStudyBuild, plan: \App\Models\AiPlan, serialized: array, reply: string}
+     */
+    private function startStudyChain($user, $conversationId, string $message, ?string $rid = null): ?array
+    {
+        $detected = \App\Services\Study\StudyBuildOrchestrator::detectFromMessage($message);
+        if ($detected === null) {
+            return null;
+        }
+        $started = \App\Services\Study\StudyBuildOrchestrator::startFromOutline($user, $conversationId, $detected['outline'], $rid);
+        if (! ($started['ok'] ?? false)) {
+            AiLogger::log('study_build.auto_fallback', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['reason' => $started['error'] ?? 'start_failed']);
+
+            return null;
+        }
+        $build = $started['build'];
+        $plan = $started['plan'];
+        $serialized = app(AiPlanController::class)->serialize($plan);
+        $reply = '📚 کتاب «'.$build->title.'» را در '.$build->total_chunks.' بسته آماده کردم تا قدم‌به‌قدم و بدون خطا ساخته شود.'
+            ."\n\n".'بسته ۱ ('.$plan->title.') برای تأیید آماده است — «🚀 ساخت و اجرای کامل پروژه» را بزن؛ بعد از ساخت هر بسته، بسته بعدی خودش پیشنهاد می‌شود.'
+            ."\n".'عناوین تمیز نگه داشته شدند و صفحات هر درسنامه در توضیحات (📄) و وزن ثبت شدند.';
+
+        return ['build' => $build, 'plan' => $plan, 'serialized' => $serialized, 'reply' => $reply];
+    }
+
+    /**
+     * SSE transport for the study-chain fast path (stream endpoint).
+     * Returns a streaming response, or null to fall through.
+     */
+    private function streamStudyChain($user, $conversation, string $message, $resolved, ?string $runId, ?string $rid, float $startedAt)
+    {
+        $study = $this->startStudyChain($user, $conversation->id, $message, $rid);
+        if ($study === null) {
+            return null;
+        }
+
+        AiMessage::create([
+            'conversation_id' => $conversation->id,
+            'role' => 'assistant',
+            'content' => $study['reply'],
+            'model' => $resolved['model'] ?? 'lina-study',
+        ]);
+        AiConversation::where('id', $conversation->id)->touch();
+
+        AiLogger::log('study_build.auto_proposed', AiTrace::ids($runId, $rid, $user->id, $conversation->id, null, $study['plan']->id) + ['build_id' => $study['build']->id, 'chunks' => $study['build']->total_chunks, 'provider' => $resolved['provider'] ?? 'none']);
+        AiLogger::log('request.completed', AiTrace::ids($runId, $rid, $user->id, $conversation->id) + [
+            'endpoint' => 'stream',
+            'provider' => $resolved['provider'] ?? 'none',
+            'status' => 'ok',
+            'outcome' => AiTrace::OUTCOME_CONFIRMATION_REQUESTED,
+            'proposal_count' => 1,
+            'token_usage' => null,
+            'latency_ms' => AiTrace::elapsedMs($startedAt),
+        ]);
+
+        $sseFlush = $this->sseFlushClosure();
+        $model = $resolved['model'] ?? 'lina-study';
+        $provider = $resolved['provider'] ?? 'study';
+        $convId = $conversation->id;
+        $reply = $study['reply'];
+        $packet = ['type' => 'plan_proposal', 'plan' => $study['serialized'], 'expires_at' => $study['plan']->expires_at->toIso8601String(), 'study_build' => $study['build']->progress()];
+
+        return response()->stream(function () use ($sseFlush, $model, $provider, $convId, $reply, $packet) {
+            echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $convId])."\n\n";
+            $sseFlush();
+            foreach (mb_str_split($reply, 40) as $piece) {
+                echo 'data: '.json_encode(['choices' => [['delta' => ['content' => $piece]]]])."\n\n";
+                $sseFlush();
+            }
+            echo 'data: '.json_encode($packet)."\n\n";
+            $sseFlush();
+            echo "data: [DONE]\n\n";
+            $sseFlush();
+        }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache', 'X-Accel-Buffering' => 'no', 'Connection' => 'keep-alive']);
+    }
+
+    /**
+     * JSON transport for the study-chain fast path (non-stream chat endpoint).
+     * Returns a JSON response, or null to fall through.
+     */
+    private function chatStudyChain($user, string $message, $resolved, ?string $runId, ?string $rid, float $startedAt)
+    {
+        $study = $this->startStudyChain($user, null, $message, $rid);
+        if ($study === null) {
+            return null;
+        }
+
+        AiLogger::log('study_build.auto_proposed', AiTrace::ids($runId, $rid, $user->id) + ['build_id' => $study['build']->id, 'chunks' => $study['build']->total_chunks, 'provider' => $resolved['provider'] ?? 'none']);
+        AiLogger::log('request.completed', AiTrace::ids($runId, $rid, $user->id) + [
+            'endpoint' => 'chat',
+            'provider' => $resolved['provider'] ?? 'none',
+            'status' => 'ok',
+            'outcome' => AiTrace::OUTCOME_CONFIRMATION_REQUESTED,
+            'proposal_count' => 1,
+            'token_usage' => null,
+            'latency_ms' => AiTrace::elapsedMs($startedAt),
+        ]);
+
+        return response()->json([
+            'model' => $resolved['model'] ?? 'lina-study',
+            'provider' => $resolved['provider'] ?? 'study',
+            'reply' => $study['reply'],
+            'proposals' => [[
+                'plan' => $study['serialized'],
+                'expires_at' => $study['plan']->expires_at->toIso8601String(),
+                'study_build' => $study['build']->progress(),
+            ]],
+        ]);
     }
 
     /**
@@ -2411,7 +2503,7 @@ class AiChatController extends Controller
               * Reminders/events (e.g. "today at 18:00 at Laleh bazaar") go in reminders[] with date YYYY-MM-DD, time HH:MM and location — SAME call, not a separate tool.
               * Notes go in notes[] — SAME call.
               * Caps per plan: 5 projects, 30 tasks, 100 subtasks, 10 reminders, 10 notes, 5 members per project (emails or names). Persian dates: امروز=today, فردا=tomorrow, پس‌فردا=+2 days; "ساعت 6 بعد از ظهر/عصر"=18:00, "ساعت 9 صبح"=09:00. Compute YYYY-MM-DD from today's date above.
-              * STUDY BUILDS (books/chapters/lessons — فصل/درسنامه): NEVER put a whole book in one call. Propose ONE chunk: the book project + at most 3 chapter subprojects, lessons as tasks, micro-topics as subtasks. End your text reply by telling the user the exact next chunk to ask for (e.g. "بسته بعدی: فصل‌های ۴ تا ۶ همین کتاب") so they continue chunk by chunk; later chunks attach via project_id to the already-created book project. Even when the user says "complete / entire / whole book" (کامل/تمام/کل کتاب), STILL propose only chunk 1 — the server rejects oversized plans, so a whole-book call helps nobody. When the user names an existing book project WITH its id (e.g. «#25» or project_id), attach with that id directly — never call workspace_search for it. Page counts go in each lesson task's weight field ONLY (1 weight unit = 1 page, 0-99, omit when unknown) — NEVER in the title and NEVER in the description; say so explicitly in your reply (pages are a report metric, not text). You may set daily_goal_value/unit on the book or chapter projects when the user asks for a daily target.
+               * STUDY BUILDS (books/chapters/lessons — فصل/درسنامه): pastes longer than one chunk are intercepted SERVER-SIDE (parsed, chunked, chained automatically — you will simply never see them). What reaches you is either a single-chunk paste or a "بسته بعدی" follow-up: propose ONE chunk — the book project + at most 3 chapter subprojects, lessons as tasks, micro-topics as subtasks. Later chunks attach via the book's project_id (from PROJECTS or the message's #id). When the user names an existing book project WITH its id (e.g. «#25» or project_id), attach with that id directly — never call workspace_search for it. Page counts: titles stay CLEAN (no page numbers ever); each lesson task carries its pages as line 1 of the description ("📄 N صفحه") AND in weight (1 unit = 1 page, 0-99, omit when unknown). Appendix blocks (آزمون‌ها/منابع) become one final chapter subproject, exam rows as tasks. Say explicitly in your reply that pages live in description + weight, never in titles.
               * HONESTY: never claim anything was created — every call only PROPOSES and waits for the user's confirmation card. If a call is rejected (error packet), explain plainly in 1-2 lines what went wrong and how to fix it (e.g. split into smaller chunks) instead of claiming success.
             - PLAN REVISIONS / EDITS: When the user asks for changes, edits, additions, or removals in a proposed plan (e.g. "تسک فلان رو تغییر بده", "X رو اضافه کن"), acknowledge the refinement and immediately emit an updated plan_propose with the revised structure.
             - WORKOUT PLANS: For ANY pasted training plan (with DAYs, sets×reps, RIR, circuits, warm-ups, tempo): call workout_plan_propose ONCE with the FULL 7-day structure — never plan_propose, never project_create, never routine_create, never many single calls. Preserve every movement and detail; do not summarize exercises into one task.

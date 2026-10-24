@@ -205,7 +205,7 @@ final class ToolCapabilityRouter
 
         // Bulk-build safety net (see docblock): pasted lists and
         // chapter/lesson outlines keep plan_propose routable.
-        if (! empty($entities['list_detected']) || ! empty($entities['bulk_detected'])) {
+        if (! empty($entities['list_detected']) || ! empty($entities['bulk_detected']) || (int) ($entities['structure_count'] ?? 0) >= 2) {
             if (! in_array('plan', $categories, true)) {
                 $categories[] = 'plan';
             }

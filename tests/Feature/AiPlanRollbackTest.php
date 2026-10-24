@@ -272,7 +272,11 @@ class AiPlanRollbackTest extends TestCase
         $ref = new \ReflectionMethod($controller, 'buildMessages');
 
         $agent = $ref->invoke($controller, $user, 'CTX', [], 'hi', 'agent');
-        $this->assertStringContainsString('NEVER in the title and NEVER in the description', $agent[0]['content']);
+        // Product decision: titles stay CLEAN; pages live in description
+        // line 1 ("📄 N صفحه") AND in weight — never in titles.
+        $this->assertStringContainsString('titles stay CLEAN (no page numbers ever)', $agent[0]['content']);
+        $this->assertStringContainsString('("📄 N صفحه") AND in weight', $agent[0]['content']);
+        $this->assertStringContainsString('never in titles', $agent[0]['content']);
     }
 
     public function test_oversized_plan_fails_with_chunk_guidance(): void

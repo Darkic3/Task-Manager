@@ -56,11 +56,16 @@ Intent و درخواست فعلی در اختیار مدل قرار می‌گی�
     جستجوی قبل از نوشتن و امکان پرسش)؛ بدون object → مجموعه‌ی broad
     قبلی (single+report+search+question). درخواست ترکیبی «تسک+یادآوری+یادداشت»
     هر سه دسته را می‌گیرد ولی `plan/workout` سنگین بیرون می‌ماند.
-    **استثنا — ساخت انبوه:** اگر `entities.list_detected` یا
-    `entities.bulk_detected` (فصل/درسنامه/زیرفصل/…) روشن باشد، دسته `plan`
-    هم اضافه می‌شود تا `plan_propose` با `NOT_ROUTED` رد نشود؛ و پیام
-    «…را به‌عنوان پروژه با فصل‌هایش درست کن» مستقیم `plan_build` (high)
-    می‌شود (فعل درست‌کن + شیء پروژه + سیگنال انبوه).
+    **استثنا — ساخت انبوه:** اگر `entities.list_detected`،
+    `entities.bulk_detected` (فصل/درسنامه/زیرفصل/…) یا
+    `entities.structure_count ≥ ۲` (سرفصل‌های شماره‌دار وسط خط با ارقام
+    فارسی، مثل `فصل ۱:` — شمارش ماشینی در
+    `AiIntentRouter::countStructureHeaders`، مستقل از بولت ابتدای خط)
+    روشن باشد، دسته `plan` هم اضافه می‌شود تا `plan_propose` با
+    `NOT_ROUTED` رد نشود؛ و پیام «…را به‌عنوان پروژه با فصل‌هایش درست کن»
+    یا حتی بدون کلمه «پروژه» (مثل «این کتاب را بساز: فصل ۱…») مستقیم
+    `plan_build` (high) می‌شود (فعل بساز/بنا کن/ایجاد کن/درست کن + سیگنال
+    انبوه/ساختاری).
   - `plan_build` → fail-open (`null` = ست کامل؛ پلن ممکن است همه‌ی ابعاد را
     یکجا ببندد).
   - `ambiguous` یا اطمینان پایین → مجموعه‌ی امن
@@ -90,6 +95,12 @@ Intent و درخواست فعلی در اختیار مدل قرار می‌گی�
    ساخت پروژه‌ی تکراری، به رکورد موجود وصل شود یا از کاربر بپرسد.
    `project_create` و `plan_propose` (attach به پروژه‌ی موجود) هر دو از
    `AiToolService::similarProjects` (نرمال‌سازی فارسی) استفاده می‌کنند.
+6. **مسیر سریع زنجیره مطالعه (بدون LLM):** paste چندبخشی کتاب
+   (`StudyBuildOrchestrator::detectFromMessage`: فعل ساخت + ≥۲ سرفصل +
+   بیش از یک چانک) پیش از provider رهگیری می‌شود — نه payload ابزار، نه
+   allowlist، نه تأیید مدل در کار است؛ خروجی مستقیم `plan_proposal` +
+   `study_build` است و با provider نال هم کار می‌کند. تک‌بخشی‌ها و حالت
+   chat به مسیر عادی مدل می‌روند (بدون تغییر رفتار).
 
 حفظ‌شده‌ها: سقف `MAX_TOOL_CALLS_PER_TURN=20`، `MAX_IDENTICAL_PER_TURN=3`
 (loop cut)، سقف pending (`MAX_OPEN`)، سقف plan، idempotency، و fallback
@@ -130,3 +141,10 @@ Full (۲۴ ابزار): ‎~5216 توکن (~21KB).
   کانتکست، ایزولاسیون بین کاربران، گارد نام فارسی/عربی در project_create،
   عبور candidates از pipeline، attach خودکار/صریح/خارجی در plan_propose،
   عدم attach زیرپروژه بین شاخه‌ها، و برچسب preview.
+- زنجیره مطالعه (قانون صفحات: عنوان تمیز، `📄 N صفحه` در description + weight):
+  `tests/Unit/StudyOutlineParserTest.php` + `StudyPlanChunkerTest.php` +
+  `StudyDetectTest.php` (فیxture طلایی outline واقعی؛ سقف هر چانک؛
+  fallthrough تک‌بخشی/بدون‌فعل/غیرساختاری)،
+  `tests/Feature/AiStudyBuildChainTest.php` (attach بدون تکرار، کنسل head،
+  بازیابی dedupe)، `AiStudyStreamTest.php` (رهگیری سروری در stream/chat
+  بدون provider)، `AiStudyFullChainTest.php` (سرتاسری هر ۶ بسته تا DONE).

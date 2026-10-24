@@ -1104,7 +1104,7 @@ footer, .topnav { display: none !important; }
                             if (json.code === 'too_many_pending' && chatMode === 'agent') renderPendingOverflowCard(json);
                             else appendError(json.error);
                         } else if (json.type === 'plan_proposal' && json.plan) {
-                            if (chatMode === 'agent') { proposalRendered = true; renderPlanCard(json.plan); }
+                            if (chatMode === 'agent') { proposalRendered = true; renderPlanCard(json.plan, json.study_build); }
                             else console.warn('[Lina] plan ignored in chat mode');
                         } else if (json.type === 'plan_proposal' && json.error) {
                             errorShown = true;
@@ -1642,14 +1642,14 @@ footer, .topnav { display: none !important; }
     }
 
     /* ── Plan structure card + stepper ── */
-    function renderPlanCard(plan) {
+    function renderPlanCard(plan, studyBuild) {
         const wrap = document.createElement('div');
         wrap.className = 'lina-msg-wrap bot';
         const card = document.createElement('div');
         card.className = 'lina-plan-card';
         wrap.appendChild(card);
         msgsEl.appendChild(wrap);
-        paintPlan(card, plan);
+        paintPlan(card, plan, studyBuild);
         scrollBottom();
     }
 
@@ -1657,7 +1657,7 @@ footer, .topnav { display: none !important; }
         return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    function paintPlan(card, plan) {
+    function paintPlan(card, plan, studyBuild) {
         const prev = plan.preview || {};
         const tree = prev.tree || {};
         const totals = prev.totals || {};
@@ -1680,6 +1680,17 @@ footer, .topnav { display: none !important; }
         }
         let html = '<h4>📋 ' + escPlan(plan.title) + '</h4>'
             + '<div class="lina-plan-totals">' + totalsLine + '</div>';
+        // Study chain (Model B): one confirmation card per chunk. The banner
+        // tells the user which chunk this card is; the server proposes the
+        // next chunk automatically after each finished head.
+        if (studyBuild && (studyBuild.total_chunks || 0) > 1) {
+            const cur = Math.min((studyBuild.done_chunks || 0) + 1, studyBuild.total_chunks);
+            let chainLabel;
+            if (studyBuild.status === 'done') chainLabel = '🎉 زنجیره ساخت کتاب کامل شد (' + studyBuild.total_chunks + ' بسته)';
+            else if (studyBuild.status === 'cancelled') chainLabel = '⛔ زنجیره ساخت کتاب متوقف شد (بسته‌های ساخته‌شده می‌مانند)';
+            else chainLabel = '📚 زنجیره ساخت کتاب — بسته ' + cur + ' از ' + studyBuild.total_chunks;
+            html += '<div class="lina-plan-chain" style="background:#eef2ff;padding:8px 12px;border-radius:10px;border:1px solid #c7d2fe;margin-top:8px;font-weight:700;color:#3730a3;font-size:12.5px;">' + escPlan(chainLabel) + '</div>';
+        }
         // "Understanding" header: what WILL be built after final approval —
         // nothing is created until the user confirms below.
         const understandParts = [];
@@ -1828,7 +1839,8 @@ footer, .topnav { display: none !important; }
                 try {
                     const res = await api('POST', '/ai/plans/' + plan.id + '/confirm-structure');
                     const executed = await api('POST', '/ai/plans/' + plan.id + '/confirm-phase', { run_all: true });
-                    paintPlan(card, executed.plan);
+                    paintPlan(card, executed.plan, executed.study_build);
+                    handleChainResult(executed);
                 } catch (e) {
                     appendError(e && e.detail ? e.detail : 'خطا در اجرای پلن. ممکن است منقضی شده باشد.');
                     paintPlan(card, plan);
@@ -1859,9 +1871,11 @@ footer, .topnav { display: none !important; }
 
             cancelBtn.onclick = async () => {
                 cancelBtn.disabled = true;
-                try { await api('POST', '/ai/plans/' + plan.id + '/cancel'); } catch {}
-                plan.status = 'cancelled';
-                paintPlan(card, plan);
+                try {
+                    const res = await api('POST', '/ai/plans/' + plan.id + '/cancel');
+                    plan.status = 'cancelled';
+                    paintPlan(card, plan, res && res.study_build);
+                } catch { plan.status = 'cancelled'; paintPlan(card, plan); }
                 scrollBottom();
             };
 
@@ -1899,9 +1913,11 @@ footer, .topnav { display: none !important; }
             cancel.textContent = 'توقف پلن';
             cancel.onclick = async () => {
                 cancel.disabled = true;
-                try { await api('POST', '/ai/plans/' + plan.id + '/cancel'); } catch {}
-                plan.status = 'cancelled';
-                paintPlan(card, plan);
+                try {
+                    const res = await api('POST', '/ai/plans/' + plan.id + '/cancel');
+                    plan.status = 'cancelled';
+                    paintPlan(card, plan, res && res.study_build);
+                } catch { plan.status = 'cancelled'; paintPlan(card, plan); }
                 scrollBottom();
             };
             body.appendChild(cancel);
@@ -1947,9 +1963,9 @@ footer, .topnav { display: none !important; }
                 if (book && book.id) {
                     nextText = 'بسته بعدی ساختار کتاب «' + rootName + '»: فصل‌های بعدی را به پروژه موجود «' + rootName + '» (#' + book.id + ') وصل کن و بساز — جستجو لازم نیست، مستقیم پلن مرحله‌ای بده (فقط زیرپروژه/تسک جدید؛ پروژه تکراری نساز).';
                 } else {
-                    nextText = 'بسته بعدی ساختار کتاب «' + rootName + '»: فصل‌های بعدی را به همین پروژه‌های موجود وصل کن و بساز. تعداد صفحه هر درسنامه را اگر بگویم در weight ثبت کن.';
+                    nextText = 'بسته بعدی ساختار کتاب «' + rootName + '»: فصل‌های بعدی را به همین پروژه‌های موجود وصل کن و بساز (اگر شناسه پروژه را می‌دانی با #id وصل کن؛ جستجو لازم نیست، مستقیم پلن مرحله‌ای بده). تعداد صفحه هر درسنامه در خط اول توضیحات (📄) و weight ثبت شود، نه در عنوان.';
                 }
-                nextText += ' تعداد صفحه هر درسنامه فقط در weight ثبت شود، نه در عنوان نه در توضیحات.';
+                nextText += ' زنجیره سرور معمولاً بسته بعدی را خودش پیشنهاد می‌دهد — این دکمه فقط برای ادامه دستی است.';
                 input.value = nextText;
                 autoResize(); updateCharCount(); input.focus();
                 scrollBottom();
@@ -1969,6 +1985,26 @@ footer, .topnav { display: none !important; }
 
     function planRemains(plan) {
         return (plan.phases || []).reduce((n, p) => n + ((p.status === 'done') ? 0 : (p.total || 0)), 0);
+    }
+
+    /* Study chain (Model B): after each finished chunk the server may return
+       next_plan (rendered as a fresh confirmation card), next_error, and the
+       study_build progress. A finished chain gets a closing note. */
+    function handleChainResult(res) {
+        if (!res) return;
+        if (res.next_error) appendError(res.next_error);
+        if (res.next_plan) renderPlanCard(res.next_plan, res.study_build);
+        else if (res.study_build && res.study_build.status === 'done' && (res.study_build.total_chunks || 0) > 1) {
+            const wrap = document.createElement('div');
+            wrap.className = 'lina-msg-wrap bot';
+            const done = document.createElement('div');
+            done.className = 'lina-plan-note ok';
+            done.style.cssText = 'background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;color:#16a34a;font-weight:700;';
+            done.textContent = '🎉 زنجیره ساخت کتاب کامل شد (' + res.study_build.total_chunks + ' بسته). همه را از Projects ببین.';
+            wrap.appendChild(done);
+            msgsEl.appendChild(wrap);
+            scrollBottom();
+        }
     }
 
     /* Rollback: delete everything this plan built (attached pre-existing
@@ -2010,7 +2046,8 @@ footer, .topnav { display: none !important; }
         if (btn) btn.textContent = 'Running…';
         try {
             const res = await api('POST', '/ai/plans/' + planId + '/confirm-phase', { phase: phaseIdx, run_all: !!runAll });
-            paintPlan(card, res.plan);
+            paintPlan(card, res.plan, res.study_build);
+            handleChainResult(res);
         } catch {
             appendError(@json(__('Phase failed — plan stopped. Already-created items stay.')));
         }

@@ -20,10 +20,11 @@ namespace App\Services;
  *   context + full toolset, i.e. today's behavior). Only `high`
  *   confidence narrows anything.
  *
- * Output shape:
- *   ['intent' => ..., 'confidence' => 'high|medium|low',
- *    'entities' => ['objects'=>[...], 'date_mentioned'=>bool,
- *                   'list_detected'=>bool, 'question'=>bool],
+    * Output shape:
+    *   ['intent' => ..., 'confidence' => 'high|medium|low',
+    *    'entities' => ['objects'=>[...], 'date_mentioned'=>bool,
+    *                   'list_detected'=>bool, 'question'=>bool,
+    *                   'bulk_detected'=>bool, 'structure_count'=>int],
  *    'requires_clarification' => bool, 'clarification_question' => ?string,
  *    'context_profile' => 'minimal|mode_default',
  *    'tool_filter' => null|array]   // null = keep full toolset
@@ -153,7 +154,7 @@ final class AiIntentRouter
 
     private static function result(string $intent, string $confidence, string $message, array $entities = []): array
     {
-        $entities += ['objects' => [], 'date_mentioned' => false, 'list_detected' => false, 'question' => false, 'bulk_detected' => false];
+        $entities += ['objects' => [], 'date_mentioned' => false, 'list_detected' => false, 'question' => false, 'bulk_detected' => false, 'structure_count' => 0];
         $needsClarify = $intent === self::INTENT_AMBIGUOUS;
 
         return [
@@ -231,7 +232,24 @@ final class AiIntentRouter
             // capability router to keep plan_propose visible. Generic words
             // like بخش/مرحله are deliberately excluded (too noisy).
             'bulk_detected' => self::containsAny($norm, self::bulkCues()),
+            // Machine-countable outline structure: "فصل ۱:", "درسنامه ۲",
+            // "بخش آزمون‌ها" — works mid-line and with Persian digits
+            // (۱۲۳), unlike list_detected which needs line-start bullets.
+            'structure_count' => self::countStructureHeaders($norm),
         ];
+    }
+
+    /**
+     * Count chapter/lesson headers anywhere in the text (numbered or the
+     * unnumbered appendices "بخش ..."). Persian/Arabic digits included.
+     */
+    public static function countStructureHeaders(string $norm): int
+    {
+        $n = 0;
+        $n += preg_match_all('/(فصل|درسنامه|درس|گفتار|واحد|سرفصل|زیرفصل|chapter|lesson)\s*[\p{N}۰-۹٠-٩]+\s*[:：\-–.]?/u', $norm);
+        $n += preg_match_all('/(?<!\p{L})بخش\s+\p{L}{2,}/u', $norm);
+
+        return (int) $n;
     }
 
     /** Canonical workspace object → cue words (normalized, ZWNJ-free). */
@@ -335,6 +353,14 @@ final class AiIntentRouter
         $makeVerb = self::containsAny($norm, ['درست کن', 'راه بنداز', 'راهاندازی']);
         if ($makeVerb && in_array('project', $entities['objects'], true)
             && ($entities['list_detected'] || ($entities['bulk_detected'] ?? false))) {
+            return self::CONF_HIGH;
+        }
+        // Full-paste study outline with an explicit build demand — no word
+        // "پروژه" needed: فصل/درسنامه headers ARE the structure signal.
+        // Covers بنا کن/ایجاد کن/بساز which the old project-only rule missed.
+        $structureCount = (int) ($entities['structure_count'] ?? 0);
+        $studyBuildVerb = self::containsAny($norm, ['بساز', 'بسازید', 'بنا کن', 'بنا کنید', 'ایجاد کن', 'ایجاد کنید', 'درست کن', 'درست کنید', 'راه بنداز', 'راهاندازی', 'برنامهریزی کن', 'طراحی کن']);
+        if ($studyBuildVerb && (($entities['bulk_detected'] ?? false) || $structureCount >= 2)) {
             return self::CONF_HIGH;
         }
         if ($hasPlanNoun && ($hasPlanVerb || $entities['list_detected'])) {
