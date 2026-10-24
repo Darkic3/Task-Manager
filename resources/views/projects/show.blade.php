@@ -221,6 +221,20 @@
         <span class="pj-fact"><i class="bi bi-clock-history"></i>{{ __('Updated') }} {{ $project->updated_at->diffForHumans() }}</span>
     </div>
 
+    @if($project->hasDailyGoal())
+        @php $goal = $project->dailyGoalProgress(); @endphp
+        <div class="pj-goal" style="margin-top:12px;border:1px solid {{ $goal['met'] ? '#bfe6cf' : '#e5e7eb' }};background:{{ $goal['met'] ? '#eefbf3' : 'white' }};border-radius:8px;padding:10px 12px;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-size:12px;font-weight:700;color:#1f2328;"><i class="bi bi-flag"></i> {{ __('Daily goal') }}</span>
+                <span style="font-size:12px;font-weight:600;color:{{ $goal['met'] ? '#29774b' : '#6b6f78' }};">{{ $project->dailyGoalLabel($goal) }}</span>
+                <span style="margin-left:auto;font-size:11px;font-weight:700;color:{{ $goal['met'] ? '#29774b' : '#7c3aed' }};">
+                    @if($goal['met']) {{ __('Done for today ✓') }} @else {{ __(':n left today', ['n' => $goal['remaining']]) }} @endif
+                </span>
+            </div>
+            <div class="pj-progress-bar" style="margin-top:8px;"><div class="pj-progress-fill" style="background:{{ $goal['met'] ? '#30a46c' : '#7c3aed' }};width:{{ $goal['percent'] }}%;"></div></div>
+        </div>
+    @endif
+
     @if($project->children->count() > 0)
         <hr class="pj-divider">
         <h2 class="pj-h">

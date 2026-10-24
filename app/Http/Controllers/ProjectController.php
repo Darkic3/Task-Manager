@@ -52,8 +52,11 @@ class ProjectController extends Controller
             'parent_id' => ['nullable', 'integer', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
             'type' => 'nullable|in:project,subproject,lesson,chapter,section',
             'sort_order' => 'nullable|integer|min:0',
+            'daily_goal_value' => 'nullable|integer|min:1|max:10000',
+            'daily_goal_unit' => 'nullable|in:tasks,pages,minutes',
         ]);
 
+        $data = $this->normalizeDailyGoal($data);
         $data['type'] = $data['type'] ?? 'project';
         $data['sort_order'] = $data['sort_order'] ?? 0;
 
@@ -122,7 +125,11 @@ class ProjectController extends Controller
             'parent_id' => ['nullable', 'integer', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
             'type' => 'nullable|in:project,subproject,lesson,chapter,section',
             'sort_order' => 'nullable|integer|min:0',
+            'daily_goal_value' => 'nullable|integer|min:1|max:10000',
+            'daily_goal_unit' => 'nullable|in:tasks,pages,minutes',
         ]);
+
+        $data = $this->normalizeDailyGoal($data);
 
         $this->assertNoCycle($data['parent_id'] ?? null, $project->id);
 
@@ -213,6 +220,24 @@ class ProjectController extends Controller
         }
 
         return $ids;
+    }
+
+    /**
+     * Empty goal value = disabled (both columns nulled); otherwise default unit to tasks.
+     */
+    private function normalizeDailyGoal(array $data): array
+    {
+        if (empty($data['daily_goal_value'])) {
+            $data['daily_goal_value'] = null;
+            $data['daily_goal_unit'] = null;
+        } else {
+            $data['daily_goal_value'] = (int) $data['daily_goal_value'];
+            if (empty($data['daily_goal_unit']) || ! in_array($data['daily_goal_unit'], Project::DAILY_GOAL_UNITS, true)) {
+                $data['daily_goal_unit'] = 'tasks';
+            }
+        }
+
+        return $data;
     }
 
     public function addMember(Request $request)

@@ -39,6 +39,21 @@ final class InsightService
             ];
         }
 
+        // 1b. Overdue study chapter (most overdue open tasks, tie → most pages left).
+        $studyRows = $data['study']['rows'] ?? [];
+        $worstChapter = collect($studyRows)
+            ->filter(fn ($r) => ($r['overdue'] ?? 0) > 0)
+            ->sortByDesc(fn ($r) => [($r['overdue'] ?? 0), (($r['pages_total'] ?? 0) - ($r['pages_done'] ?? 0))])
+            ->first();
+        if ($worstChapter) {
+            $left = round(($worstChapter['pages_total'] ?? 0) - ($worstChapter['pages_done'] ?? 0), 1);
+            $out[] = [
+                'icon' => 'bi-book', 'tone' => 'warn',
+                'title' => __('“:title” has :count overdue', ['title' => $worstChapter['path'], 'count' => $worstChapter['overdue']]),
+                'body' => __(':pages pages left in this chapter.', ['pages' => $left]),
+            ];
+        }
+
         // 2. Slip peak window (3-hour bucket with the most slips).
         $peak = self::slipPeakWindow($userId, $range);
         if ($peak) {
@@ -156,6 +171,19 @@ final class InsightService
                 'icon' => 'bi-trophy', 'tone' => 'good',
                 'title' => __('Strongest routine: “:title” at :rate%', ['title' => $best['title'], 'rate' => $best['rate']]),
                 'body' => __('Protect whatever makes this one work.'),
+            ];
+        }
+
+        // 11. Strongest study chapter in the window (most pages read).
+        $bestChapter = collect($data['study']['rows'] ?? [])
+            ->filter(fn ($r) => ($r['pages_in_range'] ?? 0) > 0)
+            ->sortByDesc('pages_in_range')
+            ->first();
+        if ($bestChapter) {
+            $out[] = [
+                'icon' => 'bi-mortarboard', 'tone' => 'good',
+                'title' => __('Strongest chapter: “:title” — :pages pages', ['title' => $bestChapter['path'], 'pages' => $bestChapter['pages_in_range']]),
+                'body' => __(':progress% complete overall.', ['progress' => $bestChapter['progress'] ?? 0]),
             ];
         }
 

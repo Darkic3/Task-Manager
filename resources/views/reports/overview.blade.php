@@ -532,7 +532,7 @@
                     <span>{{ __('Reports') }}</span>
                 </h1>
                 <p class="rp-hero-sub">
-                    {{ __('Tasks') }} · {{ __('Routines') }} · {{ __('Avoid habits') }} · {{ __('Workouts') }} · {{ __('Time') }} — {{ $formattedRange }}
+                    {{ __('Tasks') }} · {{ __('Study') }} · {{ __('Routines') }} · {{ __('Avoid habits') }} · {{ __('Workouts') }} · {{ __('Time') }} — {{ $formattedRange }}
                 </p>
             </div>
             <div class="rp-hero-badge">
@@ -770,6 +770,171 @@
                     </div>
                 @endforeach
             </div>
+        </div>
+    </div>
+
+    {{-- Study (pages + focus per chapter) --}}
+    <div class="rp-section-title" id="study">
+        <i class="bi bi-mortarboard-fill" style="color:#7c3aed;"></i>
+        <span>{{ __('Study') }}</span>
+        <span class="rp-badge-count">{{ $study['pages_completed'] }} {{ __('pages') }} · {{ $fmtDur($study['minutes_total']) }}</span>
+    </div>
+    <div class="rp-grid2">
+        <div class="rp-card">
+            <div class="rp-card-header">
+                <span class="rp-card-title"><i class="bi bi-bar-chart"></i> {{ __('Pages read per day') }}</span>
+            </div>
+            <div class="rp-card-body">
+                @if(array_sum($study['per_day_pages']))
+                    <div class="rp-chart-container">
+                        @foreach($study['per_day_pages'] as $d => $n)
+                            <div class="rp-bar-col" title="{{ app_date($d) }} — {{ $n }} {{ __('pages') }}">
+                                <div class="rp-bar-inner green" style="height: {{ round($n / $study['per_day_pages_max'] * 100) }}%;"></div>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="rp-axis-row">
+                        @foreach($study['per_day_pages'] as $d => $n)
+                            <span class="rp-axis-cell">{{ \Carbon\Carbon::parse($d)->format('j') }}</span>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="rp-empty-state">
+                        <i class="bi bi-book"></i>
+                        <span>{{ __('No pages completed in this range.') }}</span>
+                    </div>
+                @endif
+            </div>
+        </div>
+        <div class="rp-card">
+            <div class="rp-card-header">
+                <span class="rp-card-title"><i class="bi bi-card-checklist"></i> {{ __('Summary') }}</span>
+            </div>
+            <div class="rp-card-body" style="padding-top:10px;padding-bottom:10px;">
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Pages read') }}</span>
+                    <span class="rp-list-val" style="margin-inline-start:auto;">{{ $study['pages_completed'] }}</span>
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Study focus') }}</span>
+                    <span class="rp-list-val" style="margin-inline-start:auto;">{{ $fmtDur($study['minutes_total']) }}</span>
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Study tasks done') }}</span>
+                    <span class="rp-list-val" style="margin-inline-start:auto;">{{ $study['tasks_completed'] }}</span>
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Daily goal adherence') }}</span>
+                    <span class="rp-list-val" style="margin-inline-start:auto;">{{ $study['goal_days_total'] ? $study['goal_days_met'].' / '.$study['goal_days_total'].' ('.$study['goal_rate'].'%)' : '—' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="rp-grid2">
+        <div class="rp-card">
+            <div class="rp-card-header">
+                <span class="rp-card-title"><i class="bi bi-bar-chart"></i> {{ __('Study focus per day') }}</span>
+            </div>
+            <div class="rp-card-body">
+                @if(array_sum($study['per_day_minutes']))
+                    <div class="rp-chart-container">
+                        @foreach($study['per_day_minutes'] as $d => $s)
+                            <div class="rp-bar-col" title="{{ app_date($d) }} — {{ $fmtDur($s) }}">
+                                <div class="rp-bar-inner" style="height: {{ round($s / $study['per_day_minutes_max'] * 100) }}%;"></div>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="rp-axis-row">
+                        @foreach($study['per_day_minutes'] as $d => $s)
+                            <span class="rp-axis-cell">{{ \Carbon\Carbon::parse($d)->format('j') }}</span>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="rp-empty-state">
+                        <i class="bi bi-stopwatch"></i>
+                        <span>{{ __('No study focus tracked in this range.') }}</span>
+                    </div>
+                @endif
+            </div>
+        </div>
+        <div class="rp-card">
+            <div class="rp-card-header">
+                <span class="rp-card-title"><i class="bi bi-flag"></i> {{ __('Daily goal') }}</span>
+            </div>
+            <div class="rp-card-body" style="padding-top:10px;padding-bottom:10px;">
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Days on target') }}</span>
+                    <span class="rp-list-val" style="margin-inline-start:auto;color:{{ $study['goal_rate'] >= 80 ? '#16a34a' : 'inherit' }};font-weight:800;">{{ $study['goal_days_total'] ? $study['goal_days_met'].' / '.$study['goal_days_total'] : '—' }}</span>
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Adherence') }}</span>
+                    <span class="rp-list-val" style="margin-inline-start:auto;">{{ $study['goal_days_total'] ? $study['goal_rate'].'%' : '—' }}</span>
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Pages Δ vs prev') }}</span>
+                    <span class="rp-list-val" style="margin-inline-start:auto;">{{ ($deltas['study_pages'] ?? 0) >= 0 ? '+' : '' }}{{ $deltas['study_pages'] ?? 0 }}</span>
+                </div>
+                @if(!$study['goal_days_total'])
+                    <div class="rp-empty-state">
+                        <i class="bi bi-flag"></i>
+                        <span>{{ __('Set a daily goal on a project to track adherence.') }}</span>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+    <div class="rp-card">
+        <div class="rp-card-header">
+            <span class="rp-card-title"><i class="bi bi-list-task"></i> {{ __('Per chapter') }}</span>
+        </div>
+        <div class="rp-card-body" style="padding:4px 8px;">
+            @if(count($study['rows']))
+                <table class="rp-table">
+                    <thead>
+                        <tr>
+                            <th>{{ __('Chapter') }}</th>
+                            <th>{{ __('Pages done / total') }}</th>
+                            <th style="width:26%;">{{ __('Progress') }}</th>
+                            <th>{{ __('In range') }}</th>
+                            <th>{{ __('Focus') }}</th>
+                            <th>{{ __('Overdue') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($study['rows'] as $row)
+                            <tr>
+                                <td style="padding-inline-start:{{ 10 + min($row['depth'], 4) * 14 }}px;">
+                                    <span style="color:#0f172a;font-weight:600;">{{ $row['path'] }}</span>
+                                    <span style="color:#94a3b8;font-size:11px;"> · {{ $row['tasks_done'] }}/{{ $row['tasks_total'] }}</span>
+                                </td>
+                                <td>{{ $row['pages_done'] }} / {{ $row['pages_total'] }}</td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <div class="rp-progress-track">
+                                            <div class="rp-progress-fill" style="width:{{ $row['progress'] }}%;background:{{ $row['progress'] >= 80 ? '#10b981' : ($row['progress'] >= 50 ? '#4f46e5' : '#f59e0b') }};"></div>
+                                        </div>
+                                        <span class="rp-list-val" style="min-width:44px;">{{ $row['progress'] }}%</span>
+                                    </div>
+                                </td>
+                                <td>{{ $row['pages_in_range'] }}</td>
+                                <td>{{ $fmtDur($row['minutes_in_range']) }}</td>
+                                <td>
+                                    @if($row['overdue'] > 0)
+                                        <span style="color:#dc2626;font-weight:700;">{{ $row['overdue'] }}</span>
+                                    @else
+                                        <span style="color:#94a3b8;">—</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @else
+                <div class="rp-empty-state">
+                    <i class="bi bi-journal-x"></i>
+                    <span>{{ __('No study projects with tasks yet.') }}</span>
+                </div>
+            @endif
         </div>
     </div>
 

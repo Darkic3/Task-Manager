@@ -61,9 +61,11 @@ class ReportInsightsTest extends TestCase
         $user = User::factory()->create();
 
         // Completed now (in week) + nothing before → positive trend.
+        // NOTE: created_at must be inside the current week window even on
+        // Saturdays (week starts Saturday), so use now(), not subDay().
         Task::factory()->create([
             'user_id' => $user->id, 'status' => 'completed',
-            'completed_at' => now(), 'created_at' => now()->subDay(),
+            'completed_at' => now(), 'created_at' => now(),
         ]);
 
         // Keep the avoid routine clean for a streak (created 5 days ago).

@@ -111,6 +111,8 @@ final class ToolSchema
                 'status' => ['type' => 'string', 'enum' => ['not_started', 'in_progress', 'completed', 'closed']],
                 'parent' => $optStr(255),
                 'parent_id' => $id,
+                'daily_goal_value' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 10000],
+                'daily_goal_unit' => ['type' => 'string', 'enum' => ['tasks', 'pages', 'minutes']],
             ],
             'project_add_member' => [
                 'project_id' => $id,

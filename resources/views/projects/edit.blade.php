@@ -205,6 +205,24 @@
                        value="{{ old('budget', $project->budget) }}" step="0.01" min="0" placeholder="0.00">
                 @error('budget')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
+            <div class="pe-field">
+                <label for="daily_goal_value">{{ __('Daily goal (min steps / day)') }}</label>
+                <input type="number" name="daily_goal_value" id="daily_goal_value"
+                       class="pe-input {{ $errors->has('daily_goal_value') ? 'is-invalid' : '' }}"
+                       value="{{ old('daily_goal_value', $project->daily_goal_value) }}" min="1" max="10000" step="1"
+                       placeholder="{{ __('e.g. 3 — empty disables') }}">
+                @error('daily_goal_value')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="pe-field">
+                <label for="daily_goal_unit">{{ __('Daily goal metric') }}</label>
+                <select name="daily_goal_unit" id="daily_goal_unit"
+                        class="pe-input {{ $errors->has('daily_goal_unit') ? 'is-invalid' : '' }}">
+                    @foreach(['tasks' => 'Tasks (steps)', 'pages' => 'Pages (weight)', 'minutes' => 'Minutes (focus)'] as $val => $label)
+                        <option value="{{ $val }}" {{ old('daily_goal_unit', $project->daily_goal_unit ?? 'tasks') === $val ? 'selected' : '' }}>{{ __($label) }}</option>
+                    @endforeach
+                </select>
+                @error('daily_goal_unit')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
         </div>
 
         {{-- Action bar --}}

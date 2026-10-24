@@ -43,13 +43,19 @@ final class TaskReportService
         $byProject = Task::where('user_id', $userId)
             ->where('status', 'completed')
             ->whereBetween('completed_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
-            ->with('project:id,name')
-            ->get()
-            ->groupBy(fn ($t) => $t->project?->name ?? 'No project')
+            ->get(['project_id'])
+            ->groupBy('project_id')
             ->map->count()
             ->sortDesc()
-            ->take(8)
-            ->all();
+            ->take(8);
+
+        // Hierarchy-aware labels ("Book / Chapter") keyed by project id so
+        // same-named chapters in different books never merge. Shape stays
+        // [label => count] for the blade.
+        $paths = \App\Models\Project::pathMap($userId);
+        $byProject = $byProject->mapWithKeys(fn ($count, $pid) => [
+            $pid !== null && isset($paths[(int) $pid]) ? $paths[(int) $pid] : __('No project') => $count,
+        ])->all();
 
         $byPriority = Task::where('user_id', $userId)
             ->where('status', 'completed')

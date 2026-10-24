@@ -579,6 +579,47 @@
                     </div>
                 </div>
 
+                {{-- Daily Goal --}}
+                <div class="cu-section">
+                    <div class="cu-section-header">
+                        <span class="cu-section-icon green"><i class="bi bi-flag"></i></span>
+                        <span class="cu-section-title">{{ __('Daily Goal') }}</span>
+                        <span class="cu-section-subtitle">{{ __('Min steps per day — empty disables') }}</span>
+                    </div>
+                    <div class="cu-section-body">
+                        <div class="cu-field-row cu-field">
+                            <div class="cu-field" style="margin-bottom:0;">
+                                <label for="daily_goal_value" class="cu-label">{{ __('Steps per day') }}</label>
+                                <div class="cu-input-wrap">
+                                    <i class="bi bi-123"></i>
+                                    <input type="number"
+                                           name="daily_goal_value"
+                                           id="daily_goal_value"
+                                           class="cu-input {{ $errors->has('daily_goal_value') ? 'is-invalid' : '' }}"
+                                           value="{{ old('daily_goal_value') }}"
+                                           min="1" max="10000" step="1"
+                                           placeholder="{{ __('e.g. 3') }}">
+                                </div>
+                                @error('daily_goal_value')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="cu-field" style="margin-bottom:0;">
+                                <label for="daily_goal_unit" class="cu-label">{{ __('Metric') }}</label>
+                                <div class="cu-input-wrap">
+                                    <i class="bi bi-rulers"></i>
+                                    <select name="daily_goal_unit" id="daily_goal_unit"
+                                            class="cu-input no-icon {{ $errors->has('daily_goal_unit') ? 'is-invalid' : '' }}"
+                                            style="padding-left:34px;">
+                                        @foreach(['tasks' => 'Tasks (steps)', 'pages' => 'Pages (weight)', 'minutes' => 'Minutes (focus)'] as $val => $label)
+                                            <option value="{{ $val }}" {{ old('daily_goal_unit', 'tasks') === $val ? 'selected' : '' }}>{{ __($label) }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                @error('daily_goal_unit')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {{-- Status --}}
                 <div class="cu-section">
                     <div class="cu-section-header">

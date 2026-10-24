@@ -213,6 +213,8 @@ class AiToolService
                 'description' => ['type' => 'string'],
                 'status' => ['type' => 'string', 'enum' => ['not_started', 'in_progress', 'completed', 'closed']],
                 'parent' => ['type' => 'string', 'description' => 'Parent project name or ID (optional)'],
+                'daily_goal_value' => ['type' => 'integer', 'description' => 'Daily minimum steps (optional, 1-10000)'],
+                'daily_goal_unit' => ['type' => 'string', 'enum' => ['tasks', 'pages', 'minutes'], 'description' => 'Daily goal metric (default tasks)'],
             ], ['name']),
             $this->fn('project_add_member', 'Add a collaborator to one of the user\'s projects. The member is found by email, name, or user ID.', [
                 'project' => ['type' => 'string', 'description' => 'Project name or ID (must be yours)'],
@@ -597,7 +599,7 @@ class AiToolService
             'task_delete' => $this->previewTaskDelete($resolved),
             'task_update' => ['title' => 'Update task', 'rows' => $this->rows($resolved, ['task_title', 'title', 'due_date', 'priority', 'status', 'description'])],
             'task_complete' => ['title' => 'Complete task', 'rows' => $this->rows($resolved, ['task_title'])],
-            'project_create' => ['title' => isset($resolved['parent_id']) ? 'Create sub-project' : 'Create project', 'rows' => $this->rows($resolved, ['name', 'parent_name', 'status', 'description'])],
+            'project_create' => ['title' => isset($resolved['parent_id']) ? 'Create sub-project' : 'Create project', 'rows' => $this->rows($resolved, ['name', 'parent_name', 'status', 'description', 'daily_goal_value', 'daily_goal_unit'])],
             'task_create' => ['title' => isset($resolved['parent_id']) ? 'Create subtask' : 'Create task', 'rows' => $this->rows($resolved, ['title', 'project_name', 'parent_title', 'due_date', 'priority', 'status'])],
             'reminder_create' => ['title' => 'Create reminder', 'rows' => $this->rows($resolved, ['title', 'date', 'time', 'priority'])],
             'note_create' => ['title' => 'Create note', 'rows' => $this->rows($resolved, ['title', 'category'])],
@@ -1006,6 +1008,8 @@ class AiToolService
             'status' => 'nullable|in:not_started,in_progress,completed,closed',
             'parent' => 'nullable|string|max:255',
             'parent_id' => 'nullable|integer',
+            'daily_goal_value' => 'nullable|integer|min:1|max:10000',
+            'daily_goal_unit' => 'nullable|in:tasks,pages,minutes',
         ]);
         if ($v->fails()) {
             return $this->fail($v->errors()->first());
@@ -1050,6 +1054,8 @@ class AiToolService
             'status' => $args['status'] ?? 'not_started',
             'parent_id' => $parentId,
             'parent_name' => $parentName,
+            'daily_goal_value' => isset($args['daily_goal_value']) ? (int) $args['daily_goal_value'] : null,
+            'daily_goal_unit' => $args['daily_goal_unit'] ?? 'tasks',
         ]];
     }
 
@@ -2993,6 +2999,8 @@ class AiToolService
             'parent_id' => $r['parent_id'] ?? null,
             'type' => 'project',
             'sort_order' => 0,
+            'daily_goal_value' => $r['daily_goal_value'] ?? null,
+            'daily_goal_unit' => ! empty($r['daily_goal_value']) ? ($r['daily_goal_unit'] ?? 'tasks') : null,
         ]);
 
         $msg = isset($r['parent_id'])
@@ -3060,6 +3068,12 @@ class AiToolService
         $tm = $report['time'];
         $lines[] = 'Focus time: ' . $this->formatSeconds($tm['total'] ?? 0)
             . ' (Δ ' . $this->formatSignedSeconds($report['deltas']['time'] ?? 0) . ' vs previous)';
+        $st = $report['study'] ?? null;
+        if ($st) {
+            $lines[] = "Study: {$st['pages_completed']} pages · " . $this->formatSeconds($st['minutes_total'] ?? 0)
+                . ' focus'
+                . (($st['goal_days_total'] ?? 0) > 0 ? " · daily goal {$st['goal_days_met']}/{$st['goal_days_total']} days ({$st['goal_rate']}%)" : '');
+        }
         $w = $report['workouts'];
         $lines[] = "Workouts: {$w['completed']} completed";
         $d = $report['deltas'];

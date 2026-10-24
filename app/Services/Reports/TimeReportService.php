@@ -16,16 +16,27 @@ final class TimeReportService
         $entries = TimeEntry::where('user_id', $userId)
             ->where('status', TimeEntry::STATUS_STOPPED)
             ->whereBetween('started_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
-            ->with('project:id,name')
-            ->get();
+            ->get(['id', 'project_id', 'started_at', 'duration_seconds']);
 
         $total = (int) $entries->sum('duration_seconds');
 
+        // Hierarchy-aware labels ("Book / Chapter") keyed by project id so
+        // same-named chapters in different books never merge. Shape stays
+        // [label => seconds] for the blade.
+        $paths = \App\Models\Project::pathMap($userId);
         $byProject = $entries
-            ->groupBy(fn ($e) => $e->project?->name ?? 'No project')
+            ->groupBy(fn ($e) => $e->project_id !== null ? 'p:'.$e->project_id : 'none')
             ->map(fn ($g) => (int) $g->sum('duration_seconds'))
             ->sortDesc()
             ->take(8)
+            ->mapWithKeys(function ($seconds, $key) use ($paths) {
+                if ($key === 'none') {
+                    return [__('No project') => $seconds];
+                }
+                $pid = (int) substr($key, 2);
+
+                return [$paths[$pid] ?? __('No project') => $seconds];
+            })
             ->all();
 
         $perDay = array_fill_keys(self::dayKeys($from, $to), 0);

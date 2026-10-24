@@ -23,6 +23,8 @@ class Project extends Model
         'end_date',
         'status',
         'budget',
+        'daily_goal_value',
+        'daily_goal_unit',
         'metadata',
     ];
 
@@ -34,6 +36,7 @@ class Project extends Model
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
+        'daily_goal_value' => 'integer',
         'metadata' => 'array',
     ];
 
@@ -231,5 +234,178 @@ class Project extends Model
     public function users()
     {
         return $this->belongsToMany(User::class, 'project_teams', 'project_id', 'user_id');
+    }
+
+    // ── Daily goal ("حداقل قدم روزانه") ──────────────────────────
+
+    public const DAILY_GOAL_UNITS = ['tasks', 'pages', 'minutes'];
+
+    public const DAILY_GOAL_UNIT_LABELS = [
+        'tasks' => 'Tasks',
+        'pages' => 'Pages',
+        'minutes' => 'Minutes',
+    ];
+
+    public function hasDailyGoal(): bool
+    {
+        return $this->daily_goal_value !== null && (int) $this->daily_goal_value > 0;
+    }
+
+    public function dailyGoalUnit(): string
+    {
+        return in_array($this->daily_goal_unit, self::DAILY_GOAL_UNITS, true)
+            ? $this->daily_goal_unit
+            : 'tasks';
+    }
+
+    /**
+     * Self + every descendant project id (breadth-first, cycle safe).
+     *
+     * @return array<int>
+     */
+    public function descendantProjectIds(): array
+    {
+        $ids = [(int) $this->id];
+        $frontier = [(int) $this->id];
+        $guard = 0;
+
+        while ($frontier !== [] && $guard++ < 50) {
+            $children = static::whereIn('parent_id', $frontier)->pluck('id')->all();
+            $children = array_values(array_diff(array_map('intval', $children), $ids));
+
+            if ($children === []) {
+                break;
+            }
+
+            $ids = array_merge($ids, $children);
+            $frontier = $children;
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Today's progress toward the daily goal, aggregated over the whole subtree.
+     *
+     * - tasks:   completed tasks (by completed_at, falling back to updated_at) on $date
+     * - pages:   sum of task weight (≈ pages) for those completed tasks
+     * - minutes: focused time logged on $date (stopped + live elapsed)
+     *
+     * @return array{current: float|int, target: int, unit: string, percent: float, remaining: float|int, met: bool}
+     */
+    public function dailyGoalProgress($date = null): array
+    {
+        $target = (int) ($this->daily_goal_value ?? 0);
+        $unit = $this->dailyGoalUnit();
+        $empty = ['current' => 0, 'target' => $target, 'unit' => $unit, 'percent' => 0.0, 'remaining' => $target, 'met' => false];
+
+        if ($target <= 0) {
+            return $empty;
+        }
+
+        $day = $date instanceof Carbon ? $date->copy()->startOfDay() : Carbon::parse($date ?? Carbon::today()->toDateString())->startOfDay();
+        $key = $day->toDateString();
+        $ids = $this->descendantProjectIds();
+
+        if ($unit === 'minutes') {
+            $entries = TimeEntry::where('user_id', $this->user_id)
+                ->where(function ($q) use ($ids) {
+                    $q->whereIn('project_id', $ids)
+                        ->orWhereHas('task', fn ($t) => $t->whereIn('project_id', $ids));
+                })
+                ->whereDate('started_at', $key)
+                ->get();
+
+            $seconds = 0;
+            foreach ($entries as $entry) {
+                $seconds += $entry->status === TimeEntry::STATUS_STOPPED
+                    ? (int) ($entry->duration_seconds ?? 0)
+                    : $entry->elapsedSeconds();
+            }
+            $current = (int) floor($seconds / 60);
+        } else {
+            $completed = Task::where('user_id', $this->user_id)
+                ->whereIn('project_id', $ids)
+                ->where('status', 'completed')
+                ->where(function ($q) use ($key) {
+                    $q->whereDate('completed_at', $key)
+                        ->orWhere(function ($qq) use ($key) {
+                            $qq->whereNull('completed_at')->whereDate('updated_at', $key);
+                        });
+                });
+
+            if ($unit === 'pages') {
+                // weight ≈ pages (user maps 1 weight unit = 1 page).
+                $current = (float) ($completed->sum('weight') ?? 0);
+                // Tasks created before the weight column may hold null.
+                if ($current <= 0) {
+                    $current = (float) $completed->count();
+                }
+            } else {
+                $current = (int) $completed->count();
+            }
+        }
+
+        $percent = $target > 0 ? round(min(100, $current / $target * 100), 1) : 0.0;
+
+        return [
+            'current' => $current,
+            'target' => $target,
+            'unit' => $unit,
+            'percent' => $percent,
+            'remaining' => max(0, $target - $current),
+            'met' => $current >= $target,
+        ];
+    }
+
+    public function dailyGoalLabel(array $progress = null): string
+    {
+        $p = $progress ?? $this->dailyGoalProgress();
+        $unitLabel = __(self::DAILY_GOAL_UNIT_LABELS[$p['unit']] ?? $p['unit']);
+
+        if ($p['unit'] === 'minutes') {
+            $fmt = fn ($m) => $m >= 60
+                ? round($m / 60, 1).'h'
+                : $m.'m';
+
+            return $fmt((int) $p['current']).' / '.$fmt((int) $p['target']).' '.$unitLabel;
+        }
+
+        return rtrim(rtrim(number_format((float) $p['current'], 1, '.', ''), '0'), '.')
+            .' / '.$p['target'].' '.$unitLabel;
+    }
+
+    /**
+     * Hierarchy-aware labels for reports: [project_id => "Root / … / Name"].
+     * Single query + in-memory walk (no N+1); cycle safe. Two chapters with
+     * the same name in different books get different labels, so they never
+     * merge in report breakdowns.
+     *
+     * @return array<int, string>
+     */
+    public static function pathMap(int $userId): array
+    {
+        $rows = static::where('user_id', $userId)->get(['id', 'name', 'parent_id']);
+        $byId = [];
+        foreach ($rows as $row) {
+            $byId[(int) $row->id] = ['name' => (string) $row->name, 'parent' => $row->parent_id !== null ? (int) $row->parent_id : null];
+        }
+
+        $paths = [];
+        foreach ($byId as $id => $info) {
+            $parts = [$info['name']];
+            $parent = $info['parent'];
+            $guard = 0;
+            while ($parent !== null && isset($byId[$parent]) && $guard++ < 50) {
+                array_unshift($parts, $byId[$parent]['name']);
+                if ($parent === $id) {
+                    break;
+                }
+                $parent = $byId[$parent]['parent'];
+            }
+            $paths[$id] = implode(' / ', $parts);
+        }
+
+        return $paths;
     }
 }

@@ -9,6 +9,7 @@
 | `User` | `users` | name, email, profile fields | hasMany همه‌چیز (projects, tasks, routines, notes, reminders, files, timeEntries) |
 | `Project` | `projects` | name, **slug** (کلید روت!), parent_id, sort_order, type, status, budget, start/end_date | children بازگشتی (`childrenRecursive`)، tasks، users (تیم via `project_teams`) |
 | `Task` | `tasks` | project_id, parent_id, title, due_date, priority (low/med/high), status (to_do/in_progress/on_hold/in_review/completed), weight, auto_weight, sort_order, estimated_hours, completed_at | project, parent/children بازگشتی، checklistItems، timeEntries |
+| `Project` | `projects` | name, **slug** (کلید روت!), parent_id, sort_order, type, status, budget, start/end_date, **daily_goal_value/unit** (tasks/pages/minutes) | children بازگشتی (`childrenRecursive`)، tasks، users (تیم via `project_teams`) |
 | `Routine` | `routines` | title, frequency (daily/weekly/monthly/every_n_days), days/weeks/months/month_days (json), every_n_days, time_period, start/end_time + SoftDeletes | completions، checklistItems |
 | `RoutineCompletion` | `routine_completions` | routine_id, completed_date, completed_at + یونیک `(routine_id, completed_date)` | — |
 | `RoutineChecklistItem` + `RoutineCheckitemCompletion` | — | استپ‌های روتین + تیک روزانه (یونیک item+date) | — |
@@ -22,6 +23,7 @@
 | `AiSetting` / `AiProvider` | `ai_settings` / `ai_providers` | کلیدهای رمزنگاری‌شده + مدل هر پروایدر / پروایدر کاستوم (base_url, type, model, api_key) | — |
 
 نکته‌ها: روت‌مدل `Project` با **slug** بایند می‌شود (`getRouteKeyName`) — پس هر `with('project...')` باید `slug` را سلکت کند. حذف روتین **سافت** است (تاریخچه می‌ماند، مخفی می‌شود).
+- **قرارداد مطالعه (کنکور):** ‏۱ واحد `tasks.weight` ‏= ۱ صفحه (`Task::WEIGHT_UNIT_PAGES`، متد `pages()`)؛ گزارش مطالعه (`StudyReportService`) وزن را «صفحه خوانده‌شده» جمع می‌زند و هدف روزانه با واحد `pages` با همان عدد مقایسه می‌شود. گروه‌بندی گزارش‌ها با **id پروژه + مسیر breadcrumb** است تا فصل‌های هم‌نام دو کتاب قاطی نشوند.
 
 ## ۲. فیچرها با جزئیات
 

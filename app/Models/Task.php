@@ -10,6 +10,14 @@ class Task extends Model
 {
     use HasFactory;
 
+    /**
+     * Study convention (کنکور ارشد): 1 weight unit = 1 study page.
+     * Reports sum weight as "pages read"; Project daily goals with unit
+     * `pages` compare against the same number. Validated 0–99 in
+     * TaskController store/update.
+     */
+    public const WEIGHT_UNIT_PAGES = 'pages';
+
     protected $fillable = [
         'user_id',
         'project_id',
@@ -145,12 +153,21 @@ class Task extends Model
     }
 
     /**
+     * Pages this task is worth (manual weight, NULL-safe).
+     * See WEIGHT_UNIT_PAGES: 1 weight unit = 1 study page.
+     */
+    public function pages(): float
+    {
+        return max(0.0, (float) ($this->weight ?? 1));
+    }
+
+    /**
      * Manual weight adjusted by time spent when auto_weight is on:
      * manual × (1 + actual/estimated), or manual × (1 + actual/10h).
      */
     public function effectiveWeight(): float
     {
-        $manual = max(0.0, (float) ($this->weight ?? 1));
+        $manual = $this->pages();
         if (! $this->auto_weight) {
             return $manual;
         }

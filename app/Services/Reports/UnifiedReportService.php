@@ -18,12 +18,14 @@ final class UnifiedReportService
         $avoid = AvoidanceReportService::summarize($userId, $from, $to);
         $workouts = WorkoutReportService::summarize($userId, $from, $to);
         $time = TimeReportService::summarize($userId, $from, $to);
+        $study = StudyReportService::summarize($userId, $from, $to);
 
         $prevTasks = TaskReportService::summarize($userId, $range->prevFrom, $range->prevTo);
         $prevRoutines = RoutineReportService::summarize($userId, $range->prevFrom, $range->prevTo);
         $prevAvoid = AvoidanceReportService::summarize($userId, $range->prevFrom, $range->prevTo);
         $prevWorkouts = WorkoutReportService::summarize($userId, $range->prevFrom, $range->prevTo);
         $prevTime = TimeReportService::summarize($userId, $range->prevFrom, $range->prevTo);
+        $prevStudy = StudyReportService::summarize($userId, $range->prevFrom, $range->prevTo);
 
         $report = [
             'tasks' => $tasks,
@@ -31,6 +33,7 @@ final class UnifiedReportService
             'avoid' => $avoid,
             'workouts' => $workouts,
             'time' => $time,
+            'study' => $study,
             'deltas' => [
                 'tasks_completed' => $tasks['completed'] - $prevTasks['completed'],
                 'task_rate' => $tasks['rate'] - $prevTasks['rate'],
@@ -38,6 +41,8 @@ final class UnifiedReportService
                 'slips' => $avoid['slip_total'] - $prevAvoid['slip_total'],
                 'workouts' => $workouts['completed'] - $prevWorkouts['completed'],
                 'time' => $time['total'] - $prevTime['total'],
+                'study_pages' => round($study['pages_completed'] - $prevStudy['pages_completed'], 1),
+                'study_goal_rate' => $study['goal_rate'] - $prevStudy['goal_rate'],
             ],
         ];
 
