@@ -212,6 +212,17 @@ final class ToolSchema
     {
         $args = is_string($raw) ? (json_decode($raw, true)) : $raw;
         if (! is_array($args)) {
+            // A long string that fails to decode is almost always a response
+            // cut off by the output length limit (Persian plan arguments are
+            // large) — not a model bug. Surface it distinctly so the UI can
+            // advise splitting instead of a blind retry.
+            if (is_string($raw) && self::looksTruncated($raw)) {
+                return ToolError::fail(
+                    ToolError::TRUNCATED_RESPONSE,
+                    'Tool arguments arrived cut off (the response hit the length limit). Split the request into smaller chunks — e.g. one plan per 2-3 chapters — instead of retrying the same request.'
+                );
+            }
+
             return ToolError::fail(ToolError::VALIDATION_ERROR, 'Tool arguments must be a JSON object.');
         }
         if (self::depth($args) > self::MAX_DEPTH) {
@@ -229,6 +240,33 @@ final class ToolSchema
         }
 
         return ToolError::ok(['args' => $args, 'bytes' => $bytes]);
+    }
+
+    /**
+     * Heuristic: does this undecodable string look like a response cut off
+     * mid-stream rather than a short malformed value? Cut-off payloads are
+     * long with unclosed structures (or end abruptly mid-token); short
+     * garbage and cleanly-closed scalars (e.g. a double-encoded string)
+     * are plain model bugs.
+     */
+    private static function looksTruncated(string $raw): bool
+    {
+        $trimmed = rtrim($raw);
+        $len = mb_strlen($trimmed);
+        if ($len < 200) {
+            return false;
+        }
+        // Unbalanced structure → cut off (Persian prose almost never
+        // contains braces/brackets, so naive counting is reliable here).
+        $opens = substr_count($trimmed, '{') + substr_count($trimmed, '[');
+        $closes = substr_count($trimmed, '}') + substr_count($trimmed, ']');
+        if ($opens > $closes) {
+            return true;
+        }
+        // Long string ending abruptly mid-token.
+        $last = mb_substr($trimmed, -1);
+
+        return ! in_array($last, ['}', ']'], true) && $len > 1000;
     }
 
     public static function payloadBytes(array $args): int

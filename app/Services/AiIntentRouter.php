@@ -153,7 +153,7 @@ final class AiIntentRouter
 
     private static function result(string $intent, string $confidence, string $message, array $entities = []): array
     {
-        $entities += ['objects' => [], 'date_mentioned' => false, 'list_detected' => false, 'question' => false];
+        $entities += ['objects' => [], 'date_mentioned' => false, 'list_detected' => false, 'question' => false, 'bulk_detected' => false];
         $needsClarify = $intent === self::INTENT_AMBIGUOUS;
 
         return [
@@ -226,6 +226,11 @@ final class AiIntentRouter
             'list_detected' => (bool) preg_match('/^\s*(\d+[.)]|[-*•])\s+.+/mu', $original)
                 && (bool) preg_match_all('/^\s*(\d+[.)]|[-*•])\s+.+/mu', $original) >= 2,
             'question' => str_contains($original, '؟') || str_ends_with(rtrim($original), '?'),
+            // Bulk-build signal (study outlines, chapter lists): فصل‌ها،
+            // درسنامه‌ها، زیرفصل‌ها... Used by matchPlan and by the
+            // capability router to keep plan_propose visible. Generic words
+            // like بخش/مرحله are deliberately excluded (too noisy).
+            'bulk_detected' => self::containsAny($norm, self::bulkCues()),
         ];
     }
 
@@ -251,6 +256,15 @@ final class AiIntentRouter
     private static function dateCues(): array
     {
         return ['امروز', 'فردا', 'پسفردا', 'امشب', 'دیروز', 'این هفته', 'شنبه', 'یکشنبه', 'دوشنبه', 'سهشنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'today', 'tomorrow', 'tonight', 'this week', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    }
+
+    /**
+     * Bulk-build markers (study outlines, chapter/lesson dumps). Narrow on
+     * purpose: generic words like بخش/مرحله would fire on everyday text.
+     */
+    private static function bulkCues(): array
+    {
+        return ['فصل', 'درسنامه', 'زیرفصل', 'زیر فصل', 'سرفصل', 'زیرشاخه', 'زیر شاخه', 'chapter', 'lesson'];
     }
 
     /* ── Matchers (ordered by precedence) ───────────────────── */
@@ -312,6 +326,15 @@ final class AiIntentRouter
         $monthlyPlan = self::containsAny($norm, ['برنامه ماهانه', 'برنامه هفتگی', 'برنامه ماه', 'monthly plan', 'weekly plan']);
 
         if ($multiProject || $monthlyPlan) {
+            return self::CONF_HIGH;
+        }
+        // "Make/build this book into a project with all its chapters and
+        // lessons" — the درست‌کن family is a plan verb ONLY with a project
+        // object plus bulk signals (فصل/درسنامه/…) or a pasted list. Bare
+        // "یه تسک درست کن" still falls through to single-item mutation.
+        $makeVerb = self::containsAny($norm, ['درست کن', 'راه بنداز', 'راهاندازی']);
+        if ($makeVerb && in_array('project', $entities['objects'], true)
+            && ($entities['list_detected'] || ($entities['bulk_detected'] ?? false))) {
             return self::CONF_HIGH;
         }
         if ($hasPlanNoun && ($hasPlanVerb || $entities['list_detected'])) {

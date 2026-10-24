@@ -164,9 +164,46 @@ class AiPlanController extends Controller
         });
     }
 
-    public function cancel(Request $request, AiPlan $plan)
+    /**
+     * Delete everything this plan created (reverse dependency order).
+     * Unlike cancel (which leaves created items), rollback removes the
+     * plan's own projects/tasks/reminders/notes and soft-deletes its
+     * routines. Projects that gained non-plan content afterwards are kept
+     * and reported. Attached pre-existing records are never touched.
+     */
+    public function rollback(AiPlan $plan)
     {
         abort_if($plan->user_id !== Auth::id(), 403);
+
+        $rid = AiLogger::newRequestId();
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($plan, $rid) {
+            /** @var AiPlan $locked */
+            $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->firstOrFail();
+            abort_if($locked->user_id !== Auth::id(), 403);
+
+            if (! in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_DONE], true)) {
+                if ($locked->isSuperseded()) {
+                    return response()->json(['ok' => false, 'code' => 'superseded', 'error' => __('This plan was replaced by a newer plan.')], 422);
+                }
+
+                return response()->json(['ok' => false, 'error' => __('Nothing was built yet — there is nothing to roll back.')], 422);
+            }
+
+            $result = $this->tools->rollbackPlan($locked->fresh(), Auth::user());
+            if (! ($result['ok'] ?? false)) {
+                return response()->json(['ok' => false, 'error' => $result['message'] ?? __('Rollback failed.')], 422);
+            }
+
+            AiLogger::log('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'rolled_back', 'status' => $locked->fresh()->status, 'deleted' => $result['deleted'] ?? [], 'kept' => $result['kept'] ?? []]);
+            $this->note($locked, $result['message']);
+
+            return response()->json(['ok' => true, 'message' => $result['message'], 'deleted' => $result['deleted'] ?? [], 'kept' => $result['kept'] ?? [], 'plan' => $this->serialize($locked->fresh())]);
+        });
+    }
+
+    public function cancel(Request $request, AiPlan $plan)
+    {        abort_if($plan->user_id !== Auth::id(), 403);
 
         $request->validate(['replaced_by_plan_id' => 'nullable|integer|min:1']);
 
@@ -237,6 +274,30 @@ class AiPlanController extends Controller
         }
     }
 
+    /**
+     * Created record ids (+ project names) for chunk continuation prompts.
+     * Projects phase runs first, so projects[0] is the book/root node.
+     */
+    private function createdIds(AiPlan $plan): array
+    {
+        $items = $plan->created_items ?? [];
+        $projectIds = array_values(array_map('intval', (array) ($items['projects'] ?? [])));
+        $names = [];
+        if ($projectIds !== []) {
+            $names = \App\Models\Project::where('user_id', $plan->user_id)
+                ->whereIn('id', $projectIds)
+                ->pluck('name', 'id')
+                ->all();
+        }
+
+        return [
+            'projects' => array_map(
+                fn ($id) => ['id' => $id, 'name' => $names[$id] ?? null],
+                $projectIds
+            ),
+        ];
+    }
+
     private function note(AiPlan $plan, string $text): void
     {
         if (! $plan->conversation_id) {
@@ -270,6 +331,32 @@ class AiPlanController extends Controller
         $routineCount = count($structure['routines'] ?? []);
         $stepCount = array_sum(array_map(fn ($r) => count($r['steps'] ?? []), $structure['routines'] ?? []));
         $memberCount = array_sum(array_map(fn ($r) => count($r['members'] ?? []), $roots));
+        $weightOf = fn ($t) => isset($t['weight']) && is_numeric($t['weight']) ? (float) $t['weight'] : 0.0;
+        $pagesOfTasks = function ($tasks) use ($weightOf): float {
+            $sum = 0.0;
+            foreach ((array) $tasks as $t) {
+                $sum += $weightOf(is_array($t) ? $t : []);
+                foreach ((is_array($t) ? ($t['subtasks'] ?? []) : []) as $s) {
+                    $sum += $weightOf(is_array($s) ? $s : []);
+                }
+            }
+
+            return $sum;
+        };
+        $pagesSum = 0.0;
+        $goalCount = 0;
+        foreach ($roots as $r) {
+            if (! empty($r['daily_goal_value'])) {
+                $goalCount++;
+            }
+            $pagesSum += $pagesOfTasks($r['tasks'] ?? []);
+            foreach ($r['subprojects'] ?? [] as $s) {
+                if (! empty($s['daily_goal_value'])) {
+                    $goalCount++;
+                }
+                $pagesSum += $pagesOfTasks($s['tasks'] ?? []);
+            }
+        }
 
         return [
             'id' => $plan->id,
@@ -285,6 +372,8 @@ class AiPlanController extends Controller
                     'subprojects' => $subProjectCount,
                     'tasks' => $taskCount,
                     'subtasks' => $subCount,
+                    'pages' => $pagesSum > 0 ? round($pagesSum, 1) : 0,
+                    'goals' => $goalCount,
                     'routines' => $routineCount,
                     'steps' => $stepCount,
                     'reminders' => count($structure['reminders'] ?? []),
@@ -292,6 +381,26 @@ class AiPlanController extends Controller
                     'members' => $memberCount,
                 ],
             ]),
+            'can_rollback' => ! empty($plan->created_items) && (
+                ! empty($plan->created_items['projects'])
+                || ! empty($plan->created_items['tasks'])
+                || ! empty($plan->created_items['reminders'])
+                || ! empty($plan->created_items['notes'])
+                || ! empty($plan->created_items['routines'])
+            ),
+            // What was ACTUALLY built (vs proposed totals) — the done card
+            // renders this so an empty build can never claim success.
+            'created' => [
+                'projects' => count((array) ($plan->created_items['projects'] ?? [])),
+                'tasks' => count((array) ($plan->created_items['tasks'] ?? [])),
+                'reminders' => count((array) ($plan->created_items['reminders'] ?? [])),
+                'notes' => count((array) ($plan->created_items['notes'] ?? [])),
+                'routines' => count((array) ($plan->created_items['routines'] ?? [])),
+            ],
+            // Concrete ids + names for chunk continuation ("attach chunk 2
+            // to book #25") so the next prompt carries the target id and the
+            // model skips the search detour. Own records only.
+            'created_ids' => $this->createdIds($plan),
             'expires_at' => $plan->expires_at?->toIso8601String(),
         ];
     }

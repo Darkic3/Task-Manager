@@ -71,6 +71,31 @@ class AiChatController extends Controller
         ]);
     }
 
+    /**
+     * Asset version for the chat page (stale-tab detection). The tab polls
+     * this and shows a "refresh for the new buttons/fixes" banner when the
+     * served files changed — long-lived tabs otherwise keep running old JS
+     * (e.g. the pre-#ID next-chunk template) with no visible error.
+     */
+    public function version()
+    {
+        return response()->json(['v' => self::chatAssetVersion()]);
+    }
+
+    public static function chatAssetVersion(): string
+    {
+        $sig = '';
+        foreach ([
+            resource_path('views/ai/index.blade.php'),
+            __FILE__,
+            app_path('Services/AiToolService.php'),
+        ] as $file) {
+            $sig .= $file.':'.@filemtime($file).':'.@filesize($file).';';
+        }
+
+        return sha1($sig);
+    }
+
     /* ── Conversation CRUD ── */
 
     public function conversations()
@@ -837,6 +862,19 @@ class AiChatController extends Controller
         ];
         if ($raceReused) {
             $out['deduped'] = true;
+        }
+
+        // Build-flow continuation: a search proposed while the request is a
+        // plan_build is a stepping stone, not the destination. Flag it so
+        // the UI auto-sends the follow-up ("continue the build") right after
+        // the user confirms — otherwise the flow stalls dead (confirm shows
+        // results, the model is never re-invoked, user resends, loop).
+        if ($tool === 'workspace_search' && $conversationId) {
+            $state = \App\Services\AiRequestState::read($conversationId);
+            if (($state['intent'] ?? null) === \App\Services\AiIntentRouter::INTENT_PLAN) {
+                $out['auto_continue'] = true;
+                $out['follow_up'] = __('Search confirmed — continue the original build now: propose the plan chunk directly without searching again.');
+            }
         }
 
         return $out;
@@ -2359,7 +2397,9 @@ class AiChatController extends Controller
             - COLLABORATORS: project_add_member finds the person by exact email, exact name, or user ID. A partial/ambiguous name is refused with code ambiguous_target plus a short list of candidates — never treat that as "not found" and never retry with a different guess: call ask_user_choice ONCE with the candidates (user id as the reference) so the user picks, then add the picked person.
             - NOTE LINKS: note_link connects a note to a project/task/note so it appears in backlinks — use it when the user says a note "belongs to" or "is about" something.
             - REPORTS: report_generate builds a read-only workspace summary for today/week/month (nothing changes). Use it when the user asks "how am I doing / گزارش بده". After it runs, explain the numbers in 2-4 bullets.
-            - SEARCH BEFORE CREATE (mandatory): the PROJECTS section below lists ALL the user's projects with their IDs and hierarchy (indented = sub-project). When the user says "add X to project Y" or references something that may already exist, attach to the matching existing record (pass its project_id) — NEVER create a new project for it. If nothing matches and the user did not explicitly ask to create a project, ASK in text which project they mean (list the closest existing names + IDs) and wait for the answer. For anything not visible in the context (a task/note/reminder by name), call workspace_search FIRST — it returns ids/names you can pass to other tools.
+            - SEARCH BEFORE CREATE (mandatory): the PROJECTS section below lists ALL the user's projects with their IDs and hierarchy (indented = sub-project). A name that matches a listed project COUNTS AS RESOLVED — attach with its project_id straight away; searching for a name you can already see is forbidden and only stalls the user behind useless confirmation cards. When the user says "add X to project Y" or references something that may already exist, attach to the matching existing record (pass its project_id) — NEVER create a new project for it. If nothing matches and the user did not explicitly ask to create a project, ASK in text which project they mean (list the closest existing names + IDs) and wait for the answer. For anything NOT visible in the context (a task/note/reminder by name), call workspace_search FIRST — it returns ids/names you can pass to other tools.
+              * EXCEPTION — explicit full-structure paste: when the user pastes the COMPLETE contents to build (a book outline with chapters/lessons — فصل/درسنامه — or any full list) AND explicitly demands creation (بساز/درست کن/بنا کن), the pasted text IS the source of truth: do NOT call workspace_search first, do NOT ask clarifying questions about scope. Go straight to plan_propose with chunk 1 (see STUDY BUILDS). Searching here only stalls the user behind useless confirmation cards. If the user message already contains an explicit project id (#25 / project_id), that id is authoritative: attach with it and NEVER search for it.
+              * AFTER SEARCH, CONTINUE: when a workspace_search you requested comes back confirmed, continue the ORIGINAL build in your very next reply — propose the plan chunk immediately. Never stop after a search, never ask the user to re-send the request.
             - WHEN IN DOUBT, USE ask_user_choice: when the target is ambiguous (2+ similar project/task names) or two or more structures are reasonable (items under an existing sub-project vs a new one; a note on a project vs a task), call ask_user_choice ONCE with 2-5 short labeled options — each option carries the exact tool + args to run for that choice. The user picks with one click and the chosen call is proposed for confirmation. Never guess when a real choice exists.
             - MINIMAL NEW STRUCTURE: prefer attaching to what already exists. Conceptual group names in a user's list (e.g. "Workout", "Notes", a chapter/division) are sub-projects or tasks under the closest existing project — NOT new root projects. Create a ROOT project only when the user explicitly says "create/make a project" or the topic is clearly unrelated to everything that exists.
             - MAPPING REQUESTS TO STRUCTURE: a categorized list from the user (headings + items) maps to tasks with subtasks (or checklist items for short bullets) under the matching sub-project — never one project per heading. Keep the user's wording verbatim in titles; full text goes to descriptions.
@@ -2371,6 +2411,8 @@ class AiChatController extends Controller
               * Reminders/events (e.g. "today at 18:00 at Laleh bazaar") go in reminders[] with date YYYY-MM-DD, time HH:MM and location — SAME call, not a separate tool.
               * Notes go in notes[] — SAME call.
               * Caps per plan: 5 projects, 30 tasks, 100 subtasks, 10 reminders, 10 notes, 5 members per project (emails or names). Persian dates: امروز=today, فردا=tomorrow, پس‌فردا=+2 days; "ساعت 6 بعد از ظهر/عصر"=18:00, "ساعت 9 صبح"=09:00. Compute YYYY-MM-DD from today's date above.
+              * STUDY BUILDS (books/chapters/lessons — فصل/درسنامه): NEVER put a whole book in one call. Propose ONE chunk: the book project + at most 3 chapter subprojects, lessons as tasks, micro-topics as subtasks. End your text reply by telling the user the exact next chunk to ask for (e.g. "بسته بعدی: فصل‌های ۴ تا ۶ همین کتاب") so they continue chunk by chunk; later chunks attach via project_id to the already-created book project. Even when the user says "complete / entire / whole book" (کامل/تمام/کل کتاب), STILL propose only chunk 1 — the server rejects oversized plans, so a whole-book call helps nobody. When the user names an existing book project WITH its id (e.g. «#25» or project_id), attach with that id directly — never call workspace_search for it. Page counts go in each lesson task's weight field ONLY (1 weight unit = 1 page, 0-99, omit when unknown) — NEVER in the title and NEVER in the description; say so explicitly in your reply (pages are a report metric, not text). You may set daily_goal_value/unit on the book or chapter projects when the user asks for a daily target.
+              * HONESTY: never claim anything was created — every call only PROPOSES and waits for the user's confirmation card. If a call is rejected (error packet), explain plainly in 1-2 lines what went wrong and how to fix it (e.g. split into smaller chunks) instead of claiming success.
             - PLAN REVISIONS / EDITS: When the user asks for changes, edits, additions, or removals in a proposed plan (e.g. "تسک فلان رو تغییر بده", "X رو اضافه کن"), acknowledge the refinement and immediately emit an updated plan_propose with the revised structure.
             - WORKOUT PLANS: For ANY pasted training plan (with DAYs, sets×reps, RIR, circuits, warm-ups, tempo): call workout_plan_propose ONCE with the FULL 7-day structure — never plan_propose, never project_create, never routine_create, never many single calls. Preserve every movement and detail; do not summarize exercises into one task.
             - DAY MAPPING: days[] must arrive in execution order (index 0 = DAY 1). When the user says "starting today / شروع از امروز", set start_date to today's date (given above) so DAY 1 maps to today — even if today is Sunday. Never force DAY 1 back to Saturday in that case.

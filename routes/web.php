@@ -213,6 +213,7 @@ Route::middleware(['auth'])->group(function () {
     // AI Chat
     Route::get('/ai', [AiChatController::class, 'index'])->name('ai.index');
     Route::get('/ai/status', [AiChatController::class, 'status'])->name('ai.status');
+    Route::get('/ai/version', [AiChatController::class, 'version'])->name('ai.version');
     Route::get('/ai/settings', [AiSettingsController::class, 'index'])->name('ai.settings');
     Route::put('/ai/settings', [AiSettingsController::class, 'update'])->name('ai.settings.update');
     Route::post('/ai/settings/switch', [AiSettingsController::class, 'quickSwitch'])->name('ai.settings.switch');
@@ -246,6 +247,8 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('throttle:30,1')->name('ai.plans.confirm-phase');
     Route::post('/ai/plans/{plan}/cancel', [AiPlanController::class, 'cancel'])
         ->middleware('throttle:30,1')->name('ai.plans.cancel');
+    Route::post('/ai/plans/{plan}/rollback', [AiPlanController::class, 'rollback'])
+        ->middleware('throttle:30,1')->name('ai.plans.rollback');
     // AI Conversations (DB-backed)
     Route::get('/ai/conversations', [AiChatController::class, 'conversations'])->name('ai.conversations.index');
     Route::post('/ai/conversations', [AiChatController::class, 'createConversation'])->name('ai.conversations.create');

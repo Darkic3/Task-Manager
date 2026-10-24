@@ -30,6 +30,7 @@ class AiPlan extends Model
         'conversation_id',
         'title',
         'structure',
+        'created_items',
         'phases',
         'status',
         'current_phase',
@@ -41,6 +42,7 @@ class AiPlan extends Model
 
     protected $casts = [
         'structure' => 'array',
+        'created_items' => 'array',
         'phases' => 'array',
         'expires_at' => 'datetime',
         'executed_at' => 'datetime',

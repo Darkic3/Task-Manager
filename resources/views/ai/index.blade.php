@@ -389,6 +389,7 @@ footer, .topnav { display: none !important; }
 .lina-plan-progress { height: 4px; border-radius: 99px; background: var(--lina-line-soft); margin: 10px 0 4px; overflow: hidden; }
 .lina-plan-progress i { display: block; height: 100%; border-radius: 99px; background: var(--lina-accent); transition: width .35s ease; }
 .lina-plan-totals { font-size: 12px; color: var(--lina-muted); margin-bottom: 8px; }
+.lina-plan-understand { font-size: 12.5px; font-weight: 600; color: var(--lina-ink); background: var(--lina-accent-soft, #eef2ff); border-radius: 10px; padding: 7px 12px; margin-bottom: 8px; }
 .lina-plan-tree { font-size: 12.5px; line-height: 1.75; }
 .lina-plan-tree ul { list-style: none; margin: 2px 0; padding: 0; }
 .lina-plan-tree ul ul { margin-inline-start: 12px; padding-inline-start: 10px; border-inline-start: 1px solid var(--lina-line); }
@@ -536,6 +537,12 @@ footer, .topnav { display: none !important; }
 
         {{-- Agent blocked warning (non-OpenAI provider / no provider) --}}
         <div id="linaAgentBlocked" style="display:none;flex-shrink:0;padding:8px 24px;font-size:12.5px;font-weight:600;background:#fef2f2;color:#b91c1c;border-bottom:1px solid #fecaca;"></div>
+
+        {{-- Stale-tab notice: long-lived tabs keep old JS (old buttons/flows) --}}
+        <div id="linaStaleBanner" style="display:none;flex-shrink:0;padding:8px 24px;font-size:12.5px;font-weight:600;background:#eff6ff;color:#1d4ed8;border-bottom:1px solid #bfdbfe;align-items:center;gap:8px;">
+            <span>🔄 {{ __('A newer Lina is available (new buttons & fixes) — refresh the page to get it.') }}</span>
+            <button type="button" onclick="window.location.reload()" class="lina-tool-confirm" style="padding:3px 12px;font-size:12px;">{{ __('Refresh') }}</button>
+        </div>
 
         {{-- Messages --}}
         <div class="lina-messages" id="linaMessages">
@@ -902,6 +909,16 @@ footer, .topnav { display: none !important; }
     // actionable Persian guidance + a retry affordance.
     function friendlyAiError(msg) {
         const s = String(msg || '');
+        // Cut-off plan arguments (length limit): retrying the same giant
+        // request fails the same way — the user must split into chunks.
+        if (/cut off|length limit|truncat/i.test(s)) {
+            return 'پاسخ مدل وسط راه ناقص ماند چون درخواست خیلی بزرگ بود — چیزی ساخته نشد. لطفاً همین کتاب را در چند بخش کوچک‌تر بفرست (مثلاً هر بار فقط ۲–۳ فصل: «بسته اول: پروژه کتاب + فصل‌های ۱ تا ۳») و بعد با دکمه «📦 بسته بعدی» ادامه بده.';
+        }
+        // Oversized plan (more chapters/tasks than one plan holds): same
+        // remedy — chunk it instead of retrying the whole book.
+        if (/too many (sub-?projects|projects|tasks|subtasks)|split into smaller chunks|بیش از \d+ آیتم/i.test(s)) {
+            return 'این پلن برای یک بسته خیلی بزرگ است (سقف هر پلن: ۳ زیرپروژه، ۳۰ تسک، ۱۰۰ زیرتسک) — چیزی ساخته نشد. لطفاً فقط «بسته اول: پروژه کتاب + فصل‌های ۱ تا ۳» را بفرست و بقیه را با «📦 بسته بعدی» ادامه بده.';
+        }
         if (/project/i.test(s) && (/آرایه/.test(s) || /must be an? (array|object)/i.test(s) || /plan_propose\.project/i.test(s))) {
             return 'ساختار پروژه ناقص فرستاده شد و پلن ساخته نشد — چیزی اجرا نشده. لطفاً درخواست را یک بار دیگر بفرستید (اصلاح خودکار ساختار فعال شد). اگر تکرار شد، پروژه را با تسک‌های کوتاه‌تر در دو پیام جدا بفرستید.';
         }
@@ -1471,6 +1488,16 @@ footer, .topnav { display: none !important; }
                     done.textContent = '✅ ' + (res.message || @json(__('Done')));
                 }
                 card.appendChild(done);
+                // Build-flow continuation: a search confirmed inside a plan
+                // build is a stepping stone — auto-send the follow-up so the
+                // model proposes the plan chunk immediately instead of the
+                // flow stalling dead (confirm → results → silence → resend).
+                // Never hijacks typing: only fires on an empty input box.
+                if (p.tool === 'workspace_search' && p.auto_continue && !isBusy && !input.value.trim()) {
+                    input.value = p.follow_up || '';
+                    autoResize(); updateCharCount();
+                    sendMessage();
+                }
                 if (res.undoable) {
                     const undoBtn = document.createElement('button');
                     undoBtn.className = 'lina-tool-reject'; undoBtn.textContent = '↩ Undo';
@@ -1653,6 +1680,19 @@ footer, .topnav { display: none !important; }
         }
         let html = '<h4>📋 ' + escPlan(plan.title) + '</h4>'
             + '<div class="lina-plan-totals">' + totalsLine + '</div>';
+        // "Understanding" header: what WILL be built after final approval —
+        // nothing is created until the user confirms below.
+        const understandParts = [];
+        if ((totals.projects || 0) > 0) understandParts.push(totals.projects + ' پروژه');
+        if ((totals.subprojects || 0) > 0) understandParts.push(totals.subprojects + ' زیرپروژه');
+        if ((totals.tasks || 0) > 0) understandParts.push(totals.tasks + ' تسک');
+        if ((totals.subtasks || 0) > 0) understandParts.push(totals.subtasks + ' زیرتسک');
+        if ((totals.routines || 0) > 0) understandParts.push(totals.routines + ' روتین');
+        if ((totals.reminders || 0) > 0) understandParts.push(totals.reminders + ' یادآور');
+        if ((totals.notes || 0) > 0) understandParts.push(totals.notes + ' یادداشت');
+        if (understandParts.length) {
+            html += '<div class="lina-plan-understand">می‌سازم (بعد از تأیید نهایی تو): ' + escPlan(understandParts.join('، ')) + '</div>';
+        }
         // Thin progress bar from phase states.
         const phaseList = plan.phases || [];
         const actionable = phaseList.filter(ph => (ph.total || 0) > 0);
@@ -1735,6 +1775,12 @@ footer, .topnav { display: none !important; }
                 + (n.category ? ' <span class="lina-plan-due">' + escPlan(n.category) + '</span>' : '') + '</li>';
         });
         html += '</ul></div>';
+        // Empty-content guard: a project plan with no tasks would build a
+        // bare shell — warn BEFORE the user confirms, not after.
+        const contentTotal = (totals.tasks || 0) + (totals.subtasks || 0) + (totals.reminders || 0) + (totals.notes || 0) + (totals.routines || 0);
+        if (contentTotal === 0 && ((totals.projects || 0) + (totals.subprojects || 0) > 0)) {
+            html += '<div class="lina-plan-note" style="background:#fffbeb;padding:8px 12px;border-radius:10px;border:1px solid #fde68a;color:#92400e;margin-top:8px;font-weight:600;">⚠️ این پلن هیچ تسک و محتوایی ندارد — فقط یک پروژه خالی ساخته می‌شود. لطفاً فصل‌ها و درسنامه‌ها را هم بفرست (بسته اول: پروژه کتاب + فصل‌های ۱ تا ۳).</div>';
+        }
         if (plan.status === 'proposed') {
             html += '<div class="lina-plan-note muted" style="background:#fffbeb;padding:8px 12px;border-radius:10px;border:1px solid #fde68a;margin-top:8px;">⚠️ تایید ساختار = ساخته شدن نیست. بعد از تایید باید مرحله‌ها را اجرا کنی تا پروژه و تسک‌ها واقعاً ساخته شوند.</div>';
         } else if (plan.status === 'confirmed' || plan.status === 'executing') {
@@ -1859,20 +1905,57 @@ footer, .topnav { display: none !important; }
                 scrollBottom();
             };
             body.appendChild(cancel);
+            appendRollbackButton(body, card, plan);
         } else if (plan.status === 'done') {
-            body.innerHTML = '<div class="lina-plan-note ok" style="background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;color:#16a34a;font-weight:700;">✅ پروژه و تمامی تسک‌ها با موفقیت ساخته شدند. <div class="mt-2"><a href="/projects" class="btn btn-sm btn-primary px-3 rounded-pill fw-bold" style="font-size:12px;"><i class="bi bi-folder-check me-1"></i> مشاهده در Projects</a></div></div>';
+            // Honest done card: what was ACTUALLY built (created ledger),
+            // never a static success claim. Old plans without a ledger fall
+            // back to the generic text; an empty build gets a warning.
+            const created = plan.created || {};
+            const cParts = [];
+            if ((created.projects || 0) > 0) cParts.push(created.projects + ' پروژه');
+            if ((created.tasks || 0) > 0) cParts.push(created.tasks + ' تسک');
+            if ((created.reminders || 0) > 0) cParts.push(created.reminders + ' یادآور');
+            if ((created.notes || 0) > 0) cParts.push(created.notes + ' یادداشت');
+            if ((created.routines || 0) > 0) cParts.push(created.routines + ' روتین');
+            const hasLedger = (plan.created !== undefined && plan.created !== null);
+            const builtAnything = cParts.length > 0;
+            let doneHtml;
+            if (builtAnything) {
+                doneHtml = '<div class="lina-plan-note ok" style="background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;color:#16a34a;font-weight:700;">✅ ساخته شد: ' + escPlan(cParts.join('، ')) + '. <div class="mt-2"><a href="/projects" class="btn btn-sm btn-primary px-3 rounded-pill fw-bold" style="font-size:12px;"><i class="bi bi-folder-check me-1"></i> مشاهده در Projects</a></div></div>';
+            } else if (hasLedger) {
+                doneHtml = '<div class="lina-plan-note" style="background:#fffbeb;padding:10px 14px;border-radius:10px;border:1px solid #fde68a;color:#92400e;font-weight:600;">⚠️ این پلن چیزی نساخت (۰ تسک و زیرپروژه). احتمالاً ساختار پیشنهادی خالی بود — لطفاً با فصل‌ها و درسنامه‌ها دوباره بفرست (بسته اول: پروژه کتاب + فصل‌های ۱ تا ۳).</div>';
+            } else {
+                doneHtml = '<div class="lina-plan-note ok" style="background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;color:#16a34a;font-weight:700;">✅ پروژه و تمامی تسک‌ها با موفقیت ساخته شدند. <div class="mt-2"><a href="/projects" class="btn btn-sm btn-primary px-3 rounded-pill fw-bold" style="font-size:12px;"><i class="bi bi-folder-check me-1"></i> مشاهده در Projects</a></div></div>';
+            }
+            body.innerHTML = doneHtml;
             // Chunked study builds: one tap stages the "next chunk" prompt —
-            // the user only edits the chapter range, then sends.
+            // the user only edits the chapter range, then sends. The created
+            // book id is injected so the model attaches directly instead of
+            // detouring through workspace_search confirmation cards.
             const nextBtn = document.createElement('button');
             nextBtn.className = 'lina-tool-reject';
             nextBtn.style.cssText = 'margin-top:8px;font-size:12px;';
             nextBtn.innerHTML = '📦 بسته بعدی ساختار';
             nextBtn.onclick = () => {
-                input.value = 'بسته بعدی ساختار کتاب «' + (plan.title || '') + '»: فصل‌های بعدی را به همین پروژه‌های موجود وصل کن و بساز. تعداد صفحه هر درسنامه را اگر بگویم در weight ثبت کن.';
+                const createdProjects = (plan.created_ids && plan.created_ids.projects) || [];
+                const book = createdProjects[0] || null;
+                const roots = (tree.projects && tree.projects.length)
+                    ? tree.projects
+                    : (tree.project ? [tree.project] : []);
+                const rootName = (book && book.name) || (roots[0] ? roots[0].name : '') || (plan.title || '');
+                let nextText;
+                if (book && book.id) {
+                    nextText = 'بسته بعدی ساختار کتاب «' + rootName + '»: فصل‌های بعدی را به پروژه موجود «' + rootName + '» (#' + book.id + ') وصل کن و بساز — جستجو لازم نیست، مستقیم پلن مرحله‌ای بده (فقط زیرپروژه/تسک جدید؛ پروژه تکراری نساز).';
+                } else {
+                    nextText = 'بسته بعدی ساختار کتاب «' + rootName + '»: فصل‌های بعدی را به همین پروژه‌های موجود وصل کن و بساز. تعداد صفحه هر درسنامه را اگر بگویم در weight ثبت کن.';
+                }
+                nextText += ' تعداد صفحه هر درسنامه فقط در weight ثبت شود، نه در عنوان نه در توضیحات.';
+                input.value = nextText;
                 autoResize(); updateCharCount(); input.focus();
                 scrollBottom();
             };
             body.appendChild(nextBtn);
+            appendRollbackButton(body, card, plan);
         } else {
             body.innerHTML = '<div class="lina-plan-note muted">پلن ' + escPlan(plan.status) + ' شد — تغییری ایجاد نشد.</div>';
         }
@@ -1888,8 +1971,42 @@ footer, .topnav { display: none !important; }
         return (plan.phases || []).reduce((n, p) => n + ((p.status === 'done') ? 0 : (p.total || 0)), 0);
     }
 
-    async function planRunPhase(card, planId, phaseIdx, runAll, btn) {
-        card.querySelectorAll('button').forEach(b => { b.disabled = true; });
+    /* Rollback: delete everything this plan built (attached pre-existing
+       records are never touched; projects holding the user's later work
+       are kept and reported). Shown only when the plan created something. */
+    function appendRollbackButton(body, card, plan) {
+        if (!plan.can_rollback) return;
+        const rb = document.createElement('button');
+        rb.className = 'lina-tool-reject';
+        rb.style.cssText = 'margin-top:8px;margin-inline-start:6px;font-size:12px;color:#dc2626;border-color:#fca5a5;';
+        rb.innerHTML = '↩️ حذف ساخته‌های این پلن';
+        rb.onclick = async () => {
+            const msg = 'ساخته‌های این پلن (' + (plan.title || '') + ') برای همیشه حذف شوند؟ تسک‌ها، پروژه‌های ساخته‌شده، یادآورها و یادداشت‌های این پلن پاک می‌شوند؛ مواردی که از قبل داشتی دست نمی‌خورند.';
+            if (typeof confirmSwal === 'function') {
+                if (!await confirmSwal(msg, { isDelete: true })) return;
+            } else if (!confirm(msg)) {
+                return;
+            }
+            rb.disabled = true;
+            rb.textContent = 'در حال حذف...';
+            try {
+                const res = await api('POST', '/ai/plans/' + plan.id + '/rollback');
+                paintPlan(card, res.plan || Object.assign({}, plan, { can_rollback: false }));
+                const ok = document.createElement('div');
+                ok.className = 'lina-plan-note ok';
+                ok.style.cssText = 'background:#fef2f2;padding:10px 14px;border-radius:10px;border:1px solid #fecaca;color:#b91c1c;font-weight:600;margin-bottom:8px;';
+                ok.textContent = '↩️ ' + (res.message || 'ساخته‌ها حذف شدند.');
+                card.prepend(ok);
+            } catch (e) {
+                appendError(e && e.detail ? e.detail : 'خطا در حذف ساخته‌های پلن.');
+                paintPlan(card, plan);
+            }
+            scrollBottom();
+        };
+        body.appendChild(rb);
+    }
+
+    async function planRunPhase(card, planId, phaseIdx, runAll, btn) {        card.querySelectorAll('button').forEach(b => { b.disabled = true; });
         if (btn) btn.textContent = 'Running…';
         try {
             const res = await api('POST', '/ai/plans/' + planId + '/confirm-phase', { phase: phaseIdx, run_all: !!runAll });
@@ -2010,6 +2127,22 @@ footer, .topnav { display: none !important; }
     refreshPendingDock();
     // Keep the dock honest while other tabs/devices confirm too.
     setInterval(() => { if (!isBusy) refreshPendingDock(); }, 25000);
+    // Stale-tab detection: this page's JS is served inline, so a tab left
+    // open for hours keeps running old flows (old buttons/templates) with
+    // no visible error. Poll the asset version; on drift show refresh UI.
+    const LINA_ASSET_V = @json(\App\Http\Controllers\AiChatController::chatAssetVersion());
+    async function checkAssetVersion() {
+        try {
+            const res = await fetch("{{ route('ai.version') }}", { headers: { 'Accept': 'application/json' }, credentials: 'same-origin', cache: 'no-store' });
+            if (!res.ok) return;
+            const json = await res.json();
+            if (json && json.v && json.v !== LINA_ASSET_V) {
+                const banner = document.getElementById('linaStaleBanner');
+                if (banner) banner.style.display = 'flex';
+            }
+        } catch (e) { /* offline — stay silent */ }
+    }
+    setInterval(checkAssetVersion, 60000);
 })();
 </script>
 @endpush

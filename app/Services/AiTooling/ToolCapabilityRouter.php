@@ -167,10 +167,17 @@ final class ToolCapabilityRouter
      * Category union for a high-confidence mutation:
      * base categories from detected objects + context cues + always REPORT.
      * Empty objects → legacy broad single-item set (backward compatible).
+     *
+     * Bulk signals (pasted list or chapter/lesson markers) ALSO open the
+     * 'plan' category: without it a bulk-build request classified as
+     * mutation would reject plan_propose with NOT_ROUTED even though the
+     * model (prompt-guided) reaches for it. Enforcement still gates every
+     * proposal downstream — this only affects visibility.
      */
     public static function categoriesForMutation(array $route, array $context = []): array
     {
         $objects = $route['entities']['objects'] ?? [];
+        $entities = $route['entities'] ?? [];
         $categories = [];
 
         foreach ($objects as $object) {
@@ -194,6 +201,14 @@ final class ToolCapabilityRouter
         // Mirrors the old TOOL_GROUPS['single'] coverage (incl. note_link).
         if (empty($categories)) {
             $categories = ['task', 'checklist', 'reminder', 'note', 'link', 'project', 'routine'];
+        }
+
+        // Bulk-build safety net (see docblock): pasted lists and
+        // chapter/lesson outlines keep plan_propose routable.
+        if (! empty($entities['list_detected']) || ! empty($entities['bulk_detected'])) {
+            if (! in_array('plan', $categories, true)) {
+                $categories[] = 'plan';
+            }
         }
 
         // Report (read-only read-back) + search (search-before-create) + the

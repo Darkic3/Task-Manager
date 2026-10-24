@@ -113,7 +113,7 @@ For a user with 300 tasks / 100 notes / 50 reminders: context ≈ 300×80 + 100�
 
 | Call | Input cap | Output cap | Temp |
 |---|---|---|---|
-| chat/stream system+context+history | unbounded (see §2.2) | 2048 plain / 4096 with tools / **16000** if workout tool present (`openAiPayload:389-419`) | 0.7 |
+| chat/stream system+context+history | unbounded (see §2.2) | 2048 plain / 4096 with tools / **16000** if workout or plan tool present (`openAiPayload`) — plan builds need it (Persian multi-chapter args truncate at 4096, surfacing as `truncated_response`) | 0.7 |
 | Gemini/Anthropic via chat | same | `maxOutputTokens`/`max_tokens` 2048 | 0.7 |
 | `testConnection` ping | `ping` | 5 tokens | n/a |
 | NoteAi complete | 50–60k chars context | 2000–3000 | 0.3 |

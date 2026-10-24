@@ -369,6 +369,8 @@ class AiToolService
                                     'name' => ['type' => 'string'],
                                     'description' => ['type' => 'string'],
                                     'project_id' => ['type' => 'integer', 'description' => 'ID of an EXISTING project (from the PROJECTS context) — attach instead of creating a duplicate'],
+                                    'daily_goal_value' => ['type' => 'integer', 'description' => 'Daily minimum steps for the study project (optional, 1-10000)'],
+                                    'daily_goal_unit' => ['type' => 'string', 'enum' => ['tasks', 'pages', 'minutes'], 'description' => 'Daily goal metric (default tasks)'],
                                     'tasks' => [
                                         'type' => 'array',
                                         'description' => 'Tasks directly under the project (no sub-project)',
@@ -387,6 +389,8 @@ class AiToolService
                                         'name' => ['type' => 'string'],
                                         'description' => ['type' => 'string'],
                                         'project_id' => ['type' => 'integer', 'description' => 'ID of an EXISTING sub-project under the same parent — attach instead of creating'],
+                                        'daily_goal_value' => ['type' => 'integer', 'description' => 'Daily minimum steps (optional, 1-10000)'],
+                                        'daily_goal_unit' => ['type' => 'string', 'enum' => ['tasks', 'pages', 'minutes'], 'description' => 'Daily goal metric (default tasks)'],
                                         'tasks' => ['type' => 'array', 'items' => $this->planTaskSchema()],
                                     ],
                                     'required' => ['name'],
@@ -402,6 +406,8 @@ class AiToolService
                                         'name' => ['type' => 'string'],
                                         'description' => ['type' => 'string'],
                                         'project_id' => ['type' => 'integer', 'description' => 'ID of an EXISTING project (from the PROJECTS context) — attach instead of creating a duplicate'],
+                                        'daily_goal_value' => ['type' => 'integer', 'description' => 'Daily minimum steps (optional, 1-10000)'],
+                                        'daily_goal_unit' => ['type' => 'string', 'enum' => ['tasks', 'pages', 'minutes'], 'description' => 'Daily goal metric (default tasks)'],
                                         'tasks' => ['type' => 'array', 'items' => $this->planTaskSchema()],
                                         'members' => ['type' => 'array', 'description' => 'Max 5 collaborator emails or names to add to this project', 'items' => ['type' => 'string']],
                                     ],
@@ -505,11 +511,15 @@ class AiToolService
                 'due_date' => ['type' => 'string', 'description' => 'YYYY-MM-DD'],
                 'priority' => ['type' => 'string', 'enum' => ['low', 'medium', 'high']],
                 'description' => ['type' => 'string', 'description' => 'Max 500 chars'],
+                'weight' => ['type' => 'number', 'description' => 'Study pages for this item (1 weight unit = 1 page, 0-99). Omit when unknown.'],
                 'subtasks' => [
                     'type' => 'array',
                     'items' => [
                         'type' => 'object',
-                        'properties' => ['title' => ['type' => 'string', 'description' => 'Max 120 chars']],
+                        'properties' => [
+                            'title' => ['type' => 'string', 'description' => 'Max 120 chars'],
+                            'weight' => ['type' => 'number', 'description' => 'Study pages (0-99). Omit when unknown.'],
+                        ],
                         'required' => ['title'],
                         'additionalProperties' => false,
                     ],
@@ -1742,6 +1752,17 @@ class AiToolService
         $args['notes'] = array_values((array) ($args['notes'] ?? []));
         $args['routines'] = array_values((array) ($args['routines'] ?? []));
 
+        // Chunk guard rails FIRST (before the generic validator): an
+        // oversized study/book build must fail with guidance toward the
+        // next chunk — not with a cryptic "max N items" message that sends
+        // the user into a retry loop.
+        $chunkHint = ' Propose ONE chunk instead: the book project + at most 3 chapters, lessons as tasks, micro-topics as subtasks — then continue chunk by chunk (e.g. "بسته اول: فصل‌های ۱ تا ۳").';
+        if (is_array($args['subprojects'] ?? null) && count($args['subprojects']) > \App\Models\AiPlan::MAX_SUBPROJECTS) {
+            return $this->fail('Too many sub-projects in one plan (max ' . \App\Models\AiPlan::MAX_SUBPROJECTS . ', got ' . count($args['subprojects']) . ').' . $chunkHint);
+        }
+        if (is_array($args['projects'] ?? null) && count($args['projects']) > \App\Models\AiPlan::MAX_PROJECTS) {
+            return $this->fail('Too many projects in one plan (max ' . \App\Models\AiPlan::MAX_PROJECTS . ', got ' . count($args['projects']) . ').' . $chunkHint);
+        }
         $v = Validator::make($args, [
             'title' => 'required|string|max:120',
             'project' => 'nullable|array',
@@ -1760,6 +1781,12 @@ class AiToolService
             'projects.*.members.*' => 'string|max:255',
             'project.members' => 'nullable|array|max:5',
             'project.members.*' => 'string|max:255',
+            'project.daily_goal_value' => 'nullable|integer|min:1|max:10000',
+            'project.daily_goal_unit' => 'nullable|in:tasks,pages,minutes',
+            'projects.*.daily_goal_value' => 'nullable|integer|min:1|max:10000',
+            'projects.*.daily_goal_unit' => 'nullable|in:tasks,pages,minutes',
+            'subprojects.*.daily_goal_value' => 'nullable|integer|min:1|max:10000',
+            'subprojects.*.daily_goal_unit' => 'nullable|in:tasks,pages,minutes',
             'project.project_id' => 'nullable|integer',
             'projects.*.project_id' => 'nullable|integer',
             'subprojects.*.project_id' => 'nullable|integer',
@@ -1820,8 +1847,10 @@ class AiToolService
                     'due_date' => 'nullable|date',
                     'priority' => 'nullable|in:low,medium,high',
                     'description' => 'nullable|string|max:500',
+                    'weight' => 'nullable|numeric|min:0|max:99',
                     'subtasks' => 'nullable|array',
                     'subtasks.*.title' => 'required|string|max:120',
+                    'subtasks.*.weight' => 'nullable|numeric|min:0|max:99',
                 ]);
                 if ($tv->fails()) {
                     return $this->fail("{$where}: ".$tv->errors()->first());
@@ -1835,13 +1864,18 @@ class AiToolService
                     if ($st === '') {
                         continue;
                     }
-                    $subs[] = ['title' => mb_substr($st, 0, 120)];
+                    $sw = $s['weight'] ?? null;
+                    $subs[] = [
+                        'title' => mb_substr($st, 0, 120),
+                        'weight' => is_numeric($sw) ? max(0, min(99, (float) $sw)) : null,
+                    ];
                 }
                 $out[] = [
                     'title' => trim((string) $t['title']),
                     'due_date' => $t['due_date'] ?? null,
                     'priority' => $t['priority'] ?? 'medium',
                     'description' => $t['description'] ?? null,
+                    'weight' => isset($t['weight']) && is_numeric($t['weight']) ? max(0, min(99, (float) $t['weight'])) : null,
                     'subtasks' => $subs,
                 ];
             }
@@ -1850,6 +1884,19 @@ class AiToolService
         };
 
         // Normalize every root project to {name, description, tasks[], subprojects[], members[]}.
+        // Empty daily_goal_value disables the goal (both columns nulled).
+        $cleanGoal = function ($node) {
+            $value = $node['daily_goal_value'] ?? null;
+            if ($value === null || $value === '') {
+                return ['daily_goal_value' => null, 'daily_goal_unit' => null];
+            }
+            $unit = $node['daily_goal_unit'] ?? 'tasks';
+
+            return [
+                'daily_goal_value' => max(1, min(10000, (int) $value)),
+                'daily_goal_unit' => in_array($unit, Project::DAILY_GOAL_UNITS, true) ? $unit : 'tasks',
+            ];
+        };
         $cleanMembers = function ($members) {
             $out = [];
             foreach (array_values((array) ($members ?? [])) as $m) {
@@ -1878,7 +1925,7 @@ class AiToolService
                     'tasks' => $tasks,
                     'subprojects' => [],
                     'members' => $cleanMembers($p['members'] ?? []),
-                ];
+                ] + $cleanGoal($p);
             }
         } else {
             if (empty($args['project']['name'])) {
@@ -1900,7 +1947,7 @@ class AiToolService
                         'description' => $sub['description'] ?? null,
                         'project_id' => isset($sub['project_id']) && $sub['project_id'] !== null ? (int) $sub['project_id'] : null,
                         'tasks' => $tasks,
-                    ];
+                    ] + $cleanGoal($sub);
                 }
                 $roots[] = [
                     'name' => trim((string) $args['project']['name']),
@@ -1909,7 +1956,7 @@ class AiToolService
                     'tasks' => $direct,
                     'subprojects' => $subs,
                     'members' => $cleanMembers($args['project']['members'] ?? []),
-                ];
+                ] + $cleanGoal($args['project']);
             }
         }
 
@@ -1954,11 +2001,16 @@ class AiToolService
         if ($taskCount < 1 && empty($roots) && empty($reminders) && empty($notes)) {
             return $this->fail('The plan is empty: add a project (with tasks), a reminder, a note, or at least one task.');
         }
+        // NOTE: a project tree with zero tasks is NOT rejected here —
+        // bare skeletons and member-only plans are legitimate flows. The
+        // safety net for accidentally-empty builds is the UI: the proposed
+        // card shows an empty-content warning strip and the done card
+        // renders real created counts (never a static success claim).
         if ($taskCount > \App\Models\AiPlan::MAX_TASKS) {
-            return $this->fail('Too many tasks (max ' . \App\Models\AiPlan::MAX_TASKS . '). Split into smaller plans.');
+            return $this->fail('Too many tasks in one plan (max ' . \App\Models\AiPlan::MAX_TASKS . ', got ' . $taskCount . '). Split into smaller chunks — e.g. one plan per 2-3 chapters — and attach later chunks via project_id.');
         }
         if ($subCount > \App\Models\AiPlan::MAX_SUBTASKS) {
-            return $this->fail('Too many subtasks (max ' . \App\Models\AiPlan::MAX_SUBTASKS . '). Split into smaller plans.');
+            return $this->fail('Too many subtasks in one plan (max ' . \App\Models\AiPlan::MAX_SUBTASKS . ', got ' . $subCount . '). Split into smaller chunks — e.g. one plan per 2-3 chapters — and attach later chunks via project_id.');
         }
 
         // Legacy keys stay populated so old readers keep working; the
@@ -2358,7 +2410,11 @@ class AiToolService
                     $score += 1;
                 }
             }
-            if ($score > 0) {
+            // Threshold: an exact-phrase hit scores 5+, so this only drops
+            // single-shared-token noise (e.g. query «روانشناسی رشد»
+            // matching «روانشناسی شناختی» on «روانشناسی» alone) that
+            // previously surfaced as a confident "✅ match".
+            if ($score >= 2) {
                 $c['score'] = $score;
                 $scored[] = $c;
             }
@@ -2539,6 +2595,8 @@ class AiToolService
                             'status' => 'in_progress',
                             'type' => 'project',
                             'sort_order' => 0,
+                            'daily_goal_value' => $root['daily_goal_value'] ?? null,
+                            'daily_goal_unit' => ! empty($root['daily_goal_value']) ? ($root['daily_goal_unit'] ?? 'tasks') : null,
                         ]);
                     }
                     $created[] = [
@@ -2593,6 +2651,7 @@ class AiToolService
                 }
                 $subsByRoot = [];
                 $flatIds = [];
+                $createdFresh = [];
                 foreach ($roots as $pi => $root) {
                     $parentId = $projectEntries[$pi]['id'] ?? $projectEntries[0]['id'];
                     $parent = Project::where('id', $parentId)->where('user_id', $user->id)->first();
@@ -2620,12 +2679,17 @@ class AiToolService
                             'parent_id' => $parent->id,
                             'type' => 'project',
                             'sort_order' => 0,
+                            'daily_goal_value' => $sub['daily_goal_value'] ?? null,
+                            'daily_goal_unit' => ! empty($sub['daily_goal_value']) ? ($sub['daily_goal_unit'] ?? 'tasks') : null,
                         ]);
                         $subsByRoot[$pi][] = $created->id;
                         $flatIds[] = $created->id;
+                        // Rollback only removes what the plan created — never
+                        // records it attached to (see created_items).
+                        $createdFresh[] = $created->id;
                     }
                 }
-                $phase['result'] = ['subs' => $subsByRoot, 'sub_ids' => $flatIds];
+                $phase['result'] = ['subs' => $subsByRoot, 'sub_ids' => $flatIds, 'created_sub_ids' => $createdFresh];
                 $message = __(':count sub-project(s) created.', ['count' => count($flatIds)]);
             } elseif ($key === 'tasks') {
                 $projectEntries = $phases[0]['result']['projects'] ?? null;
@@ -2671,6 +2735,7 @@ class AiToolService
                     return ['ok' => false, 'message' => __('Plan tasks are missing. Cancel and start over.'), 'phase' => $phase];
                 }
                 $n = 0;
+                $subTaskIds = [];
                 if (empty($structure['projects'])) {
                     // Legacy stored plan: flat shapes, single root via
                     // project/subprojects keys. The tasks phase may have been
@@ -2685,14 +2750,14 @@ class AiToolService
                     }
                     foreach (($structure['project']['tasks'] ?? []) as $ti => $t) {
                         foreach (($t['subtasks'] ?? []) as $s) {
-                            $this->createPlanTask($user, $projectId, $directIds[$ti], ['title' => $s['title']]);
+                            $subTaskIds[] = $this->createPlanTask($user, $projectId, $directIds[$ti], ['title' => $s['title'], 'weight' => $s['weight'] ?? null]);
                             $n++;
                         }
                     }
                     foreach (($structure['subprojects'] ?? []) as $si => $sub) {
                         foreach (($sub['tasks'] ?? []) as $ti => $t) {
                             foreach (($t['subtasks'] ?? []) as $s) {
-                                $this->createPlanTask($user, $subIds[$si] ?? $projectId, $subsIds[$si][$ti], ['title' => $s['title']]);
+                                $subTaskIds[] = $this->createPlanTask($user, $subIds[$si] ?? $projectId, $subsIds[$si][$ti], ['title' => $s['title'], 'weight' => $s['weight'] ?? null]);
                                 $n++;
                             }
                         }
@@ -2708,7 +2773,7 @@ class AiToolService
                                 continue;
                             }
                             foreach (($t['subtasks'] ?? []) as $s) {
-                                $this->createPlanTask($user, $projectId, $parentTaskId, ['title' => $s['title']]);
+                                $subTaskIds[] = $this->createPlanTask($user, $projectId, $parentTaskId, ['title' => $s['title'], 'weight' => $s['weight'] ?? null]);
                                 $n++;
                             }
                         }
@@ -2720,14 +2785,14 @@ class AiToolService
                                     continue;
                                 }
                                 foreach (($t['subtasks'] ?? []) as $s) {
-                                    $this->createPlanTask($user, $subProjectId, $parentTaskId, ['title' => $s['title']]);
+                                    $subTaskIds[] = $this->createPlanTask($user, $subProjectId, $parentTaskId, ['title' => $s['title'], 'weight' => $s['weight'] ?? null]);
                                     $n++;
                                 }
                             }
                         }
                     }
                 }
-                $phase['result'] = ['created' => $n];
+                $phase['result'] = ['created' => $n, 'subtask_ids' => $subTaskIds];
                 $message = __(':count subtask(s) added.', ['count' => $n]);
             } elseif ($key === 'reminders') {
                 $ids = [];
@@ -2766,6 +2831,13 @@ class AiToolService
             $phase['status'] = 'done';
             $phases[$idx] = $phase;
 
+            // Rollback ledger: remember exactly what THIS phase created
+            // (attached pre-existing records are never recorded).
+            $plan->created_items = $this->mergeCreatedItems(
+                $plan->created_items ?? [],
+                $this->createdItemsFromPhase($key, $phase)
+            );
+
             // Advance past already-done (e.g. zero-count) phases.
             $next = $idx + 1;
             $plan->phases = $phases;
@@ -2790,6 +2862,185 @@ class AiToolService
         });
     }
 
+    /**
+     * Extract plan-created record ids from a finished phase result.
+     * Attached (pre-existing) records are deliberately excluded — rollback
+     * must only remove what the plan itself created.
+     *
+     * @return array{projects: array<int>, tasks: array<int>, reminders: array<int>, notes: array<int>, routines: array<int>}
+     */
+    public function createdItemsFromPhase(string $key, array $phase): array
+    {
+        $empty = ['projects' => [], 'tasks' => [], 'reminders' => [], 'notes' => [], 'routines' => []];
+        $result = $phase['result'] ?? [];
+
+        $flatten = function ($v) use (&$flatten): array {
+            if (! is_array($v)) {
+                return is_numeric($v) ? [(int) $v] : [];
+            }
+            $out = [];
+            foreach ($v as $item) {
+                $out = array_merge($out, $flatten($item));
+            }
+
+            return $out;
+        };
+
+        switch ($key) {
+            case 'routines':
+                $empty['routines'] = $flatten($result['routine_ids'] ?? []);
+                break;
+            case 'project':
+            case 'projects':
+                foreach ((array) ($result['projects'] ?? []) as $entry) {
+                    if (is_array($entry) && empty($entry['attached']) && isset($entry['id'])) {
+                        $empty['projects'][] = (int) $entry['id'];
+                    }
+                }
+                break;
+            case 'subprojects':
+                $empty['projects'] = $flatten($result['created_sub_ids'] ?? []);
+                break;
+            case 'tasks':
+                $ids = $result['task_ids'] ?? [];
+                $empty['tasks'] = array_merge(
+                    $flatten($ids['direct'] ?? []),
+                    $flatten($ids['subs'] ?? [])
+                );
+                break;
+            case 'subtasks':
+                $empty['tasks'] = $flatten($result['subtask_ids'] ?? []);
+                break;
+            case 'reminders':
+                $empty['reminders'] = $flatten($result['reminder_ids'] ?? []);
+                break;
+            case 'notes':
+                $empty['notes'] = $flatten($result['note_ids'] ?? []);
+                break;
+        }
+
+        foreach ($empty as $kind => $ids) {
+            $empty[$kind] = array_values(array_unique(array_map('intval', $ids)));
+        }
+
+        return $empty;
+    }
+
+    public function mergeCreatedItems(array $current, array $added): array
+    {
+        $base = ['projects' => [], 'tasks' => [], 'reminders' => [], 'notes' => [], 'routines' => []];
+        foreach (array_keys($base) as $kind) {
+            $base[$kind] = array_values(array_unique(array_merge(
+                array_map('intval', (array) ($current[$kind] ?? [])),
+                array_map('intval', (array) ($added[$kind] ?? []))
+            )));
+        }
+
+        return $base;
+    }
+
+    /**
+     * Delete everything a plan created (reverse dependency order), owned
+     * records only. Projects that gained non-plan content afterwards are
+     * KEPT and reported — rollback never destroys the user's later work.
+     * Attached (pre-existing) records are never touched.
+     */
+    public function rollbackPlan(\App\Models\AiPlan $plan, $user): array
+    {
+        return DB::transaction(function () use ($plan, $user) {
+            $fresh = $plan->fresh();
+            if (! $fresh || (int) $fresh->user_id !== (int) $user->id) {
+                return ['ok' => false, 'message' => __('Plan not found.')];
+            }
+
+            $items = $fresh->created_items ?? [];
+            $taskIds = array_map('intval', (array) ($items['tasks'] ?? []));
+            $projectIds = array_map('intval', (array) ($items['projects'] ?? []));
+            $reminderIds = array_map('intval', (array) ($items['reminders'] ?? []));
+            $noteIds = array_map('intval', (array) ($items['notes'] ?? []));
+            $routineIds = array_map('intval', (array) ($items['routines'] ?? []));
+
+            if ($taskIds === [] && $projectIds === [] && $reminderIds === [] && $noteIds === [] && $routineIds === []) {
+                return ['ok' => true, 'message' => __('Nothing left to delete — the plan created no surviving items.'), 'deleted' => [], 'kept' => []];
+            }
+
+            $deleted = ['tasks' => 0, 'projects' => 0, 'reminders' => 0, 'notes' => 0, 'routines' => 0];
+            $kept = [];
+
+            // 1) Tasks first (subtasks cascade via FK).
+            if ($taskIds !== []) {
+                $tasks = Task::where('user_id', $user->id)->whereIn('id', $taskIds)->get(['id']);
+                foreach ($tasks as $task) {
+                    $task->delete();
+                    $deleted['tasks']++;
+                }
+            }
+
+            // 2) Reminders, notes (links/revisions cascade), routines (soft).
+            if ($reminderIds !== []) {
+                $deleted['reminders'] = Reminder::where('user_id', $user->id)->whereIn('id', $reminderIds)->delete();
+            }
+            if ($noteIds !== []) {
+                $deleted['notes'] = Note::where('user_id', $user->id)->whereIn('id', $noteIds)->delete();
+            }
+            if ($routineIds !== []) {
+                $routines = Routine::where('user_id', $user->id)->whereIn('id', $routineIds)->get(['id']);
+                foreach ($routines as $routine) {
+                    $routine->delete();
+                    $deleted['routines']++;
+                }
+            }
+
+            // 3) Projects last, children before parents. A project that still
+            // holds tasks the plan did NOT create (user's later work) is kept.
+            if ($projectIds !== []) {
+                $projects = Project::where('user_id', $user->id)->whereIn('id', $projectIds)->get(['id', 'name', 'parent_id']);
+                $byId = $projects->keyBy('id');
+                $depthOf = function ($id) use ($byId): int {
+                    $depth = 0;
+                    $guard = 0;
+                    $parent = $byId->get($id)?->parent_id;
+                    while ($parent !== null && $byId->has($parent) && $guard++ < 50) {
+                        $depth++;
+                        $parent = $byId->get($parent)->parent_id;
+                    }
+
+                    return $depth;
+                };
+                $ordered = $projects->sortByDesc(fn ($p) => $depthOf($p->id))->values();
+                foreach ($ordered as $project) {
+                    $remaining = Task::where('user_id', $user->id)->where('project_id', $project->id)->count();
+                    if ($remaining > 0) {
+                        $kept[] = __(':name (kept — holds :count other task(s))', ['name' => $project->name, 'count' => $remaining]);
+                        continue;
+                    }
+                    // project_teams.project_id has no DB cascade — detach first.
+                    $project->users()->detach();
+                    $project->delete();
+                    $deleted['projects']++;
+                }
+            }
+
+            $fresh->created_items = [];
+            $fresh->save();
+
+            $bits = [];
+            foreach (['projects' => __('project(s)'), 'tasks' => __('task(s)'), 'reminders' => __('reminder(s)'), 'notes' => __('note(s)'), 'routines' => __('routine(s)')] as $kind => $label) {
+                if ($deleted[$kind] > 0) {
+                    $bits[] = $deleted[$kind].' '.$label;
+                }
+            }
+            $message = $bits !== []
+                ? __('↩️ Rolled back: :details deleted.', ['details' => implode(', ', $bits)])
+                : __('Nothing left to delete — the plan created no surviving items.');
+            if ($kept !== []) {
+                $message .= ' '.__('Kept: :details.', ['details' => implode('; ', $kept)]);
+            }
+
+            return ['ok' => true, 'message' => $message, 'deleted' => $deleted, 'kept' => $kept];
+        });
+    }
+
     private function createPlanTask($user, int $projectId, ?int $parentId, array $t): int
     {
         $task = $user->tasks()->create([
@@ -2800,6 +3051,8 @@ class AiToolService
             'description' => $t['description'] ?? null,
             'due_date' => $t['due_date'] ?? null,
             'priority' => $t['priority'] ?? 'medium',
+            'weight' => isset($t['weight']) && is_numeric($t['weight']) ? max(0, min(99, (float) $t['weight'])) : 1,
+            'auto_weight' => true,
             'status' => 'to_do',
         ]);
 
@@ -2844,6 +3097,7 @@ class AiToolService
         $taskView = fn ($t) => [
             'title' => $t['title'],
             'due_date' => $t['due_date'] ?? null,
+            'weight' => $t['weight'] ?? null,
             'subtasks' => array_map(fn ($s) => is_array($s) ? $s['title'] : $s, $t['subtasks'] ?? []),
         ];
         $roots = $this->planRoots($structure);
@@ -2854,10 +3108,14 @@ class AiToolService
                 // the structure card so the user sees it before confirming.
                 'attached' => ! empty($r['project_id']),
                 'attached_name' => $r['attached_name'] ?? null,
+                'daily_goal_value' => $r['daily_goal_value'] ?? null,
+                'daily_goal_unit' => $r['daily_goal_unit'] ?? null,
                 'tasks' => array_map($taskView, $r['tasks'] ?? []),
                 'subprojects' => array_map(fn ($s) => [
                     'name' => $s['name'],
                     'attached' => ! empty($s['project_id']),
+                    'daily_goal_value' => $s['daily_goal_value'] ?? null,
+                    'daily_goal_unit' => $s['daily_goal_unit'] ?? null,
                     'tasks' => array_map($taskView, $s['tasks'] ?? []),
                 ], $r['subprojects'] ?? []),
                 'members' => array_values($r['members'] ?? []),

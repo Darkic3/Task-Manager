@@ -50,6 +50,13 @@ final class ToolError
     /** Args payload exceeds the size budget. */
     public const PAYLOAD_TOO_LARGE = 'payload_too_large';
 
+    /**
+     * Args JSON is cut off mid-structure (provider hit the output length
+     * limit while streaming tool arguments). Retrying the same request
+     * fails the same way — the request must be split into smaller chunks.
+     */
+    public const TRUNCATED_RESPONSE = 'truncated_response';
+
     /** Tool name is not in the registry. */
     public const UNKNOWN_TOOL = 'unknown_tool';
 

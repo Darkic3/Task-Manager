@@ -90,6 +90,47 @@ class AiSearchAndAskTest extends TestCase
         $this->assertStringContainsString('ask the user', $result['message']);
     }
 
+    public function test_weak_single_token_match_is_not_a_match(): void
+    {
+        // The exact user case: query «روانشناسی رشد» must NOT surface the
+        // unrelated «روانشناسی شناختی» (shared token «روانشناسی» alone).
+        $user = User::factory()->create();
+        Project::create(['user_id' => $user->id, 'name' => 'روانشناسی شناختی', 'status' => 'in_progress', 'type' => 'project', 'sort_order' => 0]);
+
+        $svc = new AiToolService;
+        $check = $svc->validateCall('workspace_search', ['query' => 'روانشناسی رشد', 'kinds' => ['project']], $user);
+        $this->assertTrue($check['ok'], $check['error'] ?? '');
+        $result = ToolPipeline::normalizeResult('workspace_search', $svc->execute('workspace_search', $check['resolved'], $user));
+        $this->assertStringContainsString('No matches', $result['message']);
+        $this->assertStringNotContainsString('شناختی', $result['message']);
+
+        // ...while the true book still matches and ranks first.
+        $book = Project::create(['user_id' => $user->id, 'name' => 'روانشناسی رشد', 'status' => 'in_progress', 'type' => 'project', 'sort_order' => 0]);
+        $result = ToolPipeline::normalizeResult('workspace_search', $svc->execute('workspace_search', $check['resolved'], $user));
+        $this->assertStringContainsString("project #{$book->id}", $result['message']);
+    }
+
+    public function test_search_proposal_auto_continues_in_plan_builds(): void
+    {
+        $user = User::factory()->create();
+        $controller = new AiChatController(app(AiProviderService::class));
+        $ref = new \ReflectionMethod($controller, 'createPendingFromToolCall');
+
+        // Plan-build request → search card carries auto-continue + follow-up.
+        $conv = \App\Models\AiConversation::create(['user_id' => $user->id, 'label' => 't']);
+        \App\Services\AiRequestState::record($conv, ['intent' => 'plan_build']);
+        $packet = $ref->invoke($controller, $user, $conv->id, 'workspace_search', json_encode(['query' => 'رشد'], JSON_UNESCAPED_UNICODE));
+        $this->assertTrue($packet['auto_continue'] ?? false);
+        $this->assertNotEmpty($packet['follow_up'] ?? '');
+        $this->assertArrayHasKey('action_id', $packet);
+
+        // Ordinary mutation request → no auto-continue flag at all.
+        $conv2 = \App\Models\AiConversation::create(['user_id' => $user->id, 'label' => 't2']);
+        \App\Services\AiRequestState::record($conv2, ['intent' => 'task_mutation']);
+        $packet = $ref->invoke($controller, $user, $conv2->id, 'workspace_search', json_encode(['query' => 'رشد'], JSON_UNESCAPED_UNICODE));
+        $this->assertArrayNotHasKey('auto_continue', $packet);
+    }
+
     public function test_workspace_search_is_read_only_and_safely_routed(): void
     {
         $this->assertEquals(['READ'], AiToolService::riskOf('workspace_search'));

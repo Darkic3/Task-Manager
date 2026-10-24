@@ -131,6 +131,27 @@ class AiIntentRouterTest extends TestCase
         $this->assertSame('plan_build', $this->route('روی این پروژه این تغییرات رو اعمال کن: دو تسک اضافه کن')['intent']);
     }
 
+    public function test_study_outline_with_dorost_kon_routes_to_plan(): void
+    {
+        // Real user message: "make this book into a project with all its
+        // chapters" — verb درست‌کن + project + chapter/lesson markers.
+        $msg = 'من میخوام این کتاب رو به عنوان یک پروژه با تمام فصل ها و زیر فصل ها و موضوعاتش به صورت کامل و دقیق درست کنی: روانشناسی رشد فصل ۱: موضوعات اساسی درسنامه ۱: کلیات';
+        $r = $this->route($msg);
+        $this->assertSame('plan_build', $r['intent']);
+        $this->assertSame('high', $r['confidence']);
+        $this->assertTrue($r['entities']['bulk_detected']);
+        $this->assertShape($r);
+    }
+
+    public function test_bare_dorost_kon_stays_single_item_mutation(): void
+    {
+        // No project object and no bulk signals → single-item fast path kept.
+        $r = $this->route('یه تسک درست کن به نام خرید نون');
+        $this->assertSame('task_mutation', $r['intent']);
+        $this->assertSame('high', $r['confidence']);
+        $this->assertFalse($r['entities']['bulk_detected']);
+    }
+
     /* ── workout ─────────────────────────────────────────── */
 
     public function test_workout_plan_detection(): void

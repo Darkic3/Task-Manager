@@ -438,12 +438,16 @@ class AiProviderService
     public function openAiPayload(array $messages, string $model, bool $stream = false, ?string $baseUrl = null, ?array $tools = null): array
     {
         $hasWorkoutTool = ! empty($tools) && collect($tools)->contains(fn ($tool) => ($tool['function']['name'] ?? null) === 'workout_plan_propose');
+        $hasPlanTool = ! empty($tools) && collect($tools)->contains(fn ($tool) => ($tool['function']['name'] ?? null) === 'plan_propose');
         $payload = [
             'messages'    => $messages,
             // Tool calls carry their arguments in the output, so they need headroom.
             // A full 7-day workout plan is ~8-12k tokens of arguments — the old
-            // 4096 cap truncated it, so the model replied with text only.
-            'max_tokens'  => $hasWorkoutTool ? 16000 : (! empty($tools) ? 4096 : 2048),
+            // 4096 cap truncated it, so the model replied with text only. A
+            // multi-chapter study plan (Persian titles) is just as large, and
+            // truncation there surfaces as "Tool arguments must be a JSON
+            // object", so plan builds get the same headroom.
+            'max_tokens'  => ($hasWorkoutTool || $hasPlanTool) ? 16000 : (! empty($tools) ? 4096 : 2048),
             'temperature' => 0.7,
         ];
         if ($stream) $payload['stream'] = true;

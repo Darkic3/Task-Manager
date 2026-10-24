@@ -166,6 +166,32 @@ class AiToolCapabilityRoutingTest extends TestCase
         $this->assertNull($sel['tools']);
     }
 
+    public function test_bulk_mutation_keeps_plan_visible(): void
+    {
+        // Pasted numbered list → bulk build even when classified mutation.
+        $listed = AiIntentRouter::route("این تسک‌ها رو اضافه کن:\n۱. خرید نون\n۲. پرداخت قبض");
+        $this->assertSame(AiIntentRouter::INTENT_MUTATION, $listed['intent']);
+        $this->assertSame(AiIntentRouter::CONF_HIGH, $listed['confidence']);
+        $this->assertTrue($listed['entities']['list_detected']);
+        $sel = ToolCapabilityRouter::select($listed, $this->agentContext());
+        $this->assertContains('plan_propose', $sel['tools']);
+
+        // Chapter/lesson markers → bulk build even without a pasted list.
+        $bulky = AiIntentRouter::route('فصل‌های کتاب رو به پروژه رشد اضافه کن');
+        $this->assertSame(AiIntentRouter::INTENT_MUTATION, $bulky['intent']);
+        $this->assertTrue($bulky['entities']['bulk_detected']);
+        $sel = ToolCapabilityRouter::select($bulky, $this->agentContext());
+        $this->assertContains('plan_propose', $sel['tools']);
+        $this->assertContains('project_create', $sel['tools']);
+
+        // Plain single-item mutation still hides the heavy builders.
+        $plain = ToolCapabilityRouter::select(
+            AiIntentRouter::route('یه تسک بساز به نام خرید نون'),
+            $this->agentContext()
+        );
+        $this->assertNotContains('plan_propose', $plain['tools']);
+    }
+
     /* ── Unclear intent → safe set + clarification ── */
 
     public function test_ambiguous_intent_gets_safe_set_and_clarification(): void
