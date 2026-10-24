@@ -185,9 +185,13 @@ class StudyBuildOrchestrator
         $stored = $controller->storeResolvedPlan((int) $user->id, $conversationId, $check['resolved']);
         $plan = $stored['plan'];
 
+        $known = array_map('intval', (array) ($build->plan_ids ?? []));
+        if (! in_array((int) $plan->id, $known, true)) {
+            $known[] = (int) $plan->id;
+        }
         $build->update([
             'last_plan_id' => $plan->id,
-            'plan_ids' => array_values(array_merge($build->plan_ids ?? [], [$plan->id])),
+            'plan_ids' => array_values($known),
             'last_error' => null,
         ]);
 
@@ -204,9 +208,15 @@ class StudyBuildOrchestrator
      */
     public static function advanceIfPlanDone(AiPlan $plan, $user, ?string $rid = null): ?array
     {
+        // Row lock: two concurrent confirm-phase calls on the same DONE head
+        // must serialize here. The plan row alone does not protect the build
+        // row (under REPEATABLE READ a second transaction could otherwise read
+        // a stale last_plan_id and propose the same chunk twice). Callers run
+        // inside a DB transaction; on SQLite the lock is a harmless no-op.
         $build = AiStudyBuild::where('user_id', $user->id)
             ->where('status', AiStudyBuild::STATUS_BUILDING)
             ->where('last_plan_id', $plan->id)
+            ->lockForUpdate()
             ->first();
 
         if (! $build || $build->isExpired()) {
@@ -226,11 +236,12 @@ class StudyBuildOrchestrator
             $build->update(['book_project_id' => $bookId]);
         }
 
-        $build->update(['done_chunks' => $build->done_chunks + 1]);
-        $build = $build->fresh();
-
-        if ($build->done_chunks >= $build->total_chunks) {
-            $build->update(['status' => AiStudyBuild::STATUS_DONE]);
+        // Finish check BEFORE any counter change: the final head needs no
+        // book project, and a stalled middle chunk must NOT consume a
+        // done_chunks increment per retry (that drifted the next-chunk index
+        // and could falsely complete the chain after repeated retries).
+        if ($build->done_chunks + 1 >= $build->total_chunks) {
+            $build->update(['done_chunks' => $build->done_chunks + 1, 'status' => AiStudyBuild::STATUS_DONE]);
             AiLogger::log('study_build.done', AiTrace::ids(null, $rid, $user->id, $build->conversation_id) + ['build_id' => $build->id]);
 
             return ['build' => $build->fresh(), 'next_plan' => null, 'finished' => true];
@@ -239,11 +250,15 @@ class StudyBuildOrchestrator
         if ($bookId === null) {
             // Chunk 1 produced no book project (e.g. user deleted it before
             // confirming). Stall with a message instead of guessing a name.
+            // No counter change: a later retry resumes at the same chunk.
             $build->update(['last_error' => 'Book project is missing — cannot attach the next chunk.']);
             AiLogger::log('study_build.stalled', AiTrace::ids(null, $rid, $user->id, $build->conversation_id) + ['build_id' => $build->id, 'reason' => 'missing_book_project']);
 
             return ['build' => $build->fresh(), 'next_plan' => null, 'finished' => false, 'error' => __('Book project is missing. Cancel this chain and start over.')];
         }
+
+        $build->update(['done_chunks' => $build->done_chunks + 1]);
+        $build = $build->fresh();
 
         $chunks = $build->chunks_json ?? [];
         $next = $chunks[$build->done_chunks] ?? null; // done_chunks is now 1-based count of finished
@@ -267,9 +282,13 @@ class StudyBuildOrchestrator
      */
     public static function pendingNextPlan(AiPlan $plan, $user): ?AiPlan
     {
+        // Locking read: pairs with the lock in advanceIfPlanDone so a
+        // concurrent recovery in the confirm-phase DONE branch cannot miss a
+        // just-proposed head. No-op on SQLite, FOR UPDATE on MySQL.
         $build = AiStudyBuild::where('user_id', $user->id)
             ->where('status', AiStudyBuild::STATUS_BUILDING)
             ->whereJsonContains('plan_ids', $plan->id)
+            ->lockForUpdate()
             ->first();
 
         if (! $build) {

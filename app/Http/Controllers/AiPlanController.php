@@ -174,7 +174,7 @@ class AiPlanController extends Controller
             if (! $locked->isActionable() || ! in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING], true)) {
                 if ($locked->status === AiPlan::STATUS_DONE) {
                     $out = ['ok' => true, 'deduped' => true, 'plan' => $this->serialize($locked->fresh())];
-                    // Retry-safe: a lost advance response still surfaces the
+                    // Retry-safe: a lost confirm-phase response still surfaces the
                     // already-proposed next chunk instead of stalling the chain.
                     $pending = StudyBuildOrchestrator::pendingNextPlan($locked->fresh(), Auth::user());
                     if ($pending) {
@@ -183,10 +183,51 @@ class AiPlanController extends Controller
                             ->where('last_plan_id', $pending->id)->first();
                         if ($chain) {
                             $out['study_build'] = $chain->progress();
+                            $out['chain_report'] = $this->chainReport($chain->fresh());
+                        }
+                    } else {
+                        // Recovery: the auto-advance after DONE may never have run
+                        // (lost response, manual 📦 tap on a stale card, stalled
+                        // first attempt). Rebuild the next chunk from the stored
+                        // chain — never by re-sending the request to the model.
+                        // advanceIfPlanDone is idempotent here: once it succeeds,
+                        // last_plan_id moves to the new head, so a repeated
+                        // recovery on the same DONE plan returns null.
+                        $recovered = StudyBuildOrchestrator::advanceIfPlanDone($locked->fresh(), Auth::user(), $rid);
+                        if ($recovered !== null) {
+                            $out['study_build'] = $recovered['build']->progress();
+                            $out['chain_report'] = $this->chainReport($recovered['build']->fresh());
+                            if (! empty($recovered['error'])) {
+                                $out['next_error'] = $recovered['error'];
+                                $this->note($locked, '⚠ '.$recovered['error']);
+                            } elseif (! empty($recovered['next_plan'])) {
+                                $out['next_plan'] = $this->serialize($recovered['next_plan']);
+                                $this->note(
+                                    $locked,
+                                    __('📦 بسته :done از :total ساخته شد — بسته بعدی آماده تأیید است (:title)', [
+                                        'done' => $recovered['build']->done_chunks,
+                                        'total' => $recovered['build']->total_chunks,
+                                        'title' => $recovered['next_plan']->title,
+                                    ])
+                                );
+                            } elseif (! empty($recovered['finished'])) {
+                                $this->note($locked, __('🎉 زنجیره ساخت کتاب کامل شد (:total بسته).', ['total' => $recovered['build']->total_chunks]));
+                            }
                         }
                     }
 
                     return response()->json($out);
+                }
+                if ($locked->status === AiPlan::STATUS_PROPOSED && ! $locked->isExpired()) {
+                    // Unconfirmed but live structure: refuse to run, but NEVER
+                    // expire the draft as a side effect — the user can still
+                    // confirm the structure and then execute. Expiring here
+                    // destroyed a valid proposal after one premature call.
+                    // (A genuinely expired draft still falls through to the
+                    // expire path below.)
+                    AiLogger::log('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'unconfirmed_execute_blocked', 'status' => $locked->status]);
+
+                    return response()->json(['ok' => false, 'code' => 'not_confirmed', 'error' => __('Confirm the structure first — nothing is built until you approve it.'), 'plan' => $this->serialize($locked->fresh())], 422);
                 }
                 if ($locked->isSuperseded()) {
                     AiLogger::error('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'superseded_phase_blocked', 'status' => $locked->status, 'replaced_by' => $locked->superseded_by_plan_id]);
@@ -248,6 +289,7 @@ class AiPlanController extends Controller
             $advance = StudyBuildOrchestrator::advanceIfPlanDone($locked->fresh(), Auth::user(), $rid);
             if ($advance !== null) {
                 $out['study_build'] = $advance['build']->progress();
+                $out['chain_report'] = $this->chainReport($advance['build']->fresh());
                 if (! empty($advance['error'])) {
                     $out['next_error'] = $advance['error'];
                     $this->note($locked, '⚠ '.$advance['error']);
@@ -369,6 +411,52 @@ class AiPlanController extends Controller
 
             return response()->json($out);
         });
+    }
+
+    /**
+     * Per-package chain summary built ONLY from server records (ai_plans
+     * rows + created_items ledgers) — never from model output. Lets the UI
+     * render an honest final report: which packages succeeded, which were
+     * cancelled/expired, and which are still awaiting confirmation.
+     */
+    private function chainReport(AiStudyBuild $build): array
+    {
+        $ids = array_values(array_map('intval', (array) ($build->plan_ids ?? [])));
+        $rows = AiPlan::whereIn('id', $ids)->get()->keyBy('id');
+        $items = [];
+        foreach ($ids as $id) {
+            /** @var AiPlan|null $plan */
+            $plan = $rows->get($id);
+            if (! $plan) {
+                $items[] = ['id' => $id, 'status' => 'missing', 'title' => null, 'created' => []];
+                continue;
+            }
+            $status = $plan->status;
+            if ($status === AiPlan::STATUS_CANCELLED && $plan->superseded_by_plan_id) {
+                $status = 'superseded';
+            }
+            $items[] = [
+                'id' => $plan->id,
+                'status' => $status,
+                'title' => $plan->title,
+                'is_head' => (int) $build->last_plan_id === (int) $plan->id,
+                'created' => [
+                    'projects' => count((array) ($plan->created_items['projects'] ?? [])),
+                    'tasks' => count((array) ($plan->created_items['tasks'] ?? [])),
+                    'reminders' => count((array) ($plan->created_items['reminders'] ?? [])),
+                    'notes' => count((array) ($plan->created_items['notes'] ?? [])),
+                    'routines' => count((array) ($plan->created_items['routines'] ?? [])),
+                ],
+            ];
+        }
+
+        return [
+            'build_id' => $build->id,
+            'status' => $build->status,
+            'done_chunks' => $build->done_chunks,
+            'total_chunks' => $build->total_chunks,
+            'items' => $items,
+        ];
     }
 
     private function advancePastDone(AiPlan $plan): void

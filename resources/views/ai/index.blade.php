@@ -922,18 +922,31 @@ footer, .topnav { display: none !important; }
         if (/project/i.test(s) && (/آرایه/.test(s) || /must be an? (array|object)/i.test(s) || /plan_propose\.project/i.test(s))) {
             return 'ساختار پروژه ناقص فرستاده شد و پلن ساخته نشد — چیزی اجرا نشده. لطفاً درخواست را یک بار دیگر بفرستید (اصلاح خودکار ساختار فعال شد). اگر تکرار شد، پروژه را با تسک‌های کوتاه‌تر در دو پیام جدا بفرستید.';
         }
+        // Empty plan proposal: the model suggested a structure with no
+        // executable content. Nothing was built or run — the user must send
+        // a real chunk (project + tasks, reminder, note, or routine).
+        if (/plan is empty/i.test(s)) {
+            return 'این پیشنهاد خالی بود و چیزی ساخته نشد — هیچ اجرایی انجام نشده. لطفاً یک بسته واقعی بفرستید: پروژه با تسک، یادآور، یادداشت یا روتین (مثلاً «بسته اول: پروژه کتاب + فصل‌های ۱ تا ۳»). اگر زنجیره‌ای در جریان است، کارت بستهٔ در انتظار همان بالا آمادهٔ تأیید است.';
+        }
         if (/projects.*(array|list)/i.test(s) && /must be/i.test(s)) {
             return 'ساختار لیست پروژه‌ها ناقص بود و پلن ساخته نشد. لطفاً دوباره تلاش کنید.';
         }
         return s;
     }
 
-    function appendPlanErrorWithRetry(msg) {
+    function appendPlanErrorWithRetry(msg, chainContinue) {
         const div = document.createElement('div');
         div.className = 'lina-error';
         div.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;';
         const span = document.createElement('span');
-        span.textContent = '⚠ ' + friendlyAiError(msg);
+        let text = friendlyAiError(msg);
+        // Server-signalled recovery: a chain head is already proposed and
+        // waiting for confirmation — point at that card instead of asking
+        // the user to retype the whole request.
+        if (chainContinue && chainContinue.plan_id) {
+            text += ' «' + (chainContinue.title || ('بسته ' + chainContinue.plan_id)) + '» در همین گفتگو آمادهٔ تأیید است — همان کارت بالا را تأیید کنید.';
+        }
+        span.textContent = '⚠ ' + text;
         div.appendChild(span);
         const retry = document.createElement('button');
         retry.className = 'lina-tool-reject';
@@ -1108,7 +1121,7 @@ footer, .topnav { display: none !important; }
                             else console.warn('[Lina] plan ignored in chat mode');
                         } else if (json.type === 'plan_proposal' && json.error) {
                             errorShown = true;
-                            appendPlanErrorWithRetry(json.error);
+                            appendPlanErrorWithRetry(json.error, json.chain_continue);
                         } else if (json.type === 'workout_import_proposal' && json.import) {
                             if (chatMode === 'agent') { proposalRendered = true; renderWorkoutImportCard(json.import); }
                             else console.warn('[Lina] workout import ignored in chat mode');
@@ -1642,11 +1655,24 @@ footer, .topnav { display: none !important; }
     }
 
     /* ── Plan structure card + stepper ── */
+    // Plan ids already rendered in this page: a repeated next_plan payload
+    // (double response, manual + auto continue racing) must scroll to the
+    // existing card instead of painting a duplicate.
+    const renderedPlanIds = new Set();
     function renderPlanCard(plan, studyBuild) {
+        if (plan && plan.id && renderedPlanIds.has(plan.id)) {
+            const existing = document.querySelector('.lina-plan-card[data-plan-id="' + plan.id + '"]');
+            if (existing) existing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
         const wrap = document.createElement('div');
         wrap.className = 'lina-msg-wrap bot';
         const card = document.createElement('div');
         card.className = 'lina-plan-card';
+        if (plan && plan.id) {
+            card.dataset.planId = plan.id;
+            renderedPlanIds.add(plan.id);
+        }
         wrap.appendChild(card);
         msgsEl.appendChild(wrap);
         paintPlan(card, plan, studyBuild);
@@ -1944,33 +1970,37 @@ footer, .topnav { display: none !important; }
                 doneHtml = '<div class="lina-plan-note ok" style="background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;color:#16a34a;font-weight:700;">✅ پروژه و تمامی تسک‌ها با موفقیت ساخته شدند. <div class="mt-2"><a href="/projects" class="btn btn-sm btn-primary px-3 rounded-pill fw-bold" style="font-size:12px;"><i class="bi bi-folder-check me-1"></i> مشاهده در Projects</a></div></div>';
             }
             body.innerHTML = doneHtml;
-            // Chunked study builds: one tap stages the "next chunk" prompt —
-            // the user only edits the chapter range, then sends. The created
-            // book id is injected so the model attaches directly instead of
-            // detouring through workspace_search confirmation cards.
-            const nextBtn = document.createElement('button');
-            nextBtn.className = 'lina-tool-reject';
-            nextBtn.style.cssText = 'margin-top:8px;font-size:12px;';
-            nextBtn.innerHTML = '📦 بسته بعدی ساختار';
-            nextBtn.onclick = () => {
-                const createdProjects = (plan.created_ids && plan.created_ids.projects) || [];
-                const book = createdProjects[0] || null;
-                const roots = (tree.projects && tree.projects.length)
-                    ? tree.projects
-                    : (tree.project ? [tree.project] : []);
-                const rootName = (book && book.name) || (roots[0] ? roots[0].name : '') || (plan.title || '');
-                let nextText;
-                if (book && book.id) {
-                    nextText = 'بسته بعدی ساختار کتاب «' + rootName + '»: فصل‌های بعدی را به پروژه موجود «' + rootName + '» (#' + book.id + ') وصل کن و بساز — جستجو لازم نیست، مستقیم پلن مرحله‌ای بده (فقط زیرپروژه/تسک جدید؛ پروژه تکراری نساز).';
-                } else {
-                    nextText = 'بسته بعدی ساختار کتاب «' + rootName + '»: فصل‌های بعدی را به همین پروژه‌های موجود وصل کن و بساز (اگر شناسه پروژه را می‌دانی با #id وصل کن؛ جستجو لازم نیست، مستقیم پلن مرحله‌ای بده). تعداد صفحه هر درسنامه در خط اول توضیحات (📄) و weight ثبت شود، نه در عنوان.';
+        // Chunked study builds: continue from the stored chain, not from a
+        // retyped prompt. The server rebuilds the next package from
+        // chunks_json + the stored book project id — the model is never
+        // re-asked. Same endpoint as the automatic path, so manual and
+        // automatic continuation converge on one idempotent result.
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'lina-tool-reject';
+        nextBtn.style.cssText = 'margin-top:8px;font-size:12px;';
+        nextBtn.innerHTML = '📦 بسته بعدی';
+        nextBtn.onclick = async () => {
+            nextBtn.disabled = true;
+            const label = nextBtn.innerHTML;
+            nextBtn.textContent = 'در حال دریافت…';
+            try {
+                const res = await api('POST', '/ai/plans/' + plan.id + '/confirm-phase', {});
+                paintPlan(card, res.plan, res.study_build);
+                handleChainResult(res);
+                if (!res.next_plan && !res.next_error && !(res.chain_report && res.chain_report.status === 'done')) {
+                    appendError('بستهٔ دیگری برای این پلن در زنجیره نیست — یا زنجیره کامل/متوقف شده، یا این پلن عضو زنجیره نیست.');
                 }
-                nextText += ' زنجیره سرور معمولاً بسته بعدی را خودش پیشنهاد می‌دهد — این دکمه فقط برای ادامه دستی است.';
-                input.value = nextText;
-                autoResize(); updateCharCount(); input.focus();
-                scrollBottom();
-            };
-            body.appendChild(nextBtn);
+            } catch (e) {
+                appendError(e && e.detail ? e.detail : 'خطا در دریافت بسته بعدی.');
+            } finally {
+                if (nextBtn.isConnected) {
+                    nextBtn.disabled = false;
+                    nextBtn.innerHTML = label;
+                }
+            }
+            scrollBottom();
+        };
+        body.appendChild(nextBtn);
             appendRollbackButton(body, card, plan);
         } else {
             body.innerHTML = '<div class="lina-plan-note muted">پلن ' + escPlan(plan.status) + ' شد — تغییری ایجاد نشد.</div>';
@@ -1989,22 +2019,59 @@ footer, .topnav { display: none !important; }
 
     /* Study chain (Model B): after each finished chunk the server may return
        next_plan (rendered as a fresh confirmation card), next_error, and the
-       study_build progress. A finished chain gets a closing note. */
+       study_build progress. A finished chain gets a closing note built ONLY
+       from server records (chain_report per-package statuses) — never from
+       model text. Without chain_report (e.g. older responses) the generic
+       study_build fallback applies, without per-package claims. */
     function handleChainResult(res) {
         if (!res) return;
         if (res.next_error) appendError(res.next_error);
         if (res.next_plan) renderPlanCard(res.next_plan, res.study_build);
+        else if (res.chain_report) appendChainReport(res.chain_report);
         else if (res.study_build && res.study_build.status === 'done' && (res.study_build.total_chunks || 0) > 1) {
             const wrap = document.createElement('div');
             wrap.className = 'lina-msg-wrap bot';
             const done = document.createElement('div');
             done.className = 'lina-plan-note ok';
             done.style.cssText = 'background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;color:#16a34a;font-weight:700;';
-            done.textContent = '🎉 زنجیره ساخت کتاب کامل شد (' + res.study_build.total_chunks + ' بسته). همه را از Projects ببین.';
+            done.textContent = '🎉 زنجیره کامل شد (' + res.study_build.total_chunks + ' بسته). همه را از Projects ببین.';
             wrap.appendChild(done);
             msgsEl.appendChild(wrap);
             scrollBottom();
         }
+    }
+
+    // Final chain report from server records: items carry real plan
+    // statuses (done / cancelled / superseded / expired / missing / pending).
+    // Shown only for a finished or cancelled chain; a still-building chain
+    // with no next package yields no closing claim.
+    function appendChainReport(report) {
+        if (!report || (report.status !== 'done' && report.status !== 'cancelled')) return;
+        const items = report.items || [];
+        let ok = 0, cancelled = 0, failed = 0, pending = 0;
+        items.forEach((it) => {
+            const st = it.status;
+            if (st === 'done') ok++;
+            else if (st === 'cancelled' || st === 'superseded') cancelled++;
+            else if (st === 'expired' || st === 'missing') failed++;
+            else pending++;
+        });
+        const total = items.length || report.total_chunks || 0;
+        const parts = [];
+        if (ok) parts.push(ok + ' موفق');
+        if (cancelled) parts.push(cancelled + ' لغوشده');
+        if (failed) parts.push(failed + ' ناموفق');
+        if (pending) parts.push(pending + ' در انتظار');
+        const head = report.status === 'done' ? '🎉 زنجیره کامل شد' : '⛔ زنجیره متوقف شد';
+        const wrap = document.createElement('div');
+        wrap.className = 'lina-msg-wrap bot';
+        const done = document.createElement('div');
+        done.className = 'lina-plan-note ok';
+        done.style.cssText = 'background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;color:#16a34a;font-weight:700;';
+        done.textContent = head + ' (' + total + ' بسته): ' + (parts.length ? parts.join('، ') : 'بدون بستهٔ ثبت‌شده') + '. جزئیات هر بسته در کارت خودش است؛ همه را از Projects ببین.';
+        wrap.appendChild(done);
+        msgsEl.appendChild(wrap);
+        scrollBottom();
     }
 
     /* Rollback: delete everything this plan built (attached pre-existing

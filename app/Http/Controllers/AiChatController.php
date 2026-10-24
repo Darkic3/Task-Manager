@@ -1168,7 +1168,23 @@ class AiChatController extends Controller
                 'projects_type' => isset($args['projects']) ? gettype($args['projects']) : null,
             ]);
 
-            return ['error' => $check['error'] ?? __('Invalid plan.'), 'code' => $check['code'] ?? 'validation_error'];
+            $out = ['error' => $check['error'] ?? __('Invalid plan.'), 'code' => $check['code'] ?? 'validation_error'];
+            // P0 recovery hint: if this conversation holds a continuable
+            // chain (a proposed head waiting for confirmation), point the UI
+            // at it instead of leaving the user with a dead-end error. Only
+            // own-conversation records, only id + title — no sensitive data.
+            $chain = \App\Models\AiStudyBuild::where('user_id', $user->id)
+                ->where('conversation_id', $conversationId)
+                ->where('status', \App\Models\AiStudyBuild::STATUS_BUILDING)
+                ->where('expires_at', '>', now())
+                ->latest('id')
+                ->first();
+            $head = $chain?->lastPlan;
+            if ($head && $head->status === \App\Models\AiPlan::STATUS_PROPOSED && $head->isActionable()) {
+                $out['chain_continue'] = ['plan_id' => $head->id, 'title' => $head->title];
+            }
+
+            return $out;
         }
 
         $controller = app(AiPlanController::class);

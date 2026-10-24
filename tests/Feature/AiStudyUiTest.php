@@ -37,8 +37,9 @@ class AiStudyUiTest extends TestCase
         $this->assertStringContainsString('t.weight', $html);
         // Existing attach markers still rendered.
         $this->assertStringContainsString('موجود از قبل', $html);
-        // B3: next-chunk button staged in the done state.
-        $this->assertStringContainsString('بسته بعدی ساختار', $html);
+        // B3: next-chunk button staged in the done state (P0: API-driven
+        // continuation from the stored chain, not a prefilled prompt).
+        $this->assertStringContainsString('📦 بسته بعدی', $html);
         // 1-Click run-all stays the primary action (expiry safety).
         $this->assertStringContainsString('ساخت و اجرای کامل پروژه', $html);
     }
