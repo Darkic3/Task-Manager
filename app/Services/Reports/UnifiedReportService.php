@@ -2,15 +2,27 @@
 
 namespace App\Services\Reports;
 
+use Illuminate\Support\Facades\Cache;
+
 /**
  * One call for the whole Reports page: every section for the selected
  * window plus previous-window deltas for the headline KPIs.
+ *
+ * The assembled overview is cached per user + range for 120 seconds
+ * (reports aggregate ~12 bounded queries; a short TTL keeps the page
+ * snappy while staying fresh enough for study tracking).
  */
 final class UnifiedReportService
 {
     public static function overview(int $userId, ReportRange $range): array
     {
-        $from = $range->from;
+        $key = "reports:overview:{$userId}:{$range->preset}:{$range->from->toDateString()}:{$range->to->toDateString()}";
+
+        return Cache::remember($key, 120, fn () => self::build($userId, $range));
+    }
+
+    private static function build(int $userId, ReportRange $range): array
+    {        $from = $range->from;
         $to = $range->to;
 
         $tasks = TaskReportService::summarize($userId, $from, $to);

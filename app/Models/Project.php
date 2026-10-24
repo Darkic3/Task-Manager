@@ -246,6 +246,9 @@ class Project extends Model
         'minutes' => 'Minutes',
     ];
 
+    /** Request-level memo for descendantProjectIds() (perf: one walk per instance). */
+    private ?array $descIdsMemo = null;
+
     public function hasDailyGoal(): bool
     {
         return $this->daily_goal_value !== null && (int) $this->daily_goal_value > 0;
@@ -265,6 +268,10 @@ class Project extends Model
      */
     public function descendantProjectIds(): array
     {
+        if ($this->descIdsMemo !== null) {
+            return $this->descIdsMemo;
+        }
+
         $ids = [(int) $this->id];
         $frontier = [(int) $this->id];
         $guard = 0;
@@ -281,7 +288,7 @@ class Project extends Model
             $frontier = $children;
         }
 
-        return $ids;
+        return $this->descIdsMemo = $ids;
     }
 
     /**
@@ -373,6 +380,125 @@ class Project extends Model
 
         return rtrim(rtrim(number_format((float) $p['current'], 1, '.', ''), '0'), '.')
             .' / '.$p['target'].' '.$unitLabel;
+    }
+
+    /**
+     * N-day daily-goal history (oldest → today), computed from the same
+     * sources as dailyGoalProgress() but with 2 bounded queries instead of
+     * one query per day. No extra table needed.
+     *
+     * @return array{days: array<int, array{date: string, current: float|int, target: int, met: bool}>, met: int, total: int, rate: int, streak: int}
+     */
+    public function dailyGoalHistory(int $days = 30): array
+    {
+        $days = max(1, min(90, $days));
+        $target = (int) ($this->daily_goal_value ?? 0);
+        $unit = $this->dailyGoalUnit();
+        $empty = ['days' => [], 'met' => 0, 'total' => 0, 'rate' => 0, 'streak' => 0];
+
+        if ($target <= 0) {
+            return $empty;
+        }
+
+        $today = Carbon::today();
+        $start = $today->copy()->subDays($days - 1)->startOfDay();
+        $ids = $this->descendantProjectIds();
+
+        // Per-day totals across the subtree.
+        $perDay = [];
+        $cursor = $start->copy();
+        while ($cursor->lte($today)) {
+            $perDay[$cursor->toDateString()] = 0.0;
+            $cursor->addDay();
+        }
+
+        if ($unit === 'minutes') {
+            $entries = TimeEntry::where('user_id', $this->user_id)
+                ->where(function ($q) use ($ids) {
+                    $q->whereIn('project_id', $ids)
+                        ->orWhereHas('task', fn ($t) => $t->whereIn('project_id', $ids));
+                })
+                ->whereDate('started_at', '>=', $start->toDateString())
+                ->get(['started_at', 'duration_seconds', 'status']);
+            foreach ($entries as $entry) {
+                $day = $entry->started_at instanceof Carbon
+                    ? $entry->started_at->toDateString()
+                    : Carbon::parse($entry->started_at)->toDateString();
+                if (! array_key_exists($day, $perDay)) {
+                    continue;
+                }
+                $perDay[$day] += $entry->status === TimeEntry::STATUS_STOPPED
+                    ? (int) ($entry->duration_seconds ?? 0)
+                    : $entry->elapsedSeconds();
+            }
+            foreach ($perDay as $day => $seconds) {
+                $perDay[$day] = (int) floor($seconds / 60);
+            }
+        } else {
+            $completed = Task::where('user_id', $this->user_id)
+                ->whereIn('project_id', $ids)
+                ->where('status', 'completed')
+                ->where(function ($q) use ($start) {
+                    $q->whereDate('completed_at', '>=', $start->toDateString())
+                        ->orWhere(function ($qq) use ($start) {
+                            $qq->whereNull('completed_at')->whereDate('updated_at', '>=', $start->toDateString());
+                        });
+                })
+                ->get(['weight', 'completed_at', 'updated_at']);
+            foreach ($completed as $task) {
+                $at = $task->completed_at ?? $task->updated_at;
+                $day = $at instanceof Carbon ? $at->toDateString() : ($at ? Carbon::parse($at)->toDateString() : null);
+                if ($day === null || ! array_key_exists($day, $perDay) || $day > $today->toDateString()) {
+                    continue;
+                }
+                $perDay[$day] += $unit === 'pages' ? max(0.0, (float) ($task->weight ?? 1)) : 1;
+            }
+            if ($unit === 'pages') {
+                foreach ($perDay as $day => $value) {
+                    $perDay[$day] = round($value, 1);
+                }
+            } else {
+                foreach ($perDay as $day => $value) {
+                    $perDay[$day] = (int) $value;
+                }
+            }
+        }
+
+        $out = [];
+        $met = 0;
+        foreach ($perDay as $day => $current) {
+            $isMet = $current >= $target;
+            if ($isMet) {
+                $met++;
+            }
+            $out[] = ['date' => $day, 'current' => $current, 'target' => $target, 'met' => $isMet];
+        }
+
+        // Current streak: consecutive met days ending today; when today is
+        // still open (unmet), the streak counts back from yesterday.
+        $streak = 0;
+        $keys = array_keys($perDay);
+        $end = end($keys);
+        if ($end !== false && ($perDay[$end] ?? 0) < $target) {
+            array_pop($keys);
+        }
+        for ($i = count($keys) - 1; $i >= 0; $i--) {
+            if (($perDay[$keys[$i]] ?? 0) >= $target) {
+                $streak++;
+            } else {
+                break;
+            }
+        }
+
+        $total = count($out);
+
+        return [
+            'days' => $out,
+            'met' => $met,
+            'total' => $total,
+            'rate' => $total > 0 ? (int) round($met / $total * 100) : 0,
+            'streak' => $streak,
+        ];
     }
 
     /**

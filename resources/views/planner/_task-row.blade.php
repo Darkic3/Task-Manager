@@ -19,6 +19,7 @@
      data-completed="{{ $isDone ? 1 : 0 }}"
      data-failed="{{ $isFailed ? 1 : 0 }}"
      data-count="{{ !empty($count) ? 1 : 0 }}"
+     data-weight="{{ $task->weight ?? 1 }}"
      @if($canDrag) draggable="true" @endif
      style="border-left:3px solid {{ $pc }};">
 
@@ -103,6 +104,15 @@
                     title="{{ __('Focus Mode • Workstation') }}"
                     aria-label="{{ __('Focus Mode • Workstation') }}">
                 <i class="bi bi-bullseye"></i>
+            </button>
+
+            {{-- Complete study session: log pages + stop timer + complete --}}
+            <button type="button"
+                    class="pl-task-act pl-task-act-study"
+                    onclick="event.stopPropagation(); plCompleteStudy({{ $task->id }})"
+                    title="{{ __('Finish study session (log pages)') }}"
+                    aria-label="{{ __('Finish study session') }}">
+                <i class="bi bi-mortarboard"></i>
             </button>
 
             {{-- Postpone --}}

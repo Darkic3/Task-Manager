@@ -163,6 +163,7 @@ Route::middleware(['auth'])->group(function () {
     // My Day / Planner
     Route::get('/planner', [PlannerController::class, 'index'])->name('planner.index');
     Route::post('/planner/tasks/{task}/toggle', [PlannerController::class, 'toggleTask'])->name('planner.tasks.toggle');
+    Route::post('/planner/tasks/{task}/complete-study', [PlannerController::class, 'completeStudy'])->name('planner.tasks.complete-study');
     Route::post('/planner/routines/{routine}/toggle', [PlannerController::class, 'toggleRoutine'])->name('planner.routines.toggle');
     Route::post('/planner/routines/{routine}/skip', [PlannerController::class, 'skipRoutine'])->name('planner.routines.skip');
 

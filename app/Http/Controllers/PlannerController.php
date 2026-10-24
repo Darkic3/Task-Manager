@@ -9,6 +9,7 @@ use App\Models\RoutineCheckitemCompletion;
 use App\Models\RoutineChecklistItem;
 use App\Models\RoutineCompletion;
 use App\Models\Task;
+use App\Models\TimeEntry;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -404,6 +405,65 @@ class PlannerController extends Controller
             'status' => $task->status,
             'completed' => $completed,
             'completed_at' => $task->completed_at?->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Finish a study session in one tap: optionally record pages read
+     * (task weight = pages, see Task::WEIGHT_UNIT_PAGES), complete the task,
+     * and stop any running timer on it so the focus minutes land in the
+     * reports. Returns the owning project's fresh daily-goal state so the UI
+     * can reflect it without a reload.
+     */
+    public function completeStudy(Request $request, Task $task)
+    {
+        abort_if($task->user_id !== Auth::id(), 403);
+
+        $data = $request->validate([
+            'pages' => 'nullable|numeric|min:0|max:99',
+        ]);
+
+        if (array_key_exists('pages', $data) && $data['pages'] !== null) {
+            $task->weight = (float) $data['pages'];
+        }
+
+        $task->status = 'completed';
+        $task->completed_at = now();
+        $task->failed_at = null;
+        $task->fail_note = null;
+        $task->save();
+
+        $stoppedSeconds = 0;
+        $active = TimeEntry::where('user_id', Auth::id())
+            ->where('task_id', $task->id)
+            ->whereIn('status', [TimeEntry::STATUS_RUNNING, TimeEntry::STATUS_PAUSED])
+            ->get();
+        foreach ($active as $entry) {
+            $entry->stop();
+            $stoppedSeconds += (int) ($entry->duration_seconds ?? 0);
+        }
+
+        $goal = null;
+        $project = $task->project()->first(['id', 'user_id', 'daily_goal_value', 'daily_goal_unit']);
+        if ($project && $project->hasDailyGoal()) {
+            $progress = $project->dailyGoalProgress();
+            $goal = [
+                'project_id' => $project->id,
+                'label' => $project->dailyGoalLabel($progress),
+                'percent' => $progress['percent'],
+                'remaining' => $progress['remaining'],
+                'met' => $progress['met'],
+            ];
+        }
+
+        return response()->json([
+            'ok' => true,
+            'status' => $task->status,
+            'completed' => true,
+            'completed_at' => $task->completed_at?->toIso8601String(),
+            'pages' => $task->pages(),
+            'stopped_seconds' => $stoppedSeconds,
+            'goal' => $goal,
         ]);
     }
 

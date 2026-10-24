@@ -222,7 +222,7 @@
     </div>
 
     @if($project->hasDailyGoal())
-        @php $goal = $project->dailyGoalProgress(); @endphp
+        @php $goal = $project->dailyGoalProgress(); $goalHist = $project->dailyGoalHistory(30); @endphp
         <div class="pj-goal" style="margin-top:12px;border:1px solid {{ $goal['met'] ? '#bfe6cf' : '#e5e7eb' }};background:{{ $goal['met'] ? '#eefbf3' : 'white' }};border-radius:8px;padding:10px 12px;">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <span style="font-size:12px;font-weight:700;color:#1f2328;"><i class="bi bi-flag"></i> {{ __('Daily goal') }}</span>
@@ -232,6 +232,18 @@
                 </span>
             </div>
             <div class="pj-progress-bar" style="margin-top:8px;"><div class="pj-progress-fill" style="background:{{ $goal['met'] ? '#30a46c' : '#7c3aed' }};width:{{ $goal['percent'] }}%;"></div></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+                <div style="display:flex;gap:3px;flex-wrap:wrap;" title="{{ __('Last 30 days') }}">
+                    @foreach($goalHist['days'] as $d)
+                        <span title="{{ $d['date'] }} — {{ $d['current'] }}/{{ $d['target'] }}"
+                              style="width:10px;height:10px;border-radius:3px;display:inline-block;background:{{ $d['met'] ? '#30a46c' : '#e5e7eb' }};{{ $d['date'] === now()->toDateString() ? 'outline:2px solid #7c3aed;outline-offset:1px;' : '' }}"></span>
+                    @endforeach
+                </div>
+                <span style="font-size:11px;font-weight:600;color:#6b6f78;">
+                    <i class="bi bi-fire" style="color:#f59e0b;"></i> {{ __(':n-day streak', ['n' => $goalHist['streak']]) }}
+                    · {{ $goalHist['met'] }}/{{ $goalHist['total'] }} ({{ $goalHist['rate'] }}%)
+                </span>
+            </div>
         </div>
     @endif
 

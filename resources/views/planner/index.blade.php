@@ -1084,6 +1084,8 @@
     .pl-task-act-play:hover{background:#2563eb !important;color:#fff !important;border-color:#2563eb !important;}
     .pl-task-act-focus{background:#f5f3ff !important;color:#7c3aed !important;border-color:#ddd6fe !important;}
     .pl-task-act-focus:hover{background:#7c3aed !important;color:#fff !important;border-color:#7c3aed !important;}
+    .pl-task-act-study{background:#ecfdf5 !important;color:#059669 !important;border-color:#a7f3d0 !important;}
+    .pl-task-act-study:hover{background:#059669 !important;color:#fff !important;border-color:#059669 !important;}
 
     /* ── Quick Estimate Popover ── */
     .pl-task-estimate-wrapper{position:relative;display:inline-block;}
@@ -2878,6 +2880,44 @@
             cb.disabled = false;
         }
     }
+
+    /* Finish a study session: ask pages read (defaults to the task weight),
+       then complete + stop timer in one call and reflect the project goal. */
+    async function plCompleteStudy(id) {
+        const row = document.querySelector('[data-task-item][data-id="' + id + '"]');
+        const fallback = row && row.dataset.weight ? row.dataset.weight : '';
+        let pages = fallback;
+        if (typeof window.promptSwal === 'function') {
+            pages = await window.promptSwal(@json(__('Pages read?')), String(fallback || ''), { input: 'number' });
+            if (pages === null || pages === undefined) return;
+        }
+        try {
+            const res = await plFetch('/planner/tasks/' + id + '/complete-study', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify(pages === '' || pages === null ? {} : { pages: pages }),
+            });
+            if (res.status === 404) { plHandleGone(); return; }
+            if (res.status === 403) { plShowToast(@json(__('Not allowed'))); return; }
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            document.querySelectorAll('[data-task-item][data-id="' + id + '"]').forEach(r => {
+                r.classList.add('is-done');
+                r.dataset.completed = '1';
+                const cb = r.querySelector('.pl-check input');
+                if (cb) cb.checked = true;
+            });
+            refreshCounters();
+            if (window.pwWeekRefresh) { try { window.pwWeekRefresh(id); } catch (e) {} }
+            if (window.TM) { try { await window.TM.sync(); } catch (e) {} }
+            let msg = @json(__('Study session saved ✓'));
+            if (json.goal && json.goal.label) msg += ' · ' + json.goal.label;
+            plShowToast(msg);
+        } catch (e) {
+            console.error('[Planner] complete-study failed', e);
+        }
+    }
+    window.plCompleteStudy = plCompleteStudy;
 
     function refreshCounters() {
         let pending = 0, done = 0;

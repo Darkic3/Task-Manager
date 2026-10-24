@@ -36,16 +36,20 @@
 - **حلقه عادت** هر روتین: درصد پایبندی ۳۰روزه، streak فعلی (دنباله انتهایی occurrenceهای انجام‌شده)، ۷ مربع آخر — همه از یک مپ completion ازپیش‌لودشده حساب می‌شود (بدون N+1).
 - تاگل کل روتین، استپ‌ها را همگام می‌کند و برعکس: با کامل‌شدن همه استپ‌ها خود روتین تیک می‌خورد.
 - منطق recurrence در `Routine::occursOn()`: هفتگی = نام روز هفته، ماهانه = روز ماه، every_n_days = فاصله از روز ساخت.
+- **اتمام جلسه مطالعه** (`POST /planner/tasks/{task}/complete-study`): ثبت pages (روی weight) + تکمیل تسک + توقف تایمر جاری آن تسک + برگرداندن وضعیت تازه هدف روزانه پروژه (دکمه 🎓 در ردیف تسک، تابع `plCompleteStudy`).
 
 ### تسک‌ها `/tasks` (`TaskController`)
 - درخت نامحدود (`childrenRecursive` ایگرلودشده)؛ ریشه‌ها `parent_id=null`.
 - پیشرفت leaf از روی status؛ والد = میانگین وزنی فرزندان (`progressPercent/aggregateWeight` — روی کالکشن لودشده، بدون کوئری اضافه).
 - وزن دستی × (۱ + زمان واقعی/تخمینی) وقتی `auto_weight` روشن است؛ زمان از `TimeEntry` جمع می‌شود.
+- **قرارداد مطالعه:** ‏۱ واحد `weight` ‏= ۱ صفحه (`Task::WEIGHT_UNIT_PAGES`، متد `pages()`).
 - reorder با drag (parent_id + sort_order)، bulk update/delete (سقف ۲۰۰ آیدی، فقط تسک‌های خود کاربر).
 - `resolveParent`: والد باید هم‌پروژه و هم‌کاربر باشد + ضدچرخه (سقف ۱۰۰ سطح).
 
 ### پروژه‌ها `/projects` (`ProjectController`)
 درخت بازگشتی (`childrenRecursive.tasks`)، پیشرفت وزنی روی تسک‌های ریشه + زیرپروژه‌ها، `breadcrumb()` (زنجیره والدها)، اعضای تیم (`project_teams`)، reorder، `assertNoCycle`.
+- **هدف روزانه:** `daily_goal_value/unit` (tasks/pages/minutes) روی پروژه؛ `dailyGoalProgress()` وضعیت امروز زیردرخت، `dailyGoalHistory(30)` سری ۳۰روزه + استریک + پایبندی (۲ کوئری محدود، بدون جدول جدید)؛ `descendantProjectIds()` مموایز سطح‌ریکوئست است.
+- گزارش‌ها: `UnifiedReportService::overview` به‌کلید user+range **۱۲۰ ثانیه کش** می‌شود؛ `StudyReportService` (صفحه/دقیقه فصل‌به‌فصل + پایبندی هدف) و `Project::pathMap()` (لیبل «کتاب / فصل» با id) قاطی‌شدن فصل‌های هم‌نام را حل می‌کنند.
 
 ### روتین‌ها `/routines` (`RoutineController`)
 - ساخت/ویرایش با `days` (هفتگی) / `month_days` (ماهانه) / `every_n_days` (۲ تا ۶۰)؛ یا `time_period` (صبح/ظهر/...) از `config/routines.php` یا بازه ساعت دقیق — هرگز هر دو با هم.
