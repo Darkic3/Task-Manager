@@ -10,7 +10,14 @@ class WorkoutPlanService
 {
     public function save(array $data, int $userId, ?WorkoutPlan $plan = null): WorkoutPlan
     {
-        return DB::transaction(function () use ($data, $userId, $plan): WorkoutPlan {
+        // The previous start date (update path) decides whether weekday
+        // labels follow a start_date change — see reanchorIndex().
+        $previousStart = $plan?->start_date;
+        if ($previousStart) {
+            $previousStart = $previousStart->copy();
+        }
+
+        return DB::transaction(function () use ($data, $userId, $plan, $previousStart): WorkoutPlan {
             if ($plan) {
                 $plan->update(collect($data)->except(['days', 'rules'])->all());
                 $plan->days()->delete();
@@ -26,9 +33,18 @@ class WorkoutPlanService
             }
 
             $allowedExerciseIds = Exercise::forUser($userId)->pluck('id')->all();
+            // Anchor semantics: on update, when the start date changes AND
+            // the submitted days are anchored to the previous start (DAY 1
+            // on the old start date), the program order is kept and DAY 1
+            // is re-pinned to the new start date. Otherwise the submitted
+            // weekday labels are explicit intent (fixed weekly template,
+            // fresh import already anchored by the importer) and kept.
+            $anchorIdx = $this->reanchorIndex($data['days'] ?? [], $previousStart, $data['start_date'] ?? null);
             foreach ($data['days'] as $dayOrder => $dayData) {
                 $day = $plan->days()->create([
-                    'weekday' => $dayData['weekday'],
+                    'weekday' => $anchorIdx !== null
+                        ? WorkoutPlan::WEEKDAYS[($anchorIdx + $dayOrder) % 7]
+                        : $dayData['weekday'],
                     'title' => $dayData['title'],
                     'type' => $dayData['type'],
                     'notes' => $dayData['notes'] ?? null,
@@ -52,6 +68,48 @@ class WorkoutPlanService
 
             return $plan->fresh(['days.exercises.exercise', 'rules']);
         });
+    }
+
+    /**
+     * Weekday index to re-anchor submitted days to, or null to keep the
+     * submitted labels. Re-anchoring happens only on update, only when
+     * the start date actually changes, and only when the submitted day
+     * order is currently anchored to the previous start (DAY 1 on the
+     * old start date) — otherwise the labels are explicit intent.
+     */
+    private function reanchorIndex(array $days, $previousStart, $newStart): ?int
+    {
+        $oldIdx = self::startWeekdayIndex($previousStart);
+        $newIdx = self::startWeekdayIndex($newStart);
+        if ($oldIdx === null || $newIdx === null || $oldIdx === $newIdx) {
+            return null;
+        }
+        foreach (array_values($days) as $position => $day) {
+            $expected = WorkoutPlan::WEEKDAYS[($oldIdx + $position) % 7];
+            if (strtolower((string) (((array) $day)['weekday'] ?? '')) !== $expected) {
+                return null;
+            }
+        }
+
+        return $newIdx;
+    }
+
+    /**
+     * Weekday index (0 = saturday) of the given start date, or null when
+     * there is no (parseable) start date.
+     */
+    private static function startWeekdayIndex($startDate): ?int
+    {
+        if (empty($startDate)) {
+            return null;
+        }
+        try {
+            $weekday = strtolower(\Carbon\Carbon::parse($startDate)->format('l'));
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return array_flip(WorkoutPlan::WEEKDAYS)[$weekday] ?? null;
     }
 
     /**

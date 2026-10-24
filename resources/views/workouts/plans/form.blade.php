@@ -10,7 +10,9 @@
 
 @php
     $defaultDays = collect($weekdays)->map(fn ($weekday, $index) => ['weekday' => $weekday, 'title' => __('Rest'), 'type' => 'rest', 'notes' => '', 'exercises' => []])->all();
-    $storedDays = $plan ? $plan->orderedDays()->map(fn ($day) => ['weekday' => $day->weekday, 'title' => $day->title, 'type' => $day->type, 'notes' => $day->notes, 'exercises' => $day->exercises->map(fn ($item) => $item->only(['exercise_id','section','target_sets','rep_min','rep_max','duration_seconds','target_weight','target_rir','rest_seconds','tempo','side_mode','is_amrap','is_circuit','circuit_rounds','circuit_rest_seconds','alternatives','notes']))->values()->all()])->values()->all() : $defaultDays;
+    // Program order (DAY 1 first): the start date pins DAY 1, so the stored
+    // sort order is the truth — never the start-rotated display order.
+    $storedDays = $plan ? $plan->days->sortBy('sort_order')->values()->map(fn ($day) => ['weekday' => $day->weekday, 'title' => $day->title, 'type' => $day->type, 'notes' => $day->notes, 'exercises' => $day->exercises->map(fn ($item) => $item->only(['exercise_id','section','target_sets','rep_min','rep_max','duration_seconds','target_weight','target_rir','rest_seconds','tempo','side_mode','is_amrap','is_circuit','circuit_rounds','circuit_rest_seconds','alternatives','notes']))->values()->all()])->values()->all() : $defaultDays;
     $initialDays = old('days', $storedDays);
     $initialRules = old('rules', $plan?->rules->pluck('rule_text')->all() ?? []);
     $exerciseOptions = $exercises->map(fn ($exercise) => ['id' => $exercise->id, 'name' => $exercise->name, 'category' => $exercise->category])->values()->all();
@@ -27,7 +29,7 @@
                 <div class="wb-field"><label class="wb-label">{{ __('Plan name *') }}</label><input class="wb-input" name="title" required maxlength="160" value="{{ old('title', $plan?->title) }}" placeholder="{{ __('Week 13 — Training Plan') }}"></div>
                 <div class="wb-field"><label class="wb-label">{{ __('Goal') }}</label><input class="wb-input" name="goal" value="{{ old('goal', $plan?->goal) }}" placeholder="{{ __('Strength + Muscle Gain') }}"></div>
                 <div class="wb-field"><label class="wb-label">{{ __('Week number') }}</label><input class="wb-input" type="number" min="1" name="week_number" value="{{ old('week_number', $plan?->week_number) }}" placeholder="13"></div>
-                <div class="wb-field"><label class="wb-label">{{ __('Start date') }}</label><x-jalali-date name="start_date" :value="old('start_date', $plan?->start_date?->format('Y-m-d'))" class="wb-input" /></div>
+                <div class="wb-field"><label class="wb-label">{{ __('Start date') }}</label><x-jalali-date name="start_date" :value="old('start_date', $plan?->start_date?->format('Y-m-d'))" class="wb-input" /><p class="wb-help mt-1">{{ __('Day 1 of the plan lands on this date — today’s workout follows from it.') }}</p></div>
                 <div class="wb-field"><label class="wb-label">{{ __('Status') }}</label><select class="wb-select" name="status"><option value="draft" @selected(old('status', $plan?->status ?? 'draft') === 'draft')>{{ __('Draft') }}</option><option value="active" @selected(old('status', $plan?->status) === 'active')>{{ __('Active') }}</option></select></div>
                 <div class="wb-field"><label class="wb-label">{{ __('Plan notes') }}</label><textarea class="wb-textarea" name="description" placeholder="{{ __('Goal, context, general guidance...') }}">{{ old('description', $plan?->description) }}</textarea></div>
                 <div class="wb-rules"><label class="wb-label">{{ __('Rules') }}</label><div id="rulesList"></div><button type="button" class="wb-add" onclick="addRule()"><i class="bi bi-plus"></i> {{ __('Add rule') }}</button><p class="wb-help mt-2">{{ __('Example: Main exercises → RIR 1–2') }}</p></div>

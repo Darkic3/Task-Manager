@@ -148,6 +148,92 @@ class WorkoutPlanLifecycleTest extends TestCase
             ->assertSee('saved history');
     }
 
+    public function test_start_date_pins_day_one_to_today(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Pull-up', 'normalized_name' => 'pull-up']);
+        $plan = app(WorkoutPlanService::class)->save(
+            $this->sequentialPayload($exercise->id, now()->toDateString()),
+            $user->id
+        );
+
+        // DAY 1 (Pull A) lands on the start date = today.
+        $first = $plan->days()->orderBy('sort_order')->firstOrFail();
+        $this->assertSame('Pull A', $first->title);
+        $this->assertSame(strtolower(now()->format('l')), $first->weekday);
+
+        $response = $this->actingAs($user)->get(route('planner.index'))->assertOk();
+        $this->assertSame($plan->id, $response->viewData('activeWorkoutPlan')->id);
+        $this->assertSame('Pull A', $response->viewData('todayWorkoutDay')->title);
+    }
+
+    public function test_yesterday_start_shows_day_two_today(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Pull-up', 'normalized_name' => 'pull-up']);
+        app(WorkoutPlanService::class)->save(
+            $this->sequentialPayload($exercise->id, now()->subDay()->toDateString()),
+            $user->id
+        );
+
+        // Start was yesterday → today is DAY 2 (Push A).
+        $response = $this->actingAs($user)->get(route('planner.index'))->assertOk();
+        $this->assertSame('Push A', $response->viewData('todayWorkoutDay')->title);
+    }
+
+    public function test_changing_start_date_keeps_day_one(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Pull-up', 'normalized_name' => 'pull-up']);
+        $plan = app(WorkoutPlanService::class)->save(
+            $this->sequentialPayload($exercise->id, now()->subDay()->toDateString()),
+            $user->id
+        );
+
+        // Move the start to today (same program order, as the form submits).
+        $days = $plan->days()->orderBy('sort_order')->get()->map(fn ($day) => [
+            'weekday' => $day->weekday,
+            'title' => $day->title,
+            'type' => $day->type,
+            'exercises' => [],
+        ])->all();
+        $payload = $this->sequentialPayload($exercise->id, now()->toDateString());
+        $payload['days'] = $days;
+        $this->actingAs($user)->put(route('workouts.plans.update', $plan), $payload)
+            ->assertRedirect(route('workouts.plans.edit', $plan));
+
+        // DAY 1 is still Pull A, now pinned to today.
+        $this->assertSame('Pull A', $plan->fresh()->days()->orderBy('sort_order')->firstOrFail()->title);
+        $response = $this->actingAs($user)->get(route('planner.index'))->assertOk();
+        $this->assertSame('Pull A', $response->viewData('todayWorkoutDay')->title);
+    }
+
+    /**
+     * Sequential program payload (like the AI importer output): DAY 1
+     * Pull A, DAY 2 Push A, rest after — with weekday labels pre-anchored
+     * so DAY 1 falls on the given start date.
+     */
+    private function sequentialPayload(int $exerciseId, string $startDate, string $status = 'active'): array
+    {
+        $titles = ['Pull A', 'Push A', 'Rest', 'Rest', 'Rest', 'Rest', 'Rest'];
+        $types = ['training', 'training', 'rest', 'rest', 'rest', 'rest', 'rest'];
+        $startIdx = array_flip(WorkoutPlan::WEEKDAYS)[strtolower(\Carbon\Carbon::parse($startDate)->format('l'))];
+
+        return [
+            'title' => 'Week 14', 'week_number' => 14, 'goal' => 'Strength',
+            'status' => $status, 'start_date' => $startDate, 'rules' => [],
+            'days' => collect($titles)->map(fn ($title, $index) => [
+                'weekday' => WorkoutPlan::WEEKDAYS[($startIdx + $index) % 7],
+                'title' => $title,
+                'type' => $types[$index],
+                'exercises' => $index < 2 ? [[
+                    'exercise_id' => $exerciseId, 'section' => 'main', 'target_sets' => 1,
+                    'rep_min' => 6, 'rep_max' => 8,
+                ]] : [],
+            ])->values()->all(),
+        ];
+    }
+
     private function planPayload(int $exerciseId, string $title = 'Week 13', string $status = 'active'): array
     {
         return [
