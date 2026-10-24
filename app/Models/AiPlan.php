@@ -5,8 +5,45 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * P4 state machine (single source of truth for allowed transitions;
+ * enforced in AiPlanController gates + tested in AiChainStabilityTest).
+ *
+ *   proposed   → confirmed | cancelled | expired | obsolete
+ *   confirmed  → executing | cancelled | expired | failed*
+ *   executing  → done | failed | cancelled | expired
+ *   failed     → executing (retry) | cancelled | expired | obsolete
+ *   done       → (terminal; rollback keeps status, cancel dedupes)
+ *   cancelled  → (terminal; only gains superseded_by_plan_id at cancel time)
+ *   obsolete   → (terminal)
+ *   expired    → (terminal; recovery creates a NEW plan via reissue)
+ *
+ * *confirmed→failed happens when the first phase fails; the plan never
+ * runs without confirmStructure first (not_confirmed guard).
+ *
+ * Stop vs Cancel vs Rollback: there is NO pause state (product decision —
+ * not added without need). Cancel stops FUTURE execution (in-flight work
+ * completes atomically under the plan row lock, then cancel applies to the
+ * settled state). Cancel never deletes data; rollback deletes only
+ * ledger-owned items after preview + token + explicit confirm.
+ */
 class AiPlan extends Model
 {
+    /**
+     * Allowed transitions, enforced by controller gates. Terminal states
+     * map to []. Kept in sync with the gates by AiChainStabilityTest.
+     */
+    public const TRANSITIONS = [
+        self::STATUS_PROPOSED => [self::STATUS_CONFIRMED, self::STATUS_CANCELLED, self::STATUS_EXPIRED, self::STATUS_OBSOLETE],
+        self::STATUS_CONFIRMED => [self::STATUS_EXECUTING, self::STATUS_FAILED, self::STATUS_CANCELLED, self::STATUS_EXPIRED],
+        self::STATUS_EXECUTING => [self::STATUS_DONE, self::STATUS_FAILED, self::STATUS_CANCELLED, self::STATUS_EXPIRED],
+        self::STATUS_FAILED => [self::STATUS_EXECUTING, self::STATUS_CANCELLED, self::STATUS_EXPIRED, self::STATUS_OBSOLETE],
+        self::STATUS_DONE => [],
+        self::STATUS_CANCELLED => [],
+        self::STATUS_OBSOLETE => [],
+        self::STATUS_EXPIRED => [],
+    ];
+
     public const STATUS_PROPOSED = 'proposed';
     public const STATUS_CONFIRMED = 'confirmed';
     public const STATUS_EXECUTING = 'executing';

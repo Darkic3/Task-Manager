@@ -278,7 +278,8 @@ class AiStudyChainResumeTest extends TestCase
 
         $bookId = Project::where('user_id', $user->id)->where('name', 'روانشناسی رشد')->firstOrFail()->id;
 
-        $this->actingAs($user)->postJson(route('ai.plans.rollback', $plan))->assertOk();
+        $preview = $this->actingAs($user)->getJson(route('ai.plans.rollback-preview', $plan))->assertOk();
+        $this->actingAs($user)->postJson(route('ai.plans.rollback', $plan), ['preview_token' => $preview->json('preview_token')])->assertOk();
 
         $this->assertNull(Project::find($bookId));
         $this->assertNotNull(Project::find($keeper->id));

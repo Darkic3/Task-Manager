@@ -2136,7 +2136,16 @@ footer, .topnav { display: none !important; }
             actions.appendChild(editBtn);
             actions.appendChild(cancelBtn);
             body.appendChild(actions);
-        } else if (plan.status === 'confirmed' || plan.status === 'executing') {
+        } else if (plan.status === 'confirmed' || plan.status === 'executing' || plan.status === 'failed') {
+            // P4 failed packages resume from the same card: the error is
+            // shown and retry re-runs only the stuck phase (server-side).
+            if (plan.status === 'failed' && plan.last_error) {
+                const failNote = document.createElement('div');
+                failNote.className = 'lina-plan-note';
+                failNote.style.cssText = 'background:#fef2f2;padding:8px 12px;border-radius:10px;border:1px solid #fecaca;color:#b91c1c;font-size:12.5px;margin-bottom:8px;';
+                failNote.textContent = '❌ اجرای این بسته ناموفق بود: ' + plan.last_error + ' — با «تلاش مجدد» فقط مرحلهٔ ناموفق دوباره اجرا می‌شود؛ موارد ساخته‌شده دست نمی‌خورند.';
+                body.appendChild(failNote);
+            }
             (plan.phases || []).forEach((ph, idx) => {
                 const row = document.createElement('div');
                 const cls = ph.status === 'done' ? 'done' : (idx === plan.current_phase ? 'current' : 'locked');
@@ -2228,10 +2237,33 @@ footer, .topnav { display: none !important; }
         };
         body.appendChild(nextBtn);
             appendRollbackButton(body, card, plan);
+        } else if (plan.status === 'expired' && plan.master_build_id) {
+            // P4: an expired chain head can be reissued from the approved
+            // master — no global expiry change, no resurrection of the old row.
+            body.innerHTML = '<div class="lina-plan-note" style="background:#fffbeb;padding:10px 14px;border-radius:10px;border:1px solid #fde68a;color:#92400e;font-weight:600;">⌛ اعتبار این بسته تمام شد و اجرا نشد — چیزی ساخته نشده است.</div>';
+            const reBtn = document.createElement('button');
+            reBtn.className = 'lina-tool-confirm';
+            reBtn.style.cssText = 'margin-top:8px;font-size:12px;';
+            reBtn.innerHTML = '🔄 صدور مجدد بسته از ساختار تأییدشده';
+            reBtn.onclick = async () => {
+                reBtn.disabled = true;
+                reBtn.textContent = 'در حال صدور…';
+                try {
+                    const res = await api('POST', '/ai/plans/' + plan.id + '/reissue', {});
+                    renderPlanCard(res.plan, res.study_build);
+                    if (res.master) renderMasterCard(res.master, res.packages, res.study_build);
+                } catch (e) {
+                    appendError(e && e.detail ? e.detail : 'خطا در صدور مجدد بسته.');
+                    reBtn.disabled = false;
+                    reBtn.innerHTML = '🔄 صدور مجدد بسته از ساختار تأییدشده';
+                }
+                scrollBottom();
+            };
+            body.appendChild(reBtn);
         } else {
             body.innerHTML = '<div class="lina-plan-note muted">پلن ' + escPlan(plan.status) + ' شد — تغییری ایجاد نشد.</div>';
         }
-        if (plan.expires_at && (plan.status === 'proposed' || plan.status === 'confirmed' || plan.status === 'executing')) {
+        if (plan.expires_at && (plan.status === 'proposed' || plan.status === 'confirmed' || plan.status === 'executing' || plan.status === 'failed')) {
             const exp = document.createElement('div');
             exp.className = 'lina-tool-expiry';
             exp.textContent = 'Expires ' + formatTime(plan.expires_at);
@@ -2302,9 +2334,12 @@ footer, .topnav { display: none !important; }
         scrollBottom();
     }
 
-    /* Rollback: delete everything this plan built (attached pre-existing
-       records are never touched; projects holding the user's later work
-       are kept and reported). Shown only when the plan created something. */
+    /* Rollback: P4 preview-first flow. The server computes what WOULD be
+       deleted/kept (attached pre-existing records are never touched;
+       projects holding the user's later work are kept and reported) and
+       returns a token bound to that exact snapshot. Confirm sends the
+       token back; any data change in between is rejected server-side.
+       Shown only when the plan created something. */
     function appendRollbackButton(body, card, plan) {
         if (!plan.can_rollback) return;
         const rb = document.createElement('button');
@@ -2312,16 +2347,40 @@ footer, .topnav { display: none !important; }
         rb.style.cssText = 'margin-top:8px;margin-inline-start:6px;font-size:12px;color:#dc2626;border-color:#fca5a5;';
         rb.innerHTML = '↩️ حذف ساخته‌های این پلن';
         rb.onclick = async () => {
-            const msg = 'ساخته‌های این پلن (' + (plan.title || '') + ') برای همیشه حذف شوند؟ تسک‌ها، پروژه‌های ساخته‌شده، یادآورها و یادداشت‌های این پلن پاک می‌شوند؛ مواردی که از قبل داشتی دست نمی‌خورند.';
-            if (typeof confirmSwal === 'function') {
-                if (!await confirmSwal(msg, { isDelete: true })) return;
-            } else if (!confirm(msg)) {
+            rb.disabled = true;
+            rb.textContent = 'در حال بررسی…';
+            let preview;
+            try {
+                preview = await api('GET', '/ai/plans/' + plan.id + '/rollback-preview');
+            } catch (e) {
+                appendError(e && e.detail ? e.detail : 'خطا در پیش‌نمایش حذف.');
+                rb.disabled = false;
+                rb.innerHTML = '↩️ حذف ساخته‌های این پلن';
+                scrollBottom();
                 return;
             }
-            rb.disabled = true;
+            const wd = preview.would_delete || {};
+            const bits = [];
+            if ((wd.projects || 0) > 0) bits.push(wd.projects + ' پروژه');
+            if ((wd.tasks || 0) > 0) bits.push(wd.tasks + ' تسک');
+            if ((wd.reminders || 0) > 0) bits.push(wd.reminders + ' یادآور');
+            if ((wd.notes || 0) > 0) bits.push(wd.notes + ' یادداشت');
+            if ((wd.routines || 0) > 0) bits.push(wd.routines + ' روتین');
+            const kept = (preview.kept || []).map((k) => (k.name || ('#' + k.id)) + ' (می‌ماند)').join('، ');
+            const msg = 'ساخته‌های این پلن (' + (plan.title || '') + ') برای همیشه حذف شوند؟'
+                + '\nحذف می‌شود: ' + (bits.length ? bits.join('، ') : 'هیچ‌چیز (رکوردی باقی نمانده)')
+                + (kept ? '\nمی‌ماند: ' + kept : '')
+                + '\nمواردی که از قبل داشتی دست نمی‌خورند.';
+            const go = (typeof confirmSwal === 'function') ? await confirmSwal(msg, { isDelete: true }) : confirm(msg);
+            if (!go) {
+                rb.disabled = false;
+                rb.innerHTML = '↩️ حذف ساخته‌های این پلن';
+                scrollBottom();
+                return;
+            }
             rb.textContent = 'در حال حذف...';
             try {
-                const res = await api('POST', '/ai/plans/' + plan.id + '/rollback');
+                const res = await api('POST', '/ai/plans/' + plan.id + '/rollback', { preview_token: preview.preview_token });
                 paintPlan(card, res.plan || Object.assign({}, plan, { can_rollback: false }));
                 const ok = document.createElement('div');
                 ok.className = 'lina-plan-note ok';
@@ -2343,8 +2402,10 @@ footer, .topnav { display: none !important; }
             const res = await api('POST', '/ai/plans/' + planId + '/confirm-phase', { phase: phaseIdx, run_all: !!runAll });
             paintPlan(card, res.plan, res.study_build);
             handleChainResult(res);
-        } catch {
-            appendError(@json(__('Phase failed — plan stopped. Already-created items stay.')));
+        } catch (e) {
+            // P4: surface the real server reason (failed phase, dependency,
+            // unapproved master) so retry/cancel decisions are informed.
+            appendError(e && e.detail ? e.detail : @json(__('Phase failed — plan stopped. Already-created items stay.')));
         }
         scrollBottom();
     }

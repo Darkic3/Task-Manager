@@ -2940,6 +2940,107 @@ class AiToolService
     }
 
     /**
+     * Preview what a rollback would delete / keep, without touching
+     * anything. Counts are computed from the same ledger + same keep-rules
+     * as rollbackPlan, so the preview the user confirms is exactly what
+     * the confirmed rollback may do. Never throws for missing records.
+     */
+    public function rollbackPreview(\App\Models\AiPlan $plan, $user): array
+    {
+        $fresh = $plan->fresh();
+        if (! $fresh || (int) $fresh->user_id !== (int) $user->id) {
+            return ['ok' => false, 'code' => 'not_found', 'error' => __('Plan not found.')];
+        }
+        $items = $fresh->created_items ?? [];
+        $taskIds = array_values(array_unique(array_map('intval', (array) ($items['tasks'] ?? []))));
+        $projectIds = array_values(array_unique(array_map('intval', (array) ($items['projects'] ?? []))));
+        $reminderIds = array_values(array_unique(array_map('intval', (array) ($items['reminders'] ?? []))));
+        $noteIds = array_values(array_unique(array_map('intval', (array) ($items['notes'] ?? []))));
+        $routineIds = array_values(array_unique(array_map('intval', (array) ($items['routines'] ?? []))));
+
+        $existingTasks = $taskIds === [] ? collect() : Task::where('user_id', $user->id)->whereIn('id', $taskIds)->get(['id', 'title']);
+        $existingReminders = $reminderIds === [] ? 0 : Reminder::where('user_id', $user->id)->whereIn('id', $reminderIds)->count();
+        $existingNotes = $noteIds === [] ? 0 : Note::where('user_id', $user->id)->whereIn('id', $noteIds)->count();
+        $existingRoutines = $routineIds === [] ? collect() : Routine::where('user_id', $user->id)->whereIn('id', $routineIds)->get(['id', 'title']);
+        $existingProjects = $projectIds === [] ? collect() : Project::where('user_id', $user->id)->whereIn('id', $projectIds)->get(['id', 'name']);
+
+        $wouldDelete = [
+            'tasks' => $existingTasks->count(),
+            'reminders' => $existingReminders,
+            'notes' => $existingNotes,
+            'routines' => $existingRoutines->count(),
+            'projects' => 0,
+        ];
+        $kept = [];
+        if ($existingProjects->isNotEmpty()) {
+            foreach ($existingProjects as $project) {
+                // Tasks in this project NOT in the ledger = user's later work.
+                $remaining = Task::where('user_id', $user->id)->where('project_id', $project->id)->whereNotIn('id', $taskIds)->count();
+                if ($remaining > 0) {
+                    $kept[] = ['id' => $project->id, 'name' => $project->name, 'reason' => 'holds_user_tasks', 'count' => $remaining];
+                } else {
+                    $wouldDelete['projects']++;
+                }
+            }
+        }
+
+        return [
+            'ok' => true,
+            'items' => [
+                ['kind' => 'tasks', 'ids' => $existingTasks->pluck('id')->all(), 'titles' => $existingTasks->pluck('title')->take(10)->all()],
+                ['kind' => 'reminders', 'ids' => [], 'count' => $existingReminders],
+                ['kind' => 'notes', 'ids' => [], 'count' => $existingNotes],
+                ['kind' => 'routines', 'ids' => $existingRoutines->pluck('id')->all(), 'titles' => $existingRoutines->pluck('title')->take(10)->all()],
+                ['kind' => 'projects', 'ids' => $existingProjects->pluck('id')->all(), 'names' => $existingProjects->pluck('name')->take(10)->all()],
+            ],
+            'would_delete' => $wouldDelete,
+            'kept' => $kept,
+            // Binds this preview to the exact ledger snapshot: if anything
+            // changes before confirm, the token no longer verifies.
+            'preview_token' => self::rollbackPreviewToken($fresh),
+        ];
+    }
+
+    /**
+     * Stateless preview token: HMAC over (plan, canonical ledger) in a
+     * 5-minute window. No DB row, nothing to clean up; a changed ledger
+     * (or a forged token) simply fails verification.
+     */
+    public static function rollbackPreviewToken(\App\Models\AiPlan $plan): string
+    {
+        $ledger = self::canonicalLedger($plan->created_items ?? []);
+        $window = (int) floor(time() / 300);
+
+        return hash_hmac('sha256', $plan->id.'|'.$ledger.'|'.$window, (string) config('app.key'));
+    }
+
+    public static function verifyRollbackPreviewToken(\App\Models\AiPlan $plan, string $token): bool
+    {
+        $ledger = self::canonicalLedger($plan->created_items ?? []);
+        $key = (string) config('app.key');
+        foreach ([(int) floor(time() / 300), (int) floor(time() / 300) - 1] as $window) {
+            $expected = hash_hmac('sha256', $plan->id.'|'.$ledger.'|'.$window, $key);
+            if (hash_equals($expected, $token)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function canonicalLedger($createdItems): string
+    {
+        $canon = [];
+        foreach (['projects', 'tasks', 'reminders', 'notes', 'routines'] as $kind) {
+            $ids = array_map('intval', (array) ($createdItems[$kind] ?? []));
+            sort($ids);
+            $canon[$kind] = array_values(array_unique($ids));
+        }
+
+        return md5(json_encode($canon));
+    }
+
+    /**
      * Delete everything a plan created (reverse dependency order), owned
      * records only. Projects that gained non-plan content afterwards are
      * KEPT and reported — rollback never destroys the user's later work.

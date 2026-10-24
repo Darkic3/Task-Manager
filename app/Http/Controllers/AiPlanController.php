@@ -346,19 +346,42 @@ class AiPlanController extends Controller
     }
 
     /**
+     * Rollback preview: what WOULD be deleted/kept, without touching
+     * anything. The response carries a preview token bound to the exact
+     * ledger snapshot; rollback() requires it, so any data change between
+     * preview and confirm is rejected instead of applied blindly.
+     */
+    public function rollbackPreview(AiPlan $plan)
+    {
+        abort_if($plan->user_id !== Auth::id(), 403);
+
+        $preview = $this->tools->rollbackPreview($plan->fresh(), Auth::user());
+        if (! ($preview['ok'] ?? false)) {
+            return response()->json($preview, 404);
+        }
+
+        return response()->json(['ok' => true, 'plan_id' => $plan->id] + $preview);
+    }
+
+    /**
      * Delete everything this plan created (reverse dependency order).
      * Unlike cancel (which leaves created items), rollback removes the
      * plan's own projects/tasks/reminders/notes and soft-deletes its
      * routines. Projects that gained non-plan content afterwards are kept
      * and reported. Attached pre-existing records are never touched.
+     *
+     * P4: requires the preview token from rollbackPreview (freshness +
+     * ledger-integrity proof), and refuses when later packages of the same
+     * chain are already past proposed — roll back newest-first instead.
      */
-    public function rollback(AiPlan $plan)
+    public function rollback(Request $request, AiPlan $plan)
     {
         abort_if($plan->user_id !== Auth::id(), 403);
 
+        $request->validate(['preview_token' => 'required|string|max:128']);
         $rid = AiLogger::newRequestId();
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($plan, $rid) {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $plan, $rid) {
             /** @var AiPlan $locked */
             $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->firstOrFail();
             abort_if($locked->user_id !== Auth::id(), 403);
@@ -369,6 +392,21 @@ class AiPlanController extends Controller
                 }
 
                 return response()->json(['ok' => false, 'error' => __('Nothing was built yet — there is nothing to roll back.')], 422);
+            }
+
+            // Freshness: the token proves the user saw THIS ledger. Any
+            // concurrent change (or a forged token) fails closed.
+            if (! \App\Services\AiToolService::verifyRollbackPreviewToken($locked->fresh(), (string) $request->input('preview_token'))) {
+                AiLogger::log('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'rollback_stale_preview', 'status' => $locked->status]);
+
+                return response()->json(['ok' => false, 'code' => 'stale_preview', 'error' => __('The data changed since the preview — review the fresh preview and confirm again.')], 409);
+            }
+
+            // Reverse-order rule: a package with already-advanced later
+            // packages cannot be pulled out from underneath them.
+            $dependents = $this->rollbackDependents($locked);
+            if ($dependents !== []) {
+                return response()->json(['ok' => false, 'code' => 'dependents_exist', 'dependents' => $dependents, 'error' => __('Roll back the newer packages first (newest-first order).')], 422);
             }
 
             $result = $this->tools->rollbackPlan($locked->fresh(), Auth::user());
@@ -603,6 +641,100 @@ class AiPlanController extends Controller
         ]);
     }
 
+    /**
+     * P4 reissue: rebuild an EXPIRED, unexecuted chain head from the
+     * approved master — without touching global expiry or resurrecting
+     * anything. Allowed only when the old head is provably untouched
+     * (proposed + expired + no created items) and still the current head.
+     * The expired plan stays as history; the new proposal carries the
+     * same package index under the same master version.
+     */
+    public function reissue(Request $request, AiPlan $plan)
+    {
+        abort_if($plan->user_id !== Auth::id(), 403);
+
+        $rid = AiLogger::newRequestId();
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($plan, $rid) {
+            /** @var AiPlan $locked */
+            $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->firstOrFail();
+            abort_if($locked->user_id !== Auth::id(), 403);
+
+            $build = $locked->master_build_id !== null
+                ? \App\Models\AiStudyBuild::where('id', $locked->master_build_id)->lockForUpdate()->first()
+                : null;
+            if (! $build || (int) $build->user_id !== (int) Auth::id() || $build->status !== \App\Models\AiStudyBuild::STATUS_BUILDING) {
+                return response()->json(['ok' => false, 'code' => 'not_building', 'error' => __('This chain is no longer active.')], 422);
+            }
+            if ($build->approved_version === null || (int) $build->approved_version !== (int) $build->version) {
+                return response()->json(['ok' => false, 'code' => 'master_not_approved', 'error' => __('Approve the master structure first.')], 422);
+            }
+            // Unexecuted + past expiry, whether the expiry was merely
+            // observed (still proposed) or already materialized to the
+            // expired status by a refused confirm attempt.
+            if (! in_array($locked->status, [AiPlan::STATUS_PROPOSED, AiPlan::STATUS_EXPIRED], true) || ! $locked->isExpired()) {
+                return response()->json(['ok' => false, 'code' => 'not_expired', 'error' => __('Only an expired, unexecuted package can be reissued.')], 422);
+            }
+            if ((int) $build->last_plan_id !== (int) $locked->id) {
+                return response()->json(['ok' => false, 'code' => 'not_head', 'error' => __('Only the current head package can be reissued.')], 422);
+            }
+            if (! empty(array_filter((array) ($locked->created_items ?? [])))) {
+                return response()->json(['ok' => false, 'code' => 'has_data', 'error' => __('This package already created data — roll it back instead of reissuing it.')], 422);
+            }
+            $chunks = array_values(array_filter((array) ($build->chunks_json ?? []), fn ($c) => (int) ($c['chunk_index'] ?? 0) === (int) $locked->package_index));
+            if ($chunks === []) {
+                return response()->json(['ok' => false, 'code' => 'no_chunk', 'error' => __('The package scope is no longer available.')], 422);
+            }
+            // Same-version re-proposal: idempotency keys rotate past the
+            // expired plan (it is not live), so no duplicate is possible.
+            $created = StudyBuildOrchestrator::createChunkPlan(Auth::user(), $build->conversation_id, $build->fresh(), $chunks[0], $rid);
+            if (! ($created['ok'] ?? false)) {
+                return response()->json(['ok' => false, 'code' => 'chunk_invalid', 'error' => $created['error'] ?? __('Invalid chunk.')], 422);
+            }
+
+            AiLogger::log('plan.updated', $this->traceFor($created['plan'], $rid) + ['transition' => 'reissued', 'replaces_plan_id' => $locked->id, 'build_id' => $build->id]);
+            $this->noteBuild($build, __('🔄 بسته :index دوباره صادر شد — بررسی و تأیید کنید.', ['index' => $locked->package_index]));
+            $freshBuild = $build->fresh();
+
+            return response()->json([
+                'ok' => true,
+                'plan' => $this->serialize($created['plan']),
+                'replaces_plan_id' => $locked->id,
+                'master' => StudyBuildOrchestrator::masterDetail($freshBuild),
+                'study_build' => $freshBuild->progress(),
+                'packages' => StudyBuildOrchestrator::packageList($freshBuild),
+            ]);
+        });
+    }
+
+    /**
+     * Later packages (higher index, same chain) that already moved past
+     * proposed. Rolling back underneath them would orphan their data
+     * (tasks null out their project_id instead of cascading).
+     */
+    private function rollbackDependents(AiPlan $plan): array
+    {
+        if ($plan->master_build_id === null || $plan->package_index === null) {
+            return [];
+        }
+
+        return AiPlan::where('user_id', $plan->user_id)
+            ->where('master_build_id', $plan->master_build_id)
+            ->where('package_index', '>', (int) $plan->package_index)
+            ->whereIn('status', [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_DONE, AiPlan::STATUS_FAILED])
+            ->orderBy('package_index')
+            ->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    private function noteBuild(\App\Models\AiStudyBuild $build, string $text): void
+    {
+        if (! $build->conversation_id) {
+            return;
+        }
+        AiMessage::create(['conversation_id' => $build->conversation_id, 'role' => 'assistant', 'content' => $text]);
+        \App\Models\AiConversation::where('id', $build->conversation_id)->touch();
+    }
+
     private function advancePastDone(AiPlan $plan): void
     {
         $phases = $plan->phases;
@@ -746,11 +878,16 @@ class AiPlanController extends Controller
                 'notes' => count((array) ($plan->created_items['notes'] ?? [])),
                 'routines' => count((array) ($plan->created_items['routines'] ?? [])),
             ],
-            // Concrete ids + names for chunk continuation ("attach chunk 2
-            // to book #25") so the next prompt carries the target id and the
-            // model skips the search detour. Own records only.
-            'created_ids' => $this->createdIds($plan),
-            'expires_at' => $plan->expires_at?->toIso8601String(),
-        ];
-    }
+        // Concrete ids + names for chunk continuation ("attach chunk 2
+        // to book #25") so the next prompt carries the target id and the
+        // model skips the search detour. Own records only.
+        'created_ids' => $this->createdIds($plan),
+        'expires_at' => $plan->expires_at?->toIso8601String(),
+        // P2 package identity + last failure (drives UI gating/retry).
+        'master_build_id' => $plan->master_build_id !== null ? (int) $plan->master_build_id : null,
+        'master_version' => $plan->master_version !== null ? (int) $plan->master_version : null,
+        'package_index' => $plan->package_index !== null ? (int) $plan->package_index : null,
+        'last_error' => $plan->last_error,
+    ];
+}
 }

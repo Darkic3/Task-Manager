@@ -127,6 +127,16 @@ class AiPlanRollbackTest extends TestCase
         $this->assertFalse($check['ok']);
     }
 
+    private function rollbackWithPreview(User $user, AiPlan $plan): \Illuminate\Testing\TestResponse
+    {
+        // P4 contract: preview first, then confirm with the bound token.
+        $preview = $this->actingAs($user)->getJson(route('ai.plans.rollback-preview', $plan))->assertOk();
+
+        return $this->actingAs($user)->postJson(route('ai.plans.rollback', $plan), [
+            'preview_token' => $preview->json('preview_token'),
+        ]);
+    }
+
     public function test_rollback_deletes_everything_the_plan_created(): void
     {
         $user = User::factory()->create();
@@ -135,7 +145,7 @@ class AiPlanRollbackTest extends TestCase
 
         $bookId = Project::where('user_id', $user->id)->where('name', 'روانشناسی رشد')->firstOrFail()->id;
 
-        $res = $this->actingAs($user)->postJson(route('ai.plans.rollback', $plan))->assertOk();
+        $res = $this->rollbackWithPreview($user, $plan)->assertOk();
         $this->assertTrue($res->json('ok'));
         $this->assertSame(3, $res->json('deleted.tasks'));
         $this->assertSame(2, $res->json('deleted.projects'));
@@ -148,7 +158,7 @@ class AiPlanRollbackTest extends TestCase
         $this->assertSame([], $plan->fresh()->created_items);
 
         // Second rollback is a harmless no-op.
-        $again = $this->actingAs($user)->postJson(route('ai.plans.rollback', $plan))->assertOk();
+        $again = $this->rollbackWithPreview($user, $plan)->assertOk();
         $this->assertTrue($again->json('ok'));
     }
 
@@ -172,7 +182,7 @@ class AiPlanRollbackTest extends TestCase
         $chapter = Project::where('user_id', $user->id)->where('name', 'فصل ۱')->firstOrFail();
         Task::factory()->create(['user_id' => $user->id, 'project_id' => $chapter->id, 'title' => 'یادداشت شخصی من']);
 
-        $res = $this->actingAs($user)->postJson(route('ai.plans.rollback', $plan))->assertOk();
+        $res = $this->rollbackWithPreview($user, $plan)->assertOk();
 
         // Plan tasks gone, attached root and user content survive.
         $this->assertDatabaseMissing('tasks', ['title' => 'درسنامه ۱']);
@@ -188,11 +198,15 @@ class AiPlanRollbackTest extends TestCase
         $other = User::factory()->create();
         $plan = $this->makePlan($user, $this->studyArgs());
 
-        // Foreign user → 403.
-        $this->actingAs($other)->postJson(route('ai.plans.rollback', $plan))->assertForbidden();
+        // Foreign user → 403 (before any other check).
+        $this->actingAs($other)->postJson(route('ai.plans.rollback', $plan), ['preview_token' => 'x'])->assertForbidden();
 
-        // Nothing built yet (proposed) → 422.
+        // Missing token → 422 validation (no preview, no confirm).
         $this->actingAs($user)->postJson(route('ai.plans.rollback', $plan))->assertStatus(422);
+
+        // Proposed plan has nothing to roll back (status gate, regardless of token).
+        $this->actingAs($user)->postJson(route('ai.plans.rollback', $plan), ['preview_token' => 'forged'])
+            ->assertStatus(422);
     }
 
     public function test_chat_ui_offers_rollback_button(): void
