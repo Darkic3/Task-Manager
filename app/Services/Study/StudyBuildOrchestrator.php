@@ -200,6 +200,16 @@ class StudyBuildOrchestrator
         $stored = $controller->storeResolvedPlan((int) $user->id, $conversationId, $check['resolved']);
         $plan = $stored['plan'];
 
+        // P2 package identity: stable link to (build, master version,
+        // position). Retired heads keep their stamps for audit.
+        if ($plan->master_build_id === null) {
+            $plan->update([
+                'master_build_id' => $build->id,
+                'master_version' => (int) ($build->version ?? 1),
+                'package_index' => (int) ($chunk['chunk_index'] ?? 0) ?: null,
+            ]);
+        }
+
         $known = array_map('intval', (array) ($build->plan_ids ?? []));
         if (! in_array((int) $plan->id, $known, true)) {
             $known[] = (int) $plan->id;
@@ -631,10 +641,12 @@ class StudyBuildOrchestrator
         }
         // Retire stale proposed heads from the old version (unconfirmed
         // drafts only — already_started above guarantees nothing executed).
-        \App\Models\AiPlan::where('user_id', $user->id)
+        // P2: retired as OBSOLETE (not cancelled) so the UI can tell
+        // "replaced by restructure" apart from "cancelled by user".
+        $retiredIds = \App\Models\AiPlan::where('user_id', $user->id)
             ->whereIn('id', array_map('intval', (array) ($fresh->plan_ids ?? [])))
             ->where('status', \App\Models\AiPlan::STATUS_PROPOSED)
-            ->update(['status' => \App\Models\AiPlan::STATUS_CANCELLED]);
+            ->pluck('id')->all();
 
         $versions = array_values((array) ($fresh->versions ?? []));
         foreach ($versions as &$v) {
@@ -669,6 +681,14 @@ class StudyBuildOrchestrator
         if (! ($created['ok'] ?? false)) {
             return ['ok' => false, 'code' => 'chunk_invalid', 'error' => $created['error'] ?? __('Invalid chunk.')];
         }
+        if ($retiredIds !== []) {
+            \App\Models\AiPlan::where('user_id', $user->id)
+                ->whereIn('id', $retiredIds)
+                ->update([
+                    'status' => \App\Models\AiPlan::STATUS_OBSOLETE,
+                    'superseded_by_plan_id' => $created['plan']->id,
+                ]);
+        }
 
         AiLogger::log('study_build.revised', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $fresh->id, 'version' => $newVersion]);
         $done = $fresh->fresh();
@@ -691,6 +711,17 @@ class StudyBuildOrchestrator
             .' no extra keys, no markdown, no explanation.';
         $userText = 'Current outline JSON: '.json_encode($outline, JSON_UNESCAPED_UNICODE)
             ."\n\nRequested change: ".$feedback;
+
+        return self::requestJsonModel($providers, $resolved, $system, $userText);
+    }
+
+    /**
+     * Shared JSON-model transport (openai/gemini/anthropic branches).
+     *
+     * @throws \RuntimeException on provider failure.
+     */
+    private static function requestJsonModel($providers, array $resolved, string $system, string $userText): string
+    {
         $messages = [
             ['role' => 'system', 'content' => $system],
             ['role' => 'user', 'content' => $userText],
@@ -768,5 +799,319 @@ class StudyBuildOrchestrator
         $ids = array_values(array_map('intval', (array) ($items['projects'] ?? [])));
 
         return $ids[0] ?? null;
+    }
+
+    // ── P2 packages: independent, reviewable, revisable units ──
+    //
+    // Three levels stay separate:
+    //   Master Plan (AiStudyBuild + versions) → the whole request.
+    //   Package (AiPlan + master_build_id/version/index) → one executable chunk.
+    //   Phase (phases[] inside a plan) → internal steps of one package.
+    // No new table: the package identity columns on ai_plans give stable
+    // links + indexed dependency lookup (see migration rationale).
+
+    /**
+     * Ordered package view of a chain, from server records only. Each
+     * package carries its scope, dependencies, expected vs actual output,
+     * and the actions valid for its current state (the server re-checks
+     * every action — this list only drives the UI).
+     */
+    public static function packageList(AiStudyBuild $build): array
+    {
+        $build = $build->fresh() ?? $build;
+        $ids = array_values(array_map('intval', (array) ($build->plan_ids ?? [])));
+        $rows = \App\Models\AiPlan::whereIn('id', $ids)->get()->keyBy('id');
+        $plans = [];
+        foreach ($ids as $id) {
+            if ($rows->has($id)) {
+                $plans[] = $rows->get($id);
+            }
+        }
+        usort($plans, fn ($a, $b) => ((int) ($a->package_index ?? 999999)) <=> ((int) ($b->package_index ?? 999999)) ?: $a->id <=> $b->id);
+
+        $controller = app(AiPlanController::class);
+        $chunks = [];
+        foreach ((array) ($build->chunks_json ?? []) as $ch) {
+            if (isset($ch['chunk_index'])) {
+                $chunks[(int) $ch['chunk_index']] = $ch;
+            }
+        }
+        $knownIndex = [];
+        foreach ($plans as $plan) {
+            if ($plan->package_index !== null) {
+                $knownIndex[(int) $plan->package_index] = true;
+            }
+        }
+
+        $out = [];
+        // Future slots: a valid view of not-yet-proposed packages derived
+        // from the stored chunks — no rows are created for them. They stay
+        // locked until the chain actually proposes them in order.
+        for ($i = 1; $i <= (int) $build->total_chunks; $i++) {
+            if (isset($knownIndex[$i])) {
+                continue;
+            }
+            $chunk = $chunks[$i] ?? null;
+            $scope = [];
+            foreach ((array) ($chunk['subprojects'] ?? []) as $sub) {
+                if (isset($sub['title']) && $sub['title'] !== '') {
+                    $scope[] = (string) $sub['title'];
+                }
+            }
+            $totals = (array) ($chunk['totals'] ?? []);
+            $out[] = [
+                'package_index' => $i,
+                'plan_id' => null,
+                'title' => (string) ($chunk['title'] ?? 'بسته '.$i),
+                'status' => 'planned',
+                'master_version' => (int) $build->version,
+                'is_current_version' => true,
+                'is_head' => false,
+                'scope' => $scope,
+                'depends_on' => $i > 1 ? [$i - 1] : [],
+                'expected' => [
+                    'tasks' => (int) ($totals['tasks'] ?? 0),
+                    'subtasks' => (int) ($totals['subtasks'] ?? 0),
+                    'subprojects' => (int) ($totals['subprojects'] ?? 0),
+                ],
+                'created' => [],
+                'last_error' => null,
+                'actions' => ['view'],
+                'plan' => null,
+            ];
+        }
+
+        foreach ($plans as $plan) {
+            $idx = $plan->package_index !== null ? (int) $plan->package_index : null;
+            $chunk = ($idx !== null && isset($chunks[$idx])) ? $chunks[$idx] : null;
+            $scope = [];
+            if ($chunk) {
+                foreach ((array) ($chunk['subprojects'] ?? []) as $sub) {
+                    if (isset($sub['title']) && $sub['title'] !== '') {
+                        $scope[] = (string) $sub['title'];
+                    }
+                }
+            }
+            if ($scope === []) {
+                foreach ((array) ($plan->structure['projects'][0]['subprojects'] ?? []) as $sub) {
+                    if (isset($sub['name']) && $sub['name'] !== '') {
+                        $scope[] = (string) $sub['name'];
+                    }
+                }
+            }
+            $serialized = $controller->serialize($plan);
+            $out[] = [
+                'package_index' => $idx,
+                'plan_id' => $plan->id,
+                'title' => $plan->title,
+                'status' => $plan->status,
+                'master_version' => $plan->master_version !== null ? (int) $plan->master_version : null,
+                'is_current_version' => $plan->master_version !== null && (int) $plan->master_version === (int) $build->version,
+                'is_head' => (int) $build->last_plan_id === (int) $plan->id,
+                'scope' => $scope,
+                'depends_on' => ($idx !== null && $idx > 1) ? [$idx - 1] : [],
+                'expected' => $serialized['preview']['totals'] ?? [],
+                'created' => $serialized['created'] ?? [],
+                'last_error' => $plan->last_error,
+                'actions' => self::packageActions($plan, $build),
+                'plan' => $serialized,
+            ];
+        }
+
+        usort($out, fn ($a, $b) => ((int) ($a['package_index'] ?? 999999)) <=> ((int) ($b['package_index'] ?? 999999)));
+
+        return $out;
+    }
+
+    /**
+     * Actions valid for a package in its current state (UI hint only).
+     */
+    public static function packageActions(\App\Models\AiPlan $plan, AiStudyBuild $build): array
+    {
+        $actions = ['view'];
+        if ($plan->isObsolete() || $plan->isSuperseded()) {
+            return $actions;
+        }
+        if ($plan->master_version === null || (int) $plan->master_version !== (int) $build->version) {
+            return $actions;
+        }
+        $approved = $build->approved_version !== null && (int) $build->approved_version === (int) $build->version;
+        switch ($plan->status) {
+            case \App\Models\AiPlan::STATUS_PROPOSED:
+                if ($approved) {
+                    array_push($actions, 'confirm', 'execute', 'revise');
+                }
+
+                break;
+            case \App\Models\AiPlan::STATUS_CONFIRMED:
+            case \App\Models\AiPlan::STATUS_EXECUTING:
+            case \App\Models\AiPlan::STATUS_FAILED:
+                array_push($actions, 'execute');
+
+                break;
+            default:
+                break;
+        }
+
+        return $actions;
+    }
+
+    /**
+     * Targeted revision of ONE package: a new proposal scoped to the same
+     * package (same book attach, same position). The old proposal becomes
+     * obsolete (linked via superseded_by_plan_id); untouched independent
+     * packages are left alone. Later non-terminal packages of the same
+     * chain are reported as affected for review.
+     */
+    public static function revisePackage(\App\Models\AiPlan $plan, $user, string $feedback, ?string $rid = null): array
+    {
+        $feedback = trim($feedback);
+        if ($feedback === '' || mb_strlen($feedback) > 2000) {
+            return ['ok' => false, 'code' => 'invalid_feedback', 'error' => __('Describe the change you want (up to 2000 characters).')];
+        }
+        if ((int) $plan->user_id !== (int) $user->id) {
+            return ['ok' => false, 'code' => 'not_found', 'error' => __('Package not found.')];
+        }
+        if ($plan->master_build_id === null) {
+            return ['ok' => false, 'code' => 'not_a_package', 'error' => __('Only chain packages can be revised this way.')];
+        }
+        if (! in_array($plan->status, [\App\Models\AiPlan::STATUS_PROPOSED, \App\Models\AiPlan::STATUS_FAILED], true)) {
+            return ['ok' => false, 'code' => 'already_executed', 'error' => __('Only unexecuted packages can be revised.')];
+        }
+        if ($plan->status === \App\Models\AiPlan::STATUS_FAILED && ! empty($plan->created_items)) {
+            return ['ok' => false, 'code' => 'has_partial_data', 'error' => __('This package already created data — remove its items first, then propose a fresh package.')];
+        }
+        $build = AiStudyBuild::where('id', $plan->master_build_id)
+            ->where('user_id', $user->id)
+            ->first();
+        if (! $build || $build->status !== AiStudyBuild::STATUS_BUILDING) {
+            return ['ok' => false, 'code' => 'not_building', 'error' => __('This chain is no longer active.')];
+        }
+        if ($plan->master_version === null || (int) $plan->master_version !== (int) $build->version) {
+            return ['ok' => false, 'code' => 'obsolete_package', 'error' => __('This package belongs to a retired master version.')];
+        }
+        if ($build->approved_version === null || (int) $build->approved_version !== (int) $build->version) {
+            return ['ok' => false, 'code' => 'master_not_approved', 'error' => __('Approve the master structure first.')];
+        }
+
+        $providers = app(\App\Services\AiProviderService::class);
+        $resolved = $providers->resolve($user);
+        if (! $resolved) {
+            return ['ok' => false, 'code' => 'no_provider', 'error' => __('No AI provider is configured.')];
+        }
+        try {
+            $raw = self::requestJsonModel($providers, $resolved, self::packageRevisionPrompt(), 'Current package JSON: '.json_encode($plan->structure, JSON_UNESCAPED_UNICODE)."\n\nRequested change: ".$feedback);
+            $args = self::decodeModelJson($raw);
+        } catch (\RuntimeException $e) {
+            AiLogger::error('study_build.pkg_revise_provider_failed', AiTrace::ids(null, $rid, $user->id, $build->conversation_id) + ['build_id' => $build->id, 'plan_id' => $plan->id, 'error' => mb_substr($e->getMessage(), 0, 300)]);
+
+            return ['ok' => false, 'code' => 'provider_error', 'error' => $e->getMessage()];
+        }
+
+        $service = new AiToolService;
+        $check = $service->validateCall('plan_propose', is_array($args) ? $args : [], $user);
+        if (! ($check['ok'] ?? false)) {
+            AiLogger::log('study_build.pkg_revise_invalid', AiTrace::ids(null, $rid, $user->id, $build->conversation_id) + ['build_id' => $build->id, 'plan_id' => $plan->id, 'error' => $check['error'] ?? null]);
+
+            return ['ok' => false, 'code' => 'invalid_package', 'error' => $check['error'] ?? __('Invalid package.')];
+        }
+        if (($scopeErr = self::checkPackageScope($plan->structure, $check['resolved']['structure'], (int) $user->id)) !== null) {
+            return ['ok' => false, 'code' => 'scope_changed', 'error' => $scopeErr];
+        }
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($plan, $user, $build, $check, $rid) {
+            $lockedPlan = \App\Models\AiPlan::where('id', $plan->id)->lockForUpdate()->first();
+            $lockedBuild = AiStudyBuild::where('id', $build->id)->lockForUpdate()->first();
+            if (! $lockedPlan || ! $lockedBuild) {
+                return ['ok' => false, 'code' => 'not_found', 'error' => __('Package not found.')];
+            }
+            if (! in_array($lockedPlan->status, [\App\Models\AiPlan::STATUS_PROPOSED, \App\Models\AiPlan::STATUS_FAILED], true)
+                || (int) $lockedPlan->master_version !== (int) $lockedBuild->version
+                || $lockedBuild->status !== AiStudyBuild::STATUS_BUILDING) {
+                return ['ok' => false, 'code' => 'version_changed', 'error' => __('The package changed while revising — review and try again.')];
+            }
+
+            $controller = app(AiPlanController::class);
+            $stored = $controller->storeResolvedPlan((int) $user->id, $lockedBuild->conversation_id, $check['resolved']);
+            $new = $stored['plan'];
+            $new->update([
+                'master_build_id' => $lockedBuild->id,
+                'master_version' => (int) $lockedBuild->version,
+                'package_index' => $lockedPlan->package_index,
+            ]);
+            $lockedPlan->update([
+                'status' => \App\Models\AiPlan::STATUS_OBSOLETE,
+                'superseded_by_plan_id' => $new->id,
+            ]);
+
+            $known = array_map('intval', (array) ($lockedBuild->plan_ids ?? []));
+            if (! in_array((int) $new->id, $known, true)) {
+                $known[] = (int) $new->id;
+            }
+            $update = ['plan_ids' => array_values($known), 'last_error' => null];
+            // The chain head moves only when the revised package WAS the head;
+            // independent later packages keep pointing at their own head.
+            if ((int) $lockedBuild->last_plan_id === (int) $lockedPlan->id) {
+                $update['last_plan_id'] = $new->id;
+            }
+            $lockedBuild->update($update);
+
+            $affected = \App\Models\AiPlan::where('user_id', $user->id)
+                ->where('master_build_id', $lockedBuild->id)
+                ->where('id', '!=', $new->id)
+                ->whereNotNull('package_index')
+                ->where('package_index', '>', (int) ($lockedPlan->package_index ?? 0))
+                ->whereIn('status', [\App\Models\AiPlan::STATUS_PROPOSED, \App\Models\AiPlan::STATUS_CONFIRMED, \App\Models\AiPlan::STATUS_EXECUTING, \App\Models\AiPlan::STATUS_FAILED])
+                ->orderBy('package_index')
+                ->pluck('id')->all();
+
+            AiLogger::log('study_build.pkg_revised', AiTrace::ids(null, $rid, $user->id, $lockedBuild->conversation_id) + ['build_id' => $lockedBuild->id, 'old_plan_id' => $lockedPlan->id, 'new_plan_id' => $new->id]);
+            $freshBuild = $lockedBuild->fresh();
+
+            return [
+                'ok' => true,
+                'plan' => $new->fresh(),
+                'affected' => array_map('intval', $affected),
+                'detail' => self::masterDetail($freshBuild),
+                'packages' => self::packageList($freshBuild),
+            ];
+        });
+    }
+
+    private static function packageRevisionPrompt(): string
+    {
+        return 'You revise ONE executable package (a slice of a book build). Reply with JSON ONLY:'
+            .' a plan_propose args object {"title":...,"project":{"name":...,"tasks":[...]},'
+            .' "subprojects":[{"name":...,"tasks":[{"title":"...","subtasks":[{"title":"..."}]}]}]}.'
+            .' Rules: change ONLY what the feedback asks; keep the same book attach'
+            .' (same project_id when present — never invent a new book project); stay within'
+            .' caps (<=3 subprojects, <=30 tasks, <=100 subtasks); keep titles verbatim except'
+            .' requested changes; no extra keys, no markdown, no explanation.';
+    }
+
+    /**
+     * Scope guard: a package revision must not silently switch books.
+     * When the old attach target still exists, the revision must keep it;
+     * when it is gone (deleted), rebuilding under the same name is the
+     * honest recovery and is allowed. Returns the Persian reason or null
+     * when the scope is acceptable.
+     */
+    private static function checkPackageScope(array $old, array $new, int $userId): ?string
+    {
+        $refOf = function (array $s): ?int {
+            $id = $s['project']['project_id'] ?? $s['projects'][0]['project_id'] ?? null;
+
+            return $id !== null ? (int) $id : null;
+        };
+        $oldRef = $refOf($old);
+        if ($oldRef === null) {
+            return null;
+        }
+        $stillThere = \App\Models\Project::where('id', $oldRef)->where('user_id', $userId)->exists();
+        if ($stillThere && $refOf($new) !== $oldRef) {
+            return 'محدوده بسته عوض شد (اتصال به پروژه دیگر) — اصلاح بسته نباید کتاب دیگری بسازد.';
+        }
+
+        return null;
     }
 }

@@ -250,6 +250,8 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('throttle:30,1')->name('ai.plans.cancel');
     Route::post('/ai/plans/{plan}/rollback', [AiPlanController::class, 'rollback'])
         ->middleware('throttle:30,1')->name('ai.plans.rollback');
+    Route::post('/ai/plans/{plan}/revise-package', [AiPlanController::class, 'revisePackage'])
+        ->middleware('throttle:30,1')->name('ai.plans.revise-package');
     // AI Master Plan (versioned chain structure: show / approve / revise)
     Route::get('/ai/study-builds/{build}', [AiStudyBuildController::class, 'show'])
         ->name('ai.study-builds.show');

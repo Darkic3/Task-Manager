@@ -152,8 +152,10 @@ class AiMasterPlanTest extends TestCase
         $this->assertSame('روانشناسی رشد', $versions[0]['outline']['book_title']);
         $this->assertSame(16, count($versions[0]['outline']['chapters']));
 
-        // Old unconfirmed head retired, new head proposed from v2.
-        $this->assertSame(AiPlan::STATUS_CANCELLED, $started['plan']->fresh()->status);
+        // Old unconfirmed head retired as obsolete (restructure, not user
+        // cancel), new head proposed from v2.
+        $this->assertSame(AiPlan::STATUS_OBSOLETE, $started['plan']->fresh()->status);
+        $this->assertNotNull($started['plan']->fresh()->superseded_by_plan_id);
         $newHeadId = $res->json('plan.id');
         $this->assertNotNull($newHeadId);
         $this->assertSame(AiPlan::STATUS_PROPOSED, AiPlan::findOrFail($newHeadId)->status);

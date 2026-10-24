@@ -13,6 +13,10 @@ class AiPlan extends Model
     public const STATUS_DONE = 'done';
     public const STATUS_CANCELLED = 'cancelled';
     public const STATUS_EXPIRED = 'expired';
+    /** P2: a package whose phase failed and awaits retry/replace. */
+    public const STATUS_FAILED = 'failed';
+    /** P2: a package retired by a (master or package) revision. */
+    public const STATUS_OBSOLETE = 'obsolete';
 
     public const EXPIRY_MINUTES = 15;
 
@@ -36,6 +40,10 @@ class AiPlan extends Model
         'current_phase',
         'expires_at',
         'executed_at',
+        'last_error',
+        'master_build_id',
+        'master_version',
+        'package_index',
         'idempotency_key',
         'superseded_by_plan_id',
     ];
@@ -66,7 +74,14 @@ class AiPlan extends Model
 
     public function isSuperseded(): bool
     {
-        return $this->status === self::STATUS_CANCELLED && $this->superseded_by_plan_id !== null;
+        return in_array($this->status, [self::STATUS_CANCELLED, self::STATUS_OBSOLETE], true)
+            && $this->superseded_by_plan_id !== null;
+    }
+
+    /** P2: retired by a restructure (master or package revision). */
+    public function isObsolete(): bool
+    {
+        return $this->status === self::STATUS_OBSOLETE;
     }
 
     public function isExpired(): bool
@@ -76,7 +91,7 @@ class AiPlan extends Model
 
     public function isActionable(): bool
     {
-        return in_array($this->status, [self::STATUS_PROPOSED, self::STATUS_CONFIRMED, self::STATUS_EXECUTING], true)
+        return in_array($this->status, [self::STATUS_PROPOSED, self::STATUS_CONFIRMED, self::STATUS_EXECUTING, self::STATUS_FAILED], true)
             && ! $this->isExpired();
     }
 

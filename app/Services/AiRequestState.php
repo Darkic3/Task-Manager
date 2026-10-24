@@ -95,7 +95,7 @@ final class AiRequestState
             }
             if (\App\Models\AiPlan::where('user_id', $userId)
                 ->where('conversation_id', $conversationId)
-                ->whereIn('status', [\App\Models\AiPlan::STATUS_PROPOSED, \App\Models\AiPlan::STATUS_CONFIRMED, \App\Models\AiPlan::STATUS_EXECUTING])
+                ->whereIn('status', [\App\Models\AiPlan::STATUS_PROPOSED, \App\Models\AiPlan::STATUS_CONFIRMED, \App\Models\AiPlan::STATUS_EXECUTING, \App\Models\AiPlan::STATUS_FAILED])
                 ->where('expires_at', '>', now())
                 ->exists()) {
                 return true;

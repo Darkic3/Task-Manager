@@ -22,8 +22,9 @@ use Illuminate\Support\Facades\Auth;
 class AiStudyBuildController extends Controller
 {
     /**
-     * Server state for a master structure (refresh-safe: the UI can
-     * rebuild the master card from this after a page reload).
+     * Server state for a master structure + its packages (refresh-safe:
+     * the UI rebuilds the master card and all package cards from this
+     * after a page reload — never from browser memory).
      */
     public function show(AiStudyBuild $build)
     {
@@ -32,6 +33,8 @@ class AiStudyBuildController extends Controller
         return response()->json([
             'ok' => true,
             'master' => StudyBuildOrchestrator::masterDetail($build),
+            'study_build' => $build->fresh()->progress(),
+            'packages' => StudyBuildOrchestrator::packageList($build),
         ]);
     }
 
@@ -64,6 +67,8 @@ class AiStudyBuildController extends Controller
             'ok' => true,
             'deduped' => ! empty($res['deduped']),
             'master' => $res['detail'],
+            'study_build' => $fresh->progress(),
+            'packages' => StudyBuildOrchestrator::packageList($fresh),
         ]);
     }
 
@@ -96,6 +101,8 @@ class AiStudyBuildController extends Controller
         return response()->json([
             'ok' => true,
             'master' => $res['detail'],
+            'study_build' => $fresh->progress(),
+            'packages' => StudyBuildOrchestrator::packageList($fresh),
             'plan' => app(AiPlanController::class)->serialize($res['plan']),
         ]);
     }

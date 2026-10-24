@@ -128,8 +128,12 @@ class AiPlanController extends Controller
             if (($gate = $this->masterGate($locked, $rid)) !== null) {
                 return response()->json($gate, 422);
             }
+            // P2 dependency gate: package k needs package k-1 DONE.
+            if (($gate = $this->dependencyGate($locked, $rid)) !== null) {
+                return response()->json($gate, 422);
+            }
 
-            if (in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_DONE], true)) {
+            if (in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_DONE, AiPlan::STATUS_FAILED], true)) {
                 return response()->json(['ok' => true, 'deduped' => true, 'plan' => $this->serialize($locked->fresh())]);
             }
             if ($locked->isSuperseded()) {
@@ -181,8 +185,12 @@ class AiPlanController extends Controller
             if (($gate = $this->masterGate($locked, $rid)) !== null) {
                 return response()->json($gate, 422);
             }
+            // P2 dependency gate (same rule as confirmStructure).
+            if (($gate = $this->dependencyGate($locked, $rid)) !== null) {
+                return response()->json($gate, 422);
+            }
 
-            if (! $locked->isActionable() || ! in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING], true)) {
+            if (! $locked->isActionable() || ! in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_FAILED], true)) {
                 if ($locked->status === AiPlan::STATUS_DONE) {
                     $out = ['ok' => true, 'deduped' => true, 'plan' => $this->serialize($locked->fresh())];
                     // Retry-safe: a lost confirm-phase response still surfaces the
@@ -260,9 +268,22 @@ class AiPlanController extends Controller
             $messages = [];
             $phasesRun = 0;
             do {
+                // P2 retry: a failed package resumes from its stuck pointer
+                // instead of restarting the whole package.
+                if ($locked->status === AiPlan::STATUS_FAILED) {
+                    $locked->status = AiPlan::STATUS_EXECUTING;
+                    $locked->save();
+                    $locked = $locked->fresh();
+                }
                 $result = $this->tools->executePlanPhase($locked->fresh(), Auth::user());
                 if (! ($result['ok'] ?? false)) {
                     \Illuminate\Support\Facades\Log::warning('ai.plan.phase_failed', ['user_id' => Auth::id(), 'plan_id' => $locked->id, 'error' => $result['message'] ?? null]);
+                    // P2: the failure is recorded on the package (status +
+                    // last_error) so the card shows it and retry is explicit.
+                    // Completed phases and their data stay untouched.
+                    $locked->status = AiPlan::STATUS_FAILED;
+                    $locked->last_error = mb_substr($result['message'] ?? __('Phase failed.'), 0, 500);
+                    $locked->save();
                     AiLogger::error('plan.updated', $this->traceFor($locked, $rid) + ['transition' => 'phase_failed', 'phase' => $locked->fresh()->current_phase, 'status' => 'failed', 'error' => $result['message'] ?? null, 'completed_phases' => $messages]);
                     // Partial failure is reported, never swallowed: what already
                     // ran stays (by design, no rollback) and is listed both in
@@ -342,7 +363,7 @@ class AiPlanController extends Controller
             $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->firstOrFail();
             abort_if($locked->user_id !== Auth::id(), 403);
 
-            if (! in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_DONE], true)) {
+            if (! in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_DONE, AiPlan::STATUS_FAILED], true)) {
                 if ($locked->isSuperseded()) {
                     return response()->json(['ok' => false, 'code' => 'superseded', 'error' => __('This plan was replaced by a newer plan.')], 422);
                 }
@@ -383,7 +404,7 @@ class AiPlanController extends Controller
             if (in_array($locked->status, [AiPlan::STATUS_DONE, AiPlan::STATUS_CANCELLED], true)) {
                 return response()->json(['ok' => true, 'deduped' => true, 'message' => __('Plan already resolved — nothing changed.')]);
             }
-            if (! in_array($locked->status, [AiPlan::STATUS_PROPOSED, AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING], true)) {
+            if (! in_array($locked->status, [AiPlan::STATUS_PROPOSED, AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_FAILED], true)) {
                 return response()->json(['ok' => true, 'deduped' => true, 'message' => __('Plan already resolved — nothing changed.')]);
             }
 
@@ -471,6 +492,35 @@ class AiPlanController extends Controller
     }
 
     /**
+     * P2 dependency gate: package k (package_index) of a chain may run only
+     * after package k-1 reached DONE. Prevents out-of-order execution when
+     * several heads exist (e.g. after a package revision). Standalone plans
+     * and first packages always pass.
+     */
+    private function dependencyGate(AiPlan $plan, string $rid): ?array
+    {
+        if ($plan->master_build_id === null || $plan->package_index === null || (int) $plan->package_index <= 1) {
+            return null;
+        }
+        $prev = AiPlan::where('user_id', $plan->user_id)
+            ->where('master_build_id', $plan->master_build_id)
+            ->where('package_index', (int) $plan->package_index - 1)
+            ->first();
+        if ($prev && $prev->status === AiPlan::STATUS_DONE) {
+            return null;
+        }
+        AiLogger::log('plan.updated', $this->traceFor($plan, $rid) + ['transition' => 'dependency_blocked', 'build_id' => $plan->master_build_id, 'package_index' => (int) $plan->package_index]);
+
+        return [
+            'ok' => false,
+            'code' => 'dependency_blocked',
+            'build_id' => $plan->master_build_id,
+            'waiting_on' => $prev ? $prev->id : null,
+            'error' => __('Finish package :index first — packages run in order.', ['index' => (int) $plan->package_index - 1]),
+        ];
+    }
+
+    /**
      * P1 Master gate: a chain package may be confirmed/executed only when
      * its build's CURRENT master version is explicitly approved. Returns
      * the error payload or null when execution may proceed. Standalone
@@ -478,13 +528,23 @@ class AiPlanController extends Controller
      */
     private function masterGate(AiPlan $plan, string $rid): ?array
     {
-        $build = \App\Models\AiStudyBuild::where('user_id', $plan->user_id)
-            ->where('status', \App\Models\AiStudyBuild::STATUS_BUILDING)
-            ->where(function ($q) use ($plan) {
-                $q->where('last_plan_id', $plan->id)
-                    ->orWhereJsonContains('plan_ids', (int) $plan->id);
-            })
-            ->first();
+        // P2 direct link first; legacy JSON lookup as fallback.
+        $build = null;
+        if ($plan->master_build_id !== null) {
+            $build = \App\Models\AiStudyBuild::where('id', $plan->master_build_id)
+                ->where('user_id', $plan->user_id)
+                ->where('status', \App\Models\AiStudyBuild::STATUS_BUILDING)
+                ->first();
+        }
+        if (! $build) {
+            $build = \App\Models\AiStudyBuild::where('user_id', $plan->user_id)
+                ->where('status', \App\Models\AiStudyBuild::STATUS_BUILDING)
+                ->where(function ($q) use ($plan) {
+                    $q->where('last_plan_id', $plan->id)
+                        ->orWhereJsonContains('plan_ids', (int) $plan->id);
+                })
+                ->first();
+        }
         if (! $build) {
             return null;
         }
@@ -502,6 +562,47 @@ class AiPlanController extends Controller
         ];
     }
 
+    /**
+     * P2 targeted package revision: POST /ai/plans/{plan}/revise-package.
+     * Produces a new proposal scoped to the same package; the old proposal
+     * becomes obsolete (linked). Untouched independent packages stay as-is;
+     * later non-terminal packages are reported as affected for review.
+     */
+    public function revisePackage(Request $request, AiPlan $plan)
+    {
+        abort_if($plan->user_id !== Auth::id(), 403);
+
+        $request->validate(['feedback' => 'required|string|min:1|max:2000']);
+        $rid = AiLogger::newRequestId();
+
+        $res = StudyBuildOrchestrator::revisePackage($plan->fresh(), Auth::user(), (string) $request->input('feedback'), $rid);
+        if (! ($res['ok'] ?? false)) {
+            $status = match ($res['code'] ?? null) {
+                'provider_error' => 502,
+                'version_changed' => 409,
+                default => 422,
+            };
+            $build = $plan->master_build_id ? \App\Models\AiStudyBuild::find($plan->master_build_id) : null;
+
+            return response()->json([
+                'ok' => false,
+                'code' => $res['code'] ?? 'error',
+                'error' => $res['error'] ?? __('Revision failed.'),
+                'master' => $build ? StudyBuildOrchestrator::masterDetail($build) : null,
+            ], $status);
+        }
+
+        $this->note($res['plan'], __('📝 بسته :index بازبینی شد — نسخه جدید را بررسی و تأیید کنید.', ['index' => $res['plan']->package_index ?? '?']));
+
+        return response()->json([
+            'ok' => true,
+            'plan' => $this->serialize($res['plan']),
+            'affected' => $res['affected'],
+            'master' => $res['detail'],
+            'packages' => $res['packages'],
+        ]);
+    }
+
     private function advancePastDone(AiPlan $plan): void
     {
         $phases = $plan->phases;
@@ -516,7 +617,7 @@ class AiPlanController extends Controller
 
     private function expire(AiPlan $plan): void
     {
-        if (in_array($plan->status, [AiPlan::STATUS_PROPOSED, AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING], true)) {
+        if (in_array($plan->status, [AiPlan::STATUS_PROPOSED, AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_FAILED], true)) {
             $plan->status = AiPlan::STATUS_EXPIRED;
             $plan->save();
         }
