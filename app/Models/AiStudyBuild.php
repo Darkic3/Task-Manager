@@ -18,6 +18,9 @@ class AiStudyBuild extends Model
     /** Chain-level window: the user may confirm one chunk per day. */
     public const EXPIRY_HOURS = 24;
 
+    /** Hard cap: version history stays a small bounded JSON document. */
+    public const MAX_VERSIONS = 10;
+
     protected $fillable = [
         'user_id',
         'conversation_id',
@@ -27,6 +30,11 @@ class AiStudyBuild extends Model
         'plan_ids',
         'total_chunks',
         'done_chunks',
+        'version',
+        'approved_version',
+        'approved_at',
+        'approved_by',
+        'versions',
         'book_project_id',
         'last_plan_id',
         'status',
@@ -38,6 +46,8 @@ class AiStudyBuild extends Model
         'outline_json' => 'array',
         'chunks_json' => 'array',
         'plan_ids' => 'array',
+        'versions' => 'array',
+        'approved_at' => 'datetime',
         'expires_at' => 'datetime',
     ];
 

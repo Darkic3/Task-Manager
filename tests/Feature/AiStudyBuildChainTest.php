@@ -33,8 +33,18 @@ class AiStudyBuildChainTest extends TestCase
         return $result;
     }
 
+    private function approveMaster(User $user, AiPlan $plan): void
+    {
+        // P1: packages stay locked until the master version is approved.
+        $build = AiStudyBuild::where('user_id', $user->id)->where(function ($q) use ($plan) {
+            $q->where('last_plan_id', $plan->id)->orWhereJsonContains('plan_ids', (int) $plan->id);
+        })->firstOrFail();
+        $this->actingAs($user)->postJson(route('ai.study-builds.approve', $build), ['version' => 1])->assertOk();
+    }
+
     private function confirmWholePlan(User $user, AiPlan $plan): \Illuminate\Testing\TestResponse
     {
+        $this->approveMaster($user, $plan);
         $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $plan))->assertOk();
 
         return $this->actingAs($user)->postJson(

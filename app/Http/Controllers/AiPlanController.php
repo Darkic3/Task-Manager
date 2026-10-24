@@ -123,6 +123,12 @@ class AiPlanController extends Controller
             $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->firstOrFail();
             abort_if($locked->user_id !== Auth::id(), 403);
 
+            // P1 Master gate: chain packages stay locked until the CURRENT
+            // master version is explicitly approved. Standalone plans bypass.
+            if (($gate = $this->masterGate($locked, $rid)) !== null) {
+                return response()->json($gate, 422);
+            }
+
             if (in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING, AiPlan::STATUS_DONE], true)) {
                 return response()->json(['ok' => true, 'deduped' => true, 'plan' => $this->serialize($locked->fresh())]);
             }
@@ -170,6 +176,11 @@ class AiPlanController extends Controller
             /** @var AiPlan $locked */
             $locked = AiPlan::where('id', $plan->id)->lockForUpdate()->firstOrFail();
             abort_if($locked->user_id !== Auth::id(), 403);
+
+            // P1 Master gate (same rule as confirmStructure).
+            if (($gate = $this->masterGate($locked, $rid)) !== null) {
+                return response()->json($gate, 422);
+            }
 
             if (! $locked->isActionable() || ! in_array($locked->status, [AiPlan::STATUS_CONFIRMED, AiPlan::STATUS_EXECUTING], true)) {
                 if ($locked->status === AiPlan::STATUS_DONE) {
@@ -456,6 +467,38 @@ class AiPlanController extends Controller
             'done_chunks' => $build->done_chunks,
             'total_chunks' => $build->total_chunks,
             'items' => $items,
+        ];
+    }
+
+    /**
+     * P1 Master gate: a chain package may be confirmed/executed only when
+     * its build's CURRENT master version is explicitly approved. Returns
+     * the error payload or null when execution may proceed. Standalone
+     * (non-chain) plans always pass.
+     */
+    private function masterGate(AiPlan $plan, string $rid): ?array
+    {
+        $build = \App\Models\AiStudyBuild::where('user_id', $plan->user_id)
+            ->where('status', \App\Models\AiStudyBuild::STATUS_BUILDING)
+            ->where(function ($q) use ($plan) {
+                $q->where('last_plan_id', $plan->id)
+                    ->orWhereJsonContains('plan_ids', (int) $plan->id);
+            })
+            ->first();
+        if (! $build) {
+            return null;
+        }
+        if ($build->approved_version !== null && (int) $build->approved_version === (int) $build->version) {
+            return null;
+        }
+        AiLogger::log('plan.updated', $this->traceFor($plan, $rid) + ['transition' => 'master_not_approved_blocked', 'build_id' => $build->id, 'version' => $build->version]);
+
+        return [
+            'ok' => false,
+            'code' => 'master_not_approved',
+            'build_id' => $build->id,
+            'version' => (int) $build->version,
+            'error' => __('Approve the master structure (v:version) first — packages stay locked until then.', ['version' => $build->version]),
         ];
     }
 

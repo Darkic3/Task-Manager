@@ -1240,11 +1240,13 @@ class AiChatController extends Controller
         $build = $started['build'];
         $plan = $started['plan'];
         $serialized = app(AiPlanController::class)->serialize($plan);
-        $reply = '📚 کتاب «'.$build->title.'» را در '.$build->total_chunks.' بسته آماده کردم تا قدم‌به‌قدم و بدون خطا ساخته شود.'
-            ."\n\n".'بسته ۱ ('.$plan->title.') برای تأیید آماده است — «🚀 ساخت و اجرای کامل پروژه» را بزن؛ بعد از ساخت هر بسته، بسته بعدی خودش پیشنهاد می‌شود.'
+        $master = \App\Services\Study\StudyBuildOrchestrator::masterDetail($build);
+        $reply = '📚 ساختار کلان کتاب «'.$build->title.'» در '.$build->total_chunks.' بسته آماده شد (نسخه ۱).'
+            ."\n\n".'اول کارت «ساختار کلان» را بررسی و تأیید کن — تا تأیید نکنی هیچ بسته‌ای ساخته یا اجرا نمی‌شود.'
+            ."\n".'بعد از تأیید ساختار، بسته ۱ ('.$plan->title.') را جداگانه تأیید و اجرا کن؛ بسته‌های بعدی خودشان پیشنهاد می‌شوند.'
             ."\n".'عناوین تمیز نگه داشته شدند و صفحات هر درسنامه در توضیحات (📄) و وزن ثبت شدند.';
 
-        return ['build' => $build, 'plan' => $plan, 'serialized' => $serialized, 'reply' => $reply];
+        return ['build' => $build, 'plan' => $plan, 'serialized' => $serialized, 'master' => $master, 'reply' => $reply];
     }
 
     /**
@@ -1282,7 +1284,7 @@ class AiChatController extends Controller
         $provider = $resolved['provider'] ?? 'study';
         $convId = $conversation->id;
         $reply = $study['reply'];
-        $packet = ['type' => 'plan_proposal', 'plan' => $study['serialized'], 'expires_at' => $study['plan']->expires_at->toIso8601String(), 'study_build' => $study['build']->progress()];
+        $packet = ['type' => 'plan_proposal', 'plan' => $study['serialized'], 'expires_at' => $study['plan']->expires_at->toIso8601String(), 'study_build' => $study['build']->progress(), 'master' => $study['master']];
 
         return response()->stream(function () use ($sseFlush, $model, $provider, $convId, $reply, $packet) {
             echo 'data: '.json_encode(['model' => $model, 'provider' => $provider, 'conversation_id' => $convId])."\n\n";
@@ -1328,6 +1330,7 @@ class AiChatController extends Controller
                 'plan' => $study['serialized'],
                 'expires_at' => $study['plan']->expires_at->toIso8601String(),
                 'study_build' => $study['build']->progress(),
+                'master' => $study['master'],
             ]],
         ]);
     }

@@ -39,6 +39,9 @@ class AiStudyChainRaceTest extends TestCase
             $this->assertTrue($started['ok'] ?? false, $started['error'] ?? 'start failed');
             $head = $started['plan'];
 
+            // P1: approve the master first — packages stay locked until then.
+            $this->actingAs($user)->postJson(route('ai.study-builds.approve', $started['build']), ['version' => 1])->assertOk();
+
             // Real execution of chunk 1 (builds the book project).
             $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $head))->assertOk();
             $done = $this->actingAs($user)->postJson(

@@ -5,6 +5,7 @@ use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\AiPlanController;
 use App\Http\Controllers\AiProviderController;
 use App\Http\Controllers\AiSettingsController;
+use App\Http\Controllers\AiStudyBuildController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ChecklistItemController;
 use App\Http\Controllers\DashboardController;
@@ -249,6 +250,13 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('throttle:30,1')->name('ai.plans.cancel');
     Route::post('/ai/plans/{plan}/rollback', [AiPlanController::class, 'rollback'])
         ->middleware('throttle:30,1')->name('ai.plans.rollback');
+    // AI Master Plan (versioned chain structure: show / approve / revise)
+    Route::get('/ai/study-builds/{build}', [AiStudyBuildController::class, 'show'])
+        ->name('ai.study-builds.show');
+    Route::post('/ai/study-builds/{build}/approve-structure', [AiStudyBuildController::class, 'approve'])
+        ->middleware('throttle:30,1')->name('ai.study-builds.approve');
+    Route::post('/ai/study-builds/{build}/revise-structure', [AiStudyBuildController::class, 'revise'])
+        ->middleware('throttle:30,1')->name('ai.study-builds.revise');
     // AI Conversations (DB-backed)
     Route::get('/ai/conversations', [AiChatController::class, 'conversations'])->name('ai.conversations.index');
     Route::post('/ai/conversations', [AiChatController::class, 'createConversation'])->name('ai.conversations.create');

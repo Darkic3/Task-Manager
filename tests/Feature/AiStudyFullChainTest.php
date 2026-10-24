@@ -45,7 +45,14 @@ class AiStudyFullChainTest extends TestCase
         }
         $this->assertNotNull($planId, 'stream must emit a plan_proposal for the pasted book');
 
-        // 2) Confirm every chunk card until the chain reports done.
+        // 2) P1: approve the master structure first — packages stay
+        // locked until the current master version is explicitly approved.
+        $master = AiStudyBuild::firstOrFail();
+        $this->actingAs($user)->postJson(route('ai.study-builds.approve', $master), ['version' => 1])
+            ->assertOk()
+            ->assertJsonPath('master.approved_version', 1);
+
+        // 3) Confirm every chunk card until the chain reports done.
         $iterations = 0;
         $lastPlan = null;
         while ($planId !== null && $iterations < 8) {
@@ -69,7 +76,7 @@ class AiStudyFullChainTest extends TestCase
         $lastPlan->assertJsonPath('study_build.done_chunks', 6);
         $this->assertLessThan(8, $iterations, 'chain must finish within 6 chunks + margin');
 
-        // 3) The whole book exists exactly once.
+        // 4) The whole book exists exactly once.
         $build = AiStudyBuild::firstOrFail();
         $this->assertSame(AiStudyBuild::STATUS_DONE, $build->status);
         $this->assertSame(6, $build->done_chunks);
@@ -85,7 +92,7 @@ class AiStudyFullChainTest extends TestCase
             '15 chapters + appendices as sub-projects'
         );
 
-        // 4) Expected volumes derived from the parser — never hardcoded.
+        // 5) Expected volumes derived from the parser — never hardcoded.
         $outline = StudyOutlineParser::parse(StudyOutlineFixture::text());
         $expectedTasks = 0;
         $expectedSubs = 0;
@@ -97,7 +104,7 @@ class AiStudyFullChainTest extends TestCase
         $this->assertSame($expectedTasks, Task::where('user_id', $user->id)->whereNotNull('project_id')->whereNull('parent_id')->count());
         $this->assertSame($expectedSubs, Task::where('user_id', $user->id)->whereNotNull('parent_id')->count());
 
-        // 5) Pages contract: clean titles, pages in description + weight.
+        // 6) Pages contract: clean titles, pages in description + weight.
         $lesson = Task::where('user_id', $user->id)->where('title', 'درسنامه ۱: پیاژه')->firstOrFail();
         $this->assertSame(34, (int) $lesson->weight);
         $this->assertStringStartsWith('📄 34 صفحه', (string) $lesson->description);
@@ -107,3 +114,4 @@ class AiStudyFullChainTest extends TestCase
         $this->assertSame($book->id, (int) $chapter->parent_id);
     }
 }
+

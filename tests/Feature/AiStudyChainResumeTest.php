@@ -35,8 +35,18 @@ class AiStudyChainResumeTest extends TestCase
         return $result;
     }
 
+    private function approveMaster(User $user, AiPlan $plan): void
+    {
+        // P1: packages stay locked until the master version is approved.
+        $build = AiStudyBuild::where('user_id', $user->id)->where(function ($q) use ($plan) {
+            $q->where('last_plan_id', $plan->id)->orWhereJsonContains('plan_ids', (int) $plan->id);
+        })->firstOrFail();
+        $this->actingAs($user)->postJson(route('ai.study-builds.approve', $build), ['version' => 1])->assertOk();
+    }
+
     private function confirmWholePlan(User $user, AiPlan $plan): \Illuminate\Testing\TestResponse
     {
+        $this->approveMaster($user, $plan);
         $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $plan))->assertOk();
 
         return $this->actingAs($user)->postJson(
@@ -165,9 +175,11 @@ class AiStudyChainResumeTest extends TestCase
         $plan = $this->startChain($user)['plan'];
         $expires = $plan->expires_at->toIso8601String();
 
+        // P1: chain packages are locked until the master is approved —
+        // the gate fires before the unconfirmed-structure check.
         $this->actingAs($user)->postJson(route('ai.plans.confirm-phase', $plan), ['run_all' => true])
             ->assertStatus(422)
-            ->assertJsonPath('code', 'not_confirmed');
+            ->assertJsonPath('code', 'master_not_approved');
 
         // Rejected safely: still proposed, NOT expired, nothing built.
         $fresh = $plan->fresh();

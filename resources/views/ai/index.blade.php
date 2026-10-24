@@ -1117,7 +1117,7 @@ footer, .topnav { display: none !important; }
                             if (json.code === 'too_many_pending' && chatMode === 'agent') renderPendingOverflowCard(json);
                             else appendError(json.error);
                         } else if (json.type === 'plan_proposal' && json.plan) {
-                            if (chatMode === 'agent') { proposalRendered = true; renderPlanCard(json.plan, json.study_build); }
+                            if (chatMode === 'agent') { proposalRendered = true; if (json.master) renderMasterCard(json.master); renderPlanCard(json.plan, json.study_build); }
                             else console.warn('[Lina] plan ignored in chat mode');
                         } else if (json.type === 'plan_proposal' && json.error) {
                             errorShown = true;
@@ -1652,6 +1652,127 @@ footer, .topnav { display: none !important; }
         wrap.appendChild(card);
         msgsEl.appendChild(wrap);
         scrollBottom();
+    }
+
+    /* ── Master structure card (P1: versioned, explicit approval) ── */
+    // One wrapper per chain: a new version repaints the same card, so the
+    // history of versions stays in one place instead of stacking cards.
+    function renderMasterCard(master) {
+        if (!master || !master.id) return;
+        let wrap = document.querySelector('.lina-msg-wrap.bot[data-master-wrap="' + master.id + '"]');
+        if (!wrap) {
+            wrap = document.createElement('div');
+            wrap.className = 'lina-msg-wrap bot';
+            wrap.dataset.masterWrap = master.id;
+            msgsEl.appendChild(wrap);
+        }
+        let card = wrap.querySelector('.lina-master-card');
+        if (!card) {
+            card = document.createElement('div');
+            card.className = 'lina-master-card';
+            wrap.appendChild(card);
+        }
+        paintMaster(card, master);
+        scrollBottom();
+    }
+
+    function paintMaster(card, master) {
+        const outline = master.outline || {};
+        const chapters = outline.chapters || [];
+        const ver = master.version || 1;
+        const approved = master.approved_version;
+        const isApproved = approved !== null && approved !== undefined && Number(approved) === Number(ver);
+        const validation = master.validation || { ok: true };
+        let html = '<h4>📖 ساختار کلان: ' + escPlan(master.title || '') + '</h4>'
+            + '<div class="lina-plan-totals">نسخه ' + escPlan(ver)
+            + (isApproved ? ' · ✅ تأییدشده' : (approved !== null && approved !== undefined ? ' · ⏳ در انتظار تأیید (نسخه تأییدشده: ' + escPlan(approved) + ')' : ' · ⏳ در انتظار تأیید'))
+            + ' · ' + chapters.length + ' فصل · ' + escPlan(master.total_chunks || 0) + ' بسته</div>';
+        // Version history: every version stays visible, never rewritten.
+        const hist = (master.versions || []).map((v) => {
+            const st = v.status === 'approved' ? '✅ تأییدشده' : (v.status === 'superseded' ? '↩️ جایگزین‌شده' : '⏳ پیش‌نویس');
+            return 'v' + escPlan(v.version) + ' ' + st;
+        });
+        if (hist.length) html += '<div class="lina-plan-chain" style="background:#f5f3ff;padding:8px 12px;border-radius:10px;border:1px solid #ddd6fe;margin-top:8px;font-size:12.5px;color:#5b21b6;">' + escPlan(hist.join(' · ')) + '</div>';
+        // Readable outline tree (capped for long books).
+        const shown = chapters.slice(0, 12);
+        html += '<div class="lina-plan-tree" style="margin-top:8px;font-size:13px;">' + shown.map((ch) => {
+            const lessons = (ch.lessons || []).slice(0, 8);
+            const lhtml = lessons.map((ls) => '<div style="margin-inline-start:18px;">📄 ' + escPlan(ls.title) + (((ls.topics || []).length) ? ' <span style="color:#6b7280;">(' + (ls.topics || []).length + ' زیرموضوع)</span>' : '') + '</div>').join('');
+            const moreL = (ch.lessons || []).length > 8 ? '<div style="margin-inline-start:18px;color:#6b7280;">… و ' + ((ch.lessons || []).length - 8) + ' درسنامه دیگر</div>' : '';
+            return '<div style="margin-top:4px;">📁 <b>' + escPlan(ch.title) + '</b> <span style="color:#6b7280;">(' + (ch.lessons || []).length + ' درسنامه)</span>' + lhtml + moreL + '</div>';
+        }).join('') + (chapters.length > 12 ? '<div style="color:#6b7280;margin-top:4px;">… و ' + (chapters.length - 12) + ' فصل دیگر</div>' : '') + '</div>';
+        card.innerHTML = html;
+        const body = document.createElement('div');
+        body.style.cssText = 'margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;';
+        if (!validation.ok) {
+            const warn = document.createElement('div');
+            warn.className = 'lina-plan-note';
+            warn.style.cssText = 'background:#fef2f2;padding:8px 12px;border-radius:10px;border:1px solid #fecaca;color:#b91c1c;font-size:12.5px;width:100%;';
+            warn.textContent = '⚠ ' + validation.error;
+            body.appendChild(warn);
+        }
+        // Version-bound approval: the button carries its version; the server
+        // rejects any version that is no longer current (409).
+        const approveBtn = document.createElement('button');
+        approveBtn.className = 'lina-tool-confirm';
+        approveBtn.style.cssText = 'font-size:12.5px;';
+        approveBtn.textContent = isApproved ? '✅ تأییدشده (نسخه ' + ver + ')' : '✅ تأیید ساختار (نسخه ' + ver + ')';
+        approveBtn.disabled = !!isApproved || !validation.ok;
+        approveBtn.onclick = async () => {
+            approveBtn.disabled = true;
+            try {
+                const res = await api('POST', '/ai/study-builds/' + master.id + '/approve-structure', { version: ver });
+                if (res.master) paintMaster(card, res.master);
+            } catch (e) {
+                appendError(e && e.detail ? e.detail : 'خطا در تأیید ساختار.');
+                approveBtn.disabled = false;
+            }
+            scrollBottom();
+        };
+        body.appendChild(approveBtn);
+        // Free-text revision (no raw JSON editing for normal users).
+        const fb = document.createElement('textarea');
+        fb.rows = 2;
+        fb.style.cssText = 'width:100%;font-size:12.5px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;';
+        fb.placeholder = 'تغییر موردنظر را بنویسید…';
+        body.appendChild(fb);
+        const reviseBtn = document.createElement('button');
+        reviseBtn.className = 'lina-tool-reject';
+        reviseBtn.style.cssText = 'font-size:12.5px;';
+        reviseBtn.textContent = '📝 درخواست اصلاح (نسخه جدید)';
+        reviseBtn.onclick = async () => {
+            const feedback = (fb.value || '').trim();
+            if (!feedback) { fb.focus(); return; }
+            reviseBtn.disabled = true;
+            try {
+                const res = await api('POST', '/ai/study-builds/' + master.id + '/revise-structure', { feedback });
+                if (res.master) paintMaster(card, res.master);
+                if (res.plan) renderPlanCard(res.plan, null);
+            } catch (e) {
+                appendError(e && e.detail ? e.detail : 'خطا در اصلاح ساختار.');
+            } finally {
+                reviseBtn.disabled = false;
+            }
+            scrollBottom();
+        };
+        body.appendChild(reviseBtn);
+        // Server refresh: rebuild this card after a page reload.
+        const refreshBtn = document.createElement('button');
+        refreshBtn.className = 'lina-tool-reject';
+        refreshBtn.style.cssText = 'font-size:12.5px;';
+        refreshBtn.textContent = '🔄';
+        refreshBtn.title = 'بارگذاری مجدد ساختار از سرور';
+        refreshBtn.onclick = async () => {
+            try {
+                const res = await api('GET', '/ai/study-builds/' + master.id);
+                if (res.master) paintMaster(card, res.master);
+            } catch (e) {
+                appendError(e && e.detail ? e.detail : 'خطا در بارگذاری ساختار.');
+            }
+            scrollBottom();
+        };
+        body.appendChild(refreshBtn);
+        card.appendChild(body);
     }
 
     /* ── Plan structure card + stepper ── */
