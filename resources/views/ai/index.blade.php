@@ -1753,7 +1753,38 @@ footer, .topnav { display: none !important; }
             scrollBottom();
         };
         body.appendChild(approveBtn);
+        // Stage C: explicit package-list approval, bound to this version.
+        // Package cards/actions unlock only after this (server-enforced).
+        const pkgsApproved = !!master.packages_approved;
+        if (isApproved && !pkgsApproved) {
+            const pkgBtn = document.createElement('button');
+            pkgBtn.className = 'lina-tool-confirm';
+            pkgBtn.style.cssText = 'font-size:12.5px;';
+            pkgBtn.textContent = '📦 تأیید فهرست بسته‌ها (نسخه ' + ver + ')';
+            pkgBtn.onclick = async () => {
+                pkgBtn.disabled = true;
+                try {
+                    const res = await api('POST', '/ai/study-builds/' + master.id + '/approve-packages', { version: ver });
+                    if (res.master) paintMaster(card, res.master, res.packages || [], res.study_build || null);
+                } catch (e) {
+                    appendError(e && e.detail ? e.detail : 'خطا در تأیید فهرست بسته‌ها.');
+                    pkgBtn.disabled = false;
+                }
+                scrollBottom();
+            };
+            body.appendChild(pkgBtn);
+        } else if (isApproved && pkgsApproved) {
+            const okNote = document.createElement('div');
+            okNote.className = 'lina-plan-note';
+            okNote.style.cssText = 'background:#f0fdf4;padding:8px 12px;border-radius:10px;border:1px solid #bbf7d0;color:#16a34a;font-size:12.5px;width:100%;';
+            okNote.textContent = '✅ فهرست بسته‌ها تأیید شد — بسته‌ها را یکی‌یکی بررسی و تأیید کنید.';
+            body.appendChild(okNote);
+        }
         // Free-text revision (no raw JSON editing for normal users).
+        // Locked once a package moved past proposed or anything executed
+        // (the server rejects it too — this is only the visual gate).
+        const masterLocked = (studyBuild && (studyBuild.done_chunks || 0) > 0)
+            || (packages || []).some((p) => p.plan_id && ['confirmed', 'executing', 'done', 'failed'].includes(p.status));
         const fb = document.createElement('textarea');
         fb.rows = 2;
         fb.style.cssText = 'width:100%;font-size:12.5px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;';
@@ -1763,6 +1794,10 @@ footer, .topnav { display: none !important; }
         reviseBtn.className = 'lina-tool-reject';
         reviseBtn.style.cssText = 'font-size:12.5px;';
         reviseBtn.textContent = '📝 درخواست اصلاح (نسخه جدید)';
+        if (masterLocked) {
+            reviseBtn.disabled = true;
+            reviseBtn.title = 'پس از تأیید/اجرای بسته، ساختار کلان قابل اصلاح نیست.';
+        }
         reviseBtn.onclick = async () => {
             const feedback = (fb.value || '').trim();
             if (!feedback) { fb.focus(); return; }
@@ -2058,6 +2093,22 @@ footer, .topnav { display: none !important; }
             actions.className = 'lina-tool-actions';
             actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;';
 
+            // Staged chain packages: until the master AND its package list
+            // are approved (server flags), this preview card is read-only —
+            // no confirm/execute buttons. The staged actions live on the
+            // master card. (The server rejects early calls regardless.)
+            const chainGates = plan.chain || null;
+            const chainBlocked = chainGates && (!chainGates.master_approved || !chainGates.packages_approved);
+            if (chainBlocked) {
+                const lockNote = document.createElement('div');
+                lockNote.className = 'lina-plan-note muted';
+                lockNote.style.cssText = 'background:#fffbeb;padding:8px 12px;border-radius:10px;border:1px solid #fde68a;width:100%;';
+                lockNote.textContent = !chainGates.master_approved
+                    ? '⏳ این بسته هنوز قابل اقدام نیست — اول ساختار کلان را از کارت «ساختار کلان» تأیید کن.'
+                    : '⏳ ساختار تأیید شد — اول فهرست بسته‌ها را از کارت «ساختار کلان» تأیید کن.';
+                actions.appendChild(lockNote);
+            }
+
             // 1-Click Build Everything
             const buildAllBtn = document.createElement('button');
             buildAllBtn.className = 'lina-tool-confirm';
@@ -2131,8 +2182,10 @@ footer, .topnav { display: none !important; }
                 scrollBottom();
             };
 
-            actions.appendChild(buildAllBtn);
-            actions.appendChild(stepBtn);
+            if (!chainBlocked) {
+                actions.appendChild(buildAllBtn);
+                actions.appendChild(stepBtn);
+            }
             actions.appendChild(editBtn);
             actions.appendChild(cancelBtn);
             body.appendChild(actions);
@@ -2240,7 +2293,12 @@ footer, .topnav { display: none !important; }
         } else if (plan.status === 'expired' && plan.master_build_id) {
             // P4: an expired chain head can be reissued from the approved
             // master — no global expiry change, no resurrection of the old row.
-            body.innerHTML = '<div class="lina-plan-note" style="background:#fffbeb;padding:10px 14px;border-radius:10px;border:1px solid #fde68a;color:#92400e;font-weight:600;">⌛ اعتبار این بسته تمام شد و اجرا نشد — چیزی ساخته نشده است.</div>';
+            // Reissue itself requires master + package-list approval (server).
+            const reChain = plan.chain || null;
+            const reBlocked = reChain && (!reChain.master_approved || !reChain.packages_approved);
+            body.innerHTML = '<div class="lina-plan-note" style="background:#fffbeb;padding:10px 14px;border-radius:10px;border:1px solid #fde68a;color:#92400e;font-weight:600;">⌛ اعتبار این بسته تمام شد و اجرا نشد — چیزی ساخته نشده است.'
+                + (reBlocked ? ' اول ساختار کلان و فهرست بسته‌ها را تأیید کن، بعد بسته را دوباره صادر کن.' : '') + '</div>';
+            if (reBlocked) return;
             const reBtn = document.createElement('button');
             reBtn.className = 'lina-tool-confirm';
             reBtn.style.cssText = 'margin-top:8px;font-size:12px;';

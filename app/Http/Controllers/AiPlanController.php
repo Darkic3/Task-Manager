@@ -128,6 +128,11 @@ class AiPlanController extends Controller
             if (($gate = $this->masterGate($locked, $rid)) !== null) {
                 return response()->json($gate, 422);
             }
+            // Stage C gate: the package list of the current master version
+            // must be approved before any package preview is confirmed.
+            if (($gate = $this->packagesGate($locked, $rid)) !== null) {
+                return response()->json($gate, 422);
+            }
             // P2 dependency gate: package k needs package k-1 DONE.
             if (($gate = $this->dependencyGate($locked, $rid)) !== null) {
                 return response()->json($gate, 422);
@@ -183,6 +188,10 @@ class AiPlanController extends Controller
 
             // P1 Master gate (same rule as confirmStructure).
             if (($gate = $this->masterGate($locked, $rid)) !== null) {
+                return response()->json($gate, 422);
+            }
+            // Stage C gate (same rule as confirmStructure).
+            if (($gate = $this->packagesGate($locked, $rid)) !== null) {
                 return response()->json($gate, 422);
             }
             // P2 dependency gate (same rule as confirmStructure).
@@ -601,6 +610,41 @@ class AiPlanController extends Controller
     }
 
     /**
+     * Stage C gate: a chain package may be confirmed/executed only when
+     * the package list of the CURRENT master version was explicitly
+     * approved (stage C). Returns the error payload or null when the
+     * package may proceed. Standalone (non-chain) plans always pass, and
+     * the unapproved-master case is left to masterGate (no double error).
+     */
+    private function packagesGate(AiPlan $plan, string $rid): ?array
+    {
+        if ($plan->master_build_id === null) {
+            return null;
+        }
+        $build = \App\Models\AiStudyBuild::where('id', $plan->master_build_id)
+            ->where('user_id', $plan->user_id)
+            ->first();
+        if (! $build) {
+            return null;
+        }
+        if ($build->approved_version === null || (int) $build->approved_version !== (int) $build->version) {
+            return null;
+        }
+        if (\App\Services\Study\StudyBuildOrchestrator::packagesApproved($build)) {
+            return null;
+        }
+        AiLogger::log('plan.updated', $this->traceFor($plan, $rid) + ['transition' => 'packages_not_approved_blocked', 'build_id' => $build->id, 'version' => $build->version]);
+
+        return [
+            'ok' => false,
+            'code' => 'packages_not_approved',
+            'build_id' => $build->id,
+            'version' => (int) $build->version,
+            'error' => __('Approve the package list first — packages stay locked until then.'),
+        ];
+    }
+
+    /**
      * P2 targeted package revision: POST /ai/plans/{plan}/revise-package.
      * Produces a new proposal scoped to the same package; the old proposal
      * becomes obsolete (linked). Untouched independent packages stay as-is;
@@ -668,6 +712,9 @@ class AiPlanController extends Controller
             }
             if ($build->approved_version === null || (int) $build->approved_version !== (int) $build->version) {
                 return response()->json(['ok' => false, 'code' => 'master_not_approved', 'error' => __('Approve the master structure first.')], 422);
+            }
+            if (! \App\Services\Study\StudyBuildOrchestrator::packagesApproved($build)) {
+                return response()->json(['ok' => false, 'code' => 'packages_not_approved', 'error' => __('Approve the package list first — packages stay locked until then.')], 422);
             }
             // Unexecuted + past expiry, whether the expiry was merely
             // observed (still proposed) or already materialized to the
@@ -887,6 +934,9 @@ class AiPlanController extends Controller
         'master_build_id' => $plan->master_build_id !== null ? (int) $plan->master_build_id : null,
         'master_version' => $plan->master_version !== null ? (int) $plan->master_version : null,
         'package_index' => $plan->package_index !== null ? (int) $plan->package_index : null,
+        // Stage flags for chain packages (null for standalone plans): the
+        // UI gates staged buttons on these instead of local assumptions.
+        'chain' => \App\Services\Study\StudyBuildOrchestrator::chainGates($plan),
         'last_error' => $plan->last_error,
     ];
 }

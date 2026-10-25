@@ -42,6 +42,7 @@ class AiStudyChainResumeTest extends TestCase
             $q->where('last_plan_id', $plan->id)->orWhereJsonContains('plan_ids', (int) $plan->id);
         })->firstOrFail();
         $this->actingAs($user)->postJson(route('ai.study-builds.approve', $build), ['version' => 1])->assertOk();
+        $this->actingAs($user)->postJson(route('ai.study-builds.approve-packages', $build), ['version' => 1])->assertOk();
     }
 
     private function confirmWholePlan(User $user, AiPlan $plan): \Illuminate\Testing\TestResponse

@@ -131,6 +131,10 @@ class StudyBuildOrchestrator
             return ['ok' => false, 'error' => __('The outline has no chapters to build.')];
         }
 
+        if (($error = self::validateOutline($outline)) !== null) {
+            return ['ok' => false, 'code' => 'invalid_outline', 'error' => $error];
+        }
+
         $chunks = StudyPlanChunker::chunk($outline);
         foreach ($chunks as $chunk) {
             $violation = StudyPlanChunker::checkChunk($chunk);
@@ -337,6 +341,52 @@ class StudyBuildOrchestrator
     // current version is explicitly approved — enforced by the confirm
     // gate in AiPlanController, not by convention.
 
+    // ── Workflow stages (A→E), derived from persisted state — no migration ──
+    //
+    // The chat is the interaction surface; the server row is the source of
+    // truth. The stage is DERIVED (never stored separately) from:
+    //   status, version, approved_version, versions[].packages_approved,
+    //   plan statuses, done_chunks. Stages:
+    //   - master_review   (A intake + B review): v1 proposed, the summary IS
+    //                       the proposed master card; "continue" = reviewing
+    //                       it (approve / revise). Nothing is executable.
+    //   - packages_review (C): master approved, package list (derived from
+    //                       the approved chunks) awaiting explicit approval.
+    //   - preview_review  (D): packages approved, head package proposed —
+    //                       its card is the preview; confirming it approves
+    //                       the preview (still creates nothing).
+    //   - executing       (E): head confirmed/executing/failed; confirm-phase
+    //                       runs the approved preview, then the next package
+    //                       is proposed (back to preview_review).
+    //   - done/cancelled/expired: terminal.
+    //
+    // Transition table (op → precondition → effect → failure recovery):
+    //   create-request        : valid outline → building/v1 proposed + head
+    //                           proposed. Invalid → nothing stored (error).
+    //   approve-master {v}    : current version, valid outline → approved_v=v
+    //                           (idempotent repeat → deduped). 409 on old v.
+    //   revise-master         : building, done_chunks==0, all plans proposed
+    //                           → v+1 proposed, approvals reset, old heads
+    //                           obsolete (linked), new head proposed. A
+    //                           concurrent confirm is caught by the re-check
+    //                           inside a transaction → already_started, and
+    //                           nothing is stored on any failure.
+    //   approve-packages {v}  : building, current version, master approved,
+    //                           valid outline → versions[v].packages_approved
+    //                           (idempotent repeat → deduped).
+    //   confirm-preview       : chain plan proposed + master approved +
+    //                           packages approved for its version +
+    //                           dependency ok → confirmed. Repeat → deduped.
+    //   execute               : confirmed/executing/failed → runs phases;
+    //                           proposed is refused (not_confirmed). Phase
+    //                           failure → failed + last_error (retry resumes
+    //                           the stuck phase; completed work stays).
+    //   advance/reissue       : after DONE head → next proposed (or done);
+    //                           reissue only for expired untouched heads.
+    //   reload                : stage re-derived from the server row; the
+    //                           show endpoint returns master + packages +
+    //                           stage, so any client rebuilds the same step.
+
     /**
      * Normalize a model- or parser-produced outline to the strict schema.
      * Unknown keys are stripped (never trusted downstream); shape, titles
@@ -387,6 +437,10 @@ class StudyBuildOrchestrator
         return [
             'book_title' => (string) ($outline['book_title'] ?? ''),
             'chapters' => $chapters,
+            'parse_errors' => array_values(array_filter(
+                (array) ($outline['parse_errors'] ?? []),
+                fn ($error) => is_string($error) && trim($error) !== ''
+            )),
         ];
     }
 
@@ -397,14 +451,21 @@ class StudyBuildOrchestrator
      */
     public static function validateOutline(array $outline): ?string
     {
+        $parseErrors = array_values(array_filter((array) ($outline['parse_errors'] ?? []), 'is_string'));
+        if ($parseErrors !== []) {
+            return 'ساختار ورودی کامل و روشن نیست: '.$parseErrors[0];
+        }
+
         $title = trim((string) ($outline['book_title'] ?? ''));
-        if ($title === '' || mb_strlen($title) > 120 || $title === 'کتاب بدون عنوان') {
+        if ($title === '' || mb_strlen($title) > 120
+            || StudyOutlineParser::normalizeForMatch($title) === StudyOutlineParser::normalizeForMatch('کتاب بدون عنوان')) {
             return 'عنوان کتاب معتبر نیست — ساختار بدون عنوان قابل تأیید نیست.';
         }
         $chapters = array_values((array) ($outline['chapters'] ?? []));
         if (count($chapters) < 2 || count($chapters) > 60) {
             return 'تعداد فصل‌ها باید بین ۲ تا ۶۰ باشد — ساختار ناقص قابل تأیید نیست.';
         }
+        $chapterNumbers = [];
         foreach ($chapters as $ch) {
             if (! is_array($ch)) {
                 return 'یک فصل ساختار نامعتبر دارد.';
@@ -413,6 +474,15 @@ class StudyBuildOrchestrator
             if ($ct === '' || mb_strlen($ct) > 200) {
                 return 'عنوان یک فصل خالی یا بیش از حد طولانی است.';
             }
+            $chapterNumber = self::outlineNumber($ch['number'] ?? null, $ct, false);
+            if (is_string($chapterNumber)) {
+                return $chapterNumber;
+            }
+            $chapterNumbers[] = $chapterNumber;
+            if (($pageError = self::validatePageValue($ch['pages'] ?? null, 'فصل')) !== null) {
+                return $pageError;
+            }
+
             $lessons = array_values((array) ($ch['lessons'] ?? []));
             if (count($lessons) > 30) {
                 return 'تعداد درس‌های یک فصل بیش از حد مجاز است (سقف ۳۰).';
@@ -420,6 +490,9 @@ class StudyBuildOrchestrator
             if (count($lessons) + count((array) ($ch['extra_tasks'] ?? [])) < 1) {
                 return 'یک فصل هیچ درس یا موضوعی ندارد ('.$ct.').';
             }
+            $lessonNumbers = [];
+            $lessonPages = 0.0;
+            $allLessonPagesKnown = $lessons !== [];
             foreach ($lessons as $ls) {
                 if (! is_array($ls)) {
                     return 'یک درسنامه ساختار نامعتبر دارد.';
@@ -428,10 +501,36 @@ class StudyBuildOrchestrator
                 if ($lt === '' || mb_strlen($lt) > 200) {
                     return 'عنوان یک درسنامه خالی یا بیش از حد طولانی است.';
                 }
+                $lessonNumber = self::outlineNumber($ls['number'] ?? null, $lt, true);
+                if (is_string($lessonNumber)) {
+                    return $lessonNumber;
+                }
+                $lessonNumbers[] = $lessonNumber;
+                if (($pageError = self::validatePageValue($ls['pages'] ?? null, 'درسنامه')) !== null) {
+                    return $pageError;
+                }
+                if (isset($ls['pages']) && is_numeric($ls['pages'])) {
+                    $lessonPages += (float) $ls['pages'];
+                } else {
+                    $allLessonPagesKnown = false;
+                }
                 if (count((array) ($ls['topics'] ?? [])) > 50) {
                     return 'تعداد زیرموضوع‌های یک درسنامه بیش از حد مجاز است (سقف ۵۰).';
                 }
             }
+            if (($sequenceError = self::validateNumberSequence($lessonNumbers, 'درسنامه‌های فصل «'.$ct.'»')) !== null) {
+                return $sequenceError;
+            }
+
+            // Compare page totals only when lesson pages account for the full
+            // chapter and there are no unweighted extra tasks.
+            if (isset($ch['pages']) && is_numeric($ch['pages']) && $allLessonPagesKnown
+                && empty($ch['extra_tasks']) && (float) $ch['pages'] !== $lessonPages) {
+                return 'مجموع صفحات درسنامه‌های فصل «'.$ct.'» با صفحات ثبت‌شدهٔ فصل سازگار نیست.';
+            }
+        }
+        if (($sequenceError = self::validateNumberSequence($chapterNumbers, 'فصل‌ها')) !== null) {
+            return $sequenceError;
         }
 
         // Chunkability: the master must split into executable packages.
@@ -443,6 +542,60 @@ class StudyBuildOrchestrator
             if (StudyPlanChunker::checkChunk($chunk) !== null) {
                 return 'یک بسته از سقف مجاز بزرگ‌تر است — ساختار باید خردتر شود.';
             }
+        }
+
+        return null;
+    }
+
+    /** Resolve explicit numbers from fields or numeric headings without inventing numbers. */
+    private static function outlineNumber($number, string $title, bool $lesson)
+    {
+        $normalized = StudyOutlineParser::normalizeForMatch($title);
+        $prefix = $lesson ? '(?:درسنامه|درس|گفتار|واحد)' : '(?:فصل|بخش|چاپبر|چاپتر)';
+        preg_match('/^'.$prefix.'\s+(\d+)/u', $normalized, $match);
+        $titleNumber = isset($match[1]) ? (int) $match[1] : null;
+        $fieldNumber = is_numeric($number) ? (int) $number : null;
+
+        if ($fieldNumber !== null && $titleNumber !== null && $fieldNumber !== $titleNumber) {
+            return $lesson
+                ? 'شمارهٔ ثبت‌شده با عنوان یک درسنامه سازگار نیست.'
+                : 'شمارهٔ ثبت‌شده با عنوان یک فصل سازگار نیست.';
+        }
+        if ($fieldNumber !== null && $fieldNumber < 1) {
+            return $lesson ? 'شمارهٔ درسنامه باید مثبت باشد.' : 'شمارهٔ فصل باید مثبت باشد.';
+        }
+
+        return $fieldNumber ?? $titleNumber;
+    }
+
+    private static function validatePageValue($pages, string $label): ?string
+    {
+        if ($pages !== null && (! is_numeric($pages) || (float) $pages < 0)) {
+            return 'تعداد صفحات ثبت‌شده برای '.$label.' نامعتبر است.';
+        }
+
+        return null;
+    }
+
+    /** Numbering may start above one, but observed numbers must be unique and contiguous. */
+    private static function validateNumberSequence(array $numbers, string $label): ?string
+    {
+        $numbers = array_values(array_filter($numbers, fn ($number) => $number !== null));
+        $seen = [];
+        $previous = null;
+        foreach ($numbers as $number) {
+            $number = (int) $number;
+            if (isset($seen[$number])) {
+                return 'شمارهٔ تکراری در '.$label.' پیدا شد ('.$number.').';
+            }
+            if ($previous !== null && $number <= $previous) {
+                return 'ترتیب شماره‌ها در '.$label.' درست نیست.';
+            }
+            if ($previous !== null && $number > $previous + 1) {
+                return 'یک شماره در '.$label.' جا افتاده است (بین '.$previous.' و '.$number.').';
+            }
+            $seen[$number] = true;
+            $previous = $number;
         }
 
         return null;
@@ -467,7 +620,8 @@ class StudyBuildOrchestrator
                 'created_at' => optional($build->created_at)->toIso8601String(),
             ];
         }
-        // History entries never carry execution state — only the outline.
+        // History entries never carry execution state — only the outline
+        // plus the per-version package-list approval flag.
         $history = array_map(fn ($v) => [
             'version' => (int) ($v['version'] ?? 0),
             'status' => (string) ($v['status'] ?? 'proposed'),
@@ -475,6 +629,7 @@ class StudyBuildOrchestrator
             'total_chunks' => (int) ($v['total_chunks'] ?? 0),
             'note' => $v['note'] ?? null,
             'created_at' => $v['created_at'] ?? null,
+            'packages_approved' => ! empty($v['packages_approved']),
         ], $versions);
 
         return [
@@ -494,6 +649,10 @@ class StudyBuildOrchestrator
                 ? ['ok' => false, 'error' => $err]
                 : ['ok' => true, 'error' => null],
             'versions' => $history,
+            // Recovery contract (phase 3 builds on this): any client can
+            // rebuild the exact current step from these three fields.
+            'workflow_stage' => self::workflowStage($build),
+            'packages_approved' => self::packagesApproved($build),
         ];
     }
 
@@ -564,6 +723,133 @@ class StudyBuildOrchestrator
     }
 
     /**
+     * Per-package stage flags for UI gating (server-computed; the UI must
+     * not infer them). Null when the plan is not a chain package.
+     */
+    public static function chainGates(\App\Models\AiPlan $plan): ?array
+    {
+        if ($plan->master_build_id === null) {
+            return null;
+        }
+        $build = AiStudyBuild::where('id', $plan->master_build_id)
+            ->where('user_id', $plan->user_id)
+            ->first();
+        if (! $build) {
+            return ['master_approved' => false, 'packages_approved' => false];
+        }
+        $master = $build->approved_version !== null && (int) $build->approved_version === (int) $build->version;
+
+        return ['master_approved' => $master, 'packages_approved' => $master && self::packagesApproved($build)];
+    }
+
+    /**
+     * Workflow stage derived from persisted state only (see the A→E table
+     * above). No extra column: survives refresh/reconnect by construction.
+     */
+    public static function workflowStage(AiStudyBuild $build): string
+    {
+        $build = $build->fresh() ?? $build;
+        if ($build->status === AiStudyBuild::STATUS_DONE) {
+            return 'done';
+        }
+        if ($build->status === AiStudyBuild::STATUS_CANCELLED) {
+            return 'cancelled';
+        }
+        if ($build->status === AiStudyBuild::STATUS_EXPIRED) {
+            return 'expired';
+        }
+        if ($build->approved_version === null || (int) $build->approved_version !== (int) $build->version) {
+            return 'master_review';
+        }
+        if (! self::packagesApproved($build)) {
+            return 'packages_review';
+        }
+        $head = $build->lastPlan;
+        if ($head && in_array($head->status, [\App\Models\AiPlan::STATUS_CONFIRMED, \App\Models\AiPlan::STATUS_EXECUTING, \App\Models\AiPlan::STATUS_FAILED], true)) {
+            return 'executing';
+        }
+
+        return 'preview_review';
+    }
+
+    /**
+     * Whether the CURRENT master version's package list was explicitly
+     * approved. Stored on the version-history entry (no migration): a
+     * revision creates a fresh entry without the flag, so old approvals
+     * can never leak onto a new structure.
+     */
+    public static function packagesApproved(AiStudyBuild $build): bool
+    {
+        foreach (array_values((array) ($build->versions ?? [])) as $v) {
+            if ((int) ($v['version'] ?? 0) === (int) ($build->version ?? 1)) {
+                return ! empty($v['packages_approved']);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Stage C: approve the package list of a specific (current, approved)
+     * master version. Idempotent for repeats.
+     */
+    public static function approvePackages(AiStudyBuild $build, $user, int $version, ?string $rid = null): array
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($build, $user, $version, $rid) {
+            $locked = AiStudyBuild::where('id', $build->id)
+                ->where('user_id', $user->id)
+                ->lockForUpdate()
+                ->first();
+            if (! $locked) {
+                return ['ok' => false, 'code' => 'not_found', 'error' => __('Master structure not found.')];
+            }
+            if ($locked->status !== AiStudyBuild::STATUS_BUILDING) {
+                if (self::packagesApproved($locked->fresh()) && (int) ($locked->fresh()->version) === $version) {
+                    return ['ok' => true, 'deduped' => true, 'build' => $locked->fresh(), 'detail' => self::masterDetail($locked->fresh())];
+                }
+
+                return ['ok' => false, 'code' => 'not_building', 'error' => __('This chain is no longer active.')];
+            }
+            if ($version !== (int) $locked->version) {
+                $code = $version < (int) $locked->version ? 'superseded_version' : 'unknown_version';
+
+                return ['ok' => false, 'code' => $code, 'error' => $version < (int) $locked->version
+                    ? __('This structure version was replaced by a newer one (v:version).', ['version' => $locked->version])
+                    : __('Unknown structure version.')];
+            }
+            if ($locked->approved_version === null || (int) $locked->approved_version !== (int) $locked->version) {
+                return ['ok' => false, 'code' => 'master_not_approved', 'error' => __('Approve the master structure (v:version) first — packages stay locked until then.', ['version' => $locked->version])];
+            }
+            if (($err = self::validateOutline((array) $locked->outline_json)) !== null) {
+                AiLogger::log('study_build.packages_invalid', AiTrace::ids(null, $rid, $user->id, $locked->conversation_id) + ['build_id' => $locked->id, 'version' => $version, 'error' => $err]);
+
+                return ['ok' => false, 'code' => 'invalid_structure', 'error' => $err];
+            }
+
+            $versions = array_values((array) ($locked->versions ?? []));
+            foreach ($versions as &$v) {
+                if ((int) ($v['version'] ?? 0) === $version) {
+                    if (! empty($v['packages_approved'])) {
+                        unset($v);
+
+                        return ['ok' => true, 'deduped' => true, 'build' => $locked->fresh(), 'detail' => self::masterDetail($locked->fresh())];
+                    }
+                    $v['packages_approved'] = true;
+                    $v['packages_approved_at'] = now()->toIso8601String();
+                    $v['packages_approved_by'] = $user->id;
+                }
+            }
+            unset($v);
+            $locked->update(['versions' => $versions, 'last_error' => null]);
+
+            AiLogger::log('study_build.packages_approved', AiTrace::ids(null, $rid, $user->id, $locked->conversation_id) + ['build_id' => $locked->id, 'version' => $version]);
+            $fresh = $locked->fresh();
+
+            return ['ok' => true, 'build' => $fresh, 'detail' => self::masterDetail($fresh)];
+        });
+    }
+
+    /**
      * Revise the master from free-text feedback. Only before any package
      * executed (done_chunks == 0 and no plan past proposed) — mid-chain
      * restructuring belongs to P2. Produces version N+1, preserves N, and
@@ -587,9 +873,12 @@ class StudyBuildOrchestrator
         if ((int) $locked->done_chunks !== 0) {
             return ['ok' => false, 'code' => 'already_started', 'error' => __('Packages are already built — the structure can no longer be revised.')];
         }
+        // Only real execution blocks a revision: retired (obsolete) heads
+        // from an earlier revision, expired drafts and cancelled plans are
+        // untouched proposals, so a second revision stays possible.
         $livePlans = \App\Models\AiPlan::where('user_id', $user->id)
             ->whereIn('id', array_map('intval', (array) ($locked->plan_ids ?? [])))
-            ->whereNotIn('status', [\App\Models\AiPlan::STATUS_PROPOSED])
+            ->whereIn('status', [\App\Models\AiPlan::STATUS_CONFIRMED, \App\Models\AiPlan::STATUS_EXECUTING, \App\Models\AiPlan::STATUS_DONE, \App\Models\AiPlan::STATUS_FAILED])
             ->exists();
         if ($livePlans) {
             return ['ok' => false, 'code' => 'already_started', 'error' => __('A package is already confirmed — the structure can no longer be revised.')];
@@ -629,77 +918,105 @@ class StudyBuildOrchestrator
         }
         $chunks = \App\Services\Study\StudyPlanChunker::chunk($outline);
 
-        // Re-lock: the master must be untouched since we read it — including
-        // the pre-execution condition (a package could have been confirmed
-        // during the ~90s provider call).
-        $fresh = AiStudyBuild::where('id', $locked->id)
-            ->where('user_id', $user->id)
-            ->lockForUpdate()
-            ->first();
-        if (! $fresh || (int) $fresh->version !== $baseVersion || $fresh->status !== AiStudyBuild::STATUS_BUILDING) {
-            return ['ok' => false, 'code' => 'version_changed', 'error' => __('The structure changed while revising — review the current version and try again.')];
-        }
-        if ((int) $fresh->done_chunks !== 0 || \App\Models\AiPlan::where('user_id', $user->id)
-                ->whereIn('id', array_map('intval', (array) ($fresh->plan_ids ?? [])))
-                ->whereNotIn('status', [\App\Models\AiPlan::STATUS_PROPOSED])
-                ->exists()) {
-            return ['ok' => false, 'code' => 'already_started', 'error' => __('A package was confirmed while revising — the structure can no longer be revised.')];
-        }
-        // Retire stale proposed heads from the old version (unconfirmed
-        // drafts only — already_started above guarantees nothing executed).
-        // P2: retired as OBSOLETE (not cancelled) so the UI can tell
-        // "replaced by restructure" apart from "cancelled by user".
-        $retiredIds = \App\Models\AiPlan::where('user_id', $user->id)
-            ->whereIn('id', array_map('intval', (array) ($fresh->plan_ids ?? [])))
-            ->where('status', \App\Models\AiPlan::STATUS_PROPOSED)
-            ->pluck('id')->all();
+        // Re-check inside a transaction: the master must be untouched since
+        // we read it — including the pre-execution condition (a package
+        // could have been confirmed during the ~90s provider call). The
+        // lock is only meaningful inside the transaction.
+        try {
+            return \Illuminate\Support\Facades\DB::transaction(function () use ($locked, $user, $baseVersion, $feedback, $chunks, $outline, $conversationId, $rid) {
+                $fresh = AiStudyBuild::where('id', $locked->id)
+                    ->where('user_id', $user->id)
+                    ->lockForUpdate()
+                    ->first();
+                if (! $fresh || (int) $fresh->version !== $baseVersion || $fresh->status !== AiStudyBuild::STATUS_BUILDING) {
+                    return ['ok' => false, 'code' => 'version_changed', 'error' => __('The structure changed while revising — review the current version and try again.')];
+                }
+                if ((int) $fresh->done_chunks !== 0 || \App\Models\AiPlan::where('user_id', $user->id)
+                        ->whereIn('id', array_map('intval', (array) ($fresh->plan_ids ?? [])))
+                        ->whereIn('status', [\App\Models\AiPlan::STATUS_CONFIRMED, \App\Models\AiPlan::STATUS_EXECUTING, \App\Models\AiPlan::STATUS_DONE, \App\Models\AiPlan::STATUS_FAILED])
+                        ->exists()) {
+                    return ['ok' => false, 'code' => 'already_started', 'error' => __('A package was confirmed while revising — the structure can no longer be revised.')];
+                }
+                // Retire stale proposed heads from the old version (unconfirmed
+                // drafts only — already_started above guarantees nothing executed).
+                // P2: retired as OBSOLETE (not cancelled) so the UI can tell
+                // "replaced by restructure" apart from "cancelled by user".
+                $retiredIds = \App\Models\AiPlan::where('user_id', $user->id)
+                    ->whereIn('id', array_map('intval', (array) ($fresh->plan_ids ?? [])))
+                    ->where('status', \App\Models\AiPlan::STATUS_PROPOSED)
+                    ->pluck('id')->all();
 
-        $versions = array_values((array) ($fresh->versions ?? []));
-        foreach ($versions as &$v) {
-            if (($v['status'] ?? '') === 'proposed') {
-                $v['status'] = 'superseded';
-            }
-        }
-        unset($v);
-        $newVersion = $baseVersion + 1;
-        $versions[] = [
-            'version' => $newVersion,
-            'status' => 'proposed',
-            'outline' => $outline,
-            'total_chunks' => count($chunks),
-            'note' => mb_substr($feedback, 0, 200),
-            'created_at' => now()->toIso8601String(),
-        ];
-        $fresh->update([
-            'outline_json' => $outline,
-            'chunks_json' => $chunks,
-            'total_chunks' => count($chunks),
-            'title' => (string) ($outline['book_title'] ?? $fresh->title),
-            'version' => $newVersion,
-            'approved_version' => null,
-            'approved_at' => null,
-            'approved_by' => null,
-            'versions' => $versions,
-            'last_error' => null,
-        ]);
-
-        $created = self::createChunkPlan($user, $conversationId, $fresh->fresh(), $chunks[0], $rid);
-        if (! ($created['ok'] ?? false)) {
-            return ['ok' => false, 'code' => 'chunk_invalid', 'error' => $created['error'] ?? __('Invalid chunk.')];
-        }
-        if ($retiredIds !== []) {
-            \App\Models\AiPlan::where('user_id', $user->id)
-                ->whereIn('id', $retiredIds)
-                ->update([
-                    'status' => \App\Models\AiPlan::STATUS_OBSOLETE,
-                    'superseded_by_plan_id' => $created['plan']->id,
+                $versions = array_values((array) ($fresh->versions ?? []));
+                foreach ($versions as &$v) {
+                    if (($v['status'] ?? '') === 'proposed') {
+                        $v['status'] = 'superseded';
+                    }
+                }
+                unset($v);
+                $newVersion = $baseVersion + 1;
+                $versions[] = [
+                    'version' => $newVersion,
+                    'status' => 'proposed',
+                    'outline' => $outline,
+                    'total_chunks' => count($chunks),
+                    'note' => mb_substr($feedback, 0, 200),
+                    'created_at' => now()->toIso8601String(),
+                ];
+                $fresh->update([
+                    'outline_json' => $outline,
+                    'chunks_json' => $chunks,
+                    'total_chunks' => count($chunks),
+                    'title' => (string) ($outline['book_title'] ?? $fresh->title),
+                    'version' => $newVersion,
+                    'approved_version' => null,
+                    'approved_at' => null,
+                    'approved_by' => null,
+                    'versions' => $versions,
+                    'last_error' => null,
                 ]);
+
+            $created = self::createChunkPlan($user, $conversationId, $fresh->fresh(), $chunks[0], $rid);
+            if (! ($created['ok'] ?? false)) {
+                // Throw to roll back the version bump above: a revision
+                // that cannot propose its first chunk stores nothing, so
+                // retry is a plain repeat.
+                throw new \RuntimeException($created['error'] ?? __('Invalid chunk.'));
+            }
+            // The new head always carries the new version identity — including
+            // when idempotency reuses the live head instead of inserting a row.
+            $created['plan']->update([
+                'master_build_id' => $fresh->id,
+                'master_version' => $newVersion,
+                'package_index' => (int) ($chunks[0]['chunk_index'] ?? 0) ?: null,
+            ]);
+            // A no-op revision may reuse the live head via idempotency: the
+            // adopted head must never retire itself.
+            $retiredIds = array_values(array_diff(
+                array_map('intval', $retiredIds),
+                [(int) $created['plan']->id]
+            ));
+            if ($retiredIds !== []) {
+                \App\Models\AiPlan::where('user_id', $user->id)
+                    ->whereIn('id', $retiredIds)
+                    ->update([
+                        'status' => \App\Models\AiPlan::STATUS_OBSOLETE,
+                        'superseded_by_plan_id' => $created['plan']->id,
+                    ]);
+            }
+
+                AiLogger::log('study_build.revised', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $fresh->id, 'version' => $newVersion]);
+                $done = $fresh->fresh();
+
+                return ['ok' => true, 'build' => $done, 'plan' => $created['plan'], 'detail' => self::masterDetail($done)];
+            });
+        } catch (\RuntimeException $e) {
+            // Chunk proposal failed after the version bump: the transaction
+            // rolled everything back, so the revision stores nothing and
+            // retry is a plain repeat (same response shape as before).
+            AiLogger::log('study_build.revise_chunk_invalid', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $locked->id, 'error' => $e->getMessage()]);
+
+            return ['ok' => false, 'code' => 'chunk_invalid', 'error' => $e->getMessage()];
         }
-
-        AiLogger::log('study_build.revised', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $fresh->id, 'version' => $newVersion]);
-        $done = $fresh->fresh();
-
-        return ['ok' => true, 'build' => $done, 'plan' => $created['plan'], 'detail' => self::masterDetail($done)];
     }
 
     /**
@@ -954,7 +1271,8 @@ class StudyBuildOrchestrator
     }
 
     /**
-     * Actions valid for a package in its current state (UI hint only).
+     * Actions valid for a package in its current state (UI hint only;
+     * the server re-checks every action).
      */
     public static function packageActions(\App\Models\AiPlan $plan, AiStudyBuild $build): array
     {
@@ -966,11 +1284,14 @@ class StudyBuildOrchestrator
             return $actions;
         }
         $approved = $build->approved_version !== null && (int) $build->approved_version === (int) $build->version;
+        // Stage C gate: package actions unlock only after the package list
+        // of the current master version was explicitly approved.
+        if (! $approved || ! self::packagesApproved($build)) {
+            return $actions;
+        }
         switch ($plan->status) {
             case \App\Models\AiPlan::STATUS_PROPOSED:
-                if ($approved) {
-                    array_push($actions, 'confirm', 'execute', 'revise');
-                }
+                array_push($actions, 'confirm', 'execute', 'revise');
 
                 break;
             case \App\Models\AiPlan::STATUS_CONFIRMED:
@@ -1022,6 +1343,9 @@ class StudyBuildOrchestrator
         }
         if ($build->approved_version === null || (int) $build->approved_version !== (int) $build->version) {
             return ['ok' => false, 'code' => 'master_not_approved', 'error' => __('Approve the master structure first.')];
+        }
+        if (! self::packagesApproved($build)) {
+            return ['ok' => false, 'code' => 'packages_not_approved', 'error' => __('Approve the package list first — packages stay locked until then.')];
         }
 
         $providers = app(\App\Services\AiProviderService::class);

@@ -36,8 +36,12 @@ class AiMasterPlanTest extends TestCase
 
     private function approve(User $user, AiStudyBuild $build, int $version = 1)
     {
-        return $this->actingAs($user)->postJson(
+        $this->actingAs($user)->postJson(
             route('ai.study-builds.approve', $build), ['version' => $version]
+        )->assertOk();
+
+        return $this->actingAs($user)->postJson(
+            route('ai.study-builds.approve-packages', $build), ['version' => $version]
         );
     }
 
@@ -119,10 +123,17 @@ class AiMasterPlanTest extends TestCase
         $user = User::factory()->create();
         $started = $this->startChain($user);
 
-        $this->approve($user, $started['build'])
-            ->assertOk()
-            ->assertJsonPath('master.approved_version', 1)
-            ->assertJsonPath('master.version', 1);
+        // Master approval alone does not unlock packages (stage C pending).
+        $this->actingAs($user)->postJson(
+            route('ai.study-builds.approve', $started['build']), ['version' => 1]
+        )->assertOk()->assertJsonPath('master.approved_version', 1);
+        $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $started['plan']))
+            ->assertStatus(422)->assertJsonPath('code', 'packages_not_approved');
+
+        // Stage C approval unlocks the preview confirm + execution.
+        $this->actingAs($user)->postJson(
+            route('ai.study-builds.approve-packages', $started['build']), ['version' => 1]
+        )->assertOk()->assertJsonPath('master.packages_approved', true);
 
         $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $started['plan']))->assertOk();
         $this->actingAs($user)->postJson(route('ai.plans.confirm-phase', $started['plan']), ['run_all' => true])

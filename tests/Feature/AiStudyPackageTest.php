@@ -34,8 +34,12 @@ class AiStudyPackageTest extends TestCase
 
     private function approve(User $user, AiStudyBuild $build, int $version = 1)
     {
-        return $this->actingAs($user)->postJson(
+        $this->actingAs($user)->postJson(
             route('ai.study-builds.approve', $build), ['version' => $version]
+        )->assertOk();
+
+        return $this->actingAs($user)->postJson(
+            route('ai.study-builds.approve-packages', $build), ['version' => $version]
         )->assertOk();
     }
 

@@ -262,6 +262,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('ai.study-builds.show');
     Route::post('/ai/study-builds/{build}/approve-structure', [AiStudyBuildController::class, 'approve'])
         ->middleware('throttle:30,1')->name('ai.study-builds.approve');
+    Route::post('/ai/study-builds/{build}/approve-packages', [AiStudyBuildController::class, 'approvePackages'])
+        ->middleware('throttle:30,1')->name('ai.study-builds.approve-packages');
     Route::post('/ai/study-builds/{build}/revise-structure', [AiStudyBuildController::class, 'revise'])
         ->middleware('throttle:30,1')->name('ai.study-builds.revise');
     // AI Conversations (DB-backed)

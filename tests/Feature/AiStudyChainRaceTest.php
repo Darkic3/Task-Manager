@@ -41,6 +41,7 @@ class AiStudyChainRaceTest extends TestCase
 
             // P1: approve the master first — packages stay locked until then.
             $this->actingAs($user)->postJson(route('ai.study-builds.approve', $started['build']), ['version' => 1])->assertOk();
+            $this->actingAs($user)->postJson(route('ai.study-builds.approve-packages', $started['build']), ['version' => 1])->assertOk();
 
             // Real execution of chunk 1 (builds the book project).
             $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $head))->assertOk();

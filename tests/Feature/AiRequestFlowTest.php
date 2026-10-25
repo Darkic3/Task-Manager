@@ -56,6 +56,9 @@ class AiRequestFlowTest extends TestCase
         $this->actingAs($user)->postJson(
             route('ai.study-builds.approve', $build), ['version' => 1]
         )->assertOk();
+        $this->actingAs($user)->postJson(
+            route('ai.study-builds.approve-packages', $build), ['version' => 1]
+        )->assertOk();
     }
 
     private function taskCreateResponse(string $title = 'خرید شیر'): void

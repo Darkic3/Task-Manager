@@ -73,6 +73,41 @@ class AiStudyBuildController extends Controller
     }
 
     /**
+     * Stage C: approve the package list of the current master version.
+     * Idempotent for repeats.
+     */
+    public function approvePackages(Request $request, AiStudyBuild $build)
+    {
+        abort_if($build->user_id !== Auth::id(), 403);
+
+        $request->validate(['version' => 'required|integer|min:1|max:100']);
+        $rid = AiLogger::newRequestId();
+
+        $res = StudyBuildOrchestrator::approvePackages($build, Auth::user(), (int) $request->input('version'), $rid);
+        if (! ($res['ok'] ?? false)) {
+            $status = ($res['code'] ?? null) === 'not_found' ? 404 : 422;
+            if (($res['code'] ?? null) === 'superseded_version' || ($res['code'] ?? null) === 'unknown_version') {
+                $status = 409;
+            }
+
+            return response()->json(['ok' => false, 'code' => $res['code'] ?? 'error', 'error' => $res['error'] ?? __('Approval failed.'), 'master' => StudyBuildOrchestrator::masterDetail($build->fresh() ?? $build)], $status);
+        }
+
+        $fresh = $res['build'];
+        if (empty($res['deduped'])) {
+            $this->note($fresh, __('📦 فهرست بسته‌ها (نسخه :version) تأیید شد — حالا بستهٔ اول را بررسی و تأیید کنید.', ['version' => $fresh->version]));
+        }
+
+        return response()->json([
+            'ok' => true,
+            'deduped' => ! empty($res['deduped']),
+            'master' => $res['detail'],
+            'study_build' => $fresh->progress(),
+            'packages' => StudyBuildOrchestrator::packageList($fresh),
+        ]);
+    }
+
+    /**
      * Revise the master from free-text feedback. Produces version N+1 and
      * preserves N; stores nothing when the provider or validation fails,
      * so retry is a plain repeat of the same request.

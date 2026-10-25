@@ -40,6 +40,8 @@ class AiStudyUiTest extends TestCase
         // B3: next-chunk button staged in the done state (P0: API-driven
         // continuation from the stored chain, not a prefilled prompt).
         $this->assertStringContainsString('📦 بسته بعدی', $html);
+        // Stage C: the package-list approval action is staged on the card.
+        $this->assertStringContainsString('تأیید فهرست بسته‌ها', $html);
         // 1-Click run-all stays the primary action (expiry safety).
         $this->assertStringContainsString('ساخت و اجرای کامل پروژه', $html);
     }

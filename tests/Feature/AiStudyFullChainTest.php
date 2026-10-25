@@ -51,6 +51,11 @@ class AiStudyFullChainTest extends TestCase
         $this->actingAs($user)->postJson(route('ai.study-builds.approve', $master), ['version' => 1])
             ->assertOk()
             ->assertJsonPath('master.approved_version', 1);
+        // Stage C: the package list needs its own approval before any
+        // package preview may be confirmed.
+        $this->actingAs($user)->postJson(route('ai.study-builds.approve-packages', $master), ['version' => 1])
+            ->assertOk()
+            ->assertJsonPath('master.packages_approved', true);
 
         // 3) Confirm every chunk card until the chain reports done.
         $iterations = 0;

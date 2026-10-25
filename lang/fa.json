@@ -1985,5 +1985,6 @@
     "Record this time under": "این زمان برای کدام بخش ثبت شود؟",
     "Only save time": "فقط زمان ثبت شود",
     "Save selections": "ثبت انتخاب‌ها",
-    "Could not save these selections.": "ثبت این انتخاب‌ها ممکن نشد."
+    "Could not save these selections.": "ثبت این انتخاب‌ها ممکن نشد.",
+    "Approve the package list first — packages stay locked until then.": "اول فهرست بسته‌ها را تأیید کن — تا تأیید نکنی بسته‌ها قفل می‌مانند."
 }

@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\Study\StudyOutlineParser;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -113,5 +114,132 @@ class StudyOutlineParserTest extends TestCase
         foreach ($this->parsed['chapters'] as $ch) {
             $this->assertStringNotContainsString('پروژه', $ch['title']);
         }
+    }
+
+    public function test_healthy_fixture_reports_no_parse_errors(): void
+    {
+        $this->assertSame([], $this->parsed['parse_errors']);
+    }
+
+    public function test_inline_title_inside_request_sentence_is_extracted(): void
+    {
+        $text = "میخوام یک پروژه بسازی به عنوان کتاب روانشناسی شناختی و این فصل‌ها و بخش‌ها رو بهش اضافه کنی\n"
+            ."فصل ۱: الف (۱۰ صفحه)\n"
+            ."درسنامه ۱: ب (۱۰ صفحه)\n"
+            ."نکتهٔ ب\n"
+            ."فصل ۲: ج (۱۰ صفحه)\n"
+            ."درسنامه ۱: د (۱۰ صفحه)\n"
+            ."نکتهٔ د";
+
+        $parsed = StudyOutlineParser::parse($text);
+
+        $this->assertSame('کتاب روانشناسی شناختی', $parsed['book_title']);
+        $this->assertCount(2, $parsed['chapters']);
+        $this->assertSame([], $parsed['parse_errors']);
+    }
+
+    #[DataProvider('inlineTitleVariants')]
+    public function test_inline_title_variants(string $requestLine, string $expected): void
+    {
+        $text = $requestLine."\n"
+            ."فصل ۱: الف (۱۰ صفحه)\n"
+            ."درسنامه ۱: ب (۱۰ صفحه)\n"
+            ."مطلب آموزشی ب\n"
+            ."فصل ۲: ج (۱۰ صفحه)\n"
+            ."درسنامه ۱: د (۱۰ صفحه)\n"
+            ."مطلب آموزشی د";
+
+        $this->assertSame($expected, StudyOutlineParser::parse($text)['book_title']);
+    }
+
+    public static function inlineTitleVariants(): array
+    {
+        return [
+            'به عنوان' => [
+                'میخوام به عنوان کتاب روانشناسی شناختی فصل‌ها را اضافه کنی',
+                'کتاب روانشناسی شناختی',
+            ],
+            'به نام کتاب' => [
+                'لطفا یک پروژه بساز به نام کتاب روانشناسی شناختی و فصل‌ها را اضافه کن',
+                'کتاب روانشناسی شناختی',
+            ],
+            'نام کتاب با دو نقطه' => [
+                'نام کتاب: روانشناسی شناختی',
+                'روانشناسی شناختی',
+            ],
+        ];
+    }
+
+    public function test_full_instruction_sentence_is_never_used_as_title(): void
+    {
+        $text = "میخوام یک پروژه بسازی و فصل‌ها را اضافه کنی\n"
+            ."فصل ۱: الف (۱۰ صفحه)\n"
+            ."درسنامه ۱: ب (۱۰ صفحه)\n"
+            ."نکته\n"
+            ."فصل ۲: ج (۱۰ صفحه)\n"
+            ."درسنامه ۱: د (۱۰ صفحه)\n"
+            ."نکته";
+
+        $parsed = StudyOutlineParser::parse($text);
+
+        $this->assertSame('کتاب بدون عنوان', $parsed['book_title']);
+        $this->assertStringNotContainsString('میخوام', $parsed['book_title']);
+    }
+
+    public function test_cognitive_excerpt_keeps_attention_chapter_and_title(): void
+    {
+        $parsed = StudyOutlineParser::parse(StudyOutlineFixture::cognitiveRegressionExcerpt());
+
+        $this->assertSame('کتاب روانشناسی شناختی', $parsed['book_title']);
+        $this->assertCount(4, $parsed['chapters']);
+        $this->assertSame([], $parsed['parse_errors']);
+
+        $ch4 = $parsed['chapters'][3];
+        $this->assertSame(4, $ch4['number']);
+        $this->assertStringContainsString('توجه و هشیاری', $ch4['title']);
+        $this->assertCount(4, $ch4['lessons']);
+        $this->assertSame('درسنامه ۱: ماهیت توجه و انواع آن', $ch4['lessons'][0]['title']);
+        // Chapter-3 lessons keep their own numbers; nothing migrated from ch4.
+        $this->assertSame([1, 2, 3, 4], array_column($parsed['chapters'][2]['lessons'], 'number'));
+
+        $lessons = 0;
+        foreach ($parsed['chapters'] as $ch) {
+            $lessons += count($ch['lessons']);
+        }
+        $this->assertSame(14, $lessons);
+    }
+
+    public function test_unsupported_chapter_heading_is_reported_not_merged(): void
+    {
+        $text = "عنوان کتاب نمونه\n"
+            ."فصل ۱: الف (۱۰ صفحه)\n"
+            ."درسنامه ۱: ب (۱۰ صفحه)\n"
+            ."مطلب آموزشی ب\n"
+            ."فصل چهارم: توجه و هشیاری\n"
+            ."درسنامه ۱: پ (۱۰ صفحه)\n"
+            ."مطلب آموزشی پ\n"
+            ."فصل ۲: ج (۱۰ صفحه)\n"
+            ."درسنامه ۱: د (۱۰ صفحه)\n"
+            ."مطلب آموزشی د";
+
+        $parsed = StudyOutlineParser::parse($text);
+
+        $this->assertNotEmpty($parsed['parse_errors']);
+        foreach ($parsed['chapters'] as $ch) {
+            $this->assertStringNotContainsString('چهارم', $ch['title']);
+        }
+    }
+
+    public function test_orphan_lesson_is_reported(): void
+    {
+        $parsed = StudyOutlineParser::parse("درسنامه ۱: یتیم\nمطلب یتیم\nفصل ۱: الف (۱۰ صفحه)\nدرسنامه ۱: ب (۱۰ صفحه)\nمطلب ب");
+
+        $this->assertNotEmpty($parsed['parse_errors']);
+        // The orphan lesson must not invent a phantom chapter; the later
+        // valid chapter keeps exactly its own lesson.
+        $this->assertCount(1, $parsed['chapters']);
+        $this->assertSame(1, $parsed['chapters'][0]['number']);
+        $this->assertCount(1, $parsed['chapters'][0]['lessons']);
+        $this->assertSame('درسنامه ۱: ب', $parsed['chapters'][0]['lessons'][0]['title']);
     }
 }
