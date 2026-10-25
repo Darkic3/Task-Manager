@@ -415,6 +415,41 @@ footer, .topnav { display: none !important; }
 .lina-plan-note.muted { color: var(--lina-muted); }
 @keyframes linaPulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
 
+/* ── Wizard stepper (study chain): one stage visible at a time ── */
+.lina-steps { display: flex; align-items: flex-start; margin: 10px 0 2px; }
+.lina-step { flex: 1; text-align: center; position: relative; font-size: 11.5px; color: var(--lina-faint); min-width: 0; }
+.lina-step .dot {
+    width: 26px; height: 26px; border-radius: 50%; margin: 0 auto 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums;
+    background: var(--lina-bg); border: 2px solid var(--lina-line); color: var(--lina-faint);
+}
+.lina-step.done { color: #15803d; }
+.lina-step.done .dot { background: #dcfce7; border-color: #22c55e; color: #15803d; }
+.lina-step.current { color: var(--lina-accent-hover); font-weight: 700; }
+.lina-step.current .dot { border-color: var(--lina-accent); color: var(--lina-accent-hover); animation: linaPulse 1.8s infinite; }
+.lina-step::before {
+    content: ''; position: absolute; top: 13px; height: 2px;
+    inset-inline-start: calc(-50% + 16px); inset-inline-end: calc(50% + 16px);
+    background: var(--lina-line);
+}
+.lina-step:first-child::before { display: none; }
+.lina-step.done::before { background: #22c55e; }
+.lina-stage {
+    border: 1px solid var(--lina-line); border-radius: 12px;
+    padding: 10px 12px; margin-top: 8px; background: var(--lina-surface);
+}
+.lina-stage-title { font-weight: 700; font-size: 13px; margin-bottom: 6px; color: var(--lina-ink); }
+.lina-stage-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+details.lina-fold { border: 1px solid var(--lina-line-soft); border-radius: 10px; margin-top: 6px; background: var(--lina-surface); }
+details.lina-fold > summary { cursor: pointer; padding: 7px 10px; font-size: 12.5px; font-weight: 600; list-style: none; color: var(--lina-body); }
+details.lina-fold > summary::-webkit-details-marker { display: none; }
+details.lina-fold > summary::before { content: '▸ '; color: var(--lina-faint); }
+details.lina-fold[open] > summary::before { content: '▾ '; }
+details.lina-fold .fold-body { padding: 0 10px 8px; font-size: 12.5px; }
+.lina-flash { animation: linaFlash 1.2s ease; }
+@keyframes linaFlash { 0% { box-shadow: 0 0 0 3px var(--lina-accent-line, #c7d2fe); } 100% { box-shadow: none; } }
+
 /* ── Mode toggle ── */
 .lina-mode-toggle { display: flex; background: var(--lina-bg); border: 1px solid var(--lina-line); border-radius: 999px; padding: 2px; gap: 2px; }
 .lina-mode-btn {
@@ -867,10 +902,8 @@ footer, .topnav { display: none !important; }
         }
         builds.forEach((b) => {
             if (b.master) renderMasterCard(b.master, b.packages || [], b.study_build || null);
-            // The current head preview (if any): stale/superseded packages
-            // expose view-only actions from the server, never live buttons.
-            const head = (b.packages || []).find((p) => p.is_head && p.plan);
-            if (head && head.plan) renderPlanCard(head.plan, b.study_build || null);
+            // No separate head preview: the staged master card already
+            // shows the head package (full) — one card per chain.
         });
         scrollBottom();
     }
@@ -1188,7 +1221,7 @@ footer, .topnav { display: none !important; }
                             if (json.code === 'too_many_pending' && chatMode === 'agent') renderPendingOverflowCard(json);
                             else appendError(json.error);
                         } else if (json.type === 'plan_proposal' && json.plan) {
-                            if (chatMode === 'agent') { proposalRendered = true; if (json.master) { renderMasterCard(json.master); refreshMasterCard(json.master.id); } renderPlanCard(json.plan, json.study_build); }
+                            if (chatMode === 'agent') { proposalRendered = true; if (json.master) { renderMasterCard(json.master); refreshMasterCard(json.master.id); } if (json.plan && !json.plan.master_build_id) renderPlanCard(json.plan, json.study_build); }
                             else console.warn('[Lina] plan ignored in chat mode');
                         } else if (json.type === 'plan_proposal' && json.error) {
                             errorShown = true;
@@ -1769,6 +1802,45 @@ footer, .topnav { display: none !important; }
     };
     function pkgStatusLabel(st) { return PKG_STATUS_FA[st] || escPlan(st); }
 
+    /* ── Wizard helpers: staged study-chain card ── */
+    // One stage visible at a time; approved stages collapse into summaries.
+    function wizardStepIndex(stage) {
+        switch (stage) {
+            case 'packages_review': return 1;
+            case 'preview_review': case 'executing': case 'failed': return 2;
+            case 'done': return 3;
+            default: return 0; // master_review (+ unknown → structure step)
+        }
+    }
+
+    function paintStepper(stage) {
+        const labels = ['ساختار کلان', 'فهرست بسته‌ها', 'بررسی و اجرا', 'تکمیل'];
+        const finished = stage === 'done';
+        const cur = wizardStepIndex(stage);
+        const terminal = (stage === 'cancelled' || stage === 'expired');
+        let html = '<div class="lina-steps">';
+        labels.forEach((lb, i) => {
+            const cls = (finished || i < cur) ? 'done' : ((i === cur && !terminal) ? 'current' : '');
+            const mark = (finished || i < cur) ? '✓' : String(i + 1);
+            html += '<div class="lina-step ' + cls + '"><div class="dot">' + mark + '</div>' + escPlan(lb) + '</div>';
+        });
+        return html + '</div>';
+    }
+
+    // Collapsible outline: chapters stay folded until opened — long books
+    // no longer stretch the page.
+    function chapterTreeHtml(chapters) {
+        return '<div>' + chapters.map((ch) => {
+            const lessons = ch.lessons || [];
+            const lhtml = lessons.map((ls) => '<div style="margin-inline-start:6px;">📄 ' + escPlan(ls.title) + (((ls.topics || []).length) ? ' <span style="color:#6b7280;">(' + ls.topics.length + ' زیرموضوع)</span>' : '') + '</div>').join('');
+            return '<details class="lina-fold"><summary>📁 ' + escPlan(ch.title) + ' <span style="color:#6b7280;font-weight:400;">(' + lessons.length + ' درسنامه)</span></summary><div class="fold-body">' + (lhtml || '<span style="color:#6b7280;">—</span>') + '</div></details>';
+        }).join('') + '</div>';
+    }
+
+    function foldHtml(summary, innerHtml) {
+        return '<details class="lina-fold"><summary>' + summary + '</summary><div class="fold-body">' + innerHtml + '</div></details>';
+    }
+
     function paintMaster(card, master, packages, studyBuild) {
         packages = packages || [];
         const outline = master.outline || {};
@@ -1776,58 +1848,130 @@ footer, .topnav { display: none !important; }
         const ver = master.version || 1;
         const approved = master.approved_version;
         const isApproved = approved !== null && approved !== undefined && Number(approved) === Number(ver);
+        const pkgsApproved = !!master.packages_approved;
         const validation = master.validation || { ok: true };
-        let html = '<h4>📖 ساختار کلان: ' + escPlan(master.title || '') + '</h4>'
-            + '<div class="lina-plan-totals">نسخه ' + escPlan(ver)
-            + (isApproved ? ' · ✅ تأییدشده' : (approved !== null && approved !== undefined ? ' · ⏳ در انتظار تأیید (نسخه تأییدشده: ' + escPlan(approved) + ')' : ' · ⏳ در انتظار تأیید'))
-            + ' · ' + chapters.length + ' فصل · ' + escPlan(master.total_chunks || 0) + ' بسته</div>';
-        // Version history: every version stays visible, never rewritten.
-        const hist = (master.versions || []).map((v) => {
-            const st = v.status === 'approved' ? '✅ تأییدشده' : (v.status === 'superseded' ? '↩️ جایگزین‌شده' : '⏳ پیش‌نویس');
-            return 'v' + escPlan(v.version) + ' ' + st;
+        const stage = master.workflow_stage || (isApproved ? (pkgsApproved ? 'preview_review' : 'packages_review') : 'master_review');
+        const stepIdx = wizardStepIndex(stage);
+        const finished = stage === 'done';
+        const terminal = (stage === 'cancelled' || stage === 'expired');
+        // Drop full plan cards rendered for older versions of this chain —
+        // the staged card below is the single source of truth per version.
+        document.querySelectorAll('.lina-plan-card[data-master-build="' + master.id + '"]').forEach((el) => {
+            if (el.dataset.masterVersion && Number(el.dataset.masterVersion) !== Number(ver)) {
+                const w = el.closest('.lina-msg-wrap.bot');
+                if (w) w.remove();
+            }
         });
-        if (hist.length) html += '<div class="lina-plan-chain" style="background:#f5f3ff;padding:8px 12px;border-radius:10px;border:1px solid #ddd6fe;margin-top:8px;font-size:12.5px;color:#5b21b6;">' + escPlan(hist.join(' · ')) + '</div>';
-        // Readable outline tree (capped for long books).
-        const shown = chapters.slice(0, 12);
-        html += '<div class="lina-plan-tree" style="margin-top:8px;font-size:13px;">' + shown.map((ch) => {
-            const lessons = (ch.lessons || []).slice(0, 8);
-            const lhtml = lessons.map((ls) => '<div style="margin-inline-start:18px;">📄 ' + escPlan(ls.title) + (((ls.topics || []).length) ? ' <span style="color:#6b7280;">(' + (ls.topics || []).length + ' زیرموضوع)</span>' : '') + '</div>').join('');
-            const moreL = (ch.lessons || []).length > 8 ? '<div style="margin-inline-start:18px;color:#6b7280;">… و ' + ((ch.lessons || []).length - 8) + ' درسنامه دیگر</div>' : '';
-            return '<div style="margin-top:4px;">📁 <b>' + escPlan(ch.title) + '</b> <span style="color:#6b7280;">(' + (ch.lessons || []).length + ' درسنامه)</span>' + lhtml + moreL + '</div>';
-        }).join('') + (chapters.length > 12 ? '<div style="color:#6b7280;margin-top:4px;">… و ' + (chapters.length - 12) + ' فصل دیگر</div>' : '') + '</div>';
+        let html = '<h4>📖 ' + escPlan(master.title || '') + '</h4>'
+            + '<div class="lina-plan-totals">نسخه ' + escPlan(ver)
+            + (isApproved ? ' · ✅ تأییدشده' : ' · ⏳ در انتظار تأیید')
+            + ' · ' + chapters.length + ' فصل · ' + escPlan(master.total_chunks || 0) + ' بسته</div>'
+            + paintStepper(stage);
+        // Compact version history (badges, not paragraphs).
+        const hist = (master.versions || []).map((v) => {
+            const st = v.status === 'approved' ? '✅' : (v.status === 'superseded' ? '↩️' : '⏳');
+            return st + ' نسخه ' + escPlan(v.version);
+        });
+        if (hist.length > 1) html += '<div class="lina-plan-totals">' + escPlan(hist.join(' · ')) + '</div>';
+        if (!validation.ok) {
+            html += '<div class="lina-plan-note" style="background:#fef2f2;padding:8px 12px;border-radius:10px;border:1px solid #fecaca;color:#b91c1c;">⚠ ' + escPlan(validation.error || '') + '</div>';
+        }
         card.innerHTML = html;
         const body = document.createElement('div');
-        body.style.cssText = 'margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;';
-        if (!validation.ok) {
-            const warn = document.createElement('div');
-            warn.className = 'lina-plan-note';
-            warn.style.cssText = 'background:#fef2f2;padding:8px 12px;border-radius:10px;border:1px solid #fecaca;color:#b91c1c;font-size:12.5px;width:100%;';
-            warn.textContent = '⚠ ' + validation.error;
-            body.appendChild(warn);
+        body.style.cssText = 'margin-top:6px;display:flex;flex-direction:column;gap:8px;';
+        // Free-text revision gate (the server re-checks too — visual only).
+        const masterLocked = (studyBuild && (studyBuild.done_chunks || 0) > 0)
+            || (packages || []).some((p) => p.plan_id && ['confirmed', 'executing', 'done', 'failed'].includes(p.status));
+
+        /* ── STEP 1 — structure: interactive now, folded summary later ── */
+        if (stepIdx === 0 && !terminal) {
+            const s1 = document.createElement('div');
+            s1.className = 'lina-stage';
+            s1.innerHTML = '<div class="lina-stage-title">قدم ۱ — بررسی ساختار کلان</div><div style="font-size:12px;color:#6b7280;margin-bottom:6px;">فصل‌ها را باز کن، بعد تأیید کن یا اصلاح بخواه.</div>';
+            const tree = document.createElement('div');
+            tree.innerHTML = chapterTreeHtml(chapters);
+            s1.appendChild(tree);
+            const acts = document.createElement('div');
+            acts.className = 'lina-stage-actions';
+            // Version-bound approval: the button carries its version; the
+            // server rejects any version that is no longer current (409).
+            const approveBtn = document.createElement('button');
+            approveBtn.className = 'lina-tool-confirm';
+            approveBtn.style.cssText = 'font-size:12.5px;';
+            approveBtn.textContent = '✅ تأیید ساختار (نسخه ' + ver + ')';
+            approveBtn.disabled = !validation.ok;
+            approveBtn.onclick = async () => {
+                approveBtn.disabled = true;
+                try {
+                    const res = await api('POST', '/ai/study-builds/' + master.id + '/approve-structure', { version: ver });
+                    if (res.master) paintMaster(card, res.master, res.packages || [], res.study_build || null);
+                } catch (e) {
+                    appendError(e && e.detail ? e.detail : 'خطا در تأیید ساختار.');
+                    approveBtn.disabled = false;
+                }
+                scrollBottom();
+            };
+            acts.appendChild(approveBtn);
+            const fb = document.createElement('textarea');
+            fb.rows = 2;
+            fb.style.cssText = 'width:100%;font-size:12.5px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;margin-top:2px;';
+            fb.placeholder = 'تغییر موردنظر را بنویسید… (مثلاً عنوان جدید یا فصل تازه)';
+            acts.appendChild(fb);
+            const reviseBtn = document.createElement('button');
+            reviseBtn.className = 'lina-tool-reject';
+            reviseBtn.style.cssText = 'font-size:12.5px;';
+            reviseBtn.textContent = '📝 درخواست اصلاح (نسخه جدید)';
+            reviseBtn.onclick = async () => {
+                const feedback = (fb.value || '').trim();
+                if (!feedback) { fb.focus(); return; }
+                reviseBtn.disabled = true;
+                const reviseLabel = reviseBtn.textContent;
+                reviseBtn.textContent = '⏳ در حال ارسال درخواست اصلاح…';
+                try {
+                    const res = await api('POST', '/ai/study-builds/' + master.id + '/revise-structure', { feedback }, { timeoutMs: 180000 });
+                    if (res.master) paintMaster(card, res.master, res.packages || [], res.study_build || null);
+                    // Chain packages live in this card — no separate full
+                    // card is rendered for them (keeps the page short).
+                    if (res.plan && !res.plan.master_build_id) renderPlanCard(res.plan, res.study_build || null);
+                } catch (e) {
+                    if (e && e.code === 'timeout') {
+                        // Unknown server state: recover first, then guide.
+                        // If the revision landed, the refresh shows the new
+                        // version and the user must NOT resend.
+                        try { await refreshMasterCard(master.id); } catch { /* recovery error already shown */ }
+                        appendError('مهلت درخواست اصلاح تمام شد؛ وضعیت فعلی ساختار از سرور بازیابی شد. اگر نسخه جدید ساخته شده بود، همان را بررسی کن و دوباره ارسال نکن.');
+                    } else {
+                        appendError(e && e.detail ? e.detail : 'خطا در اصلاح ساختار.');
+                    }
+                } finally {
+                    reviseBtn.disabled = false;
+                    if (reviseBtn.isConnected) reviseBtn.textContent = reviseLabel;
+                }
+                scrollBottom();
+            };
+            acts.appendChild(reviseBtn);
+            s1.appendChild(acts);
+            body.appendChild(s1);
+        } else {
+            const d = document.createElement('div');
+            d.innerHTML = foldHtml(
+                (isApproved ? '✅ ساختار نسخه ' + ver + ' تأیید شد' : '📖 ساختار نسخه ' + ver) + ' — ' + chapters.length + ' فصل (کلیک برای دیدن)',
+                chapterTreeHtml(chapters)
+            );
+            body.appendChild(d);
         }
-        // Version-bound approval: the button carries its version; the server
-        // rejects any version that is no longer current (409).
-        const approveBtn = document.createElement('button');
-        approveBtn.className = 'lina-tool-confirm';
-        approveBtn.style.cssText = 'font-size:12.5px;';
-        approveBtn.textContent = isApproved ? '✅ تأییدشده (نسخه ' + ver + ')' : '✅ تأیید ساختار (نسخه ' + ver + ')';
-        approveBtn.disabled = !!isApproved || !validation.ok;
-        approveBtn.onclick = async () => {
-            approveBtn.disabled = true;
-            try {
-                const res = await api('POST', '/ai/study-builds/' + master.id + '/approve-structure', { version: ver });
-                if (res.master) paintMaster(card, res.master, res.packages || [], res.study_build || null);
-            } catch (e) {
-                appendError(e && e.detail ? e.detail : 'خطا در تأیید ساختار.');
-                approveBtn.disabled = false;
-            }
-            scrollBottom();
-        };
-        body.appendChild(approveBtn);
-        // Stage C: explicit package-list approval, bound to this version.
-        // Package cards/actions unlock only after this (server-enforced).
-        const pkgsApproved = !!master.packages_approved;
-        if (isApproved && !pkgsApproved) {
+
+        /* ── STEP 2 — package list: compact rows + one approval ── */
+        if (stepIdx === 1 && !terminal) {
+            const s2 = document.createElement('div');
+            s2.className = 'lina-stage';
+            s2.innerHTML = '<div class="lina-stage-title">قدم ۲ — تأیید فهرست بسته‌ها</div><div style="font-size:12px;color:#6b7280;margin-bottom:6px;">فقط سرفصل هر بسته را ببین؛ جزئیات بعد از تأیید باز می‌شود.</div>';
+            const list = document.createElement('div');
+            list.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+            packages.forEach((pkg) => list.appendChild(paintPackage(pkg, studyBuild)));
+            s2.appendChild(list);
+            const acts = document.createElement('div');
+            acts.className = 'lina-stage-actions';
             const pkgBtn = document.createElement('button');
             pkgBtn.className = 'lina-tool-confirm';
             pkgBtn.style.cssText = 'font-size:12.5px;';
@@ -1843,80 +1987,75 @@ footer, .topnav { display: none !important; }
                 }
                 scrollBottom();
             };
-            body.appendChild(pkgBtn);
-        } else if (isApproved && pkgsApproved) {
-            const okNote = document.createElement('div');
-            okNote.className = 'lina-plan-note';
-            okNote.style.cssText = 'background:#f0fdf4;padding:8px 12px;border-radius:10px;border:1px solid #bbf7d0;color:#16a34a;font-size:12.5px;width:100%;';
-            okNote.textContent = '✅ فهرست بسته‌ها تأیید شد — بسته‌ها را یکی‌یکی بررسی و تأیید کنید.';
-            body.appendChild(okNote);
+            acts.appendChild(pkgBtn);
+            s2.appendChild(acts);
+            body.appendChild(s2);
+        } else if ((stepIdx > 1 || finished) && packages.length) {
+            const d = document.createElement('div');
+            const tmp = document.createElement('div');
+            tmp.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+            packages.forEach((pkg) => tmp.appendChild(paintPackage(pkg, studyBuild)));
+            d.innerHTML = foldHtml('📦 ' + packages.length + ' بسته (کلیک برای دیدن)', '');
+            d.querySelector('.fold-body').appendChild(tmp);
+            body.appendChild(d);
         }
-        // Free-text revision (no raw JSON editing for normal users).
-        // Locked once a package moved past proposed or anything executed
-        // (the server rejects it too — this is only the visual gate).
-        const masterLocked = (studyBuild && (studyBuild.done_chunks || 0) > 0)
-            || (packages || []).some((p) => p.plan_id && ['confirmed', 'executing', 'done', 'failed'].includes(p.status));
-        const fb = document.createElement('textarea');
-        fb.rows = 2;
-        fb.style.cssText = 'width:100%;font-size:12.5px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;';
-        fb.placeholder = 'تغییر موردنظر را بنویسید…';
-        body.appendChild(fb);
-        const reviseBtn = document.createElement('button');
-        reviseBtn.className = 'lina-tool-reject';
-        reviseBtn.style.cssText = 'font-size:12.5px;';
-        reviseBtn.textContent = '📝 درخواست اصلاح (نسخه جدید)';
-        if (masterLocked) {
-            reviseBtn.disabled = true;
-            reviseBtn.title = 'پس از تأیید/اجرای بسته، ساختار کلان قابل اصلاح نیست.';
-        }
-        reviseBtn.onclick = async () => {
-            const feedback = (fb.value || '').trim();
-            if (!feedback) { fb.focus(); return; }
-            reviseBtn.disabled = true;
-            const reviseLabel = reviseBtn.textContent;
-            reviseBtn.textContent = '⏳ در حال ارسال درخواست اصلاح…';
-            try {
-                const res = await api('POST', '/ai/study-builds/' + master.id + '/revise-structure', { feedback }, { timeoutMs: 180000 });
-                if (res.master) paintMaster(card, res.master, res.packages || [], res.study_build || null);
-                if (res.plan) renderPlanCard(res.plan, res.study_build || null);
-            } catch (e) {
-                if (e && e.code === 'timeout') {
-                    // Unknown server state: recover first, then guide.
-                    // If the revision landed, the refresh shows the new
-                    // version and the user must NOT resend.
-                    try { await refreshMasterCard(master.id); } catch { /* recovery error already shown */ }
-                    appendError('مهلت درخواست اصلاح تمام شد؛ وضعیت فعلی ساختار از سرور بازیابی شد. اگر نسخه جدید ساخته شده بود، همان را بررسی کن و دوباره ارسال نکن.');
-                } else {
-                    appendError(e && e.detail ? e.detail : 'خطا در اصلاح ساختار.');
-                }
-            } finally {
-                reviseBtn.disabled = false;
-                if (reviseBtn.isConnected) reviseBtn.textContent = reviseLabel;
+
+        /* ── STEP 3 — preview & execute: head package only ── */
+        if ((stage === 'preview_review' || stage === 'executing' || stage === 'failed') && !terminal) {
+            const head = packages.find((p) => p.is_head && p.plan) || packages.find((p) => p.is_head) || null;
+            const rest = head ? packages.filter((p) => p !== head) : packages;
+            const s3 = document.createElement('div');
+            s3.className = 'lina-stage';
+            s3.innerHTML = '<div class="lina-stage-title">قدم ۳ — بررسی و اجرای بسته‌ها</div><div style="font-size:12px;color:#6b7280;margin-bottom:6px;">فقط بستهٔ جاری کامل است؛ بقیه بعد از اتمام آن باز می‌شوند.</div>';
+            if (head) s3.appendChild(paintPackage(head, studyBuild));
+            if (rest.length) {
+                const tmp = document.createElement('div');
+                tmp.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+                rest.forEach((pkg) => tmp.appendChild(paintPackage(pkg, studyBuild)));
+                const d = document.createElement('div');
+                d.innerHTML = foldHtml('بسته‌های دیگر (' + rest.length + ')', '');
+                d.querySelector('.fold-body').appendChild(tmp);
+                s3.appendChild(d);
             }
-            scrollBottom();
-        };
-        body.appendChild(reviseBtn);
-        // Server refresh: rebuild this card after a page reload.
+            body.appendChild(s3);
+        } else if (finished) {
+            const ok = document.createElement('div');
+            ok.className = 'lina-plan-note ok';
+            ok.style.cssText = 'background:#f0fdf4;padding:10px 14px;border-radius:10px;border:1px solid #bbf7d0;';
+            ok.textContent = '🎉 زنجیره کامل شد (' + (master.total_chunks || 0) + ' بسته). همه را از Projects ببین.';
+            body.appendChild(ok);
+        }
+        if (terminal) {
+            const note = document.createElement('div');
+            note.className = 'lina-plan-note';
+            note.style.cssText = 'background:#fffbeb;padding:8px 12px;border-radius:10px;border:1px solid #fde68a;color:#92400e;';
+            note.textContent = stage === 'cancelled' ? '⛔ این زنجیره متوقف شده است (موارد ساخته‌شده می‌مانند).' : '⌛ اعتبار این زنجیره تمام شده است.';
+            body.appendChild(note);
+        }
+        if (masterLocked) {
+            const lock = document.createElement('div');
+            lock.className = 'lina-plan-note muted';
+            lock.style.cssText = 'font-size:12px;color:#6b7280;';
+            lock.textContent = '🔒 ساختار کلان قفل است — پس از تأیید/اجرای بسته قابل اصلاح نیست.';
+            body.appendChild(lock);
+        }
+        // Server refresh: rebuild this card (used after reload/timeout).
+        const refreshRow = document.createElement('div');
+        refreshRow.style.cssText = 'display:flex;justify-content:flex-end;';
         const refreshBtn = document.createElement('button');
         refreshBtn.className = 'lina-tool-reject';
-        refreshBtn.style.cssText = 'font-size:12.5px;';
-        refreshBtn.textContent = '🔄';
+        refreshBtn.style.cssText = 'font-size:12px;padding:4px 10px;';
+        refreshBtn.textContent = '🔄 بارگذاری مجدد از سرور';
         refreshBtn.title = 'بارگذاری مجدد ساختار از سرور';
         refreshBtn.onclick = async () => { await refreshMasterCard(master.id); };
-        body.appendChild(refreshBtn);
+        refreshRow.appendChild(refreshBtn);
+        body.appendChild(refreshRow);
         card.appendChild(body);
-
-        /* ── P2 packages: one mini-card per package ── */
-        if (packages.length) {
-            const pkgWrap = document.createElement('div');
-            pkgWrap.style.cssText = 'margin-top:10px;display:flex;flex-direction:column;gap:8px;';
-            const pkgHead = document.createElement('div');
-            pkgHead.style.cssText = 'font-weight:700;font-size:13px;color:#3730a3;';
-            pkgHead.textContent = '📦 بسته‌ها (' + packages.length + ')';
-            pkgWrap.appendChild(pkgHead);
-            packages.forEach((pkg) => pkgWrap.appendChild(paintPackage(pkg, studyBuild)));
-            card.appendChild(pkgWrap);
-        }
+        // Brief highlight so an in-place update after revise/approve is
+        // noticeable without scrolling the page.
+        card.classList.remove('lina-flash');
+        void card.offsetWidth;
+        card.classList.add('lina-flash');
     }
 
     function paintPackage(pkg, studyBuild) {
@@ -1987,7 +2126,9 @@ footer, .topnav { display: none !important; }
                 b.textContent = '⏳ در حال ارسال…';
                 try {
                     const res = await api('POST', '/ai/plans/' + pkg.plan_id + '/revise-package', { feedback }, { timeoutMs: 180000 });
-                    if (res.plan) renderPlanCard(res.plan, studyBuild);
+                    // Chain package lives in the master card (refreshed
+                    // below) — no separate full card.
+                    if (res.plan && !res.plan.master_build_id) renderPlanCard(res.plan, studyBuild);
                     if (res.affected && res.affected.length) appendError('بسته‌های ' + res.affected.join('، ') + ' (id طرح) برای بازبینی مشخص شدند — بعد از این بسته قرار دارند.');
                 } catch (e) {
                     if (e && e.code === 'timeout') {
@@ -2024,6 +2165,10 @@ footer, .topnav { display: none !important; }
             card.dataset.planId = plan.id;
             renderedPlanIds.add(plan.id);
         }
+        // Chain tag: lets the master card prune full previews rendered
+        // for superseded versions (keeps one staged card per version).
+        if (plan && plan.master_build_id) card.dataset.masterBuild = plan.master_build_id;
+        if (plan && plan.master_version !== null && plan.master_version !== undefined) card.dataset.masterVersion = plan.master_version;
         wrap.appendChild(card);
         msgsEl.appendChild(wrap);
         paintPlan(card, plan, studyBuild);
@@ -2398,7 +2543,7 @@ footer, .topnav { display: none !important; }
                 reBtn.textContent = 'در حال صدور…';
                 try {
                     const res = await api('POST', '/ai/plans/' + plan.id + '/reissue', {});
-                    renderPlanCard(res.plan, res.study_build);
+                    if (res.plan && !res.plan.master_build_id) renderPlanCard(res.plan, res.study_build);
                     if (res.master) renderMasterCard(res.master, res.packages, res.study_build);
                 } catch (e) {
                     appendError(e && e.detail ? e.detail : 'خطا در صدور مجدد بسته.');

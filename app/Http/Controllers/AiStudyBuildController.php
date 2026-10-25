@@ -144,6 +144,15 @@ class AiStudyBuildController extends Controller
 
         $request->validate(['feedback' => 'required|string|min:1|max:2000']);
         $rid = AiLogger::newRequestId();
+        $t0 = microtime(true);
+        // Observable from the second the request lands: while the UI shows
+        // its spinner, tailing the ai log for this rid shows request →
+        // fast-path/model → done with per-stage latency.
+        AiLogger::log('study_build.revise_request', AiTrace::ids(null, $rid, Auth::id(), $build->conversation_id) + [
+            'build_id' => $build->id,
+            'feedback_len' => mb_strlen((string) $request->input('feedback')),
+            'feedback_head' => mb_substr(trim((string) $request->input('feedback')), 0, 120),
+        ]);
 
         // A lock-order deadlock with a concurrent confirm is resolved by
         // the database; it rolls everything back, so reporting it as a
@@ -155,8 +164,12 @@ class AiStudyBuildController extends Controller
                 || str_contains(strtolower($e->getMessage()), 'deadlock');
             AiLogger::error('study_build.revise_db_failed', AiTrace::ids(null, $rid, Auth::id(), $build->conversation_id) + ['build_id' => $build->id, 'conflict' => $conflict, 'error' => mb_substr($e->getMessage(), 0, 200)]);
 
+            $ms = (int) round((microtime(true) - $t0) * 1000);
+            AiLogger::error('study_build.revise_done', AiTrace::ids(null, $rid, Auth::id(), $build->conversation_id) + ['build_id' => $build->id, 'ok' => false, 'code' => $conflict ? 'version_changed' : 'error', 'elapsed_ms' => $ms]);
+
             return response()->json([
                 'ok' => false,
+                'rid' => $rid,
                 'code' => $conflict ? 'version_changed' : 'error',
                 'error' => $conflict
                     ? __('The structure changed while revising — review the current version and try again.')
@@ -170,15 +183,20 @@ class AiStudyBuildController extends Controller
                 'version_changed' => 409,
                 default => 422,
             };
+            $ms = (int) round((microtime(true) - $t0) * 1000);
+            AiLogger::log('study_build.revise_done', AiTrace::ids(null, $rid, Auth::id(), $build->conversation_id) + ['build_id' => $build->id, 'ok' => false, 'code' => $res['code'] ?? 'error', 'elapsed_ms' => $ms]);
 
-            return response()->json(['ok' => false, 'code' => $res['code'] ?? 'error', 'error' => $res['error'] ?? __('Revision failed.'), 'master' => StudyBuildOrchestrator::masterDetail($build->fresh() ?? $build)], $status);
+            return response()->json(['ok' => false, 'rid' => $rid, 'code' => $res['code'] ?? 'error', 'error' => $res['error'] ?? __('Revision failed.'), 'master' => StudyBuildOrchestrator::masterDetail($build->fresh() ?? $build)], $status);
         }
 
         $fresh = $res['build'];
         $this->note($fresh, __('📝 ساختار کلان نسخه :version ساخته شد — بررسی و تأیید کنید.', ['version' => $fresh->version]));
+        $ms = (int) round((microtime(true) - $t0) * 1000);
+        AiLogger::log('study_build.revise_done', AiTrace::ids(null, $rid, Auth::id(), $build->conversation_id) + ['build_id' => $fresh->id, 'ok' => true, 'version' => $fresh->version, 'fast_path' => ($res['fast_path'] ?? false), 'elapsed_ms' => $ms]);
 
         return response()->json([
             'ok' => true,
+            'rid' => $rid,
             'master' => $res['detail'],
             'study_build' => $fresh->progress(),
             'packages' => StudyBuildOrchestrator::packageList($fresh),

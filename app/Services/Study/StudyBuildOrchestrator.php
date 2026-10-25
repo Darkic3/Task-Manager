@@ -858,11 +858,14 @@ class StudyBuildOrchestrator
      * Revise the master from free-text feedback. Only before any package
      * executed (done_chunks == 0 and no plan past proposed) — mid-chain
      * restructuring belongs to P2. Produces version N+1, preserves N, and
-     * proposes the new first chunk. The provider is consulted; a failure
-     * stores nothing, so retry is a plain repeat.
+     * proposes the new first chunk. A pure book-title rename is applied
+     * locally (no provider call); anything structural consults the
+     * provider. A failure stores nothing, so retry is a plain repeat.
      */
     public static function reviseFromFeedback(AiStudyBuild $build, $user, string $feedback, ?string $rid = null): array
     {
+        $t0 = microtime(true);
+        $elapsed = fn () => (int) round((microtime(true) - $t0) * 1000);
         $feedback = trim($feedback);
         if ($feedback === '' || mb_strlen($feedback) > 2000) {
             return ['ok' => false, 'code' => 'invalid_feedback', 'error' => __('Describe the change you want (up to 2000 characters).')];
@@ -895,6 +898,27 @@ class StudyBuildOrchestrator
         $conversationId = $locked->conversation_id;
         $currentOutline = (array) $locked->outline_json;
 
+        // Fast-path: a pure book-title rename needs no provider
+        // round-trip (instant, free, and immune to model truncation).
+        // Anything structural falls through to the provider below.
+        $renamedTitle = self::extractTitleOnlyRename($feedback, (string) ($currentOutline['book_title'] ?? ''));
+        if ($renamedTitle === null) {
+            AiLogger::log('study_build.revise_fastpath_miss', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $locked->id, 'feedback_head' => mb_substr($feedback, 0, 120), 'elapsed_ms' => $elapsed()]);
+        }
+        if ($renamedTitle !== null) {
+            AiLogger::log('study_build.revise_fastpath_hit', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $locked->id, 'new_title' => $renamedTitle, 'elapsed_ms' => $elapsed()]);
+            $outline = $currentOutline;
+            $outline['book_title'] = $renamedTitle;
+            if (($err = self::validateOutline($outline)) !== null) {
+                AiLogger::log('study_build.revise_invalid', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $locked->id, 'fast_path' => true, 'error' => $err]);
+
+                return ['ok' => false, 'code' => 'invalid_outline', 'error' => $err];
+            }
+            $chunks = \App\Services\Study\StudyPlanChunker::chunk($outline);
+
+            return self::commitRevision($locked, $user, $baseVersion, $feedback, $chunks, $outline, $conversationId, $rid, true);
+        }
+
         // Provider call happens OUTSIDE the row lock (up to 90s).
         $providers = app(\App\Services\AiProviderService::class);
         $resolved = $providers->resolve($user);
@@ -905,6 +929,7 @@ class StudyBuildOrchestrator
             $raw = self::requestRevisionModel($providers, $resolved, $currentOutline, $feedback, $user, $conversationId);
             $decoded = self::decodeModelJson($raw);
             $outline = self::sanitizeOutline(is_array($decoded) ? $decoded : []);
+            AiLogger::log('study_build.revise_model', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $locked->id, 'raw_len' => mb_strlen($raw), 'chapters' => count($outline['chapters'] ?? []), 'elapsed_ms' => $elapsed()]);
         } catch (\App\Exceptions\AiProviderException $e) {
             // Transport failure after the built-in retries (timeout /
             // connection / 5xx). Nothing was stored — retry is a repeat.
@@ -923,12 +948,90 @@ class StudyBuildOrchestrator
         }
         $chunks = \App\Services\Study\StudyPlanChunker::chunk($outline);
 
-        // Re-check inside a transaction: the master must be untouched since
-        // we read it — including the pre-execution condition (a package
-        // could have been confirmed during the ~90s provider call). The
-        // lock is only meaningful inside the transaction.
+        return self::commitRevision($locked, $user, $baseVersion, $feedback, $chunks, $outline, $conversationId, $rid, false);
+    }
+
+    /**
+     * Detect a pure book-title rename in free-text feedback. Returns the
+     * new title, or null when the feedback asks for anything structural
+     * (or no confident title can be extracted) — the caller then falls
+     * back to the provider path. Conservative by design: a false null
+     * only costs a provider call, while a false positive would silently
+     * drop a restructuring request.
+     */
+    public static function extractTitleOnlyRename(string $feedback, string $currentTitle): ?string
+    {
+        $norm = StudyOutlineParser::normalizeForMatch($feedback);
+
+        // Must explicitly talk about the title.
+        $hasTitleCue = str_contains($norm, 'عنوان')
+            || str_contains($norm, 'تایتل')
+            || str_contains($norm, 'نام کتاب')
+            || str_contains($norm, 'اسم کتاب')
+            || str_contains($norm, 'title');
+        if (! $hasTitleCue) {
+            return null;
+        }
+
+        // Any structural vocabulary vetoes the fast-path.
+        foreach (['فصل', 'درس', 'بخش', 'بسته', 'ساختار', 'اضافه', 'حذف', 'کم', 'زیاد', 'ادغام', 'جابجا', 'منتقل', 'بازنویسی', 'مرتب', 'فهرست', 'صفحه', 'تعداد', 'زیرموضوع', 'تاپیک'] as $keyword) {
+            if (str_contains($norm, $keyword)) {
+                return null;
+            }
+        }
+
+        $candidate = null;
+        // «کتاب ...» / "کتاب ..." — quoted title wins when present.
+        if (preg_match('/[«"“]([^»"”]{2,120})[»"”]/u', $feedback, $m)) {
+            $candidate = $m[1];
+        }
+        // «... را به X تغییر/عوض بده» — e.g. «عنوان را به کتاب ... تغییر بده».
+        // NOTE: the whole span after «به» is the title — «کتاب» is part of
+        // it, never a filler word to strip.
+        if ($candidate === null && preg_match('/به\s+(.{2,120}?)\s*(?:تغییر|عوض|تبدیل|بذار|بگذار|بنویس|ثبت|کن)\b/u', $feedback, $m)) {
+            $candidate = $m[1];
+        }
+        // «عنوان: X» — bare declaration (colon required; without it any
+        // sentence starting with «عنوان» would be misread as a title).
+        if ($candidate === null && preg_match('/^\s*(?:عنوان|تایتل)\s*[:：]\s*(.{2,120})\s*$/u', $feedback, $m)) {
+            $candidate = $m[1];
+        }
+        if ($candidate === null) {
+            return null;
+        }
+
+        $candidate = (string) preg_replace('/\s+/u', ' ', trim($candidate));
+        // Strip wrapping quotes/brackets the lazy capture may have kept.
+        $candidate = trim($candidate, " \t\n\r\0\x0B«»\"“”''()");
+        // A capture that swallowed a trailing verb phrase is not a title.
+        $candidate = (string) preg_replace('/\s+(تغییر\s+عنوان\s+بده|تغییر\s+بده|عنوان\s+بده)\s*$/u', '', $candidate);
+        $candidate = trim($candidate);
+        if ($candidate === '' || mb_strlen($candidate) > 120) {
+            return null;
+        }
+        if (StudyOutlineParser::normalizeForMatch($candidate) === StudyOutlineParser::normalizeForMatch($currentTitle)) {
+            return null;
+        }
+        if (StudyOutlineParser::normalizeForMatch($candidate) === StudyOutlineParser::normalizeForMatch('کتاب بدون عنوان')) {
+            return null;
+        }
+
+        return $candidate;
+    }
+
+    /**
+     * Persist version N+1 + propose its first chunk, shared by the
+     * title fast-path and the provider path. Re-checks the master
+     * inside a transaction: the master must be untouched since we
+     * read it — including the pre-execution condition (a package
+     * could have been confirmed during the provider call). The lock
+     * is only meaningful inside the transaction. Stores nothing on
+     * any failure, so retry is a plain repeat.
+     */
+    private static function commitRevision($locked, $user, int $baseVersion, string $feedback, array $chunks, array $outline, $conversationId, ?string $rid, bool $fastPath): array
+    {
         try {
-            return \Illuminate\Support\Facades\DB::transaction(function () use ($locked, $user, $baseVersion, $feedback, $chunks, $outline, $conversationId, $rid) {
+            return \Illuminate\Support\Facades\DB::transaction(function () use ($locked, $user, $baseVersion, $feedback, $chunks, $outline, $conversationId, $rid, $fastPath) {
                 $fresh = AiStudyBuild::where('id', $locked->id)
                     ->where('user_id', $user->id)
                     ->lockForUpdate()
@@ -1017,16 +1120,16 @@ class StudyBuildOrchestrator
                     ]);
             }
 
-                AiLogger::log('study_build.revised', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $fresh->id, 'version' => $newVersion]);
+                AiLogger::log('study_build.revised', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $fresh->id, 'version' => $newVersion, 'fast_path' => $fastPath]);
                 $done = $fresh->fresh();
 
-                return ['ok' => true, 'build' => $done, 'plan' => $created['plan'], 'detail' => self::masterDetail($done)];
+                return ['ok' => true, 'fast_path' => $fastPath, 'build' => $done, 'plan' => $created['plan'], 'detail' => self::masterDetail($done)];
             });
         } catch (\RuntimeException $e) {
             // Chunk proposal failed after the version bump: the transaction
             // rolled everything back, so the revision stores nothing and
             // retry is a plain repeat (same response shape as before).
-            AiLogger::log('study_build.revise_chunk_invalid', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $locked->id, 'error' => $e->getMessage()]);
+            AiLogger::log('study_build.revise_chunk_invalid', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $locked->id, 'fast_path' => $fastPath, 'error' => $e->getMessage()]);
 
             return ['ok' => false, 'code' => 'chunk_invalid', 'error' => $e->getMessage()];
         }
