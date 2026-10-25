@@ -147,6 +147,47 @@ class RoutinesHabitTest extends TestCase
         $response->assertSee(route('planner.routines.toggle', $a), false);
     }
 
+    public function test_dashboard_ships_every_inline_handler_of_the_shared_routine_row(): void
+    {
+        $user = User::factory()->create();
+        $routine = Routine::factory()->create(['user_id' => $user->id, 'title' => 'Routine Alpha']);
+        $routine->toggleOn(now());
+
+        $html = $this->actingAs($user)->get(route('dashboard'))->assertOk()->getContent();
+
+        /* The row partial is shared with the planner; every handler it calls
+           inline must exist on this page or clicking throws a ReferenceError. */
+        $handlers = [
+            'toggleRoutine',
+            'openRoutineModal',
+            'toggleRoutineDetails',
+            'skipRoutine',
+            'postponeRoutine',
+            'toggleCheckItem',
+            'skipStep',
+            'skipRemainingSteps',
+            'logRoutineValue',
+            'logRoutineSets',
+            'submitRoutineSlip',
+            'submitStepSlip',
+            'submitRoutineNote',
+        ];
+        foreach ($handlers as $handler) {
+            $this->assertStringContainsString(
+                "function {$handler}(",
+                $html,
+                "dashboard is missing the inline handler {$handler}"
+            );
+        }
+
+        foreach (['function applyRoutineSkip(', 'function applyStepSkip(', 'function skipStepRequest('] as $helper) {
+            $this->assertStringContainsString($helper, $html, "dashboard is missing the helper {$helper}");
+        }
+
+        $this->assertStringContainsString('onclick="skipRoutine(this)"', $html, 'routine row must wire skipRoutine');
+        $this->assertStringContainsString(route('planner.routines.skip', $routine), $html, 'routine row must post to the skip endpoint');
+    }
+
     /* ── every-N-days frequency ───────────────────────────── */
 
     public function test_every_other_day_routine_occurs_on_alternating_days(): void

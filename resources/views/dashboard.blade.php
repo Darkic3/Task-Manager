@@ -1020,6 +1020,159 @@
         });
     }
 
+    /* ── ✗ mark / unmark a routine as "did not do it" ── */
+    async function skipRoutine(btn) {
+        const url = btn.dataset.skipUrl;
+        const id = btn.dataset.id;
+        const date = btn.dataset.date;
+        btn.disabled = true;
+        try {
+            const res = await plFetch(url + (url.includes('?') ? '&' : '?') + 'date=' + encodeURIComponent(date), {
+                method: 'POST',
+                headers: { 'Accept': 'application/json' },
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            applyRoutineSkip(id, date, !!json.skipped);
+            /* Undoing an auto-closed day reopens its step skips too. */
+            if (json.steps_reopened) {
+                document.querySelectorAll('[data-step-wrap][data-routine="' + id + '"][data-date="' + date + '"].is-skipped')
+                    .forEach(w => applyStepSkip(w.dataset.id, id, date, false));
+            }
+            refreshStepCounts();
+            refreshRoutineCounters();
+            setStreak(id, json.streak ?? 0, true);
+        } catch (e) {
+            console.error('[Dashboard] routine skip failed', e);
+            plShowToast(@json(__('Could not save')));
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function applyRoutineSkip(id, date, skipped) {
+        document.querySelectorAll('[data-routine-item][data-id="' + id + '"][data-date="' + date + '"]').forEach(row => {
+            row.classList.toggle('is-skipped', skipped);
+            if (skipped) {
+                row.classList.remove('is-done');
+                row.dataset.completed = '0';
+                const box = row.querySelector('input[type="checkbox"]');
+                if (box) box.checked = false;
+            }
+            row.dataset.status = skipped ? 'skipped'
+                : (row.classList.contains('is-done') ? 'done' : 'open');
+
+            const sb = row.querySelector('.pl-routine-skip');
+            if (sb) {
+                sb.classList.toggle('active', skipped);
+                sb.title = skipped ? @json(__('Undo skip')) : @json(__('Mark as not done'));
+                sb.setAttribute('aria-pressed', skipped ? 'true' : 'false');
+            }
+
+            const meta = row.querySelector('.pl-task-meta');
+            const tag = row.querySelector('.pl-skip-tag');
+            if (skipped && !tag && meta) {
+                const el = document.createElement('span');
+                el.className = 'pl-skip-tag';
+                el.innerHTML = '<i class="bi bi-x-circle-fill"></i> ' + @json(__('Not done'));
+                meta.prepend(el);
+            } else if (!skipped && tag) {
+                tag.remove();
+            }
+        });
+    }
+
+    /* ── ✗ mark / unmark a single routine step as "did not do it" ── */
+    async function skipStep(btn) {
+        btn.disabled = true;
+        try {
+            await skipStepRequest(btn);
+        } catch (e) {
+            console.error('[Dashboard] step skip failed', e);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function skipStepRequest(sb) {
+        const url = sb.dataset.skipUrl;
+        const date = sb.dataset.date;
+        return plFetch(url + (url.includes('?') ? '&' : '?') + 'date=' + encodeURIComponent(date), {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' },
+        }).then(res => {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        }).then(json => {
+            const wrap = sb.closest('[data-step-wrap]');
+            applyStepSkip(sb.dataset.id, wrap ? wrap.dataset.routine : null, date, !!json.skipped);
+            if (json.routine_id && json.date) applyRoutineSkip(json.routine_id, json.date, !!json.routine_skipped);
+            refreshStepCounts();
+            refreshRoutineCounters();
+        });
+    }
+
+    function applyStepSkip(itemId, routineId, date, skipped) {
+        const sel = '[data-step-wrap][data-id="' + itemId + '"]'
+            + (routineId ? '[data-routine="' + routineId + '"]' : '')
+            + '[data-date="' + date + '"]';
+        document.querySelectorAll(sel).forEach(w => {
+            w.classList.toggle('is-skipped', skipped);
+            const main = w.querySelector('[data-step-item]');
+            if (main) {
+                main.classList.toggle('is-skipped', skipped);
+                if (skipped) {
+                    main.classList.remove('done');
+                    const i = main.querySelector('i');
+                    if (i) i.className = 'bi bi-x-circle';
+                } else {
+                    const i = main.querySelector('i');
+                    if (i && !main.classList.contains('done')) i.className = 'bi bi-circle';
+                }
+            }
+            const sb = w.querySelector('[data-step-skip]');
+            if (sb) {
+                sb.classList.toggle('active', skipped);
+                sb.title = skipped ? @json(__('Undo skip')) : @json(__('Mark step as not done'));
+                sb.setAttribute('aria-pressed', skipped ? 'true' : 'false');
+            }
+        });
+        /* A skipped-then-ticked step clears its skip server-side. */
+        if (!skipped && routineId) {
+            document.querySelectorAll('[data-step-item][data-id="' + itemId + '"][data-routine="' + routineId + '"][data-date="' + date + '"]').forEach(b => {
+                b.classList.remove('is-skipped');
+            });
+        }
+    }
+
+    /* Skip every still-open step of a routine, one call per step. */
+    async function skipRemainingSteps(btn) {
+        const row = btn.closest('[data-routine-item]');
+        btn.disabled = true;
+        try {
+            const targets = [...(row ? row.querySelectorAll('[data-step-wrap]') : [])]
+                .filter(w => !w.classList.contains('is-skipped'))
+                .map(w => w.querySelector('[data-step-skip]'))
+                .filter(sb => sb && !sb.disabled);
+            for (const sb of targets) {
+                /* Re-check: an earlier call may have closed the set. */
+                if (sb.closest('[data-step-wrap]')?.classList.contains('is-skipped')) continue;
+                sb.disabled = true;
+                try { await skipStepRequest(sb); } finally { sb.disabled = false; }
+            }
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    document.addEventListener('click', function (e) {
+        const rest = e.target.closest('[data-skip-rest]');
+        if (rest) {
+            e.stopPropagation();
+            skipRemainingSteps(rest);
+        }
+    });
+
     /* ↔ move an interval/weekly routine to tomorrow, then refresh the list */
     async function postponeRoutine(btn) {
         const url = btn.dataset.postponeUrl;

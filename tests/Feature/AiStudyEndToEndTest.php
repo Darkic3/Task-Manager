@@ -252,6 +252,36 @@ class AiStudyEndToEndTest extends TestCase
         $this->approveMaster($user, $build->fresh(), 1)->assertOk()->assertJsonPath('deduped', true);
     }
 
+    public function test_stage_errors_speak_persian(): void
+    {
+        app()->setLocale('fa');
+        $user = User::factory()->create();
+        $started = StudyBuildOrchestrator::startFromOutline($user, null, $this->excerpt());
+        $this->assertTrue($started['ok'] ?? false);
+        $build = $started['build'];
+        $plan = $started['plan'];
+
+        $res = $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $plan))
+            ->assertStatus(422)->assertJsonPath('code', 'master_not_approved');
+        $this->assertStringContainsString('قفل', (string) $res->json('error'));
+
+        $this->approveMaster($user, $build, 1)->assertOk();
+        $res = $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $plan))
+            ->assertStatus(422)->assertJsonPath('code', 'packages_not_approved');
+        $this->assertStringContainsString('قفل', (string) $res->json('error'));
+
+        $this->approvePackages($user, $build, 1)->assertOk();
+        // Unknown version: Persian, stateless.
+        $res = $this->approveMaster($user, $build->fresh(), 9)->assertStatus(409);
+        $this->assertStringContainsString('نامشخص', (string) $res->json('error'));
+
+        // Cancelling the head stops the chain; later ops say so in Persian.
+        $this->actingAs($user)->postJson(route('ai.plans.cancel', $plan))->assertOk();
+        $res = $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $plan->fresh()))
+            ->assertStatus(422);
+        $this->assertStringContainsString('منقضی', (string) $res->json('error'));
+    }
+
     public function test_stale_plan_from_retired_version_cannot_execute(): void
     {
         app()->setLocale('fa');
