@@ -255,8 +255,12 @@ class StudyPlanChunker
 
     private static function chunkTitle(string $book, int $idx, int $total, array $group): string
     {
-        $first = $group[0]['chapter']['index'] ?? $idx;
-        $last = $group[count($group) - 1]['chapter']['index'] ?? $idx;
+        // The range label uses the REAL chapter numbers (not the running
+        // position), so outlines starting above 1 stay honest.
+        $firstEntry = $group[0]['chapter'];
+        $lastEntry = $group[count($group) - 1]['chapter'];
+        $first = $firstEntry['number'] ?? $firstEntry['index'] ?? $idx;
+        $last = $lastEntry['number'] ?? $lastEntry['index'] ?? $idx;
         $range = $first === $last ? "فصل {$first}" : "فصل {$first} تا {$last}";
 
         return self::shortTitle("{$book} — بسته {$idx} از {$total} ({$range})");

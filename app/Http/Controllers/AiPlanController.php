@@ -549,10 +549,16 @@ class AiPlanController extends Controller
         if ($plan->master_build_id === null || $plan->package_index === null || (int) $plan->package_index <= 1) {
             return null;
         }
-        $prev = AiPlan::where('user_id', $plan->user_id)
+        // Version-scoped, newest-first: after a (master or package)
+        // revision several rows can share (build, index) — retired heads
+        // must never shadow the live predecessor of the same version.
+        $prevQuery = AiPlan::where('user_id', $plan->user_id)
             ->where('master_build_id', $plan->master_build_id)
-            ->where('package_index', (int) $plan->package_index - 1)
-            ->first();
+            ->where('package_index', (int) $plan->package_index - 1);
+        if ($plan->master_version !== null) {
+            $prevQuery->where('master_version', (int) $plan->master_version);
+        }
+        $prev = $prevQuery->orderByDesc('id')->first();
         if ($prev && $prev->status === AiPlan::STATUS_DONE) {
             return null;
         }

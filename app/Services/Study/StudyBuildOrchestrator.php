@@ -165,6 +165,7 @@ class StudyBuildOrchestrator
                 'version' => 1,
                 'status' => 'proposed',
                 'outline' => $outline,
+                'chunks' => $chunks,
                 'total_chunks' => count($chunks),
                 'note' => null,
                 'created_at' => $now,
@@ -561,11 +562,12 @@ class StudyBuildOrchestrator
                 ? 'شمارهٔ ثبت‌شده با عنوان یک درسنامه سازگار نیست.'
                 : 'شمارهٔ ثبت‌شده با عنوان یک فصل سازگار نیست.';
         }
-        if ($fieldNumber !== null && $fieldNumber < 1) {
+        $resolved = $fieldNumber ?? $titleNumber;
+        if ($resolved !== null && $resolved < 1) {
             return $lesson ? 'شمارهٔ درسنامه باید مثبت باشد.' : 'شمارهٔ فصل باید مثبت باشد.';
         }
 
-        return $fieldNumber ?? $titleNumber;
+        return $resolved;
     }
 
     private static function validatePageValue($pages, string $label): ?string
@@ -968,6 +970,7 @@ class StudyBuildOrchestrator
                     'version' => $newVersion,
                     'status' => 'proposed',
                     'outline' => $outline,
+                    'chunks' => $chunks,
                     'total_chunks' => count($chunks),
                     'note' => mb_substr($feedback, 0, 200),
                     'created_at' => now()->toIso8601String(),
@@ -1223,6 +1226,21 @@ class StudyBuildOrchestrator
                 $chunks[(int) $ch['chunk_index']] = $ch;
             }
         }
+        // Retired heads render their scope from their OWN version's chunks,
+        // never from a newer structure (versions predate this key → fall
+        // back to the current chunks).
+        $chunksByVersion = [];
+        foreach (array_values((array) ($build->versions ?? [])) as $v) {
+            $vc = [];
+            foreach (array_values((array) ($v['chunks'] ?? [])) as $ch) {
+                if (isset($ch['chunk_index'])) {
+                    $vc[(int) $ch['chunk_index']] = $ch;
+                }
+            }
+            if ($vc !== [] && isset($v['version'])) {
+                $chunksByVersion[(int) $v['version']] = $vc;
+            }
+        }
         $knownIndex = [];
         foreach ($plans as $plan) {
             if ($plan->package_index !== null) {
@@ -1270,7 +1288,10 @@ class StudyBuildOrchestrator
 
         foreach ($plans as $plan) {
             $idx = $plan->package_index !== null ? (int) $plan->package_index : null;
-            $chunk = ($idx !== null && isset($chunks[$idx])) ? $chunks[$idx] : null;
+            $versionChunks = ($plan->master_version !== null && isset($chunksByVersion[(int) $plan->master_version]))
+                ? $chunksByVersion[(int) $plan->master_version]
+                : $chunks;
+            $chunk = ($idx !== null && isset($versionChunks[$idx])) ? $versionChunks[$idx] : null;
             $scope = [];
             if ($chunk) {
                 foreach ((array) ($chunk['subprojects'] ?? []) as $sub) {
@@ -1458,10 +1479,14 @@ class StudyBuildOrchestrator
                 'master_version' => (int) $lockedBuild->version,
                 'package_index' => $lockedPlan->package_index,
             ]);
-            $lockedPlan->update([
-                'status' => \App\Models\AiPlan::STATUS_OBSOLETE,
-                'superseded_by_plan_id' => $new->id,
-            ]);
+            // A no-change revision reuses the live head via idempotency: the
+            // adopted head must never retire (and link to) itself.
+            if ((int) $new->id !== (int) $lockedPlan->id) {
+                $lockedPlan->update([
+                    'status' => \App\Models\AiPlan::STATUS_OBSOLETE,
+                    'superseded_by_plan_id' => $new->id,
+                ]);
+            }
 
             $known = array_map('intval', (array) ($lockedBuild->plan_ids ?? []));
             if (! in_array((int) $new->id, $known, true)) {

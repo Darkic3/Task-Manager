@@ -126,4 +126,46 @@ class StudyPlanChunkerTest extends TestCase
         $long = str_repeat('الف ', 80);
         $this->assertLessThanOrEqual(120, mb_strlen(StudyPlanChunker::shortTitle($long)));
     }
+
+    public function test_chunk_range_uses_real_chapter_numbers(): void
+    {
+        $outline = [
+            'book_title' => 'کتاب نمونه',
+            'chapters' => [
+                $this->chapter(1, 5, 'فصل ۵: پنج', 2),
+                $this->chapter(2, 6, 'فصل ۶: شش', 2),
+            ],
+        ];
+        $chunks = StudyPlanChunker::chunk($outline);
+
+        $this->assertCount(1, $chunks);
+        $this->assertSame('کتاب نمونه — بسته 1 از 1 (فصل 5 تا 6)', $chunks[0]['title']);
+    }
+
+    public function test_chunk_range_falls_back_to_position_without_numbers(): void
+    {
+        $outline = [
+            'book_title' => 'کتاب نمونه',
+            'chapters' => [
+                $this->chapter(1, null, 'بخش پایانی', 0),
+                $this->chapter(2, null, 'بخش ضمیمه', 0),
+            ],
+        ];
+        $outline['chapters'][0]['extra_tasks'] = ['مطلب'];
+        $outline['chapters'][1]['extra_tasks'] = ['مطلب'];
+        $chunks = StudyPlanChunker::chunk($outline);
+
+        $this->assertCount(1, $chunks);
+        $this->assertSame('کتاب نمونه — بسته 1 از 1 (فصل 1 تا 2)', $chunks[0]['title']);
+    }
+
+    private function chapter(int $index, ?int $number, string $title, int $lessons): array
+    {
+        $ls = [];
+        for ($i = 1; $i <= $lessons; $i++) {
+            $ls[] = ['index' => $i, 'number' => $i, 'title' => "درسنامه {$i}", 'pages' => 5, 'topics' => ['نکته']];
+        }
+
+        return ['index' => $index, 'number' => $number, 'title' => $title, 'pages' => 10, 'lessons' => $ls, 'extra_tasks' => []];
+    }
 }

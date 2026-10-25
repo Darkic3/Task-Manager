@@ -128,6 +128,33 @@ class AiStudyPackageTest extends TestCase
         $this->assertSame('proposed', $byIndex[2]['status']);
     }
 
+    public function test_revised_predecessor_unblocks_dependent(): void
+    {
+        $user = User::factory()->create();
+        $this->withProvider($user);
+        $started = $this->startChain($user);
+        $this->approve($user, $started['build']);
+        $pkg2 = $this->craftPackage($user, $started['build'], 1);
+
+        // Revise the head: the old proposal retires as obsolete.
+        $chunks = $started['build']->fresh()->chunks_json;
+        $args = StudyBuildOrchestrator::buildPlanArgs($chunks[0], null);
+        $this->fakePackageModel($args);
+        $newId = $this->actingAs($user)->postJson(
+            route('ai.plans.revise-package', $started['plan']), ['feedback' => 'x']
+        )->assertOk()->json('plan.id');
+
+        // The dependent must follow the LIVE predecessor (done), never the
+        // retired row sharing the same (build, index).
+        $new = AiPlan::findOrFail($newId);
+        $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $new))->assertOk();
+        $this->actingAs($user)->postJson(route('ai.plans.confirm-phase', $new), ['run_all' => true])
+            ->assertOk()->assertJsonPath('plan.status', 'done');
+        $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $pkg2))->assertOk();
+        $this->actingAs($user)->postJson(route('ai.plans.confirm-phase', $pkg2), ['run_all' => true])
+            ->assertOk()->assertJsonPath('plan.status', 'done');
+    }
+
     public function test_dependent_package_blocked_before_prerequisite(): void
     {
         $user = User::factory()->create();
@@ -228,18 +255,44 @@ class AiStudyPackageTest extends TestCase
         $this->approve($user, $started['build']);
 
         $chunks = $started['build']->fresh()->chunks_json;
-        $this->fakePackageModel(StudyBuildOrchestrator::buildPlanArgs($chunks[0], null));
+        $args = StudyBuildOrchestrator::buildPlanArgs($chunks[0], null);
+        $args['subprojects'][0]['tasks'][0]['title'] .= ' (ویرایش‌شده)';
+        $this->fakePackageModel($args);
         $this->actingAs($user)->postJson(
             route('ai.plans.revise-package', $started['plan']), ['feedback' => 'x']
         )->assertOk();
 
         $old = $started['plan']->fresh();
+        $this->assertSame(AiPlan::STATUS_OBSOLETE, $old->status);
         $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $old))
             ->assertStatus(422)->assertJsonPath('code', 'superseded');
         $this->actingAs($user)->postJson(route('ai.plans.confirm-phase', $old), ['run_all' => true])
             ->assertStatus(422)->assertJsonPath('code', 'superseded');
 
         $this->assertSame(0, Project::where('user_id', $user->id)->count());
+    }
+
+    public function test_identical_package_revision_reuses_live_head(): void
+    {
+        $user = User::factory()->create();
+        $this->withProvider($user);
+        $started = $this->startChain($user);
+        $this->approve($user, $started['build']);
+
+        // A no-change revision carries identical content: idempotency reuses
+        // the live head instead of stacking a row — and must never retire
+        // (and link to) the adopted head itself.
+        $chunks = $started['build']->fresh()->chunks_json;
+        $this->fakePackageModel(StudyBuildOrchestrator::buildPlanArgs($chunks[0], null));
+        $res = $this->actingAs($user)->postJson(
+            route('ai.plans.revise-package', $started['plan']), ['feedback' => 'x']
+        )->assertOk();
+
+        $this->assertSame($started['plan']->id, (int) $res->json('plan.id'));
+        $this->assertSame(AiPlan::STATUS_PROPOSED, $started['plan']->fresh()->status);
+        $this->assertNull($started['plan']->fresh()->superseded_by_plan_id);
+        $this->assertSame(1, AiPlan::where('user_id', $user->id)->count());
+        $this->actingAs($user)->postJson(route('ai.plans.confirm-structure', $started['plan']))->assertOk();
     }
 
     public function test_packages_recoverable_from_server_after_reload(): void
