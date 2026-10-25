@@ -721,27 +721,48 @@ footer, .topnav { display: none !important; }
     const convList  = document.getElementById('linaConvList');
 
     /* ── API helpers ── */
-    async function api(method, url, body) {
-        const opts = {
+    // Bounded wait: every request aborts after timeoutMs (default 2 min,
+    // longer for provider-bound revisions). An aborted request means the
+    // SERVER state is unknown — callers must recover from the server
+    // (refresh) before retrying, never blindly resend.
+    async function api(method, url, body, opts) {
+        const timeoutMs = (opts && opts.timeoutMs) || 120000;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+        const fetchOpts = {
             method,
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
+            signal: ctrl.signal,
         };
-        if (body) opts.body = JSON.stringify(body);
-        const res = await fetch(url, opts);
-        if (!res.ok) {
-            let detail = '';
-            try {
-                const errJson = await res.clone().json();
-                detail = errJson.error || errJson.message
-                    || Object.values(errJson.errors || {}).flat().join(' ')
-                    || '';
-            } catch { /* non-JSON */ }
-            const err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
-            err.status = res.status;
-            err.detail = detail;
-            throw err;
+        if (body) fetchOpts.body = JSON.stringify(body);
+        try {
+            const res = await fetch(url, fetchOpts);
+            if (!res.ok) {
+                let detail = '';
+                try {
+                    const errJson = await res.clone().json();
+                    detail = errJson.error || errJson.message
+                        || Object.values(errJson.errors || {}).flat().join(' ')
+                        || '';
+                } catch { /* non-JSON */ }
+                const err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
+                err.status = res.status;
+                err.detail = detail;
+                throw err;
+            }
+            return await res.json();
+        } catch (e) {
+            if (e && e.name === 'AbortError') {
+                const timeout = new Error('request_timeout');
+                timeout.status = 0;
+                timeout.code = 'timeout';
+                timeout.detail = 'مهلت درخواست تمام شد و پاسخ کامل نرسید — وضعیت سرور نامشخص است.';
+                throw timeout;
+            }
+            throw e;
+        } finally {
+            clearTimeout(timer);
         }
-        return res.json();
     }
 
     /* ── Conversations management ── */
@@ -801,14 +822,58 @@ footer, .topnav { display: none !important; }
         renderConvList();
         msgsEl.innerHTML = '';
         msgsEl.appendChild(welcome);
+        // Card registries are per-view: a fresh view rebuilds its own cards
+        // from the server (dedupe by DOM + set would otherwise swallow them).
+        renderedPlanIds.clear();
         // Close sidebar on mobile after picking a conversation
         if (window.closeMobSidebar) closeMobSidebar();
         try {
             const data = await api('GET', CONV_URL + '/' + id);
             activeMessages = data.messages || [];
             renderMessages();
+            // Recovery: rebuild every staged card from server records, so a
+            // refresh/reconnect resumes exactly the stored workflow stage.
+            await restoreStudyBuilds(id);
         } catch (e) { console.error('[Lina] switchConversation', e); }
     };
+
+    /* Recovery: fetch this conversation's chain builds and rebuild the
+       master card + current head preview card for each — purely from
+       server state (workflow_stage, packages_approved, package actions,
+       plan.chain). Text history stays as-is; cards are never rebuilt
+       from message text. */
+    async function restoreStudyBuilds(convId) {
+        let builds = [];
+        try {
+            const res = await api('GET', CONV_URL + '/' + convId + '/study-builds');
+            builds = res.builds || [];
+        } catch (e) {
+            const wrap = document.createElement('div');
+            wrap.className = 'lina-msg-wrap bot';
+            const note = document.createElement('div');
+            note.className = 'lina-plan-note';
+            note.style.cssText = 'background:#fef2f2;padding:10px 14px;border-radius:10px;border:1px solid #fecaca;color:#b91c1c;font-size:12.5px;font-weight:600;';
+            note.textContent = '⚠ بازیابی وضعیت ساخت از سرور ناموفق بود — پیام‌ها نمایش داده شدند ولی کارت‌ها ساخته نشدند.';
+            const retry = document.createElement('button');
+            retry.className = 'lina-tool-reject';
+            retry.style.cssText = 'margin-top:8px;font-size:12.5px;';
+            retry.textContent = '🔄 تلاش مجدد برای بازیابی';
+            retry.onclick = async () => { retry.disabled = true; wrap.remove(); await restoreStudyBuilds(convId); };
+            wrap.appendChild(note);
+            wrap.appendChild(retry);
+            msgsEl.appendChild(wrap);
+            scrollBottom();
+            return;
+        }
+        builds.forEach((b) => {
+            if (b.master) renderMasterCard(b.master, b.packages || [], b.study_build || null);
+            // The current head preview (if any): stale/superseded packages
+            // expose view-only actions from the server, never live buttons.
+            const head = (b.packages || []).find((p) => p.is_head && p.plan);
+            if (head && head.plan) renderPlanCard(head.plan, b.study_build || null);
+        });
+        scrollBottom();
+    }
 
     window.deleteConv = async function (id, e) {
         e.stopPropagation();
@@ -909,6 +974,12 @@ footer, .topnav { display: none !important; }
     // actionable Persian guidance + a retry affordance.
     function friendlyAiError(msg) {
         const s = String(msg || '');
+        // Browser-side timeout / disconnect: the server state is unknown.
+        // The action handler already refreshed from the server where it
+        // matters; this text only explains what happened and what to do.
+        if (/request_timeout|AbortError|aborted|Load failed|NetworkError|Failed to fetch/i.test(s)) {
+            return 'مهلت درخواست تمام شد یا ارتباط قطع شد — درخواست به سرور رسیده یا نرسیده، مشخص نیست. وضعیت فعلی از سرور بازیابی شد؛ اگر تغییر موردنظر اعمال شده بود، دوباره ارسال نکنید. در غیر این صورت یک بار دیگر تلاش کنید.';
+        }
         // Cut-off plan arguments (length limit): retrying the same giant
         // request fails the same way — the user must split into chunks.
         if (/cut off|length limit|truncat/i.test(s)) {
@@ -1802,14 +1873,25 @@ footer, .topnav { display: none !important; }
             const feedback = (fb.value || '').trim();
             if (!feedback) { fb.focus(); return; }
             reviseBtn.disabled = true;
+            const reviseLabel = reviseBtn.textContent;
+            reviseBtn.textContent = '⏳ در حال ارسال درخواست اصلاح…';
             try {
-                const res = await api('POST', '/ai/study-builds/' + master.id + '/revise-structure', { feedback });
+                const res = await api('POST', '/ai/study-builds/' + master.id + '/revise-structure', { feedback }, { timeoutMs: 180000 });
                 if (res.master) paintMaster(card, res.master, res.packages || [], res.study_build || null);
                 if (res.plan) renderPlanCard(res.plan, res.study_build || null);
             } catch (e) {
-                appendError(e && e.detail ? e.detail : 'خطا در اصلاح ساختار.');
+                if (e && e.code === 'timeout') {
+                    // Unknown server state: recover first, then guide.
+                    // If the revision landed, the refresh shows the new
+                    // version and the user must NOT resend.
+                    try { await refreshMasterCard(master.id); } catch { /* recovery error already shown */ }
+                    appendError('مهلت درخواست اصلاح تمام شد؛ وضعیت فعلی ساختار از سرور بازیابی شد. اگر نسخه جدید ساخته شده بود، همان را بررسی کن و دوباره ارسال نکن.');
+                } else {
+                    appendError(e && e.detail ? e.detail : 'خطا در اصلاح ساختار.');
+                }
             } finally {
                 reviseBtn.disabled = false;
+                if (reviseBtn.isConnected) reviseBtn.textContent = reviseLabel;
             }
             scrollBottom();
         };
@@ -1901,12 +1983,20 @@ footer, .topnav { display: none !important; }
                 const feedback = (fb.value || '').trim();
                 if (!feedback) { fb.focus(); return; }
                 b.disabled = true;
+                const pkgLabel = b.textContent;
+                b.textContent = '⏳ در حال ارسال…';
                 try {
-                    const res = await api('POST', '/ai/plans/' + pkg.plan_id + '/revise-package', { feedback });
+                    const res = await api('POST', '/ai/plans/' + pkg.plan_id + '/revise-package', { feedback }, { timeoutMs: 180000 });
                     if (res.plan) renderPlanCard(res.plan, studyBuild);
                     if (res.affected && res.affected.length) appendError('بسته‌های ' + res.affected.join('، ') + ' (id طرح) برای بازبینی مشخص شدند — بعد از این بسته قرار دارند.');
-                } catch (e) { appendError(e && e.detail ? e.detail : 'خطا در اصلاح بسته.'); }
-                finally { b.disabled = false; }
+                } catch (e) {
+                    if (e && e.code === 'timeout') {
+                        appendError('مهلت درخواست اصلاح بسته تمام شد؛ وضعیت فعلی از سرور بازیابی شد. اگر نسخه جدید ساخته شده بود، دوباره ارسال نکن.');
+                    } else {
+                        appendError(e && e.detail ? e.detail : 'خطا در اصلاح بسته.');
+                    }
+                }
+                finally { b.disabled = false; if (b.isConnected) b.textContent = pkgLabel; }
                 refresh();
             };
             acts.appendChild(b);
@@ -2457,13 +2547,16 @@ footer, .topnav { display: none !important; }
     async function planRunPhase(card, planId, phaseIdx, runAll, btn) {        card.querySelectorAll('button').forEach(b => { b.disabled = true; });
         if (btn) btn.textContent = 'Running…';
         try {
-            const res = await api('POST', '/ai/plans/' + planId + '/confirm-phase', { phase: phaseIdx, run_all: !!runAll });
+            const res = await api('POST', '/ai/plans/' + planId + '/confirm-phase', { phase: phaseIdx, run_all: !!runAll }, { timeoutMs: 180000 });
             paintPlan(card, res.plan, res.study_build);
             handleChainResult(res);
         } catch (e) {
             // P4: surface the real server reason (failed phase, dependency,
             // unapproved master) so retry/cancel decisions are informed.
             appendError(e && e.detail ? e.detail : @json(__('Phase failed — plan stopped. Already-created items stay.')));
+            // Never leave the card dead: the server stayed authoritative,
+            // so re-enabling only offers actions the server will re-gate.
+            card.querySelectorAll('button').forEach(b => { b.disabled = false; });
         }
         scrollBottom();
     }

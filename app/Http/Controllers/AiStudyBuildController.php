@@ -22,6 +22,32 @@ use Illuminate\Support\Facades\Auth;
 class AiStudyBuildController extends Controller
 {
     /**
+     * All chain builds of one conversation, oldest first, each with the
+     * full recovery payload (master + packages + progress). The UI calls
+     * this when a conversation is opened and rebuilds every master card
+     * and the current head preview card purely from server records, so a
+     * refresh/reconnect resumes exactly the stored stage.
+     */
+    public function forConversation(\App\Models\AiConversation $conversation)
+    {
+        abort_if($conversation->user_id !== Auth::id(), 403);
+
+        $builds = AiStudyBuild::where('user_id', Auth::id())
+            ->where('conversation_id', $conversation->id)
+            ->orderBy('id')
+            ->get();
+
+        return response()->json([
+            'ok' => true,
+            'builds' => $builds->map(fn (AiStudyBuild $build) => [
+                'master' => StudyBuildOrchestrator::masterDetail($build),
+                'study_build' => $build->progress(),
+                'packages' => StudyBuildOrchestrator::packageList($build),
+            ])->all(),
+        ]);
+    }
+
+    /**
      * Server state for a master structure + its packages (refresh-safe:
      * the UI rebuilds the master card and all package cards from this
      * after a page reload — never from browser memory).
@@ -119,7 +145,25 @@ class AiStudyBuildController extends Controller
         $request->validate(['feedback' => 'required|string|min:1|max:2000']);
         $rid = AiLogger::newRequestId();
 
-        $res = StudyBuildOrchestrator::reviseFromFeedback($build, Auth::user(), (string) $request->input('feedback'), $rid);
+        // A lock-order deadlock with a concurrent confirm is resolved by
+        // the database; it rolls everything back, so reporting it as a
+        // concurrent modification (retryable 409) is honest and safe.
+        try {
+            $res = StudyBuildOrchestrator::reviseFromFeedback($build, Auth::user(), (string) $request->input('feedback'), $rid);
+        } catch (\Illuminate\Database\QueryException $e) {
+            $conflict = in_array($e->errorInfo[1] ?? null, [1205, 1213, 5], true)
+                || str_contains(strtolower($e->getMessage()), 'deadlock');
+            AiLogger::error('study_build.revise_db_failed', AiTrace::ids(null, $rid, Auth::id(), $build->conversation_id) + ['build_id' => $build->id, 'conflict' => $conflict, 'error' => mb_substr($e->getMessage(), 0, 200)]);
+
+            return response()->json([
+                'ok' => false,
+                'code' => $conflict ? 'version_changed' : 'error',
+                'error' => $conflict
+                    ? __('The structure changed while revising — review the current version and try again.')
+                    : 'خطا در اصلاح ساختار — لطفاً دوباره تلاش کنید.',
+                'master' => StudyBuildOrchestrator::masterDetail($build->fresh() ?? $build),
+            ], $conflict ? 409 : 500);
+        }
         if (! ($res['ok'] ?? false)) {
             $status = match ($res['code'] ?? null) {
                 'provider_error' => 502,

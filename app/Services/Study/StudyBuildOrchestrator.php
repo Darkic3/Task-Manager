@@ -765,7 +765,10 @@ class StudyBuildOrchestrator
             return 'packages_review';
         }
         $head = $build->lastPlan;
-        if ($head && in_array($head->status, [\App\Models\AiPlan::STATUS_CONFIRMED, \App\Models\AiPlan::STATUS_EXECUTING, \App\Models\AiPlan::STATUS_FAILED], true)) {
+        if ($head && $head->status === \App\Models\AiPlan::STATUS_FAILED) {
+            return 'failed';
+        }
+        if ($head && in_array($head->status, [\App\Models\AiPlan::STATUS_CONFIRMED, \App\Models\AiPlan::STATUS_EXECUTING], true)) {
             return 'executing';
         }
 
@@ -931,9 +934,15 @@ class StudyBuildOrchestrator
                 if (! $fresh || (int) $fresh->version !== $baseVersion || $fresh->status !== AiStudyBuild::STATUS_BUILDING) {
                     return ['ok' => false, 'code' => 'version_changed', 'error' => __('The structure changed while revising — review the current version and try again.')];
                 }
+                // Row locks: the pre-execution check and the retire below
+                // must serialize with confirm-structure / confirm-phase,
+                // which lock the same plan rows. Without this, a confirm
+                // landing between the check and the update would corrupt
+                // the chain instead of failing closed.
                 if ((int) $fresh->done_chunks !== 0 || \App\Models\AiPlan::where('user_id', $user->id)
                         ->whereIn('id', array_map('intval', (array) ($fresh->plan_ids ?? [])))
                         ->whereIn('status', [\App\Models\AiPlan::STATUS_CONFIRMED, \App\Models\AiPlan::STATUS_EXECUTING, \App\Models\AiPlan::STATUS_DONE, \App\Models\AiPlan::STATUS_FAILED])
+                        ->lockForUpdate()
                         ->exists()) {
                     return ['ok' => false, 'code' => 'already_started', 'error' => __('A package was confirmed while revising — the structure can no longer be revised.')];
                 }
@@ -944,6 +953,7 @@ class StudyBuildOrchestrator
                 $retiredIds = \App\Models\AiPlan::where('user_id', $user->id)
                     ->whereIn('id', array_map('intval', (array) ($fresh->plan_ids ?? [])))
                     ->where('status', \App\Models\AiPlan::STATUS_PROPOSED)
+                    ->lockForUpdate()
                     ->pluck('id')->all();
 
                 $versions = array_values((array) ($fresh->versions ?? []));
@@ -1065,7 +1075,12 @@ class StudyBuildOrchestrator
             $url = rtrim($cfg['base_url'], '/').'/'.$resolved['model'].':generateContent?key='.$resolved['key'];
             $response = $providers->postJson($url, ['contents' => [['role' => 'user', 'parts' => [['text' => $system."\n\n".$userText]]]], 'generationConfig' => ['responseMimeType' => 'application/json']], [], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx);
             if ($response->failed()) {
-                throw new \RuntimeException($providers->formatErrorResponse($response));
+                throw new \App\Exceptions\AiProviderException(
+                    $providers->formatErrorResponse($response),
+                    (string) ($resolved['provider'] ?? 'unknown'),
+                    $url,
+                    $response->status()
+                );
             }
 
             return (string) data_get($response->json(), 'candidates.0.content.parts.0.text', '');
@@ -1074,7 +1089,12 @@ class StudyBuildOrchestrator
             $cfg = $resolved['config'];
             $response = $providers->postJson($cfg['base_url'], ['model' => $resolved['model'], 'max_tokens' => 6000, 'system' => $system, 'messages' => [['role' => 'user', 'content' => $userText]]], ['x-api-key' => $resolved['key'], 'anthropic-version' => '2023-06-01'], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx);
             if ($response->failed()) {
-                throw new \RuntimeException($providers->formatErrorResponse($response));
+                throw new \App\Exceptions\AiProviderException(
+                    $providers->formatErrorResponse($response),
+                    (string) ($resolved['provider'] ?? 'unknown'),
+                    (string) ($cfg['base_url'] ?? ''),
+                    $response->status()
+                );
             }
 
             return (string) data_get($response->json(), 'content.0.text', '');
@@ -1083,9 +1103,15 @@ class StudyBuildOrchestrator
         $cfg = $resolved['config'];
         $payload = $providers->openAiPayload($messages, $resolved['model'], false, $cfg['base_url']);
         $payload['response_format'] = ['type' => 'json_object'];
-        $response = $providers->postJson($providers->endpointFor($cfg['base_url'], $resolved['type']), $payload, ['Authorization' => 'Bearer '.$resolved['key']], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx);
+        $endpoint = $providers->endpointFor($cfg['base_url'], $resolved['type']);
+        $response = $providers->postJson($endpoint, $payload, ['Authorization' => 'Bearer '.$resolved['key']], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx);
         if ($response->failed()) {
-            throw new \RuntimeException($providers->formatErrorResponse($response));
+            throw new \App\Exceptions\AiProviderException(
+                $providers->formatErrorResponse($response),
+                (string) ($resolved['provider'] ?? 'unknown'),
+                $endpoint,
+                $response->status()
+            );
         }
 
         return (string) data_get($response->json(), 'choices.0.message.content', '');
@@ -1093,16 +1119,30 @@ class StudyBuildOrchestrator
 
     /**
      * User-facing text for a transport failure that survived the built-in
-     * retries. Timeouts get an actionable message; other errors surface the
-     * (already sanitized) provider detail.
+     * retries. Always Persian, never raw provider output: connection and
+     * HTTP details stay in the server logs; the user gets an actionable
+     * reason plus the guarantee that nothing was changed.
      */
     private static function providerErrorText(\App\Exceptions\AiProviderException $e): string
     {
         if (\App\Services\AiProviderService::isTimeoutMessage($e->getMessage())) {
             return __('The AI provider timed out after several retries — nothing was changed. Please try again.');
         }
+        $status = $e->httpStatus;
+        if ($status === 401 || $status === 403) {
+            return __('The AI provider rejected the request (HTTP :status) — most likely the API key. Check the key in AI Settings; nothing was changed.', ['status' => $status]);
+        }
+        if ($status === 429) {
+            return __('The AI provider is rate-limited right now — wait a little and try again. Nothing was changed.');
+        }
+        if ($status !== null && $status >= 500) {
+            return __('The AI provider had a temporary error (HTTP :status) — nothing was changed. Please try again.', ['status' => $status]);
+        }
+        if ($status !== null) {
+            return __('The AI provider request failed (HTTP :status) — nothing was changed. Check AI Settings and try again.', ['status' => $status]);
+        }
 
-        return $e->getMessage();
+        return __('Could not reach the AI provider — check your connection and AI Settings. Nothing was changed.');
     }
 
     private static function decodeModelJson(string $content): array
@@ -1115,7 +1155,7 @@ class StudyBuildOrchestrator
             $decoded = $start !== false && $end !== false ? json_decode(substr($clean, $start, $end - $start + 1), true) : null;
         }
         if (! is_array($decoded)) {
-            throw new \RuntimeException(__('The AI returned an unusable structure — please try again.'));
+            throw new \RuntimeException('پاسخ هوش مصنوعی ساختار قابل استفاده‌ای نداشت — چیزی تغییر نکرد. لطفاً دوباره تلاش کنید.');
         }
 
         return $decoded;

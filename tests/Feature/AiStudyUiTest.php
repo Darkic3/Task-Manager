@@ -42,6 +42,16 @@ class AiStudyUiTest extends TestCase
         $this->assertStringContainsString('📦 بسته بعدی', $html);
         // Stage C: the package-list approval action is staged on the card.
         $this->assertStringContainsString('تأیید فهرست بسته‌ها', $html);
+        // Phase 3: conversation open rebuilds staged cards from the server,
+        // with a Persian retry affordance when recovery fails.
+        $this->assertStringContainsString('restoreStudyBuilds', $html);
+        $this->assertStringContainsString('study-builds', $html);
+        $this->assertStringContainsString('تلاش مجدد برای بازیابی', $html);
+        // Phase 4: bounded waits (AbortController), Persian timeout
+        // recovery, and never-stranded action buttons.
+        $this->assertStringContainsString('AbortController', $html);
+        $this->assertStringContainsString('مهلت درخواست تمام شد', $html);
+        $this->assertStringContainsString('دوباره ارسال نکن', $html);
         // 1-Click run-all stays the primary action (expiry safety).
         $this->assertStringContainsString('ساخت و اجرای کامل پروژه', $html);
     }
