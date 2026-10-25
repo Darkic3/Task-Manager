@@ -6,7 +6,6 @@
     $stepsTotal = $nextUp['stepsTotal'] ?? 0;
     $nextStep = $nextUp['nextStep'] ?? null;
     $hasSteps = $stepsTotal > 0;
-    $isAvoid = ! empty($nextUp['is_avoid']);
     
     /* Routines that log a single value per day get a guided input too. */
     $valueGuide = $nextRoutine
@@ -15,9 +14,9 @@
 
     $isSets = $nextRoutine && $nextRoutine->tracking_mode === 'sets';
     $isTime = $nextRoutine && $nextRoutine->isTimeValue();
-    $needsModal = $valueGuide || $isSets || $isAvoid || ($hasSteps && $stepsTotal > 1);
+    $needsModal = $valueGuide || $isSets || ($hasSteps && $stepsTotal > 1);
 
-    // Prepare steps JSON if needed
+    // Prepare steps JSON if needed (quit-habits never reach this card).
     $allSteps = [];
     if ($nextRoutine && !empty($nextRoutine->ringSteps)) {
         $allSteps = collect($nextRoutine->ringSteps)->map(function($s) {
@@ -25,7 +24,6 @@
                 'id' => $s['id'] ?? null,
                 'name' => $s['name'] ?? '',
                 'completed' => !empty($s['completed']),
-                'violated' => !empty($s['violated']),
                 'target_sets' => $s['target_sets'] ?? 1,
                 'unit' => $s['unit'] ?? '',
                 'period_label' => $s['period_label'] ?? '',
@@ -47,23 +45,21 @@
 
 <div class="pl-next-wrap" id="plNextUp" data-next-date="{{ $date->toDateString() }}" @if(! $nextUp) hidden @endif>
     @if($nextUp)
-        <div class="pl-next-card {{ $isAvoid ? 'pl-next-card-avoid' : '' }}"
-             role="button"
-             tabindex="0"
-             onclick="handleNextUpCardClick(event)"
-             data-next-type="{{ $nextUp['type'] }}"
-             data-next-id="{{ $nextTask?->id ?? $nextRoutine?->id }}"
-             data-next-title="{{ $nextTask ? $nextTask->title : $nextRoutine?->title }}"
-             data-next-url="{{ $nextTask ? route('planner.tasks.toggle', $nextTask) : route('planner.routines.toggle', $nextRoutine) }}"
-             data-has-steps="{{ $hasSteps ? 1 : 0 }}"
-             data-steps-done="{{ $stepsDone }}"
-             data-steps-total="{{ $stepsTotal }}"
-             data-step-id="{{ $nextStep['id'] ?? '' }}"
-             data-step-name="{{ $nextStep['name'] ?? '' }}"
-             data-step-url="{{ $nextStep ? ($nextTask ? route('planner.task-items.toggle', $nextStep['id']) : route('planner.check-items.toggle', $nextStep['id'])) : '' }}"
-             data-slip-url="{{ $isAvoid && $nextRoutine ? ($nextStep ? route('planner.check-items.slip', $nextStep['id']) : route('planner.routines.slip', $nextRoutine)) : '' }}"
-             data-is-avoid="{{ $isAvoid ? 1 : 0 }}"
-             data-needs-modal="{{ $needsModal ? 1 : 0 }}"
+        <div class="pl-next-card"
+              role="button"
+              tabindex="0"
+              onclick="handleNextUpCardClick(event)"
+              data-next-type="{{ $nextUp['type'] }}"
+              data-next-id="{{ $nextTask?->id ?? $nextRoutine?->id }}"
+              data-next-title="{{ $nextTask ? $nextTask->title : $nextRoutine?->title }}"
+              data-next-url="{{ $nextTask ? route('planner.tasks.toggle', $nextTask) : route('planner.routines.toggle', $nextRoutine) }}"
+              data-has-steps="{{ $hasSteps ? 1 : 0 }}"
+              data-steps-done="{{ $stepsDone }}"
+              data-steps-total="{{ $stepsTotal }}"
+              data-step-id="{{ $nextStep['id'] ?? '' }}"
+              data-step-name="{{ $nextStep['name'] ?? '' }}"
+              data-step-url="{{ $nextStep ? ($nextTask ? route('planner.task-items.toggle', $nextStep['id']) : route('planner.check-items.toggle', $nextStep['id'])) : '' }}"
+              data-needs-modal="{{ $needsModal ? 1 : 0 }}"
              data-track-mode="{{ $nextRoutine ? $nextRoutine->tracking_mode : 'none' }}"
              data-log-url="{{ $nextRoutine ? route('planner.routines.log', $nextRoutine) : '' }}"
              data-value-kind="{{ $isTime ? 'time' : 'number' }}"
@@ -90,8 +86,8 @@
             {{-- Body Info --}}
             <div class="pl-next-body">
                 <div class="pl-next-title-row">
-                    <div class="pl-next-icon-wrap {{ $nextTask ? 'is-task' : 'is-routine' }} {{ $isAvoid ? 'is-avoid' : '' }}">
-                        <i class="bi {{ $isAvoid ? 'bi-shield-exclamation' : ($nextTask ? 'bi-check2-square' : 'bi-arrow-repeat') }}"></i>
+                    <div class="pl-next-icon-wrap {{ $nextTask ? 'is-task' : 'is-routine' }}">
+                        <i class="bi {{ $nextTask ? 'bi-check2-square' : 'bi-arrow-repeat' }}"></i>
                     </div>
                     <div class="pl-next-title-content">
                         <div class="pl-next-title">
@@ -138,13 +134,8 @@
                     </div>
                 </div>
 
-                {{-- Prominent Context Prompt Pill (Step name / Value / Sets / Avoid) --}}
-                @if($isAvoid && $nextRoutine && $nextStep)
-                    <div class="pl-next-prompt-pill avoid">
-                        <i class="bi bi-shield"></i>
-                        <span>{{ __($nextStep['name']) }}</span>
-                    </div>
-                @elseif($hasSteps && $nextStep)
+                {{-- Prominent Context Prompt Pill (Step name / Value / Sets) --}}
+                @if($hasSteps && $nextStep)
                     <div class="pl-next-prompt-pill step">
                         <i class="bi bi-diagram-3"></i>
                         <span class="fw-bold">{{ __('Next Step') }}:</span>
@@ -167,14 +158,8 @@
                 @endif
             </div>
 
-            {{-- Actions --}}
+            {{-- Actions (quit-habits never appear here, so no Log Slip button) --}}
             <div class="pl-next-actions">
-                @if($isAvoid && $nextRoutine)
-                    <button type="button" class="pl-action-btn pl-action-btn-slip" onclick="event.stopPropagation(); openNextUpModal();">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        {{ __('Log Slip') }}
-                    </button>
-                @else
                     @if($nextTask)
                         <button type="button" class="pl-action-btn pl-action-btn-focus" onclick="event.stopPropagation(); openFocusWorkstation({{ $nextTask->id }}, '{{ addslashes($nextTask->title) }}', '{{ addslashes($nextTask->project->name ?? 'My Day') }}')" title="{{ __('Focus Mode • Workstation') }}">
                             <i class="bi bi-bullseye"></i> {{ __('Focus') }}
@@ -198,7 +183,6 @@
                             {{ __('Complete') }}
                         @endif
                     </button>
-                @endif
             </div>
 
         </div>

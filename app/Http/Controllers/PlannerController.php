@@ -1725,6 +1725,11 @@ class PlannerController extends Controller
         // Fully resolved step routines (every step done, skipped or slipped)
         // are settled too: there is nothing left to guide to.
         $routine = $todayRoutines->first(function ($r) use ($date) {
+            // Quit-habits (avoid) are never "next work": they have no check to
+            // tick, only a slip to log, so they never enter this queue.
+            if ($r->isAvoid()) {
+                return false;
+            }
             if ($r->completedOn($date)) {
                 return false;
             }
@@ -1733,10 +1738,7 @@ class PlannerController extends Controller
             }
             $steps = collect($r->ringSteps ?? []);
             if ($steps->isNotEmpty()) {
-                $isAvoid = $r->isAvoid();
-                $open = $steps->first(fn ($s) => $isAvoid
-                    ? empty($s['violated'])
-                    : (empty($s['completed']) && empty($s['skipped'])));
+                $open = $steps->first(fn ($s) => empty($s['completed']) && empty($s['skipped']));
                 if (! $open) {
                     return false;
                 }
@@ -1746,21 +1748,16 @@ class PlannerController extends Controller
         });
         if ($routine) {
             $steps = collect($routine->ringSteps ?? []);
-            $isAvoid = $routine->isAvoid();
-            // Avoid habits guide the first step without a slip, never a check.
             // Skipped steps are settled too — guidance moves past them.
-            $nextStep = $isAvoid
-                ? $steps->first(fn ($s) => empty($s['violated']))
-                : $steps->first(fn ($s) => empty($s['completed']) && empty($s['skipped']));
+            // (Quit-habits never reach here: filtered above.)
+            $nextStep = $steps->first(fn ($s) => empty($s['completed']) && empty($s['skipped']));
 
             return [
                 'type' => 'routine',
                 'routine' => $routine,
                 'date' => $date,
-                'is_avoid' => $isAvoid,
-                'stepsDone' => $isAvoid
-                    ? $steps->where('violated', true)->count()
-                    : $steps->where('completed', true)->count(),
+                'is_avoid' => false,
+                'stepsDone' => $steps->where('completed', true)->count(),
                 'stepsTotal' => $steps->count(),
                 'nextStep' => $nextStep,
             ];
@@ -2189,14 +2186,18 @@ class PlannerController extends Controller
         $weekIds = $weekBucket->pluck('id')->all();
         $monthBucket = $monthBucket->filter(fn ($r) => ! in_array($r->id, $weekIds))->values();
 
-        $done = $today->filter(fn ($r) => $r->completedOn($date))->count();
+        // Avoid habits are counted separately from the do-able items: they can
+        // never be ticked done, only slipped, so they must not sit in the
+        // done/total ratio (their slips hit the day bar as a penalty instead).
+        $countable = $today->reject(fn ($r) => $r->isAvoid());
+        $done = $countable->filter(fn ($r) => $r->completedOn($date))->count();
 
         return [
             'today' => $today,
             'week' => $weekBucket,
             'month' => $monthBucket,
             'done' => $done,
-            'total' => $today->count(),
+            'total' => $countable->count(),
         ];
     }
 

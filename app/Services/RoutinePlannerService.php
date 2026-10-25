@@ -201,14 +201,17 @@ class RoutinePlannerService
         $weekIds = $weekBucket->pluck('id')->all();
         $monthBucket = $monthBucket->filter(fn ($r) => ! in_array($r->id, $weekIds))->values();
 
-        $done = $today->filter(fn ($r) => $r->isAvoid() ? ! $r->avoidDayViolated : $r->completedOn($date))->count();
+        // Avoid habits sit outside the done/total ratio (they are never ticked
+        // done — only slipped), so the counter tracks the do-able habits only.
+        $countable = $today->reject(fn ($r) => $r->isAvoid());
+        $done = $countable->filter(fn ($r) => $r->completedOn($date))->count();
 
         return [
             'today' => $today,
             'week' => $weekBucket,
             'month' => $monthBucket,
             'done' => $done,
-            'total' => $today->count(),
+            'total' => $countable->count(),
         ];
     }
 

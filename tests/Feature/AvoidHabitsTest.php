@@ -154,4 +154,33 @@ class AvoidHabitsTest extends TestCase
         $hub = $this->actingAs($user)->get(route('routines.index'))->assertOk()->getContent();
         $this->assertStringContainsString('ترک‌کردنی', $hub);
     }
+
+    public function test_quit_habits_sit_outside_the_day_progress_ratio(): void
+    {
+        $user = User::factory()->create();
+        Routine::factory()->create(['user_id' => $user->id, 'frequency' => 'daily', 'title' => 'Morning walk']);
+        $avoid = Routine::factory()->create([
+            'user_id' => $user->id, 'frequency' => 'daily', 'behavior_type' => 'avoid', 'title' => 'No smoking',
+        ]);
+        $date = now()->toDateString();
+
+        $html = $this->actingAs($user)->get('/planner?view=day&date='.$date)->assertOk()->getContent();
+
+        // Only the do-able habit sits in the done/total ratio.
+        $this->assertStringContainsString('id="plRoutineSectionCount">1<', $html);
+        $this->assertStringContainsString('id="plRoutineDone">0<', $html);
+        // The quit-habit row is flagged and carries its own slip counter.
+        $this->assertMatchesRegularExpression('/data-avoid="1"\s+data-slip-qty="0"\s+data-count="0"/', $html);
+        $this->assertMatchesRegularExpression('/data-avoid="0"\s+data-slip-qty="0"\s+data-count="1"/', $html);
+        // The day bar ships a distinct penalty segment for slip scores.
+        $this->assertStringContainsString('id="plDayProgressPenalty"', $html);
+
+        // A slip updates the penalty input but never moves the habit counter.
+        $this->actingAs($user)->postJson(route('planner.routines.slip', $avoid), ['date' => $date])
+            ->assertOk();
+
+        $html = $this->actingAs($user)->get('/planner?view=day&date='.$date)->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/data-avoid="1"\s+data-slip-qty="1"\s+data-count="0"/', $html);
+        $this->assertStringContainsString('id="plRoutineSectionCount">1<', $html);
+    }
 }

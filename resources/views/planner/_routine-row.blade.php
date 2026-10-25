@@ -61,7 +61,11 @@
      data-date="{{ $routineDate->toDateString() }}"
      data-completed="{{ $isDone ? 1 : 0 }}"
      data-status="{{ $isDone ? 'done' : ($failedDay ? 'skipped' : ($settledPartial ? 'settled' : 'open')) }}"
-     data-count="{{ !empty($count) ? 1 : 0 }}"
+     {{-- Quit-habits are counted separately: they never enter the done/total
+          ratio, but their slips drive the penalty segment of the day bar. --}}
+     data-avoid="{{ $isAvoid ? 1 : 0 }}"
+     data-slip-qty="{{ $avoidQty }}"
+     data-count="{{ ($count && ! $isAvoid) ? 1 : 0 }}"
      @if($useModal)
      data-modal="1"
      data-modal-title="{{ $routine->title }}"

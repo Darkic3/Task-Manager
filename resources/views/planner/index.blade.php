@@ -633,11 +633,16 @@
 
     /* Day progress bar */
     .pl-daybar{display:flex;align-items:center;gap:10px;margin:2px 0 14px;}
-    .pl-daybar-track{flex:1;height:8px;background:#eceef2;border-radius:20px;overflow:hidden;}
+    .pl-daybar-track{position:relative;flex:1;height:8px;background:#eceef2;border-radius:20px;overflow:hidden;}
     .pl-daybar-fill{height:100%;width:0%;border-radius:20px;background:linear-gradient(90deg,#7c3aed,#a78bfa);transition:width .45s ease;}
     .pl-daybar-fill.is-full{background:linear-gradient(90deg,#16a34a,#4ade80);}
+    /* Slip penalty: a distinct red segment right after the earned progress. */
+    .pl-daybar-penalty{position:absolute;top:0;height:100%;left:0;width:0;border-radius:20px;
+        background:linear-gradient(90deg,#ef4444,#f87171);box-shadow:0 0 8px rgba(239,68,68,.55);transition:width .45s ease, left .45s ease;}
+    .pl-daybar-penalty[hidden]{display:none;}
     .pl-daybar-label{font-size:11.5px;font-weight:800;color:#7c3aed;min-width:36px;text-align:right;}
-    .pl-daybar-fill.is-full + .pl-daybar-label,.pl-daybar.done .pl-daybar-label{color:#16a34a;}
+    .pl-daybar-label.is-full,.pl-daybar.done .pl-daybar-label{color:#16a34a;}
+    .pl-daybar-label.has-penalty{color:#dc2626;}
 
     /* Postpone-all button on the Overdue head */
     .pl-overdue-all{
@@ -2112,7 +2117,10 @@
 
         {{-- Day progress (tasks + routines combined) --}}
         <div class="pl-daybar">
-            <div class="pl-daybar-track"><div class="pl-daybar-fill" id="plDayProgressFill"></div></div>
+            <div class="pl-daybar-track">
+                <div class="pl-daybar-fill" id="plDayProgressFill"></div>
+                <div class="pl-daybar-penalty" id="plDayProgressPenalty" hidden></div>
+            </div>
             <span class="pl-daybar-label" id="plDayProgressLabel"></span>
         </div>
 
@@ -2794,6 +2802,7 @@
         hideDetails: @json(__('Hide details')),
         anytime: @json(__('Anytime')),
         progressOf: @json(__('{done} of {total} done')),
+        slipPenalty: @json(__('Slip logged today')),
         pctSuffix: PL_IS_FA ? '٪' : '%',
     };
     const plRawFetch = window.fetch.bind(window);
@@ -3860,6 +3869,8 @@
     function plMarkRowViolated(form, dayQty) {
         const row = form.closest('[data-routine-item]');
         if (!row) return;
+        const qty = Math.max(1, parseInt(dayQty || '0', 10) || 0);
+        row.dataset.slipQty = String(qty);
         const shield = row.querySelector('.pl-avoid-shield');
         if (shield) {
             shield.classList.remove('ok'); shield.classList.add('bad');
@@ -3873,10 +3884,13 @@
         const panel = form.closest('[data-slip-panel], [data-step-slip-panel]');
         if (panel) panel.hidden = true;
         form.reset?.();
+        window.plRefreshDayProgress?.();
     }
     function plUnmarkRowIfClean(routineId, date, dayQty) {
-        if (dayQty > 0) return;
+        const qty = Math.max(0, parseInt(dayQty || '0', 10) || 0);
         document.querySelectorAll('[data-routine-item][data-id="' + routineId + '"][data-date="' + date + '"]').forEach(row => {
+            row.dataset.slipQty = String(qty);
+            if (qty > 0) return;
             const shield = row.querySelector('.pl-avoid-shield');
             if (shield) {
                 shield.classList.remove('bad'); shield.classList.add('ok');
@@ -3888,6 +3902,7 @@
                 meta.innerHTML = '<i class="bi bi-shield-check"></i> ' + @json(__('Clean so far'));
             }
         });
+        window.plRefreshDayProgress?.();
     }
 
     async function doPostSlip(url, payload) {
@@ -3971,41 +3986,6 @@
             btn.disabled = false;
         }
         return false;
-    }
-
-    /* Next-up card for an avoid habit logs a slip on the guided step/routine. */
-    async function plSlipNext() {
-        const wrap = document.getElementById('plNextUp');
-        const card = wrap ? wrap.querySelector('.pl-next-card') : null;
-        if (!card) return;
-        const stepBox = card.querySelector('[data-next-step]');
-        const url = (stepBox && stepBox.dataset.slipUrl) || card.dataset.slipUrl;
-        if (!url) return;
-        const ok = await plOpenAvoidConfirm({
-            title: @json(__('Log this slip?')),
-            sub: @json(__('Please review before saving — you have 10 minutes to undo.')),
-            rows: [[@json(__('Routine')), card.dataset.routineTitle || '']],
-            okLabel: @json(__('Log Slip')),
-            okClass: 'slip',
-        });
-        if (!ok) return;
-        try {
-            const res = await plFetch(url + '?date=' + encodeURIComponent(wrap.dataset.nextDate), {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
-            });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            const json = await res.json();
-            if (json.violation_id) {
-                plAddUndo({ id: json.violation_id, type: 'violation', routineId: json.routine_id, date: json.date, routineTitle: card.dataset.routineTitle || '', expiresAt: Date.now() + PL_UNDO_MS });
-                refreshNextUp?.();
-            }
-            plShowToast(@json(__('Slip logged')));
-        } catch (e) {
-            console.error('[Planner] next-up slip failed', e);
-            plShowToast(@json(__('Could not log the slip')));
-        }
     }
 
     /* ── Routine details accordion (collapsed by default) ── */
@@ -4229,9 +4209,10 @@
         if (rs) rs.textContent = plNum(total);
         if (window.plRefreshDayProgress) window.plRefreshDayProgress();
 
-        // per-day counters in week view
+        // per-day counters in week view (quit-habits are counted separately)
         document.querySelectorAll('.pl-day').forEach(dayEl => {
-            const routines = dayEl.querySelectorAll('[data-routine-item]');
+            const routines = [...dayEl.querySelectorAll('[data-routine-item]')]
+                .filter(r => r.dataset.avoid !== '1');
             if (!routines.length) return;
             let d = 0;
             routines.forEach(r => { if (r.dataset.completed === '1') d++; });
@@ -5039,8 +5020,6 @@
             stepId: d.stepId,
             stepName: d.stepName,
             stepUrl: d.stepUrl,
-            slipUrl: d.slipUrl,
-            isAvoid: d.isAvoid === '1',
             trackMode: d.trackMode,
             logUrl: d.logUrl,
             valueKind: d.valueKind,
@@ -5055,13 +5034,13 @@
         // Header & Hero Chip setup
         document.getElementById('plNextUpHeroTitle').textContent = plNextUpActiveData.title;
         const heroIcon = document.getElementById('plNextUpHeroIcon');
-        heroIcon.className = 'bi fs-5 ' + (plNextUpActiveData.isAvoid ? 'bi-shield-exclamation text-danger' : (plNextUpActiveData.type === 'task' ? 'bi-check2-square text-primary' : 'bi-arrow-repeat text-purple'));
+        heroIcon.className = 'bi fs-5 ' + (plNextUpActiveData.type === 'task' ? 'bi-check2-square text-primary' : 'bi-arrow-repeat text-purple');
         
         // Modal sub text
         document.getElementById('plNextUpModalSub').textContent = plNextUpActiveData.type === 'task' ? '{{ __('Task') }}' : '{{ __('Routine') }}';
 
-        // Reset panels
-        ['plModalPanelTime', 'plModalPanelValue', 'plModalPanelSets', 'plModalPanelAvoid', 'plModalPanelSteps'].forEach(id => {
+        // Reset panels (quit-habits never enter Next Up, so no avoid panel here).
+        ['plModalPanelTime', 'plModalPanelValue', 'plModalPanelSets', 'plModalPanelSteps'].forEach(id => {
             const p = document.getElementById(id);
             if (p) p.style.display = 'none';
         });
@@ -5107,11 +5086,6 @@
                 grid.appendChild(row);
             }
             if (btnText) btnText.textContent = '{{ __('Log Sets') }}';
-        } else if (plNextUpActiveData.isAvoid) {
-            const panel = document.getElementById('plModalPanelAvoid');
-            panel.style.display = 'block';
-            document.getElementById('plModalAvoidNote').value = '';
-            if (btnText) btnText.textContent = '{{ __('Log Slip') }}';
         } else if (plNextUpActiveData.allSteps && plNextUpActiveData.allSteps.length > 0) {
             const panel = document.getElementById('plModalPanelSteps');
             panel.style.display = 'block';
@@ -5240,17 +5214,6 @@
                     applyRoutineToggle(d.id, d.date, true);
                     refreshRoutineCounters();
                     maybeCelebrate();
-                }
-            } else if (d.isAvoid) {
-                const noteVal = document.getElementById('plModalAvoidNote')?.value || '';
-                const slipUrl = d.slipUrl;
-                if (slipUrl) {
-                    const res = await plFetch(slipUrl + '?date=' + encodeURIComponent(d.date), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify({ note: noteVal }),
-                    });
-                    if (!res.ok) throw new Error('HTTP ' + res.status);
                 }
             } else if (d.hasSteps && d.stepId) {
                 const res = await plFetch(d.stepUrl + '?date=' + encodeURIComponent(d.date), {
@@ -5618,20 +5581,47 @@
         }
     });
 
-    /* ── Day progress bar (tasks + routines combined) ── */
+    /* ── Day progress bar (do-able tasks + habits) ──
+       Quit-habits stay out of the done/total ratio: a logged slip instead
+       subtracts score and paints a distinct red segment on the bar. */
     window.plRefreshDayProgress = function () {
         const fill = document.getElementById('plDayProgressFill');
         if (!fill) { return; }
+        const penalty = document.getElementById('plDayProgressPenalty');
         let done = 0, total = 0;
         document.querySelectorAll('[data-task-item][data-count="1"], [data-routine-item][data-count="1"]').forEach(el => {
             total++;
             if (el.dataset.completed === '1') done++;
         });
-        const pct = total > 0 ? Math.round(done / total * 100) : 0;
-        fill.style.width = pct + '%';
-        fill.classList.toggle('is-full', pct === 100 && total > 0);
+        let slipped = 0;
+        document.querySelectorAll('[data-routine-item][data-avoid="1"]').forEach(el => {
+            if (parseInt(el.dataset.slipQty || '0', 10) > 0) slipped++;
+        });
+
+        const net = done - slipped;
+        const greenPct = total > 0 ? Math.max(0, Math.min(100, Math.round(net / total * 100))) : 0;
+        const redPct = total > 0 ? Math.max(0, Math.min(100 - greenPct, Math.round(slipped / total * 100))) : 0;
+        const pct = total > 0 ? Math.round(net / total * 100) : 0;
+        const isFull = total > 0 && slipped === 0 && done >= total;
+
+        fill.style.width = greenPct + '%';
+        fill.classList.toggle('is-full', isFull);
+        if (penalty) {
+            penalty.hidden = redPct <= 0;
+            penalty.style.left = greenPct + '%';
+            penalty.style.width = redPct + '%';
+        }
+
         const lbl = document.getElementById('plDayProgressLabel');
-        if (lbl) { lbl.textContent = total ? plNum(pct) + PL_I18N_EXTRA.pctSuffix : ''; lbl.title = PL_I18N_EXTRA.progressOf.replace('{done}', plNum(done)).replace('{total}', plNum(total)); }
+        if (lbl) {
+            lbl.textContent = total ? plNum(pct) + PL_I18N_EXTRA.pctSuffix : '';
+            lbl.classList.toggle('is-full', isFull);
+            lbl.classList.toggle('has-penalty', total > 0 && slipped > 0);
+            lbl.title = total
+                ? PL_I18N_EXTRA.progressOf.replace('{done}', plNum(done)).replace('{total}', plNum(total))
+                    + (slipped > 0 ? ' · ' + PL_I18N_EXTRA.slipPenalty + ' ×' + plNum(slipped) : '')
+                : '';
+        }
     };
     window.plRefreshDayProgress();
 

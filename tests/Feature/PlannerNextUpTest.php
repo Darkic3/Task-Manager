@@ -120,6 +120,48 @@ class PlannerNextUpTest extends TestCase
         $this->assertStringNotContainsString('pl-next-card', $html);
     }
 
+    /* ── Quit-habits (avoid) never enter the queue ── */
+
+    public function test_quit_habits_are_never_offered_as_next_up(): void
+    {
+        $user = User::factory()->create();
+        Routine::factory()->create([
+            'user_id' => $user->id,
+            'frequency' => 'daily',
+            'behavior_type' => 'avoid',
+            'title' => 'No smoking',
+        ]);
+        Routine::factory()->create([
+            'user_id' => $user->id,
+            'frequency' => 'daily',
+            'title' => 'Morning walk',
+        ]);
+
+        $html = $this->nextUpHtml($user);
+
+        $this->assertStringContainsString('Morning walk', $html);
+        $this->assertStringNotContainsString('No smoking', $html);
+        $this->assertStringNotContainsString('data-is-avoid="1"', $html);
+        $this->assertStringNotContainsString('Log Slip', $html);
+    }
+
+    public function test_quit_habits_alone_leave_next_up_empty(): void
+    {
+        $user = User::factory()->create();
+        Routine::factory()->create([
+            'user_id' => $user->id,
+            'frequency' => 'daily',
+            'behavior_type' => 'avoid',
+            'title' => 'No smoking',
+        ]);
+
+        $html = $this->nextUpHtml($user);
+
+        $this->assertStringNotContainsString('pl-next-card', $html);
+        $this->assertStringNotContainsString('No smoking', $html);
+        $this->assertStringNotContainsString('Log Slip', $html);
+    }
+
     /* ── Multi-step guidance ── */
 
     public function test_showcase_routine_points_at_first_open_step(): void
