@@ -507,7 +507,10 @@ class AiProviderService
                 $parts[] = trim($part);
             }
         }
-        return $parts ? implode(' — ', $parts) : (string) json_encode($err);
+        $text = $parts ? implode(' — ', $parts) : (string) json_encode($err);
+
+        // Provider bodies may echo request URLs/keys — never surface raw.
+        return \App\Exceptions\AiProviderException::scrub($text);
     }
 
     /**
@@ -522,7 +525,8 @@ class AiProviderService
             ? $this->formatErrorArray($err)
             : (trim((string) $response->body()) ?: 'Unknown error');
 
-        return 'HTTP ' . $response->status() . ': ' . $detail;
+        // Belt and braces: scrub the raw body too (non-JSON error pages).
+        return 'HTTP ' . $response->status() . ': ' . \App\Exceptions\AiProviderException::scrub($detail);
     }
 
     public function openAiPayload(array $messages, string $model, bool $stream = false, ?string $baseUrl = null, ?array $tools = null): array

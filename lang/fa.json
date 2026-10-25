@@ -1986,5 +1986,15 @@
     "Only save time": "فقط زمان ثبت شود",
     "Save selections": "ثبت انتخاب‌ها",
     "Could not save these selections.": "ثبت این انتخاب‌ها ممکن نشد.",
-    "Approve the package list first — packages stay locked until then.": "اول فهرست بسته‌ها را تأیید کن — تا تأیید نکنی بسته‌ها قفل می‌مانند."
+    "Approve the package list first — packages stay locked until then.": "اول فهرست بسته‌ها را تأیید کن — تا تأیید نکنی بسته‌ها قفل می‌مانند.",
+    "The AI provider timed out after several retries — nothing was changed. Please try again.": "سرویس هوش مصنوعی پس از چند تلاش پاسخ نداد — چیزی تغییر نکرد. لطفاً دوباره تلاش کنید.",
+    "The AI provider rejected the request (HTTP :status) — most likely the API key. Check the key in AI Settings; nothing was changed.": "سرویس هوش مصنوعی درخواست را رد کرد (خطای :status) — احتمالاً مشکل از کلید API است. کلید را در تنظیمات هوش مصنوعی بررسی کنید؛ چیزی تغییر نکرد.",
+    "The AI provider is rate-limited right now — wait a little and try again. Nothing was changed.": "سرویس هوش مصنوعی فعلاً محدودیت نرخ دارد — کمی صبر کنید و دوباره تلاش کنید. چیزی تغییر نکرد.",
+    "The AI provider had a temporary error (HTTP :status) — nothing was changed. Please try again.": "سرویس هوش مصنوعی خطای موقت داشت (خطای :status) — چیزی تغییر نکرد. لطفاً دوباره تلاش کنید.",
+    "The AI provider request failed (HTTP :status) — nothing was changed. Check AI Settings and try again.": "درخواست به سرویس هوش مصنوعی ناموفق بود (خطای :status) — چیزی تغییر نکرد. تنظیمات هوش مصنوعی را بررسی و دوباره تلاش کنید.",
+    "Could not reach the AI provider — check your connection and AI Settings. Nothing was changed.": "ارتباط با سرویس هوش مصنوعی برقرار نشد — اتصال اینترنت و تنظیمات هوش مصنوعی را بررسی کنید. چیزی تغییر نکرد.",
+    "The structure changed while revising — review the current version and try again.": "ساختار هنگام اصلاح تغییر کرد — نسخه فعلی را بررسی و دوباره تلاش کنید.",
+    "A package was confirmed while revising — the structure can no longer be revised.": "یک بسته هنگام اصلاح تأیید شد — ساختار دیگر قابل اصلاح نیست.",
+    "A package is already confirmed — the structure can no longer be revised.": "یک بسته از قبل تأیید شده است — ساختار دیگر قابل اصلاح نیست.",
+    "Packages are already built — the structure can no longer be revised.": "بسته‌ها ساخته شده‌اند — ساختار دیگر قابل اصلاح نیست."
 }

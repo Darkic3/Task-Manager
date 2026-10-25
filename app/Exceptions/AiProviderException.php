@@ -19,10 +19,41 @@ class AiProviderException extends Exception
         int $code = 0,
         ?Throwable $previous = null
     ) {
-        parent::__construct($message, $code, $previous);
+        // Scrub once at the source: this message flows into user responses
+        // AND server logs, so URLs/keys must never survive here.
+        parent::__construct(self::scrub($message), $code, $previous);
         $this->provider = $provider;
         $this->endpoint = $endpoint;
         $this->httpStatus = $httpStatus;
+    }
+
+    /**
+     * Strip secrets and full URLs from any provider-related text before it
+     * reaches users or logs. Host names are kept ([provider host]) so
+     * failures stay diagnosable without leaking paths, query keys or tokens.
+     */
+    public static function scrub(string $text): string
+    {
+        // Credential-bearing query params (?key=..., &token=...).
+        $text = (string) preg_replace(
+            '/([?&](?:api[_-]?key|key|token|secret|password|auth)=)[^&\s\'"`<>]*/i',
+            '$1[redacted]',
+            $text
+        );
+        // Bearer-style tokens.
+        $text = (string) preg_replace(
+            '/\bBearer\s+[A-Za-z0-9\-._~+\/=]+/i',
+            'Bearer [redacted]',
+            $text
+        );
+        // Full URLs → host only.
+        $text = (string) preg_replace_callback(
+            '/https?:\/\/[^\s\'"`<>]+/i',
+            static fn ($m) => '[provider '.(parse_url($m[0], PHP_URL_HOST) ?: 'host').']',
+            $text
+        );
+
+        return $text;
     }
 
     /**
