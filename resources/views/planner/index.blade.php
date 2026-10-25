@@ -638,7 +638,7 @@
     .pl-daybar-fill.is-full{background:linear-gradient(90deg,#16a34a,#4ade80);}
     /* Slip penalty: a distinct red segment right after the earned progress. */
     .pl-daybar-penalty{position:absolute;top:0;height:100%;left:0;width:0;border-radius:20px;
-        background:linear-gradient(90deg,#ef4444,#f87171);box-shadow:0 0 8px rgba(239,68,68,.55);transition:width .45s ease, left .45s ease;}
+        background:linear-gradient(90deg,#ef4444,#f87171);box-shadow:0 0 8px rgba(239,68,68,.55);transition:width .45s ease, left .45s ease;cursor:help;}
     .pl-daybar-penalty[hidden]{display:none;}
     .pl-daybar-label{font-size:11.5px;font-weight:800;color:#7c3aed;min-width:36px;text-align:right;}
     .pl-daybar-label.is-full,.pl-daybar.done .pl-daybar-label{color:#16a34a;}
@@ -5594,9 +5594,16 @@
             if (el.dataset.completed === '1') done++;
         });
         let slipped = 0;
+        const slippedNames = [];
         document.querySelectorAll('[data-routine-item][data-avoid="1"]').forEach(el => {
-            if (parseInt(el.dataset.slipQty || '0', 10) > 0) slipped++;
+            const qty = parseInt(el.dataset.slipQty || '0', 10) || 0;
+            if (qty > 0) {
+                slipped++;
+                // Hovering the red penalty shows exactly which habit slipped.
+                slippedNames.push((el.dataset.title || '').trim() + (qty > 1 ? ' ×' + plNum(qty) : ''));
+            }
         });
+        const slipDetail = slippedNames.filter(Boolean).join(PL_IS_FA ? '، ' : ', ');
 
         const net = done - slipped;
         const greenPct = total > 0 ? Math.max(0, Math.min(100, Math.round(net / total * 100))) : 0;
@@ -5610,6 +5617,9 @@
             penalty.hidden = redPct <= 0;
             penalty.style.left = greenPct + '%';
             penalty.style.width = redPct + '%';
+            penalty.title = redPct > 0
+                ? PL_I18N_EXTRA.slipPenalty + (slipDetail ? ': ' + slipDetail : '')
+                : '';
         }
 
         const lbl = document.getElementById('plDayProgressLabel');
@@ -5619,7 +5629,7 @@
             lbl.classList.toggle('has-penalty', total > 0 && slipped > 0);
             lbl.title = total
                 ? PL_I18N_EXTRA.progressOf.replace('{done}', plNum(done)).replace('{total}', plNum(total))
-                    + (slipped > 0 ? ' · ' + PL_I18N_EXTRA.slipPenalty + ' ×' + plNum(slipped) : '')
+                    + (slipped > 0 ? ' · ' + PL_I18N_EXTRA.slipPenalty + ' ×' + plNum(slipped) + (slipDetail ? ': ' + slipDetail : '') : '')
                 : '';
         }
     };

@@ -169,9 +169,10 @@ class AvoidHabitsTest extends TestCase
         // Only the do-able habit sits in the done/total ratio.
         $this->assertStringContainsString('id="plRoutineSectionCount">1<', $html);
         $this->assertStringContainsString('id="plRoutineDone">0<', $html);
-        // The quit-habit row is flagged and carries its own slip counter.
-        $this->assertMatchesRegularExpression('/data-avoid="1"\s+data-slip-qty="0"\s+data-count="0"/', $html);
-        $this->assertMatchesRegularExpression('/data-avoid="0"\s+data-slip-qty="0"\s+data-count="1"/', $html);
+        // The quit-habit row is flagged, carries its own slip counter, and
+        // exposes its title so the day-bar penalty tooltip can name it.
+        $this->assertMatchesRegularExpression('/data-avoid="1"\s+data-slip-qty="0"\s+data-title="No smoking"\s+data-count="0"/', $html);
+        $this->assertMatchesRegularExpression('/data-avoid="0"\s+data-slip-qty="0"\s+data-title="Morning walk"\s+data-count="1"/', $html);
         // The day bar ships a distinct penalty segment for slip scores.
         $this->assertStringContainsString('id="plDayProgressPenalty"', $html);
 
@@ -180,7 +181,7 @@ class AvoidHabitsTest extends TestCase
             ->assertOk();
 
         $html = $this->actingAs($user)->get('/planner?view=day&date='.$date)->assertOk()->getContent();
-        $this->assertMatchesRegularExpression('/data-avoid="1"\s+data-slip-qty="1"\s+data-count="0"/', $html);
+        $this->assertMatchesRegularExpression('/data-avoid="1"\s+data-slip-qty="1"\s+data-title="No smoking"\s+data-count="0"/', $html);
         $this->assertStringContainsString('id="plRoutineSectionCount">1<', $html);
     }
 }

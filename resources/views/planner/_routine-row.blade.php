@@ -65,6 +65,7 @@
           ratio, but their slips drive the penalty segment of the day bar. --}}
      data-avoid="{{ $isAvoid ? 1 : 0 }}"
      data-slip-qty="{{ $avoidQty }}"
+     data-title="{{ $routine->title }}"
      data-count="{{ ($count && ! $isAvoid) ? 1 : 0 }}"
      @if($useModal)
      data-modal="1"
