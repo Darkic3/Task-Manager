@@ -391,6 +391,12 @@ class PlannerController extends Controller
         abort_if($task->user_id !== Auth::id(), 403);
 
         $completed = $task->status !== 'completed';
+        if ($completed && $task->hasIncompleteDescendants()) {
+            return response()->json([
+                'ok' => false,
+                'message' => __('Complete all subtasks before completing this task.'),
+            ], 422);
+        }
         $task->status = $completed ? 'completed' : 'to_do';
         $task->completed_at = $completed ? now() : null;
         // Completing closes the loop: any earlier fail marker is cleared.
@@ -399,6 +405,9 @@ class PlannerController extends Controller
             $task->fail_note = null;
         }
         $task->save();
+        if (! $completed) {
+            $task->reopenCompletedAncestors();
+        }
 
         return response()->json([
             'ok' => true,
@@ -418,6 +427,13 @@ class PlannerController extends Controller
     public function completeStudy(Request $request, Task $task)
     {
         abort_if($task->user_id !== Auth::id(), 403);
+
+        if ($task->hasIncompleteDescendants()) {
+            return response()->json([
+                'ok' => false,
+                'message' => __('Complete all subtasks before completing this task.'),
+            ], 422);
+        }
 
         $data = $request->validate([
             'pages' => 'nullable|numeric|min:0|max:99',
@@ -817,7 +833,7 @@ class PlannerController extends Controller
         $total = $items->count();
         $allDone = $total > 0 && $done === $total;
 
-        if ($allDone && $task->status !== 'completed') {
+        if ($allDone && ! $task->hasIncompleteDescendants() && $task->status !== 'completed') {
             $task->status = 'completed';
             $task->completed_at = $task->completed_at ?? now();
             $task->save();
@@ -1905,6 +1921,7 @@ class PlannerController extends Controller
                 ? round(((int) $data['estimated_minutes']) / 60, 2)
                 : null,
         ]);
+        $task->reopenCompletedAncestors();
         $task->load('project:id,name');
 
         $weekView = $request->input('view') === 'week';

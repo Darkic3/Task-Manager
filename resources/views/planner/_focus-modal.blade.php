@@ -233,7 +233,7 @@
         }
 
         try {
-            await fetch(`/tasks/${currentFocusTaskId}/update-status`, {
+            const response = await fetch(`/tasks/${currentFocusTaskId}/update-status`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -242,6 +242,11 @@
                 },
                 body: JSON.stringify({ status: 'completed' })
             });
+            if (!response.ok) {
+                const result = await response.json().catch(() => ({}));
+                alertSwal(result.message || @json(__('Complete all subtasks before completing this task.')), null, 'warning');
+                return;
+            }
             closeFocusWorkstation();
             window.location.reload();
         } catch (e) {

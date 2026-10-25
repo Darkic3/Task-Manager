@@ -1973,5 +1973,17 @@
     "Move to tomorrow and re-anchor the schedule": "به فردا منتقل شود و برنامه از فردا دوباره لنگرگذاری شود",
     "Moved to tomorrow — the schedule restarts from tomorrow.": "به فردا منتقل شد — برنامه از فردا دوباره شروع می‌شود.",
     "Could not move the routine.": "انتقال روتین ممکن نشد.",
-    "Postponed": "به تعویق افتاد"
+    "Postponed": "به تعویق افتاد",
+    "Complete all subtasks before completing this task.": "قبل از تکمیل این تسک، همهٔ زیرتسک‌ها را کامل کنید.",
+    "Complete all tasks and subprojects before completing this project.": "قبل از تکمیل این پروژه، همهٔ تسک‌ها و زیرپروژه‌ها را کامل کنید.",
+    "Time saved": "زمان ثبت شد",
+    "The timer only records time. Select what you actually completed.": "تایمر فقط زمان را ثبت می‌کند. بخش‌هایی را که واقعاً انجام داده‌اید انتخاب کنید.",
+    "this item": "این مورد",
+    "I completed all of": "تمام بخش‌های این مورد را کامل کردم:",
+    "Completed subtasks or subprojects": "زیرتسک‌ها یا زیرپروژه‌های انجام‌شده",
+    "No unfinished subitems": "زیرمورد ناتمامی وجود ندارد",
+    "Record this time under": "این زمان برای کدام بخش ثبت شود؟",
+    "Only save time": "فقط زمان ثبت شود",
+    "Save selections": "ثبت انتخاب‌ها",
+    "Could not save these selections.": "ثبت این انتخاب‌ها ممکن نشد."
 }

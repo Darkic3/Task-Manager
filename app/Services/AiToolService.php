@@ -3269,6 +3269,7 @@ class AiToolService
             'priority' => $r['priority'],
             'status' => $r['status'],
         ]);
+        $task->reopenCompletedAncestors();
 
         $msg = isset($r['parent_id'])
             ? __("Subtask ':title' created under ':parent'.", ['title' => $task->title, 'parent' => $r['parent_title']])
@@ -3282,9 +3283,15 @@ class AiToolService
         $task = Task::where('id', $r['id'])->where('user_id', $user->id)->firstOrFail();
         $data = array_intersect_key($r, array_flip(['title', 'due_date', 'priority', 'status', 'description']));
         if (isset($data['status'])) {
+            if ($data['status'] === 'completed' && $task->hasIncompleteDescendants()) {
+                return ['ok' => false, 'message' => __('Complete all subtasks before completing this task.')];
+            }
             $data['completed_at'] = $data['status'] === 'completed' ? ($task->completed_at ?? now()) : null;
         }
         $task->update($data);
+        if (($data['status'] ?? null) && $data['status'] !== 'completed') {
+            $task->reopenCompletedAncestors();
+        }
 
         return ['ok' => true, 'message' => __("Task ':title' updated.", ['title' => $task->title]), 'id' => $task->id];
     }
@@ -3292,6 +3299,9 @@ class AiToolService
     private function execTaskComplete(array $r, $user): array
     {
         $task = Task::where('id', $r['id'])->where('user_id', $user->id)->firstOrFail();
+        if ($task->hasIncompleteDescendants()) {
+            return ['ok' => false, 'message' => __('Complete all subtasks before completing this task.')];
+        }
         $task->update(['status' => 'completed', 'completed_at' => $task->completed_at ?? now()]);
 
         return ['ok' => true, 'message' => __("Task ':title' completed.", ['title' => $task->title]), 'id' => $task->id];

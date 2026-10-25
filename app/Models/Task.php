@@ -75,6 +75,51 @@ class Task extends Model
         return $this->children()->with('childrenRecursive');
     }
 
+    /** A parent task may be completed only after every descendant is completed. */
+    public function hasIncompleteDescendants(array $alsoCompleting = []): bool
+    {
+        $frontier = [$this->id];
+        $guard = 0;
+
+        while ($frontier !== [] && $guard++ < 1000) {
+            $children = static::where('user_id', $this->user_id)
+                ->whereIn('parent_id', $frontier)
+                ->get(['id', 'status']);
+
+            if ($children->contains(fn (self $child) => $child->status !== 'completed' && ! in_array((int) $child->id, $alsoCompleting, true))) {
+                return true;
+            }
+
+            $frontier = $children->pluck('id')->all();
+        }
+
+        return false;
+    }
+
+    /** Reopen completed task/project ancestors when a descendant is reopened. */
+    public function reopenCompletedAncestors(): void
+    {
+        $parent = $this->parent;
+        $guard = 0;
+        while ($parent && $guard++ < 100) {
+            if ($parent->status === 'completed') {
+                $parent->update(['status' => 'to_do', 'completed_at' => null]);
+            }
+            $parent = $parent->parent;
+        }
+
+        if ($this->project_id) {
+            $project = $this->project;
+            $guard = 0;
+            while ($project && $guard++ < 100) {
+                if ($project->status === 'completed') {
+                    $project->update(['status' => 'in_progress']);
+                }
+                $project = $project->parent;
+            }
+        }
+    }
+
     public static function statusProgress(string $status): float
     {
         return match ($status) {

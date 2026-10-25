@@ -128,6 +128,7 @@
     /* ── Actions (optimistic + single in-flight guard) ── */
     function start(payload) {
         if (busy) return Promise.resolve(state.entry);
+        if (state.entry) return stop().then(() => start(payload));
         busy = true; notify();
         return req(START_URL, 'POST', payload || {})
             .then(j => { busy = false; setEntry(j.active); return j.active; })
@@ -164,7 +165,14 @@
         busy = true;
         setEntry(null);
         return req(ENTRY_URL + '/' + id + '/stop', 'POST', {})
-            .then(j => { busy = false; rev++; notify(); return j.duration; })
+            .then(j => {
+                busy = false; rev++; notify();
+                const result = { duration: j.duration, entry: j.entry || null, outcome: j.outcome || null };
+                if (typeof window.promptTimeEntryOutcome === 'function') {
+                    return window.promptTimeEntryOutcome(result).then(() => result);
+                }
+                return result;
+            })
             .catch(err => { busy = false; sync(); throw err; });
     }
 

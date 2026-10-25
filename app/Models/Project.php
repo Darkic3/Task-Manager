@@ -106,6 +106,36 @@ class Project extends Model
         return $this->children()->with('childrenRecursive')->with('tasks');
     }
 
+    /** A project can be completed only when every task and subproject is done. */
+    public function hasIncompleteDescendants(): bool
+    {
+        $projectIds = $this->descendantProjectIds();
+        $incompleteProjects = static::whereIn('id', $projectIds)
+            ->where('id', '!=', $this->id)
+            ->where('status', '!=', 'completed')->exists();
+
+        if ($incompleteProjects) {
+            return true;
+        }
+
+        return Task::where('user_id', $this->user_id)
+            ->whereIn('project_id', $projectIds)
+            ->where('status', '!=', 'completed')->exists();
+    }
+
+    /** Reopen completed project ancestors after this project is reopened. */
+    public function reopenCompletedAncestors(): void
+    {
+        $parent = $this->parent;
+        $guard = 0;
+        while ($parent && $guard++ < 100) {
+            if ($parent->status === 'completed') {
+                $parent->update(['status' => 'in_progress']);
+            }
+            $parent = $parent->parent;
+        }
+    }
+
     /**
      * Chain of ancestors from the root down to (excluding) this project.
      * Uses the loaded `parent` relation when available (no queries).

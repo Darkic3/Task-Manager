@@ -62,7 +62,8 @@ class ProjectController extends Controller
 
         $this->assertNoCycle($data['parent_id'] ?? null);
 
-        Auth::user()->projects()->create($data);
+        $createdProject = Auth::user()->projects()->create($data);
+        $createdProject->reopenCompletedAncestors();
 
         return redirect()->route('projects.index')->with('success', __('Project created successfully.'));
     }
@@ -131,9 +132,16 @@ class ProjectController extends Controller
 
         $data = $this->normalizeDailyGoal($data);
 
+        if ($data['status'] === 'completed' && $project->hasIncompleteDescendants()) {
+            abort(422, __('Complete all tasks and subprojects before completing this project.'));
+        }
+
         $this->assertNoCycle($data['parent_id'] ?? null, $project->id);
 
         $project->update($data);
+        if ($data['status'] !== 'completed' || $project->wasChanged('parent_id')) {
+            $project->reopenCompletedAncestors();
+        }
 
         return redirect()->route('projects.index')->with('success', __('Project updated successfully.'));
     }

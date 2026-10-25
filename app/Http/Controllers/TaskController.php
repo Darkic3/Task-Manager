@@ -85,7 +85,8 @@ class TaskController extends Controller
         $data['user_id'] = $data['user_id'] ?? Auth::id();
         $data['status'] = $data['status'] ?? 'to_do';
 
-        Task::create($data);
+        $task = Task::create($data);
+        $task->reopenCompletedAncestors();
 
         // Redirect based on context
         if ($project) {
@@ -128,6 +129,7 @@ class TaskController extends Controller
             'weight' => 1,
             'auto_weight' => true,
         ]);
+        $task->reopenCompletedAncestors();
 
         $task = Task::where('id', $task->id)->with(['user:id,name', 'project:id,name'])->withCount('children')->first();
         $rootId = 'p-'.($task->project_id ?? 'none');
@@ -244,7 +246,17 @@ class TaskController extends Controller
             ? ($task->completed_at ?? now())
             : null;
 
+        if ($data['status'] === 'completed' && $task->hasIncompleteDescendants()) {
+            abort(422, __('Complete all subtasks before completing this task.'));
+        }
+
         $task->update($data);
+        if ($task->wasChanged('parent_id')) {
+            $task->reopenCompletedAncestors();
+        }
+        if ($data['status'] !== 'completed') {
+            $task->reopenCompletedAncestors();
+        }
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
@@ -300,6 +312,7 @@ class TaskController extends Controller
             }
             $task->sort_order = $item['sort_order'] ?? 0;
             $task->save();
+            $task->reopenCompletedAncestors();
         }
 
         return response()->json(['ok' => true]);
@@ -367,12 +380,24 @@ class TaskController extends Controller
             ->whereIn('id', $data['ids'])
             ->get();
 
+        if ($data['status'] === 'completed') {
+            $completingIds = $tasks->modelKeys();
+            foreach ($tasks as $task) {
+                if ($task->hasIncompleteDescendants($completingIds)) {
+                    abort(422, __('Complete all subtasks before completing this task.'));
+                }
+            }
+        }
+
         foreach ($tasks as $task) {
             $task->status = $data['status'];
             $task->completed_at = $data['status'] === 'completed'
                 ? ($task->completed_at ?? now())
                 : null;
             $task->save();
+            if ($data['status'] !== 'completed') {
+                $task->reopenCompletedAncestors();
+            }
         }
 
         return response()->json(['ok' => true, 'updated' => $tasks->count()]);
@@ -397,12 +422,23 @@ class TaskController extends Controller
 
     public function updateStatus(Request $request, Task $task)
     {
-        $status = $request->input('status');
+        abort_if($task->user_id !== Auth::id(), 403);
+        $data = $request->validate(['status' => 'required|in:to_do,in_progress,on_hold,in_review,completed']);
+        $status = $data['status'];
+        if ($status === 'completed' && $task->hasIncompleteDescendants()) {
+            return response()->json([
+                'ok' => false,
+                'message' => __('Complete all subtasks before completing this task.'),
+            ], 422);
+        }
         $task->status = $status;
         $task->completed_at = $status === 'completed' ? ($task->completed_at ?? now()) : null;
         $task->save();
+        if ($status !== 'completed') {
+            $task->reopenCompletedAncestors();
+        }
 
-        return response()->json(['message' => __('Task status updated successfully.')]);
+        return response()->json(['ok' => true, 'message' => __('Task status updated successfully.')]);
     }
 
     /**

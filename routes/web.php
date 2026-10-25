@@ -207,6 +207,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/time/entries/{entry}/pause', [TimeTrackingController::class, 'pause'])->name('time.pause');
     Route::post('/time/entries/{entry}/resume', [TimeTrackingController::class, 'resume'])->name('time.resume');
     Route::post('/time/entries/{entry}/stop', [TimeTrackingController::class, 'stop'])->name('time.stop');
+    Route::post('/time/entries/{entry}/outcome', [TimeTrackingController::class, 'outcome'])->name('time.outcome');
     Route::get('/time/reports', [TimeTrackingController::class, 'reports'])->name('time.reports');
     Route::post('/time/entries', [TimeTrackingController::class, 'store'])->name('time.entries.store');
     Route::delete('/time/entries/{entry}', [TimeTrackingController::class, 'destroy'])->name('time.entries.destroy');

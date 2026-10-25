@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Task;
 use App\Models\TimeEntry;
+use App\Services\TimeEntryOutcomeService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -95,16 +96,45 @@ class TimeTrackingController extends Controller
         return response()->json(['ok' => true, 'active' => $this->serialize($entry->fresh())]);
     }
 
-    public function stop(Request $request, TimeEntry $entry)
+    public function stop(Request $request, TimeEntry $entry, TimeEntryOutcomeService $outcomes)
     {
         $this->authorizeEntry($entry);
         $entry->stop();
 
         if ($request->expectsJson()) {
-            return response()->json(['ok' => true, 'active' => null, 'duration' => $entry->duration_seconds]);
+            $entry->load(['task:id,title,project_id', 'project:id,name']);
+
+            return response()->json([
+                'ok' => true,
+                'active' => null,
+                'duration' => $entry->duration_seconds,
+                'entry' => $this->serialize($entry),
+                'outcome' => $outcomes->choices($entry),
+            ]);
         }
 
         return back()->with('success', __('Time entry stopped.'));
+    }
+
+    public function outcome(Request $request, TimeEntry $entry, TimeEntryOutcomeService $outcomes)
+    {
+        $this->authorizeEntry($entry);
+        $data = $request->validate([
+            'completed_task_ids' => 'nullable|array|max:500',
+            'completed_task_ids.*' => 'required|integer|distinct',
+            'completed_project_ids' => 'nullable|array|max:500',
+            'completed_project_ids.*' => 'required|integer|distinct',
+            'complete_root' => 'nullable|boolean',
+            'target_type' => 'required|in:task,project',
+            'target_id' => 'required|integer|min:1',
+        ]);
+
+        $outcomes->apply($entry, $data);
+
+        return response()->json([
+            'ok' => true,
+            'entry' => $entry->fresh(['task:id,title,project_id', 'project:id,name']),
+        ]);
     }
 
     public function store(Request $request)

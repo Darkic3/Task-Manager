@@ -25,7 +25,7 @@
             </div>
             <div class="d-flex align-items-center gap-3">
                 <div class="timer-live-clock font-monospace" id="dashboardLiveTimer" data-start="{{ $activeTimeEntry->started_at->toIso8601String() }}">00:00:00</div>
-                <form action="{{ route('time.stop', $activeTimeEntry) }}" method="POST" class="m-0">
+                <form action="{{ route('time.stop', $activeTimeEntry) }}" method="POST" class="m-0" data-tm-stop>
                     @csrf
                     <button type="submit" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1">
                         <i class="bi bi-stop-fill"></i> {{ __('Stop') }}

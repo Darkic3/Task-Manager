@@ -59,6 +59,11 @@
     .tt-field label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #8a8f98; margin-bottom: 3px; }
     .tt-input { width: 100%; border: 1px solid #e3e4e8; border-radius: 7px; padding: 6px 8px; font-size: 12px; color: #1a1d23; background: white; outline: none; }
     .tt-input:focus { border-color: #7c3aed; }
+    .tt-outcome-dialog::backdrop { background: rgba(15,23,42,.58); backdrop-filter: blur(3px); }
+    .tt-outcome-choice { display:flex; align-items:flex-start; gap:9px; padding:8px 9px; border:1px solid #e5e7eb; border-radius:8px; margin:5px 0; font-size:13px; cursor:pointer; }
+    .tt-outcome-choice input { margin-top:3px; accent-color:#7c3aed; }
+    .tt-outcome-root { background:#f5f3ff; border-color:#ddd6fe; }
+    .tt-outcome-list { max-height:180px; overflow:auto; }
     @media (max-width: 480px) { #tt-panel { width: calc(100vw - 32px); } }
 </style>
 <div id="tt-root">
@@ -162,6 +167,13 @@
 
     TM.subscribe(render);
 
+    document.addEventListener('submit', event => {
+        const form = event.target.closest('form[data-tm-stop]');
+        if (!form) return;
+        event.preventDefault();
+        TM.sync().then(() => TM.stop()).catch(() => alertSwal(@json(__('Could not stop the timer.')), null, 'error'));
+    });
+
     fab.addEventListener('click', () => {
         root.classList.toggle('tt-open');
     });
@@ -202,6 +214,93 @@
             })
             .catch(() => { taskSel.innerHTML = '<option value="">' + @json(__('Could not load tasks')) + '</option>'; });
     }
+
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+
+    window.promptTimeEntryOutcome = function (result) {
+        const entry = result && result.entry;
+        const outcome = result && result.outcome;
+        if (!entry || !outcome || !(outcome.targets || []).length) return Promise.resolve();
+
+        const rootTitle = entry.task?.title || entry.project?.name || @json(__('this item'));
+        const dialog = document.createElement('dialog');
+        dialog.className = 'tt-outcome-dialog';
+        dialog.style.cssText = 'border:0;border-radius:14px;padding:0;width:min(520px,calc(100vw - 28px));max-height:85vh;box-shadow:0 20px 60px #0004;color:#1f2937';
+
+        const incompleteTasks = (outcome.tasks || []).filter(item => item.status !== 'completed');
+        const incompleteProjects = (outcome.projects || []).filter(item => item.status !== 'completed');
+        const choices = [
+            ...incompleteProjects.map(item => `<label class="tt-outcome-choice"><input type="checkbox" data-kind="project" value="${item.id}"><span>${'　'.repeat(Math.max(0, item.depth - 1))}${escapeHtml(item.name)}</span></label>`),
+            ...incompleteTasks.map(item => `<label class="tt-outcome-choice"><input type="checkbox" data-kind="task" value="${item.id}"><span>${'　'.repeat(Math.max(0, item.depth - 1))}${escapeHtml(item.title)}</span></label>`),
+        ].join('');
+        const targets = (outcome.targets || []).map(target =>
+            `<option value="${target.type}:${target.id}">${escapeHtml(target.label)}</option>`
+        ).join('');
+
+        dialog.innerHTML = `
+            <form method="dialog" class="tt-outcome-form" style="padding:22px;overflow:auto;max-height:85vh">
+                <h2 style="font-size:18px;margin:0 0 6px">${@json(__('Time saved'))}</h2>
+                <p style="font-size:13px;color:#64748b;margin:0 0 16px">${@json(__('The timer only records time. Select what you actually completed.'))}</p>
+                <label class="tt-outcome-choice tt-outcome-root"><input type="checkbox" name="complete_root"><span>${@json(__('I completed all of'))} <strong>${escapeHtml(rootTitle)}</strong></span></label>
+                <div style="font-size:12px;font-weight:700;margin:15px 0 6px">${@json(__('Completed subtasks or subprojects'))}</div>
+                <div class="tt-outcome-list">${choices || `<div style="padding:10px;color:#64748b;font-size:13px">${@json(__('No unfinished subitems'))}</div>`}</div>
+                <label style="display:block;font-size:12px;font-weight:700;margin:15px 0 5px">${@json(__('Record this time under'))}</label>
+                <select name="target" class="tt-input" style="padding:9px">${targets}</select>
+                <div class="tt-outcome-error" role="alert" style="display:none;color:#b91c1c;font-size:12px;margin-top:10px"></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+                    <button type="button" class="tt-btn" data-cancel>${@json(__('Only save time'))}</button>
+                    <button type="submit" class="tt-btn primary">${@json(__('Save selections'))}</button>
+                </div>
+            </form>`;
+        document.body.appendChild(dialog);
+
+        return new Promise(resolve => {
+            const form = dialog.querySelector('form');
+            const done = () => { dialog.close(); dialog.remove(); resolve(); };
+            dialog.querySelector('[data-cancel]').addEventListener('click', done);
+            form.addEventListener('submit', async event => {
+                event.preventDefault();
+                const selectedTasks = [...form.querySelectorAll('input[data-kind="task"]:checked')].map(input => Number(input.value));
+                const selectedProjects = [...form.querySelectorAll('input[data-kind="project"]:checked')].map(input => Number(input.value));
+                const [target_type, rawTargetId] = form.elements.target.value.split(':');
+                const submit = form.querySelector('[type="submit"]');
+                const error = form.querySelector('.tt-outcome-error');
+                submit.disabled = true;
+                error.style.display = 'none';
+                try {
+                    const response = await fetch(`/time/entries/${entry.id}/outcome`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            completed_task_ids: selectedTasks,
+                            completed_project_ids: selectedProjects,
+                            complete_root: form.elements.complete_root.checked,
+                            target_type,
+                            target_id: Number(rawTargetId),
+                        }),
+                    });
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        const messages = Object.values(payload.errors || {}).flat();
+                        throw new Error(messages[0] || payload.message || @json(__('Could not save these selections.')));
+                    }
+                    done();
+                } catch (err) {
+                    error.textContent = err.message || @json(__('Could not save these selections.'));
+                    error.style.display = 'block';
+                    submit.disabled = false;
+                }
+            });
+            dialog.addEventListener('cancel', event => { event.preventDefault(); done(); });
+            dialog.showModal();
+        });
+    };
 
     loadTasks();
 })();

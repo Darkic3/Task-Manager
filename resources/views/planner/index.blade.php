@@ -2857,6 +2857,12 @@
                 headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
             });
             if (res.status === 404) { plHandleGone(); throw new Error('GONE'); }
+            if (res.status === 422) {
+                const error = await res.json();
+                plShowToast(error.message || @json(__('Complete all subtasks before completing this task.')));
+                cb.checked = !cb.checked;
+                throw new Error('INVALID_STATUS');
+            }
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const json = await res.json();
             document.querySelectorAll('[data-task-item][data-id="' + id + '"]').forEach(row => {
@@ -2872,7 +2878,7 @@
                 });
             }
         } catch (e) {
-            if (e.message !== 'GONE') {
+            if (e.message !== 'GONE' && e.message !== 'INVALID_STATUS') {
                 cb.checked = !cb.checked;
                 console.error('[Planner] toggle failed', e);
             }
@@ -2899,6 +2905,11 @@
             });
             if (res.status === 404) { plHandleGone(); return; }
             if (res.status === 403) { plShowToast(@json(__('Not allowed'))); return; }
+            if (res.status === 422) {
+                const error = await res.json();
+                plShowToast(error.message || @json(__('Complete all subtasks before completing this task.')));
+                return;
+            }
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const json = await res.json();
             document.querySelectorAll('[data-task-item][data-id="' + id + '"]').forEach(r => {
