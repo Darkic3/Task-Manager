@@ -850,7 +850,7 @@
 @endpush
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ asset('assets/vendor/chartjs/chart.umd.js') }}"></script>
 <script>
     let PL_CSRF = '{{ csrf_token() }}';
     const DB_CSRF = '{{ csrf_token() }}';

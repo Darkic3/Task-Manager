@@ -775,6 +775,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <!-- Quill.js CSS and JS -->
-<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<link href="{{ asset('assets/vendor/quill/quill.snow.css') }}" rel="stylesheet">
+<script src="{{ asset('assets/vendor/quill/quill.min.js') }}"></script>
 @endpush

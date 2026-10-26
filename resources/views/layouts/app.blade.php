@@ -8,9 +8,9 @@
     <title> @yield('title') | {{ __('TaskManager') }} </title>
     <link rel="shortcut icon" href="{{ asset('assets/img/logo-circle.png') }}" type="image/x-icon">
     @if(app()->getLocale() === 'fa')
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+        <link href="{{ asset('assets/vendor/bootstrap/bootstrap.rtl.min.css') }}" rel="stylesheet">
     @else
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="{{ asset('assets/vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
     @endif
     <style>
         /* ── Self-hosted variable fonts (no external requests) ── */
@@ -55,13 +55,13 @@
             unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
         }
     </style>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    {{-- Self-hosted vendor assets (no CDN dependency) --}}
+    <link rel="stylesheet" href="{{ asset('assets/vendor/fontawesome/css/all.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/vendor/fullcalendar/main.min.css') }}" />
+    <script src="{{ asset('assets/vendor/fullcalendar/main.min.js') }}"></script>
+    <script src="{{ asset('assets/vendor/chartjs/chart.umd.js') }}"></script>
+    <script src="{{ asset('assets/vendor/sweetalert2/sweetalert2.all.min.js') }}"></script>
     @if(app()->getLocale() === 'fa')
         {{-- Jalali date picker (assets copied from shopora) — fa locale only --}}
         <link rel="stylesheet" href="{{ asset('assets/jalali/jalalidatepicker.min.css') }}">
@@ -1237,7 +1237,7 @@
         </footer>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ asset('assets/vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
     <script>
         // ── Live clock in the top bar ──
         (function () {

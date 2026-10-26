@@ -5,12 +5,12 @@
 
 {{-- DOMPurify must load before LinaMd; marked.js feeds it. All AI markdown
      goes through window.LinaMd.render() — never marked.parse() -> innerHTML. --}}
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="{{ asset('assets/vendor/ai/purify.min.js') }}"></script>
+<script src="{{ asset('assets/vendor/ai/marked.min.js') }}"></script>
 <script>if(typeof marked!=='undefined') marked.setOptions({ breaks: true, gfm: true });</script>
 <script src="{{ asset('js/lina-markdown.js') }}"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<link rel="stylesheet" href="{{ asset('assets/vendor/highlightjs/atom-one-dark.min.css') }}">
+<script src="{{ asset('assets/vendor/highlightjs/highlight.min.js') }}"></script>
 
 <style>
 /* ── Backdrop ── */

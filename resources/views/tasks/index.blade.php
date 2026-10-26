@@ -3,7 +3,7 @@
 @section('title', isset($project) ? $project->name . ' — ' . __('Tasks') : __('Tasks'))
 
 @push('styles')
-<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<link href="{{ asset('assets/vendor/quill/quill.snow.css') }}" rel="stylesheet">
 <style>
     .main-content { padding:20px 24px; background:#fafafa; min-height:100vh; }
 
@@ -1167,7 +1167,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script src="{{ asset('assets/vendor/quill/quill.min.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const kanban = document.getElementById('cuKanban');
