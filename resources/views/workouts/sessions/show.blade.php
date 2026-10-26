@@ -162,6 +162,31 @@
     .floating-rest-bar.show { display: flex; animation: slide-up 0.25s ease; }
     @keyframes slide-up { from { transform: translate(-50%, 40px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
     .rest-clock { font-size: 1.25rem; font-weight: 800; font-family: monospace; color: #86efac; }
+
+    /* Toast (was missing — save feedback was invisible) */
+    .ws-toast {
+        position: fixed; bottom: 24px; left: 50%; transform: translate(-50%, 20px);
+        background: #0f172a; color: #fff; font-size: 0.8125rem; font-weight: 600;
+        padding: 10px 18px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3);
+        opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 2000;
+        max-width: calc(100vw - 32px); text-align: center;
+    }
+    .ws-toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .ws-toast.is-success { background: #15803d; }
+    .ws-toast.is-error { background: #b91c1c; }
+
+    /* Bodyweight save states */
+    #bodyweightInput.is-saved { border-color: #16a34a; background: #f0fdf4; }
+    #bodyweightInput.is-error { border-color: #dc2626; background: #fef2f2; }
+    #bodyweightInput.is-dirty { border-color: #f59e0b; }
+    #bodyweightSaveBtn.is-saving { opacity: .7; pointer-events: none; }
+    #bodyweightSaveBtn.is-saved { background: #16a34a; border-color: #16a34a; color: #fff; }
+    #bodyweightStatus { font-size: 11px; font-weight: 600; min-height: 16px; }
+    #bodyweightStatus.is-saved { color: #15803d; }
+    #bodyweightStatus.is-error { color: #b91c1c; }
+    #bodyweightStatus.is-dirty { color: #b45309; }
+    .ws-spin { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; display: inline-block; animation: ws-spin .7s linear infinite; vertical-align: -2px; }
+    @keyframes ws-spin { to { transform: rotate(360deg); } }
 </style>
 @endpush
 
@@ -213,22 +238,32 @@
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <div class="small text-muted fw-bold">{{ __('Bodyweight (kg)') }}</div>
-                    <div class="small text-muted">{{ __('Saved for this session') }}</div>
+                    <div class="small" id="bodyweightStatus"
+                         data-saved-text="{{ __('Saved for this session') }}"
+                         @if($workoutSession->bodyweight_kg) data-has-value="1" @endif>
+                        @if($workoutSession->bodyweight_kg)
+                            <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill"></i> {{ __('Saved') }} • {{ $workoutSession->bodyweight_kg }} kg</span>
+                        @else
+                            <span class="text-muted">{{ __('Saved for this session') }}</span>
+                        @endif
+                    </div>
                 </div>
                 <div class="d-flex gap-2 align-items-center">
                     <input
                         type="number"
                         step="0.1"
-                        min="0"
+                        min="1"
                         max="600"
+                        inputmode="decimal"
                         id="bodyweightInput"
                         class="form-control form-control-sm"
                         style="width: 140px;"
                         value="{{ $workoutSession->bodyweight_kg }}"
                         placeholder="kg"
+                        aria-label="{{ __('Bodyweight (kg)') }}"
                     />
                     <button type="button" class="btn btn-sm btn-primary" id="bodyweightSaveBtn">
-                        <i class="bi bi-save2 me-1"></i>{{ __('Save') }}
+                        <i class="bi bi-save2 me-1"></i><span>{{ __('Save') }}</span>
                     </button>
                 </div>
             </div>
@@ -699,18 +734,95 @@
         optional: @json(__('Optional notes')),
         skipSetBtn: @json(__('Skip Set :num')),
         kg: @json(__('kg')),
-        reps: @json(__('reps'))
+        reps: @json(__('reps')),
+        bwSaved: @json(__('Bodyweight saved')),
+        bwCleared: @json(__('Bodyweight cleared')),
+        bwInvalid: @json(__('Please enter a valid weight between 1 and 600 kg')),
+        bwError: @json(__('Could not save bodyweight')),
+        bwUnsavedChanges: @json(__('Unsaved changes'))
     };
 
     // Save bodyweight for this session (used for later weekly analytics)
+    const normalizeBw = (raw) => {
+        if (raw === null || raw === undefined) return '';
+        let s = String(raw).trim();
+        if (!s) return '';
+        const fa = '۰۱۲۳۴۵۶۷۸۹', ar = '٠١٢٣٤٥٦٧٨٩';
+        s = s.replace(/[۰-۹]/g, (d) => fa.indexOf(d)).replace(/[٠-٩]/g, (d) => ar.indexOf(d));
+        s = s.replace(/[٫،,]/g, '.').replace(/\s+/g, '');
+        return s;
+    };
+    function setBwStatus(mode, html) {
+        const st = document.getElementById('bodyweightStatus');
+        if (!st) return;
+        st.classList.remove('is-saved', 'is-error', 'is-dirty');
+        if (mode) st.classList.add(mode);
+        if (html !== undefined) st.innerHTML = html;
+    }
+    function setBwBtn(mode, labelHtml) {
+        const btn = document.getElementById('bodyweightSaveBtn');
+        if (!btn) return;
+        btn.classList.remove('is-saving', 'is-saved');
+        if (mode) btn.classList.add(mode);
+        const icon = btn.querySelector('i');
+        const label = btn.querySelector('span');
+        if (mode === 'is-saving') {
+            if (icon) icon.className = 'ws-spin me-1';
+            if (label) label.textContent = I18N_WS.save + '…';
+        } else if (mode === 'is-saved') {
+            if (icon) icon.className = 'bi bi-check-lg me-1';
+            if (label) label.textContent = labelHtml || I18N_WS.done;
+        } else {
+            if (icon) icon.className = 'bi bi-save2 me-1';
+            if (label) label.textContent = I18N_WS.save;
+        }
+    }
     async function saveBodyweight() {
         const input = document.getElementById('bodyweightInput');
         if (!input) return;
         const btn = document.getElementById('bodyweightSaveBtn');
-        const value = input.value;
+        const norm = normalizeBw(input.value);
 
-        const payload = { bodyweight_kg: value === '' ? null : Number(value) };
+        input.classList.remove('is-saved', 'is-error');
 
+        // Empty = clear the saved value for this session.
+        if (norm === '') {
+            setBwBtn('is-saving');
+            btn && (btn.disabled = true);
+            try {
+                const res = await fetch(BODYWEIGHT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': WS_TOKEN },
+                    body: JSON.stringify({ bodyweight_kg: null })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || data.ok === false) throw new Error(data.message || I18N_WS.bwError);
+                input.value = '';
+                setBwStatus('', '<span class="text-muted">' + (document.getElementById('bodyweightStatus')?.dataset.savedText || '') + '</span>');
+                setBwBtn('is-saved');
+                toast(I18N_WS.bwCleared, 'success');
+                setTimeout(() => setBwBtn(''), 2000);
+            } catch (e) {
+                setBwStatus('is-error', e.message);
+                input.classList.add('is-error');
+                setBwBtn('');
+                toast(e.message || I18N_WS.bwError, 'error');
+            } finally {
+                btn && (btn.disabled = false);
+            }
+            return;
+        }
+
+        const num = Number(norm);
+        if (!Number.isFinite(num) || num <= 0 || num > 600) {
+            input.classList.add('is-error');
+            setBwStatus('is-error', I18N_WS.bwInvalid);
+            toast(I18N_WS.bwInvalid, 'error');
+            input.focus();
+            return;
+        }
+
+        setBwBtn('is-saving');
         btn && (btn.disabled = true);
         try {
             const res = await fetch(BODYWEIGHT_URL, {
@@ -720,19 +832,40 @@
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': WS_TOKEN
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ bodyweight_kg: num })
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Error');
-            toast('✓ Saved');
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.ok === false) {
+                const msg = data?.errors?.bodyweight_kg?.[0] || data.message || I18N_WS.bwError;
+                throw new Error(msg);
+            }
+            const saved = data.bodyweight_kg ?? num;
+            input.value = saved;
+            input.classList.add('is-saved');
+            setBwStatus('is-saved', '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill"></i> ' + I18N_WS.bwSaved + ' • ' + saved + ' ' + I18N_WS.kg + '</span>');
+            setBwBtn('is-saved');
+            toast('✓ ' + I18N_WS.bwSaved + ' • ' + saved + ' ' + I18N_WS.kg, 'success');
+            setTimeout(() => setBwBtn(''), 2500);
         } catch (e) {
-            toast(e.message);
+            input.classList.add('is-error');
+            setBwStatus('is-error', e.message || I18N_WS.bwError);
+            setBwBtn('');
+            toast(e.message || I18N_WS.bwError, 'error');
         } finally {
             btn && (btn.disabled = false);
         }
     }
 
     document.getElementById('bodyweightSaveBtn')?.addEventListener('click', saveBodyweight);
+    document.getElementById('bodyweightInput')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); saveBodyweight(); }
+    });
+    document.getElementById('bodyweightInput')?.addEventListener('input', (e) => {
+        e.target.classList.remove('is-saved', 'is-error');
+        e.target.classList.add('is-dirty');
+        setBwStatus('is-dirty', I18N_WS.bwUnsavedChanges + '…');
+        setBwBtn('');
+    });
 
     // ── Live Session Timer ───────────────────────────────────────────────
     // Elapsed time is always derived from the server-anchored start instant,
@@ -793,12 +926,17 @@
     });
 
     // Toast helper
-    function toast(msg) {
+    let toastTimer = null;
+    function toast(msg, type = '') {
         const el = document.getElementById('toast');
         if (el) {
             el.textContent = msg;
+            el.classList.remove('is-success', 'is-error');
+            if (type === 'success') el.classList.add('is-success');
+            if (type === 'error') el.classList.add('is-error');
             el.classList.add('show');
-            setTimeout(() => el.classList.remove('show'), 2000);
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
         }
     }
 

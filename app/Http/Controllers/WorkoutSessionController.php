@@ -228,18 +228,40 @@ class WorkoutSessionController extends Controller
     {
         $this->authorizeSession($workoutSession);
 
+        // Normalize Persian/Arabic digits + decimal separators before validation,
+        // so "۷۰٫۵" / "70,5" don't silently become null on the client.
+        $raw = $request->input('bodyweight_kg');
+        if (is_string($raw)) {
+            $raw = trim($raw);
+            $raw = strtr($raw, [
+                '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+                '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+                '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+                '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+                '٫' => '.', '،' => '.', ',' => '.',
+            ]);
+            $raw = trim($raw);
+            $request->merge(['bodyweight_kg' => $raw === '' ? null : $raw]);
+        }
+
         $data = $request->validate([
-            'bodyweight_kg' => ['nullable', 'numeric', 'min:0', 'max:600'],
+            'bodyweight_kg' => ['nullable', 'numeric', 'gt:0', 'max:600'],
         ]);
 
+        $kg = $data['bodyweight_kg'] ?? null;
+
         $workoutSession->update([
-            'bodyweight_kg' => isset($data['bodyweight_kg']) ? (float) $data['bodyweight_kg'] : null,
-            'bodyweight_recorded_at' => $data['bodyweight_kg'] !== null ? now() : null,
+            'bodyweight_kg' => $kg !== null ? round((float) $kg, 2) : null,
+            'bodyweight_recorded_at' => $kg !== null ? now() : null,
         ]);
+
+        $workoutSession->refresh();
 
         return response()->json([
             'ok' => true,
-            'bodyweight_kg' => $workoutSession->bodyweight_kg,
+            'bodyweight_kg' => $workoutSession->bodyweight_kg !== null ? (float) $workoutSession->bodyweight_kg : null,
+            'bodyweight_recorded_at' => $workoutSession->bodyweight_recorded_at?->toIso8601String(),
+            'cleared' => $workoutSession->bodyweight_kg === null,
         ]);
     }
 
