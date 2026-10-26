@@ -61,7 +61,9 @@ class DetailsPagesTest extends TestCase
         $response = $this->actingAs($user)->get(route('tasks.show', $task));
 
         $response->assertOk();
-        $response->assertDontSee('Subtasks (', false);
+        // Subtasks section is always visible (with inline add form), even empty.
+        $response->assertSee('Subtasks (0/0)', false);
+        $response->assertSee('Add subtask', false);
     }
 
     public function test_project_details_page_renders_minimal_layout(): void

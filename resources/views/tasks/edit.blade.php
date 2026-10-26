@@ -3,7 +3,7 @@
 @section('title', 'Edit ' . $task->title)
 
 @push('styles')
-<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<link href="{{ asset('assets/vendor/quill/quill.snow.css') }}" rel="stylesheet">
 <style>
 /* ── Task Edit – minimal ─────────────────────────────────── */
 .main-content { padding:20px 24px 48px; background:#fafafa; min-height:100vh; }
@@ -316,6 +316,37 @@
         </div>
     </form>
 
+    {{-- Subtasks of this task --}}
+    <div class="te-form" style="margin-top:14px;">
+        <label class="te-inline-lbl">{{ __('Subtasks') }} ({{ $task->children->where('status', 'completed')->count() }}/{{ $task->children->count() }})</label>
+        <div style="margin-top:8px;">
+            @forelse($task->children as $child)
+                <a href="{{ route('tasks.show', $child) }}" class="te-back" style="display:flex;padding:7px 8px;border-radius:6px;">
+                    <i class="bi {{ $child->status === 'completed' ? 'bi-check-circle-fill' : 'bi-circle' }}"
+                       style="color:{{ $child->status === 'completed' ? '#29774b' : '#c1c4cc' }};"></i>
+                    <span>{{ $child->title }}</span>
+                </a>
+            @empty
+                <div class="te-hint">{{ __('No subtasks yet.') }}</div>
+            @endforelse
+        </div>
+        <form method="POST" action="{{ route('tasks.store') }}" style="display:flex;gap:8px;margin-top:10px;">
+            @csrf
+            <input type="hidden" name="parent_id" value="{{ $task->id }}">
+            <input type="hidden" name="project_id" value="{{ $task->project_id }}">
+            <input type="hidden" name="priority" value="medium">
+            <input type="hidden" name="redirect_to" value="parent">
+            <input type="text" name="title" class="te-input" placeholder="{{ __('Add subtask…') }}"
+                   value="{{ old('parent_id') == $task->id ? old('title') : '' }}" required maxlength="255" style="flex:1;">
+            <button type="submit" class="te-save"><i class="bi bi-plus"></i>{{ __('Add') }}</button>
+        </form>
+        @if(old('parent_id') == $task->id)
+            @error('title')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            @error('parent_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        @endif
+        <div class="te-hint" style="margin-top:8px;">{{ __('New subtasks inherit this task’s project.') }}</div>
+    </div>
+
     {{-- Danger Zone --}}
     <div class="te-danger">
         <div class="te-danger-text">
@@ -336,7 +367,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script src="{{ asset('assets/vendor/quill/quill.min.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var quill = new Quill('#quill-editor', {

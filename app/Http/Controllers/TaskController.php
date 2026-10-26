@@ -60,6 +60,13 @@ class TaskController extends Controller
 
     public function store(Request $request, ?Project $project = null)
     {
+        // Inline subtask forms post project_id "" when the parent has no
+        // project — normalize to null so the `exists` rule doesn't 422.
+        $rawProjectId = $request->input('project_id');
+        if ($rawProjectId === 0 || $rawProjectId === '0' || $rawProjectId === '') {
+            $request->merge(['project_id' => null]);
+        }
+
         $data = $request->validate([
             'project_id' => ['nullable', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
             'user_id' => 'nullable|exists:users,id',
@@ -87,6 +94,12 @@ class TaskController extends Controller
 
         $task = Task::create($data);
         $task->reopenCompletedAncestors();
+
+        // Inline "add subtask" forms on the task show/edit pages pass
+        // redirect_to=parent so the user stays on the parent task.
+        if ($request->input('redirect_to') === 'parent' && ! empty($data['parent_id'])) {
+            return redirect()->route('tasks.show', $data['parent_id'])->with('success', __('Subtask created successfully.'));
+        }
 
         // Redirect based on context
         if ($project) {

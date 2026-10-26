@@ -240,19 +240,33 @@
         <div class="ts-description">{!! $task->description !!}</div>
     @endif
 
-    @if($task->children->count() > 0)
-        <hr class="ts-divider">
-        <h2 class="ts-h">{{ __('Subtasks') }} ({{ $task->children->where('status', 'completed')->count() }}/{{ $task->children->count() }})</h2>
-        <div>
-            @foreach($task->children as $child)
-                <a href="{{ route('tasks.show', $child) }}" class="ts-sub-row {{ $child->status === 'completed' ? 'is-done' : '' }}">
-                    <span class="ts-sub-check {{ $child->status === 'completed' ? 'done' : '' }}">
-                        <i class="bi {{ $child->status === 'completed' ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
-                    </span>
-                    <span class="ts-sub-title">{{ $child->title }}</span>
-                </a>
-            @endforeach
-        </div>
+    <hr class="ts-divider">
+    <h2 class="ts-h">{{ __('Subtasks') }} ({{ $task->children->where('status', 'completed')->count() }}/{{ $task->children->count() }})</h2>
+    <div>
+        @forelse($task->children as $child)
+            <a href="{{ route('tasks.show', $child) }}" class="ts-sub-row {{ $child->status === 'completed' ? 'is-done' : '' }}">
+                <span class="ts-sub-check {{ $child->status === 'completed' ? 'done' : '' }}">
+                    <i class="bi {{ $child->status === 'completed' ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
+                </span>
+                <span class="ts-sub-title">{{ $child->title }}</span>
+            </a>
+        @empty
+            <div class="ts-empty">{{ __('No subtasks yet.') }}</div>
+        @endforelse
+    </div>
+    <form class="ts-cl-add" method="POST" action="{{ route('tasks.store') }}">
+        @csrf
+        <input type="hidden" name="parent_id" value="{{ $task->id }}">
+        <input type="hidden" name="project_id" value="{{ $task->project_id }}">
+        <input type="hidden" name="priority" value="medium">
+        <input type="hidden" name="redirect_to" value="parent">
+        <input type="text" name="title" class="ts-cl-input" placeholder="{{ __('Add subtask…') }}"
+               value="{{ old('parent_id') == $task->id ? old('title') : '' }}" required maxlength="255">
+        <button type="submit" class="ts-cl-btn"><i class="bi bi-plus"></i> {{ __('Add') }}</button>
+    </form>
+    @if(old('parent_id') == $task->id)
+        @error('title')<div class="invalid-feedback" style="display:block;margin-top:6px;">{{ $message }}</div>@enderror
+        @error('parent_id')<div class="invalid-feedback" style="display:block;margin-top:6px;">{{ $message }}</div>@enderror
     @endif
 
     <hr class="ts-divider">
