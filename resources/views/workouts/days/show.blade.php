@@ -62,7 +62,8 @@
                         <i class="bi bi-play-circle-fill"></i> {{ __('Continue Workout') }}
                     </a>
                 @elseif(in_array($day->type, ['training', 'recovery'], true) && ($day->plan->status ?? null) === 'active')
-                    <form method="POST" action="{{ route('workouts.sessions.start', $day) }}" class="m-0">
+                    <form method="POST" action="{{ route('workouts.sessions.start', $day) }}" class="m-0"
+                          onsubmit="return confirmSwal(this, '{{ __('Start the workout now? The timer begins immediately.') }}')">
                         @csrf
                         <input type="hidden" name="date" value="{{ now()->toDateString() }}">
                         <button class="wd-btn-start" type="submit">

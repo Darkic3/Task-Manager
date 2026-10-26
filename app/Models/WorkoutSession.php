@@ -21,7 +21,8 @@ class WorkoutSession extends Model
     protected $fillable = [
         'user_id', 'workout_plan_id', 'workout_day_id', 'plan_title', 'day_title',
         'weekday', 'workout_date', 'status', 'started_at',
-        'ended_at', 'duration_seconds', 'session_note', 'pain_note',
+        'ended_at', 'duration_seconds', 'paused_seconds', 'paused_at',
+        'session_note', 'pain_note',
         'bodyweight_kg', 'bodyweight_recorded_at',
     ];
 
@@ -29,6 +30,7 @@ class WorkoutSession extends Model
         'workout_date' => 'date',
         'started_at' => 'datetime',
         'ended_at' => 'datetime',
+        'paused_at' => 'datetime',
         'bodyweight_recorded_at' => 'datetime',
     ];
 
@@ -74,14 +76,26 @@ class WorkoutSession extends Model
         return $this->hasMany(WorkoutExerciseLog::class);
     }
 
+    public function isPaused(): bool
+    {
+        return $this->started_at !== null && $this->ended_at === null && $this->paused_at !== null;
+    }
+
     public function isRunning(): bool
+    {
+        return $this->started_at !== null && $this->ended_at === null && $this->paused_at === null;
+    }
+
+    public function isOpen(): bool
     {
         return $this->started_at !== null && $this->ended_at === null;
     }
 
     /**
-     * Elapsed seconds so far. Uses the frozen duration_seconds once finished,
-     * otherwise measures live against started_at.
+     * Elapsed seconds so far, excluding paused time. Uses the frozen
+     * duration_seconds once finished, otherwise measures live against
+     * started_at minus accumulated paused_seconds. While paused the clock
+     * is frozen at the pause instant so refreshes can't inflate it.
      */
     public function elapsedSeconds(?Carbon $now = null): int
     {
@@ -94,10 +108,15 @@ class WorkoutSession extends Model
                 return (int) $this->duration_seconds;
             }
 
-            return (int) max(0, $this->ended_at->diffInSeconds($this->started_at, true));
+            $gross = (int) max(0, $this->ended_at->diffInSeconds($this->started_at, true));
+
+            return (int) max(0, $gross - (int) ($this->paused_seconds ?? 0));
         }
 
-        return (int) max(0, ($now ?? now())->diffInSeconds($this->started_at, true));
+        $anchor = ($this->paused_at && $this->isPaused()) ? $this->paused_at : ($now ?? now());
+        $gross = (int) max(0, $anchor->diffInSeconds($this->started_at, true));
+
+        return (int) max(0, $gross - (int) ($this->paused_seconds ?? 0));
     }
 
     public function durationMinutes(): ?int

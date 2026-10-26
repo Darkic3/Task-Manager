@@ -100,6 +100,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('sessions/{workoutSession}/bodyweight', [WorkoutSessionController::class, 'saveBodyweight'])->name('sessions.bodyweight.store');
         Route::post('sessions/{workoutSession}/exercise-note', [WorkoutSessionController::class, 'saveExerciseNote'])->name('sessions.exercise-note.store');
         Route::patch('sessions/{workoutSession}/finish', [WorkoutSessionController::class, 'finish'])->name('sessions.finish');
+        Route::post('sessions/{workoutSession}/pause', [WorkoutSessionController::class, 'pause'])->name('sessions.pause');
+        Route::post('sessions/{workoutSession}/resume', [WorkoutSessionController::class, 'resume'])->name('sessions.resume');
+        Route::post('sessions/{workoutSession}/restart', [WorkoutSessionController::class, 'restart'])->name('sessions.restart');
+        Route::delete('sessions/{workoutSession}', [WorkoutSessionController::class, 'destroy'])->name('sessions.destroy');
         Route::get('reports', [WorkoutReportController::class, 'index'])->name('reports.index');
         Route::get('reports/export', [WorkoutReportController::class, 'export'])->name('reports.export');
         Route::get('reports/exercises/{exercise}', [WorkoutReportController::class, 'exercise'])->name('reports.exercise');

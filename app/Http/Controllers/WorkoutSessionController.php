@@ -116,6 +116,10 @@ class WorkoutSessionController extends Controller
         $timerStartedAtMs = $workoutSession->started_at?->getTimestampMs() ?? 0;
         $serverNowMs = now()->getTimestampMs();
         $finishedSeconds = $workoutSession->ended_at ? $workoutSession->elapsedSeconds() : null;
+        $isPaused = $workoutSession->isPaused();
+        // While paused the live clock freezes at the pause instant; the JS
+        // timer renders this as a finished value until resume restarts it.
+        $pausedElapsedSeconds = $isPaused ? $workoutSession->elapsedSeconds() : null;
 
         return view('workouts.sessions.show', compact(
             'workoutSession',
@@ -124,6 +128,8 @@ class WorkoutSessionController extends Controller
             'timerStartedAtMs',
             'serverNowMs',
             'finishedSeconds',
+            'isPaused',
+            'pausedElapsedSeconds',
         ));
     }
 
@@ -300,17 +306,97 @@ class WorkoutSessionController extends Controller
 
         $endedAt = $workoutSession->ended_at ?? now();
         $startedAt = $workoutSession->started_at ?? $endedAt;
-        $durationSeconds = (int) max(0, $endedAt->diffInSeconds($startedAt, true));
+        // If the timer was paused, the open pause chunk counts as paused too.
+        $paused = (int) ($workoutSession->paused_seconds ?? 0);
+        if ($workoutSession->paused_at) {
+            $paused += (int) max(0, $endedAt->diffInSeconds($workoutSession->paused_at, true));
+        }
+        $durationSeconds = (int) max(0, $endedAt->diffInSeconds($startedAt, true) - $paused);
 
         $workoutSession->update([
             ...$request->validated(),
             'ended_at' => $endedAt,
             'duration_seconds' => $durationSeconds,
+            'paused_seconds' => $paused,
+            'paused_at' => null,
         ]);
 
         return redirect()
             ->route('workouts.sessions.show', $workoutSession)
             ->with('success', __('Workout session saved.'));
+    }
+
+    /** Pause the live timer (Stop). Clock freezes; duration excludes paused time. */
+    public function pause(WorkoutSession $workoutSession): JsonResponse
+    {
+        $this->authorizeSession($workoutSession);
+        abort_if($workoutSession->ended_at, 422, __('Session is already finished.'));
+        abort_if($workoutSession->paused_at, 422, __('Session is already paused.'));
+
+        $workoutSession->update(['paused_at' => now()]);
+
+        return response()->json([
+            'ok' => true,
+            'paused' => true,
+            'elapsed_seconds' => $workoutSession->refresh()->elapsedSeconds(),
+        ]);
+    }
+
+    /** Resume a paused timer. */
+    public function resume(WorkoutSession $workoutSession): JsonResponse
+    {
+        $this->authorizeSession($workoutSession);
+        abort_if($workoutSession->ended_at, 422, __('Session is already finished.'));
+        abort_if(! $workoutSession->paused_at, 422, __('Session is not paused.'));
+
+        $paused = (int) ($workoutSession->paused_seconds ?? 0)
+            + (int) max(0, now()->diffInSeconds($workoutSession->paused_at, true));
+
+        $workoutSession->update(['paused_seconds' => $paused, 'paused_at' => null]);
+
+        return response()->json([
+            'ok' => true,
+            'paused' => false,
+            'elapsed_seconds' => $workoutSession->refresh()->elapsedSeconds(),
+        ]);
+    }
+
+    /** Restart the timer from zero (accidental early start). Keeps logged sets. */
+    public function restart(WorkoutSession $workoutSession): JsonResponse
+    {
+        $this->authorizeSession($workoutSession);
+        abort_if($workoutSession->ended_at, 422, __('Session is already finished.'));
+
+        $workoutSession->update([
+            'started_at' => now(),
+            'paused_seconds' => 0,
+            'paused_at' => null,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'started_at_ms' => $workoutSession->refresh()->started_at?->getTimestampMs(),
+            'server_now_ms' => now()->getTimestampMs(),
+            'elapsed_seconds' => 0,
+        ]);
+    }
+
+    /** Discard an accidentally started session (deletes it + its logs). */
+    public function destroy(WorkoutSession $workoutSession): RedirectResponse
+    {
+        $this->authorizeSession($workoutSession);
+        abort_if($workoutSession->ended_at, 422, __('Finished sessions cannot be discarded. Finish or skip them instead.'));
+
+        $dayId = $workoutSession->workout_day_id;
+        $workoutSession->exerciseLogs()->each(function ($log): void {
+            $log->setLogs()->delete();
+            $log->delete();
+        });
+        $workoutSession->delete();
+
+        return redirect()
+            ->route('workouts.days.show', $dayId)
+            ->with('success', __('Accidental session discarded. No time was recorded.'));
     }
 
     private function authorizeDay(WorkoutDay $day): void

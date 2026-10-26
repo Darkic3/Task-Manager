@@ -35,6 +35,8 @@
     @keyframes ws-timer-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
     .ws-timer-pill.is-finished { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
     .ws-timer-pill.is-finished .ws-timer-clock { color: #166534; }
+    .ws-timer-pill.is-paused { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+    .ws-timer-pill.is-paused .ws-timer-clock { color: #92400e; }
 
     /* Exercise Card */
     .ws-card-ex {
@@ -213,20 +215,37 @@
                         @if($wsWeekday) {{ __(ucfirst($wsWeekday)) }} • @endif{{ $workoutSession->workout_date->format('Y-m-d') }}@if($workoutSession->displayPlanTitle()) • {{ $workoutSession->displayPlanTitle() }}@endif
                     </div>
                 </div>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="ws-summary-pill ws-timer-pill {{ $workoutSession->isRunning() ? 'is-running' : 'is-finished' }}"
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="ws-summary-pill ws-timer-pill {{ $finishedSeconds !== null ? 'is-finished' : (($isPaused ?? false) ? 'is-paused' : 'is-running') }}"
                           id="sessionTimerPill"
                           data-started-at-ms="{{ $timerStartedAtMs }}"
                           data-server-now-ms="{{ $serverNowMs }}"
                           data-finished-seconds="{{ $finishedSeconds ?? '' }}"
+                          data-paused-seconds="{{ $pausedElapsedSeconds ?? '' }}"
                           role="timer"
                           aria-live="off">
-                        <i class="bi {{ $workoutSession->isRunning() ? 'bi-stopwatch-fill' : 'bi-stopwatch' }} {{ $workoutSession->isRunning() ? 'text-primary' : 'text-muted' }}"></i>
+                        <i class="bi {{ $finishedSeconds !== null ? 'bi-stopwatch' : (($isPaused ?? false) ? 'bi-pause-circle-fill' : 'bi-stopwatch-fill') }} {{ $workoutSession->isRunning() ? 'text-primary' : 'text-muted' }}"></i>
                         <span class="ws-timer-clock font-monospace" id="sessionDuration">{{ \App\Models\WorkoutSession::formatDuration($finishedSeconds ?? $workoutSession->elapsedSeconds()) }}</span>
+                        @if($isPaused ?? false)
+                            <span class="badge bg-warning-subtle text-warning-emphasis border ms-1" style="font-size:10px;">{{ __('Paused') }}</span>
+                        @endif
                     </span>
                     <span class="ws-summary-pill">
                         <i class="bi bi-check2-circle text-success"></i> <strong id="doneCount">{{ $completedCount }}</strong>/{{ $exerciseCount }} {{ __('Movements') }}
                     </span>
+                    @if($finishedSeconds === null)
+                        <span class="d-inline-flex align-items-center gap-1 ms-1" role="group" aria-label="{{ __('Timer controls') }}">
+                            <button type="button" class="btn btn-sm {{ ($isPaused ?? false) ? 'btn-success' : 'btn-outline-secondary' }} rounded-pill" id="timerPauseBtn"
+                                    title="{{ ($isPaused ?? false) ? __('Resume timer') : __('Stop / pause timer') }}">
+                                <i class="bi {{ ($isPaused ?? false) ? 'bi-play-fill' : 'bi-pause-fill' }}"></i>
+                                <span>{{ ($isPaused ?? false) ? __('Resume') : __('Stop') }}</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" id="timerRestartBtn" title="{{ __('Restart timer from zero (keeps logged sets)') }}">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                                <span class="d-none d-sm-inline">{{ __('Restart') }}</span>
+                            </button>
+                        </span>
+                    @endif
                 </div>
             </div>
 
@@ -632,13 +651,28 @@
                     <textarea class="form-control" name="pain_note" rows="2" placeholder="{{ __('Slight shoulder tightness on second set...') }}">{{ $workoutSession->pain_note }}</textarea>
                 </div>
             </div>
-            <div class="d-flex justify-content-end gap-2">
-                <button type="submit" name="status" value="skipped" class="btn btn-light border px-3">{{ __('Mark Skipped') }}</button>
-                <button type="submit" name="status" value="completed" class="btn btn-success fw-bold px-4 shadow-sm">
-                    <i class="bi bi-check-circle-fill me-1"></i> {{ __('Finish Workout') }}
-                </button>
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                @if($finishedSeconds === null)
+                    <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none" id="discardSessionBtn">
+                        <i class="bi bi-trash3 me-1"></i>{{ __('Discard accidental session') }}
+                    </button>
+                @else
+                    <span></span>
+                @endif
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="submit" name="status" value="skipped" class="btn btn-light border px-3">{{ __('Mark Skipped') }}</button>
+                    <button type="submit" name="status" value="completed" class="btn btn-success fw-bold px-4 shadow-sm">
+                        <i class="bi bi-check-circle-fill me-1"></i> {{ __('Finish Workout') }}
+                    </button>
+                </div>
             </div>
         </form>
+        @if($finishedSeconds === null)
+            <form id="discardSessionForm" method="POST" action="{{ route('workouts.sessions.destroy', $workoutSession) }}" class="d-none">
+                @csrf
+                @method('DELETE')
+            </form>
+        @endif
 
     </div>
 </div>
@@ -700,6 +734,9 @@
     const SET_URL = '{{ route("workouts.sessions.sets.store", $workoutSession) }}';
     const EX_NOTE_URL = '{{ route("workouts.sessions.exercise-note.store", $workoutSession) }}';
     const BODYWEIGHT_URL = '{{ route("workouts.sessions.bodyweight.store", $workoutSession) }}';
+    const TIMER_PAUSE_URL = '{{ route("workouts.sessions.pause", $workoutSession) }}';
+    const TIMER_RESUME_URL = '{{ route("workouts.sessions.resume", $workoutSession) }}';
+    const TIMER_RESTART_URL = '{{ route("workouts.sessions.restart", $workoutSession) }}';
     const I18N_WS = {
         done: @json(__('Done')),
         save: @json(__('Save')),
@@ -739,7 +776,15 @@
         bwCleared: @json(__('Bodyweight cleared')),
         bwInvalid: @json(__('Please enter a valid weight between 1 and 600 kg')),
         bwError: @json(__('Could not save bodyweight')),
-        bwUnsavedChanges: @json(__('Unsaved changes'))
+        bwUnsavedChanges: @json(__('Unsaved changes')),
+        timerPaused: @json(__('Timer stopped — press Resume when you are ready')),
+        timerResumed: @json(__('Timer resumed')),
+        timerRestarted: @json(__('Timer restarted from zero')),
+        timerRestartConfirm: @json(__('Restart the timer from zero? Logged sets are kept.')),
+        discardConfirm: @json(__('Discard this session? It was probably started by accident — nothing will be recorded.')),
+        stopLabel: @json(__('Stop')),
+        resumeLabel: @json(__('Resume')),
+        pausedLabel: @json(__('Paused'))
     };
 
     // Save bodyweight for this session (used for later weekly analytics)
@@ -871,18 +916,21 @@
     // Elapsed time is always derived from the server-anchored start instant,
     // never from a client-side counter, so refreshes and a wrong local clock
     // cannot corrupt the value. The server stamps the final duration on finish.
+    // While paused the clock is frozen at the pause instant (server-rendered).
     const sessionTimer = (() => {
         const pill = document.getElementById('sessionTimerPill');
         const clock = document.getElementById('sessionDuration');
         if (!pill || !clock) return null;
 
-        const startedAtMs = parseInt(pill.dataset.startedAtMs, 10) || 0;
-        const serverNowMs = parseInt(pill.dataset.serverNowMs, 10) || 0;
+        let startedAtMs = parseInt(pill.dataset.startedAtMs, 10) || 0;
+        let serverNowMs = parseInt(pill.dataset.serverNowMs, 10) || 0;
         const finishedRaw = pill.dataset.finishedSeconds;
         const finishedSeconds = finishedRaw === '' ? null : parseInt(finishedRaw, 10);
+        const pausedRaw = pill.dataset.pausedSeconds;
+        let pausedSeconds = pausedRaw === '' ? null : parseInt(pausedRaw, 10);
         // Client clock is only used to measure the passage of time between
         // ticks; the absolute anchor stays on the server.
-        const offsetMs = Date.now() - serverNowMs;
+        let offsetMs = Date.now() - serverNowMs;
 
         const pad = (n) => String(n).padStart(2, '0');
 
@@ -898,12 +946,28 @@
 
         if (finishedSeconds !== null) {
             render(finishedSeconds);
-            return { running: false, seconds: finishedSeconds };
+            return { running: false, paused: false, seconds: finishedSeconds, stop() {} };
+        }
+
+        if (pausedSeconds !== null) {
+            render(pausedSeconds);
+            return {
+                running: false, paused: true, seconds: pausedSeconds,
+                stop() {},
+                syncAfterResume(next) {
+                    startedAtMs = next.startedAtMs;
+                    serverNowMs = next.serverNowMs;
+                    offsetMs = Date.now() - serverNowMs;
+                    pausedSeconds = null;
+                    pill.dataset.pausedSeconds = '';
+                    this.paused = false; this.running = true;
+                }
+            };
         }
 
         if (!startedAtMs) {
             render(0);
-            return { running: false, seconds: 0 };
+            return { running: false, paused: false, seconds: 0, stop() {} };
         }
 
         const current = () => Math.floor((Date.now() - offsetMs - startedAtMs) / 1000);
@@ -912,7 +976,7 @@
         const tick = setInterval(() => render(current()), 1000);
 
         return {
-            running: true,
+            running: true, paused: false,
             seconds: current(),
             stop() { clearInterval(tick); render(finishedSeconds ?? current()); }
         };
@@ -923,6 +987,93 @@
         form.addEventListener('submit', () => {
             if (sessionTimer && sessionTimer.running) sessionTimer.stop();
         });
+    });
+
+    // ── Timer controls: Stop(pause) / Resume / Restart / Discard ──────────
+    function setPauseBtn(paused) {
+        const btn = document.getElementById('timerPauseBtn');
+        if (!btn) return;
+        const icon = btn.querySelector('i');
+        const label = btn.querySelector('span');
+        if (paused) {
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-success');
+            if (icon) icon.className = 'bi bi-play-fill';
+            if (label) label.textContent = I18N_WS.resumeLabel;
+            btn.title = I18N_WS.resumeLabel;
+        } else {
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-secondary');
+            if (icon) icon.className = 'bi bi-pause-fill';
+            if (label) label.textContent = I18N_WS.stopLabel;
+            btn.title = I18N_WS.stopLabel;
+        }
+    }
+    async function postTimer(url) {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': WS_TOKEN }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) throw new Error(data.message || 'Error');
+        return data;
+    }
+    document.getElementById('timerPauseBtn')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const isPausedNow = btn.querySelector('span')?.textContent === I18N_WS.resumeLabel;
+        btn.disabled = true;
+        try {
+            if (isPausedNow) {
+                await postTimer(TIMER_RESUME_URL);
+                toast('▶ ' + I18N_WS.timerResumed, 'success');
+            } else {
+                const data = await postTimer(TIMER_PAUSE_URL);
+                if (sessionTimer) { sessionTimer.running = false; sessionTimer.paused = true; }
+                const clock = document.getElementById('sessionDuration');
+                // Re-render frozen value immediately instead of waiting for reload.
+                if (clock && data.elapsed_seconds !== undefined) {
+                    const s = data.elapsed_seconds;
+                    const p = (n) => String(n).padStart(2, '0');
+                    clock.textContent = s >= 3600
+                        ? Math.floor(s / 3600) + ':' + p(Math.floor((s % 3600) / 60)) + ':' + p(s % 60)
+                        : p(Math.floor(s / 60)) + ':' + p(s % 60);
+                }
+                toast('⏸ ' + I18N_WS.timerPaused, 'success');
+            }
+            window.location.reload();
+        } catch (err) {
+            toast(err.message || 'Error', 'error');
+            btn.disabled = false;
+        }
+    });
+    document.getElementById('timerRestartBtn')?.addEventListener('click', async (e) => {
+        const ok = window.confirmSwal
+            ? await window.confirmSwal(I18N_WS.timerRestartConfirm, {})
+            : confirm(I18N_WS.timerRestartConfirm);
+        if (!ok) return;
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        try {
+            await postTimer(TIMER_RESTART_URL);
+            toast('↺ ' + I18N_WS.timerRestarted, 'success');
+            window.location.reload();
+        } catch (err) {
+            toast(err.message || 'Error', 'error');
+            btn.disabled = false;
+        }
+    });
+    document.getElementById('discardSessionBtn')?.addEventListener('click', async () => {
+        const form = document.getElementById('discardSessionForm');
+        if (!form) return;
+        let ok;
+        if (window.confirmSwal) {
+            ok = await window.confirmSwal(form, I18N_WS.discardConfirm, { isDelete: true });
+            // confirmSwal(form, …) submits the form itself on confirm.
+            if (ok === true || ok === undefined) return;
+        } else {
+            ok = confirm(I18N_WS.discardConfirm);
+        }
+        if (ok) form.submit();
     });
 
     // Toast helper

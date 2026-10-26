@@ -644,7 +644,8 @@
                         {{-- Start Today Action --}}
                         @if(($plan->status ?? null) === 'active' && $isTodayTraining)
                             <div class="d-flex gap-2 mt-2">
-                                <form method="POST" action="{{ route('workouts.sessions.start', $todayDay) }}" class="flex-grow-1">
+                                <form method="POST" action="{{ route('workouts.sessions.start', $todayDay) }}" class="flex-grow-1"
+                                      onsubmit="return confirmSwal(this, '{{ __('Start today’s session now? The timer begins immediately.') }}')">
                                     @csrf
                                     <input type="hidden" name="date" value="{{ now()->toDateString() }}">
                                     <button class="wp-start-today w-100 border-0" type="submit">
