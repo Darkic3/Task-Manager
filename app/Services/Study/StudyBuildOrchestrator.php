@@ -926,7 +926,7 @@ class StudyBuildOrchestrator
             return ['ok' => false, 'code' => 'no_provider', 'error' => __('No AI provider is configured.')];
         }
         try {
-            $raw = self::requestRevisionModel($providers, $resolved, $currentOutline, $feedback, $user, $conversationId);
+            $raw = self::requestRevisionModel($providers, $resolved, $currentOutline, $feedback, $user, $conversationId, $rid);
             $decoded = self::decodeModelJson($raw);
             $outline = self::sanitizeOutline(is_array($decoded) ? $decoded : []);
             AiLogger::log('study_build.revise_model', AiTrace::ids(null, $rid, $user->id, $conversationId) + ['build_id' => $locked->id, 'raw_len' => mb_strlen($raw), 'chapters' => count($outline['chapters'] ?? []), 'elapsed_ms' => $elapsed()]);
@@ -1141,17 +1141,72 @@ class StudyBuildOrchestrator
      *
      * @throws \RuntimeException on provider failure or unusable output.
      */
-    private static function requestRevisionModel($providers, array $resolved, array $outline, string $feedback, $user, $conversationId): string
+    private static function requestRevisionModel($providers, array $resolved, array $outline, string $feedback, $user, $conversationId, ?string $rid = null): string
     {
-        $schema = '{"book_title":"...","chapters":[{"title":"...","lessons":[{"title":"...","topics":["..."]}]}]}';
+        $schema = '{"book_title":"...","chapters":[{"title":"...","number":1,"lessons":[{"title":"...","number":1,"topics":["..."]}],"extra_tasks":["..."]}]}';
         $system = 'You revise a book outline. Reply with JSON ONLY matching this schema: '.$schema
-            .' Rules: keep chapter/lesson order and counts unless the feedback asks otherwise;'
-            .' keep titles verbatim except requested changes; every chapter needs at least one lesson;'
+            .' Rules: keep chapter/lesson order, counts AND numbers unless the feedback asks otherwise;'
+            .' keep titles verbatim except requested changes; preserve every extra_tasks entry exactly'
+            .' (appendix chapters have no lessons — never drop their extra_tasks);'
+            .' every chapter needs at least one lesson or extra_task;'
             .' no extra keys, no markdown, no explanation.';
-        $userText = 'Current outline JSON: '.json_encode($outline, JSON_UNESCAPED_UNICODE)
+        // Compact payload: the model only needs structure (titles, numbers,
+        // topics, appendix tasks) — pages/weights/metadata stay server-side
+        // and are re-attached from the current outline after validation.
+        // Smaller prompt = faster generation on slow providers.
+        $userText = 'Current outline JSON: '.json_encode(self::compactOutlineForRevision($outline), JSON_UNESCAPED_UNICODE)
             ."\n\nRequested change: ".$feedback;
 
-        return self::requestJsonModel($providers, $resolved, $system, $userText, 'master_revise', $user, $conversationId);
+        return self::requestJsonModel($providers, $resolved, $system, $userText, 'master_revise', $user, $conversationId, $rid, 2);
+    }
+
+    /**
+     * Strip a stored outline down to what a revision needs: titles,
+     * numbers, topics and appendix tasks. Pages/weights/indexes and
+     * parser metadata are server-owned and merged back afterwards.
+     */
+    public static function compactOutlineForRevision(array $outline): array
+    {
+        $chapters = [];
+        foreach (array_values((array) ($outline['chapters'] ?? [])) as $ch) {
+            if (! is_array($ch)) {
+                continue;
+            }
+            $lessons = [];
+            foreach (array_values((array) ($ch['lessons'] ?? [])) as $ls) {
+                if (! is_array($ls)) {
+                    continue;
+                }
+                $lesson = ['title' => (string) ($ls['title'] ?? '')];
+                if (isset($ls['number']) && is_numeric($ls['number'])) {
+                    $lesson['number'] = (int) $ls['number'];
+                }
+                $topics = [];
+                foreach ((array) ($ls['topics'] ?? []) as $t) {
+                    if (is_string($t) && trim($t) !== '') {
+                        $topics[] = $t;
+                    }
+                }
+                $lesson['topics'] = $topics;
+                $lessons[] = $lesson;
+            }
+            $extra = [];
+            foreach ((array) ($ch['extra_tasks'] ?? []) as $t) {
+                if (is_string($t) && trim($t) !== '') {
+                    $extra[] = $t;
+                }
+            }
+            $chapter = ['title' => (string) ($ch['title'] ?? ''), 'lessons' => $lessons, 'extra_tasks' => $extra];
+            if (isset($ch['number']) && is_numeric($ch['number'])) {
+                $chapter['number'] = (int) $ch['number'];
+            }
+            $chapters[] = $chapter;
+        }
+
+        return [
+            'book_title' => (string) ($outline['book_title'] ?? ''),
+            'chapters' => $chapters,
+        ];
     }
 
     /**
@@ -1161,7 +1216,7 @@ class StudyBuildOrchestrator
      *
      * @throws \RuntimeException on provider failure.
      */
-    private static function requestJsonModel($providers, array $resolved, string $system, string $userText, string $operation, $user, $conversationId): string
+    private static function requestJsonModel($providers, array $resolved, string $system, string $userText, string $operation, $user, $conversationId, ?string $rid = null, int $maxAttempts = 3): string
     {
         $ctx = [
             'operation' => $operation,
@@ -1171,15 +1226,26 @@ class StudyBuildOrchestrator
             'model' => $resolved['model'] ?? null,
             'type' => $resolved['type'] ?? 'openai',
         ];
+        // Observable while the UI spinner runs: a start line with prompt
+        // size exists even when the provider never answers (timeout).
+        AiLogger::log('study_build.model_start', AiTrace::ids(null, $rid, $user->id ?? null, $conversationId) + [
+            'operation' => $operation,
+            'prompt_chars' => mb_strlen($system.$userText),
+            'timeout_s' => \App\Services\AiProviderService::TIMEOUT_REVISE,
+            'max_attempts' => $maxAttempts,
+        ]);
         $messages = [
             ['role' => 'system', 'content' => $system],
             ['role' => 'user', 'content' => $userText],
         ];
+        // Out-param for postJson()'s by-reference $meta (attempt count).
+        // A literal null cannot be passed to a by-reference parameter.
+        $meta = null;
 
         if ($resolved['type'] === 'gemini') {
             $cfg = $resolved['config'];
             $url = rtrim($cfg['base_url'], '/').'/'.$resolved['model'].':generateContent?key='.$resolved['key'];
-            $response = $providers->postJson($url, ['contents' => [['role' => 'user', 'parts' => [['text' => $system."\n\n".$userText]]]], 'generationConfig' => ['responseMimeType' => 'application/json']], [], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx);
+            $response = $providers->postJson($url, ['contents' => [['role' => 'user', 'parts' => [['text' => $system."\n\n".$userText]]]], 'generationConfig' => ['responseMimeType' => 'application/json']], [], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx, $meta, $maxAttempts);
             if ($response->failed()) {
                 throw new \App\Exceptions\AiProviderException(
                     $providers->formatErrorResponse($response),
@@ -1193,7 +1259,7 @@ class StudyBuildOrchestrator
         }
         if ($resolved['type'] === 'anthropic') {
             $cfg = $resolved['config'];
-            $response = $providers->postJson($cfg['base_url'], ['model' => $resolved['model'], 'max_tokens' => 6000, 'system' => $system, 'messages' => [['role' => 'user', 'content' => $userText]]], ['x-api-key' => $resolved['key'], 'anthropic-version' => '2023-06-01'], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx);
+            $response = $providers->postJson($cfg['base_url'], ['model' => $resolved['model'], 'max_tokens' => 6000, 'system' => $system, 'messages' => [['role' => 'user', 'content' => $userText]]], ['x-api-key' => $resolved['key'], 'anthropic-version' => '2023-06-01'], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx, $meta, $maxAttempts);
             if ($response->failed()) {
                 throw new \App\Exceptions\AiProviderException(
                     $providers->formatErrorResponse($response),
@@ -1210,7 +1276,7 @@ class StudyBuildOrchestrator
         $payload = $providers->openAiPayload($messages, $resolved['model'], false, $cfg['base_url']);
         $payload['response_format'] = ['type' => 'json_object'];
         $endpoint = $providers->endpointFor($cfg['base_url'], $resolved['type']);
-        $response = $providers->postJson($endpoint, $payload, ['Authorization' => 'Bearer '.$resolved['key']], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx);
+        $response = $providers->postJson($endpoint, $payload, ['Authorization' => 'Bearer '.$resolved['key']], \App\Services\AiProviderService::TIMEOUT_REVISE, $ctx, $meta, $maxAttempts);
         if ($response->failed()) {
             throw new \App\Exceptions\AiProviderException(
                 $providers->formatErrorResponse($response),
@@ -1532,7 +1598,8 @@ class StudyBuildOrchestrator
                 $pkgCtx['text']."\n\nSCOPE TITLES (revise only within this scope):\n".$scopeText."\n\nRequested change: ".$feedback,
                 'package_revise',
                 $user,
-                $build->conversation_id
+                $build->conversation_id,
+                $rid
             );
             $args = self::decodeModelJson($raw);
         } catch (\App\Exceptions\AiProviderException $e) {

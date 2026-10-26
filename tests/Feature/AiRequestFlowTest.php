@@ -220,7 +220,10 @@ class AiRequestFlowTest extends TestCase
         )->assertStatus(502)->assertJsonPath('code', 'provider_error');
 
         $row = AiProviderCall::where('user_id', $user->id)->where('operation', 'master_revise')->firstOrFail();
-        $this->assertSame(3, (int) $row->attempts);
+        // Master revisions use two long attempts (a full-outline
+        // generation needs ~2-3 minutes on a slow provider; three short
+        // attempts only tripled the wait without helping).
+        $this->assertSame(2, (int) $row->attempts);
         $this->assertSame('timeout', $row->outcome);
         $this->assertSame(1, $build->fresh()->version);
         $this->assertSame(1, AiPlan::where('user_id', $user->id)->count());

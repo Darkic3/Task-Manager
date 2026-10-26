@@ -1928,7 +1928,7 @@ details.lina-fold .fold-body { padding: 0 10px 8px; font-size: 12.5px; }
                 const reviseLabel = reviseBtn.textContent;
                 reviseBtn.textContent = '⏳ در حال ارسال درخواست اصلاح…';
                 try {
-                    const res = await api('POST', '/ai/study-builds/' + master.id + '/revise-structure', { feedback }, { timeoutMs: 180000 });
+                    const res = await api('POST', '/ai/study-builds/' + master.id + '/revise-structure', { feedback }, { timeoutMs: 400000 });
                     if (res.master) paintMaster(card, res.master, res.packages || [], res.study_build || null);
                     // Chain packages live in this card — no separate full
                     // card is rendered for them (keeps the page short).
@@ -2125,7 +2125,7 @@ details.lina-fold .fold-body { padding: 0 10px 8px; font-size: 12.5px; }
                 const pkgLabel = b.textContent;
                 b.textContent = '⏳ در حال ارسال…';
                 try {
-                    const res = await api('POST', '/ai/plans/' + pkg.plan_id + '/revise-package', { feedback }, { timeoutMs: 180000 });
+                    const res = await api('POST', '/ai/plans/' + pkg.plan_id + '/revise-package', { feedback }, { timeoutMs: 400000 });
                     // Chain package lives in the master card (refreshed
                     // below) — no separate full card.
                     if (res.plan && !res.plan.master_build_id) renderPlanCard(res.plan, studyBuild);

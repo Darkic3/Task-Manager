@@ -345,7 +345,11 @@ class AiProviderService
 
     public const TIMEOUT_STREAM = 60;
 
-    public const TIMEOUT_REVISE = 90;
+    // Full-outline revisions are the heaviest generation in the system
+    // (a 14-chapter Persian outline is ~4k prompt + ~4k completion tokens;
+    // a slow provider needs well over 90s). Two long attempts beat three
+    // short ones: fewer wasted generations, faster typical success.
+    public const TIMEOUT_REVISE = 180;
 
     public const TIMEOUT_TEST = 30;
 
@@ -370,7 +374,7 @@ class AiProviderService
      * $meta (optional out-param): ['attempts'=>int] for callers that need
      * to know whether a retry happened.
      */
-    public function postJson(string $url, array $payload, array $headers = [], int $timeout = 60, array $callCtx = [], ?array &$meta = null): \Illuminate\Http\Client\Response
+    public function postJson(string $url, array $payload, array $headers = [], int $timeout = 60, array $callCtx = [], ?array &$meta = null, ?int $maxAttempts = null): \Illuminate\Http\Client\Response
     {
         $startedAt = microtime(true);
         $attempts = 0;
@@ -390,6 +394,7 @@ class AiProviderService
         ], $headers);
 
         $verify = (bool) config('ai.tls_verify', true);
+        $tries = max(1, $maxAttempts ?? self::MAX_ATTEMPTS);
 
         for ($attempt = 1; ; $attempt++) {
             $attempts = $attempt;
@@ -399,8 +404,8 @@ class AiProviderService
                     ->timeout($timeout)
                     ->post($url, $payload);
             } catch (\Illuminate\Http\Client\ConnectionException $e) {
-                // cURL 52 Empty reply / timeout / DNS — retry, then surface as provider error
-                if ($attempt < self::MAX_ATTEMPTS) {
+                // cURL 52 Empty reply / timeout / connection / DNS — retry, then surface as provider error
+                if ($attempt < $tries) {
                     usleep((self::BACKOFF_MS[$attempt - 1] ?? 3000) * 1000);
                     continue;
                 }
@@ -425,7 +430,7 @@ class AiProviderService
             }
 
             $status = $response->status();
-            if (($status === 429 || $status >= 500) && $attempt < self::MAX_ATTEMPTS) {
+            if (($status === 429 || $status >= 500) && $attempt < $tries) {
                 usleep((self::BACKOFF_MS[$attempt - 1] ?? 3000) * 1000);
                 continue;
             }
