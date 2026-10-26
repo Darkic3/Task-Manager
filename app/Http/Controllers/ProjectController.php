@@ -26,7 +26,27 @@ class ProjectController extends Controller
             ->orderBy('sort_order')->orderBy('id')
             ->get();
 
-        return view('projects.index', compact('projects', 'roots'));
+        // Grouped grid/list: one card per root, children nested inside.
+        // Search index per root (own name + every descendant name) so a
+        // group stays visible when a sub-project matches the search term.
+        $collectNames = function ($nodes) use (&$collectNames): array {
+            $out = [];
+            foreach ($nodes as $node) {
+                $out[] = $node->name;
+                if ($node->relationLoaded('childrenRecursive')) {
+                    $out = array_merge($out, $collectNames($node->childrenRecursive));
+                }
+            }
+
+            return $out;
+        };
+        $groupSearch = [];
+        foreach ($roots as $root) {
+            $names = array_merge([$root->name], $collectNames($root->childrenRecursive));
+            $groupSearch[$root->id] = mb_strtolower(implode(' ', $names));
+        }
+
+        return view('projects.index', compact('projects', 'roots', 'groupSearch'));
     }
 
     public function create(Request $request)

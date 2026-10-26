@@ -564,6 +564,81 @@
     .cu-tree-actions { display: flex; gap: 4px; }
     .cu-tree-children { background: #fcfcfd; }
 
+    /* ─── Grouped Card: sub-projects nested inside the parent ─── */
+    .cu-card.is-group { overflow: hidden; }
+    .cu-sub {
+        margin: 0 -14px -12px;
+        border-top: 1px solid #f0f1f3;
+        background: #fafbfc;
+    }
+    .cu-sub-head {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 8px; padding: 7px 12px 6px;
+        font-size: 11px; font-weight: 700; color: #6b7280;
+        text-transform: uppercase; letter-spacing: .4px;
+    }
+    .cu-sub-head .cu-sub-title { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+    .cu-sub-head .cu-sub-title i { color: #7c3aed; font-size: 12px; }
+    .cu-sub-count {
+        background: #ede9fe; color: #6d28d9;
+        border-radius: 20px; padding: 0 8px; font-size: 10px; line-height: 18px;
+    }
+    .cu-sub-add {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 11px; font-weight: 600; color: #7c3aed; text-decoration: none;
+        text-transform: none; letter-spacing: 0;
+        padding: 2px 8px; border-radius: 6px;
+    }
+    .cu-sub-add:hover { background: #ede9fe; color: #5b21b6; }
+    .cu-sub-list { display: flex; flex-direction: column; }
+    .cu-sub-list.capped { max-height: 196px; overflow: hidden; position: relative; }
+    .cu-sub-list.capped::after {
+        content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 34px;
+        background: linear-gradient(transparent, #fafbfc); pointer-events: none;
+    }
+    .cu-sub-toggle {
+        width: 100%; border: none; background: white;
+        border-top: 1px solid #f0f1f3; color: #7c3aed;
+        font-size: 11px; font-weight: 700; padding: 6px; cursor: pointer;
+    }
+    .cu-sub-toggle:hover { background: #f5f3ff; }
+    .cu-sub-row {
+        display: flex; align-items: center; gap: 8px;
+        padding: 7px 12px;
+        padding-inline-start: calc(12px + var(--sub-depth, 0) * 20px);
+        border-top: 1px solid #f0f1f3; text-decoration: none;
+        transition: background .12s;
+    }
+    .cu-sub-row:hover { background: #f5f3ff; }
+    .cu-sub-type {
+        font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+        border: 1px solid; border-radius: 20px; padding: 1px 7px; flex-shrink: 0;
+    }
+    .cu-sub-name {
+        flex: 1 1 auto; min-width: 0; font-size: 12px; font-weight: 600; color: #1a1d23;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cu-sub-row:hover .cu-sub-name { color: #6d28d9; }
+    .cu-sub-meta { font-size: 10px; color: #8a8f98; flex-shrink: 0; }
+    .cu-sub-pb { width: 56px; height: 4px; background: #eceef2; border-radius: 4px; overflow: hidden; flex-shrink: 0; }
+    .cu-sub-pb-fill { display: block; height: 100%; border-radius: 4px; }
+    .cu-sub-pct { font-size: 10px; color: #6b7380; min-width: 30px; text-align: end; flex-shrink: 0; }
+    .cu-sub-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .cu-sub-dot.not-started { background: #d1d5db; }
+    .cu-sub-dot.in-progress { background: #2563eb; }
+    .cu-sub-dot.completed   { background: #16a34a; }
+    .cu-sub-dot.closed      { background: #9ca3af; }
+
+    /* ─── Grouped List: child rows ─────────────────────────────── */
+    .cu-list-row.is-child { background: #fcfcfd; }
+    .cu-list-row.is-child:hover { background: #f5f3ff; }
+    .cu-list-row.is-child .cu-list-name { padding-inline-start: calc(var(--sub-depth, 0) * 24px); }
+    .cu-child-guides {
+        width: 14px; flex-shrink: 0; align-self: stretch;
+        border-inline-start: 2px solid #ddd6fe; border-bottom: 2px solid #ddd6fe;
+        border-end-start-radius: 6px; margin-inline-end: 2px; margin-bottom: 6px;
+    }
+
     /* ─── Responsive ───────────────────────────────────────────── */
     @media (max-width: 768px) {
         /* Content header */
@@ -654,9 +729,9 @@
     {{-- ── Projects ─────────────────────────────────────────────── --}}
     @if($projects->count() > 0)
 
-        {{-- Grid --}}
+        {{-- Grid: one card per root project, children nested inside --}}
         <div class="cu-grid" id="cuGrid">
-            @foreach($projects as $project)
+            @foreach($roots as $project)
                 @php
                     $totalTasks     = $project->tasks->count();
                     $completedTasks = $project->tasks->where('status', 'completed')->count();
@@ -677,9 +752,12 @@
                     };
                     $teamCount = $project->teamMembers ? $project->teamMembers->count() : 0;
                     $isOverdue = $project->end_date && $project->end_date->isPast() && !in_array($project->status, ['completed','closed']);
+                    $childCount = $project->childrenRecursive->count();
+                    $groupName = $groupSearch[$project->id] ?? strtolower($project->name);
                 @endphp
-                <div class="cu-card project-item"
-                     data-name="{{ strtolower($project->name) }}"
+                <div class="cu-card project-item {{ $childCount > 0 ? 'is-group' : '' }}"
+                     data-self="{{ strtolower($project->name) }}"
+                     data-name="{{ $groupName }}"
                      data-status="{{ $project->status }}"
                      data-progress="{{ $progress }}"
                      data-created="{{ $project->created_at->timestamp }}">
@@ -733,6 +811,28 @@
                             @endif
                         </div>
 
+                        @if($childCount > 0)
+                            <div class="cu-sub">
+                                <div class="cu-sub-head">
+                                    <span class="cu-sub-title">
+                                        <i class="bi bi-diagram-3"></i>{{ __('Sub-projects') }}
+                                        <span class="cu-sub-count">{{ $childCount }}</span>
+                                    </span>
+                                    <a href="{{ route('projects.create', ['parent' => $project->id]) }}" class="cu-sub-add">
+                                        <i class="bi bi-plus-lg"></i>{{ __('Add') }}
+                                    </a>
+                                </div>
+                                <div class="cu-sub-list {{ $childCount > 5 ? 'capped' : '' }}">
+                                    @include('projects._group-children', ['nodes' => $project->childrenRecursive, 'depth' => 0])
+                                </div>
+                                @if($childCount > 5)
+                                    <button type="button" class="cu-sub-toggle" data-count="{{ $childCount }}" data-more="{{ __('Show all') }}" data-less="{{ __('Show less') }}">
+                                        {{ __('Show all') }} ({{ $childCount }})
+                                    </button>
+                                @endif
+                            </div>
+                        @endif
+
                         <div class="cu-card-actions">
                             <a href="{{ route('projects.tasks.index', $project) }}" class="cu-action-btn" title="{{ __('Tasks') }}"><i class="bi bi-list-task"></i></a>
                             <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
@@ -742,13 +842,13 @@
                                 @csrf @method('DELETE')
                             <button type="submit" class="cu-action-btn danger" title="{{ __('Delete') }}"><i class="bi bi-trash"></i></button>
                             </form>
-                        </div>
                     </div>
+                </div>
                 </div>
             @endforeach
         </div>
 
-        {{-- List --}}
+        {{-- List: parent rows with nested child rows --}}
         <div class="cu-list" id="cuList">
             <div class="cu-list-header">
                 <div>{{ __('Project') }}</div>
@@ -757,7 +857,7 @@
                 <div>{{ __('Status') }}</div>
                 <div></div>
             </div>
-            @foreach($projects as $project)
+            @foreach($roots as $project)
                 @php
                     $totalTasks     = $project->tasks->count();
                     $completedTasks = $project->tasks->where('status', 'completed')->count();
@@ -767,15 +867,22 @@
                     $chipClass      = match($project->status) { 'in_progress'=>'in-progress','completed'=>'completed','closed'=>'closed',default=>'not-started'};
                     $chipLabel      = match($project->status) { 'in_progress'=>'In Progress','completed'=>'Completed','closed'=>'Closed',default=>'Not Started'};
                     $isOverdue      = $project->end_date && $project->end_date->isPast() && !in_array($project->status, ['completed','closed']);
+                    $groupName      = $groupSearch[$project->id] ?? strtolower($project->name);
+                    $childCount     = $project->childrenRecursive->count();
                 @endphp
                 <div class="cu-list-row project-item"
-                     data-name="{{ strtolower($project->name) }}"
+                     data-id="{{ $project->id }}"
+                     data-self="{{ strtolower($project->name) }}"
+                     data-name="{{ $groupName }}"
                      data-status="{{ $project->status }}"
                      data-progress="{{ $progress }}"
                      data-created="{{ $project->created_at->timestamp }}">
                     <div class="cu-list-name">
                         <div class="cu-list-avatar" style="background:{{ $projectColor }};">{{ name_initials($project->name) }}</div>
                         <span title="{{ $project->name }}">{{ $project->name }}</span>
+                        @if($childCount > 0)
+                            <span class="cu-sub-count">{{ $childCount }}</span>
+                        @endif
                     </div>
                     <div class="cu-list-meta col-meta">
                         @if($project->end_date)
@@ -804,6 +911,9 @@
                         </form>
                     </div>
                 </div>
+                @if($project->childrenRecursive->count() > 0)
+                    @include('projects._list-children', ['nodes' => $project->childrenRecursive, 'depth' => 0, 'rootId' => $project->id])
+                @endif
             @endforeach
         </div>
 
@@ -842,28 +952,53 @@ document.addEventListener('DOMContentLoaded', function() {
     const cuGrid       = document.getElementById('cuGrid');
     const cuList       = document.getElementById('cuList');
 
-    function getItems() {
-        return Array.from(document.querySelectorAll('.project-item'));
-    }
-
     function filterAndSort() {
         const term   = searchInput.value.toLowerCase();
         const status = statusFilter.value;
         const sort   = sortFilter.value;
 
-        let items = getItems();
+        // Grid: one card per group. A card stays visible when it matches
+        // itself or any nested sub-project matches; non-matching sub-rows
+        // are hidden inside the card.
+        cuGrid.querySelectorAll(':scope > .cu-card.project-item').forEach(card => {
+            const selfMatch = (card.dataset.self || card.dataset.name || '').includes(term)
+                && (!status || card.dataset.status === status);
+            let childMatch = false;
+            card.querySelectorAll('.cu-sub-row').forEach(row => {
+                const ok = (row.dataset.name || '').includes(term)
+                    && (!status || row.dataset.status === status);
+                row.style.display = ok ? '' : 'none';
+                if (ok) childMatch = true;
+            });
+            card.style.display = (selfMatch || childMatch) ? '' : 'none';
+        });
 
-        // Filter
-        items.forEach(item => {
-            const nameMatch   = item.dataset.name.includes(term);
+        // List: child rows first, then parents (a parent stays visible
+        // when it matches or any of its children is visible).
+        const listChildren = Array.from(cuList.querySelectorAll('.cu-list-row.is-child'));
+        listChildren.forEach(row => {
+            const ok = (row.dataset.name || '').includes(term)
+                && (!status || row.dataset.status === status);
+            row.style.display = ok ? '' : 'none';
+        });
+        cuList.querySelectorAll(':scope > .cu-list-row.project-item:not(.is-child)').forEach(row => {
+            const selfMatch = (row.dataset.self || row.dataset.name || '').includes(term)
+                && (!status || row.dataset.status === status);
+            const childVisible = listChildren.some(c => c.dataset.root === row.dataset.id && c.style.display !== 'none');
+            row.style.display = (selfMatch || childVisible) ? '' : 'none';
+        });
+
+        // Tree nodes keep the simple own-match behaviour.
+        document.querySelectorAll('#cuTree .project-item').forEach(item => {
+            const nameMatch   = (item.dataset.name || '').includes(term);
             const statusMatch = !status || item.dataset.status === status;
             item.style.display = (nameMatch && statusMatch) ? '' : 'none';
         });
 
-        // Sort visible items in grid
-        const gridItems = Array.from(cuGrid.querySelectorAll('.project-item')).filter(i => i.style.display !== 'none');
+        // Sort visible group cards in grid (by the group's own values).
+        const gridItems = Array.from(cuGrid.querySelectorAll(':scope > .cu-card.project-item')).filter(i => i.style.display !== 'none');
         gridItems.sort((a, b) => {
-            if (sort === 'name')       return a.dataset.name.localeCompare(b.dataset.name);
+            if (sort === 'name')       return (a.dataset.self || '').localeCompare(b.dataset.self || '');
             if (sort === 'created_at') return parseInt(b.dataset.created) - parseInt(a.dataset.created);
             if (sort === 'progress')   return parseFloat(b.dataset.progress) - parseFloat(a.dataset.progress);
             return 0;
@@ -891,6 +1026,18 @@ document.addEventListener('DOMContentLoaded', function() {
             const hidden = target.style.display === 'none';
             target.style.display = hidden ? '' : 'none';
             btn.classList.toggle('collapsed', !hidden);
+        });
+    });
+
+    // Expand/collapse long sub-project lists inside grouped cards.
+    document.querySelectorAll('.cu-sub-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const list = btn.closest('.cu-sub').querySelector('.cu-sub-list');
+            if (!list) return;
+            const capped = list.classList.toggle('capped');
+            btn.textContent = capped
+                ? btn.dataset.more + ' (' + btn.dataset.count + ')'
+                : btn.dataset.less;
         });
     });
 });
