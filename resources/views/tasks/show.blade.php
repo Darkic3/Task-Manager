@@ -78,8 +78,37 @@
     color:#c1c4cc;
 }
 .ts-sub-check.done { color:#30a46c; }
-.ts-sub-title { flex:1; font-size:13.5px; color:#1f2328; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ts-sub-title { flex:1; font-size:13.5px; color:#1f2328; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration:none; }
 .ts-sub-row.is-done .ts-sub-title { color:#9ca0aa; text-decoration:line-through; }
+a.ts-sub-title:hover { color:#7c3aed; }
+/* ── Subtask drag & drop sorting ── */
+.ts-sub-row.dragging { opacity:.45; background:#f7f5ff; }
+.ts-sub-row.drop-before { box-shadow:inset 0 2px 0 0 #7c3aed; }
+.ts-sub-row.drop-after { box-shadow:inset 0 -2px 0 0 #7c3aed; }
+.ts-sub-drag {
+    flex-shrink:0; cursor:grab; color:#c1c4cc; font-size:13px; padding:4px 2px;
+    display:inline-flex; align-items:center; border-radius:4px; touch-action:none;
+}
+.ts-sub-drag:hover { color:#7c3aed; background:#eef0f2; }
+.ts-sub-row.dragging .ts-sub-drag { cursor:grabbing; }
+.ts-sub-move {
+    flex-shrink:0; display:none; align-items:center; gap:2px;
+}
+.ts-sub-row:hover .ts-sub-move { display:inline-flex; }
+.ts-sub-move button {
+    background:none; border:1px solid transparent; cursor:pointer; color:#aeb2ba;
+    width:22px; height:22px; border-radius:5px; display:inline-flex;
+    align-items:center; justify-content:center; font-size:11px; padding:0;
+}
+.ts-sub-move button:hover { color:#7c3aed; background:#eef0f2; border-color:#e5e7eb; }
+.ts-sub-move button:disabled { opacity:.3; cursor:default; background:none; }
+@media (pointer:coarse) {
+    .ts-sub-move { display:inline-flex; }
+    .ts-sub-drag { display:none; }
+}
+.ts-sub-hint { font-size:11px; color:#c1c4cc; margin-top:6px; }
+@media (pointer:coarse) { .ts-sub-hint-drag { display:none; } }
+@media (pointer:fine) { .ts-sub-hint-touch { display:none; } }
 
 .ts-cl-item {
     display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px;
@@ -242,18 +271,27 @@
 
     <hr class="ts-divider">
     <h2 class="ts-h">{{ __('Subtasks') }} ({{ $task->children->where('status', 'completed')->count() }}/{{ $task->children->count() }})</h2>
-    <div>
+    <div id="ts-sub-list" data-parent-id="{{ $task->id }}">
         @forelse($task->children as $child)
-            <a href="{{ route('tasks.show', $child) }}" class="ts-sub-row {{ $child->status === 'completed' ? 'is-done' : '' }}">
+            <div class="ts-sub-row {{ $child->status === 'completed' ? 'is-done' : '' }}" data-id="{{ $child->id }}" draggable="true">
+                <span class="ts-sub-drag" title="{{ __('Drag to reorder') }}"><i class="bi bi-grip-vertical"></i></span>
                 <span class="ts-sub-check {{ $child->status === 'completed' ? 'done' : '' }}">
                     <i class="bi {{ $child->status === 'completed' ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
                 </span>
-                <span class="ts-sub-title">{{ $child->title }}</span>
-            </a>
+                <a href="{{ route('tasks.show', $child) }}" class="ts-sub-title">{{ $child->title }}</a>
+                <span class="ts-sub-move">
+                    <button type="button" data-move="up" title="{{ __('Move up') }}" aria-label="{{ __('Move up') }}"><i class="bi bi-chevron-up"></i></button>
+                    <button type="button" data-move="down" title="{{ __('Move down') }}" aria-label="{{ __('Move down') }}"><i class="bi bi-chevron-down"></i></button>
+                </span>
+            </div>
         @empty
             <div class="ts-empty">{{ __('No subtasks yet.') }}</div>
         @endforelse
     </div>
+    @if($task->children->count() > 1)
+        <div class="ts-sub-hint ts-sub-hint-drag">{{ __('Tip: drag the handle to reorder subtasks.') }}</div>
+        <div class="ts-sub-hint ts-sub-hint-touch">{{ __('Tip: use the arrows to reorder subtasks.') }}</div>
+    @endif
     <form class="ts-cl-add" method="POST" action="{{ route('tasks.store') }}">
         @csrf
         <input type="hidden" name="parent_id" value="{{ $task->id }}">
@@ -567,6 +605,109 @@ function saveChecklistItem(id, name, original, el) {
     })
     .catch(() => { el.textContent = original; showToast(@json(__('Failed to update item')), false); });
 }
+
+/* ── Subtask drag & drop sorting ── */
+(function initSubtaskSorting() {
+    const list = document.getElementById('ts-sub-list');
+    if (!list) return;
+    const parentId = parseInt(list.dataset.parentId, 10) || null;
+    const rows = () => [...list.querySelectorAll('.ts-sub-row[data-id]')];
+    if (rows().length < 2) return;
+
+    let dropTarget = null;
+    const clearIndicators = () => {
+        list.querySelectorAll('.drop-before,.drop-after')
+            .forEach(r => r.classList.remove('drop-before', 'drop-after'));
+        dropTarget = null;
+    };
+
+    function persistOrder() {
+        const items = rows().map((r, i) => ({
+            id: parseInt(r.dataset.id, 10),
+            parent_id: parentId,
+            sort_order: i
+        }));
+        fetch(@json(route('tasks.reorder')), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
+            body: JSON.stringify({ items })
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.ok) showToast(@json(__('Subtask order saved')));
+            else showToast(@json(__('Order not saved')), false);
+        })
+        .catch(() => showToast(@json(__('Order not saved')), false));
+    }
+
+    /* Desktop: HTML5 drag & drop, handle-only so title links stay clickable */
+    list.addEventListener('dragstart', e => {
+        const row = e.target.closest && e.target.closest('.ts-sub-row');
+        if (!row || !list.contains(row)) return;
+        if (!e.target.closest('.ts-sub-drag')) { e.preventDefault(); return; }
+        row.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', row.dataset.id);
+        e.dataTransfer.effectAllowed = 'move';
+    });
+    list.addEventListener('dragend', () => {
+        list.querySelectorAll('.dragging').forEach(r => r.classList.remove('dragging'));
+        clearIndicators();
+    });
+    list.addEventListener('dragover', e => {
+        const dragging = list.querySelector('.dragging');
+        if (!dragging) return;
+        e.preventDefault();
+        clearIndicators();
+        const over = e.target.closest ? e.target.closest('.ts-sub-row:not(.dragging)') : null;
+        if (over && list.contains(over)) {
+            const mid = over.getBoundingClientRect().top + over.offsetHeight / 2;
+            const pos = e.clientY < mid ? 'before' : 'after';
+            over.classList.add(pos === 'before' ? 'drop-before' : 'drop-after');
+            dropTarget = { row: over, pos };
+        }
+    });
+    list.addEventListener('drop', e => {
+        const dragging = list.querySelector('.dragging');
+        if (!dragging) return;
+        e.preventDefault();
+        const id = e.dataTransfer.getData('text/plain');
+        const card = list.querySelector(`.ts-sub-row[data-id="${id}"]`);
+        const target = dropTarget;
+        clearIndicators();
+        if (!card) return;
+        if (target && target.row.isConnected && target.row !== card) {
+            list.insertBefore(card, target.pos === 'before' ? target.row : target.row.nextSibling);
+            persistOrder();
+        }
+    });
+
+    /* Touch / keyboard-friendly: up-down arrows (also handy with a mouse) */
+    function refreshMoveButtons() {
+        const all = rows();
+        all.forEach((r, i) => {
+            const up = r.querySelector('[data-move="up"]');
+            const down = r.querySelector('[data-move="down"]');
+            if (up) up.disabled = (i === 0);
+            if (down) down.disabled = (i === all.length - 1);
+        });
+    }
+    list.addEventListener('click', e => {
+        const btn = e.target.closest && e.target.closest('[data-move]');
+        if (!btn || btn.disabled) return;
+        e.preventDefault();
+        const row = btn.closest('.ts-sub-row');
+        if (!row) return;
+        if (btn.dataset.move === 'up' && row.previousElementSibling) {
+            list.insertBefore(row, row.previousElementSibling);
+            persistOrder();
+        } else if (btn.dataset.move === 'down' && row.nextElementSibling) {
+            list.insertBefore(row.nextElementSibling, row);
+            persistOrder();
+        }
+        refreshMoveButtons();
+    });
+    refreshMoveButtons();
+})();
 
 document.addEventListener('DOMContentLoaded', updateChecklistUI);
 </script>
