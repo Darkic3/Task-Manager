@@ -213,12 +213,20 @@
         .main-content{max-width:1500px;margin-inline:auto;}
     }
 
-    /* Task row */
+    /* Task row — grid keeps check + body + actions aligned at every width */
     .pl-task{
-        display:flex;align-items:flex-start;gap:10px;background:white;border:1px solid #eceef1;
+        display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:10px;
+        width:100%;max-width:100%;box-sizing:border-box;min-width:0;
+        background:white;border:1px solid #eceef1;
         border-radius:10px;padding:10px 12px;transition:all .15s ease;
+        container-type:inline-size;
     }
     .pl-task:hover{box-shadow:0 3px 12px rgba(0,0,0,.06);border-color:#d8dae0;}
+    .pl-task > .pl-check,.pl-task > .pl-habit,.pl-task > .pl-avoid-shield,.pl-task > .pl-routine-static{
+        grid-column:1;grid-row:1;justify-self:start;margin-top:2px;
+    }
+    .pl-task > .pl-task-body{grid-column:2;grid-row:1;}
+    .pl-task > .pl-task-actions{grid-column:3;grid-row:1;}
     .pl-check{position:relative;flex-shrink:0;margin-top:2px;cursor:pointer;}
     .pl-check input{position:absolute;opacity:0;width:0;height:0;}
     .pl-check-box{
@@ -228,8 +236,16 @@
     }
     .pl-check:hover .pl-check-box{border-color:#7c3aed;}
     .pl-check input:checked + .pl-check-box{background:#16a34a;border-color:#16a34a;color:white;}
-    .pl-task-body{flex:1;min-width:0;}
-    .pl-task-title{font-size:13.5px;font-weight:600;color:#1e293b;line-height:1.45;word-break:break-word;}
+    .pl-task-body{min-width:0;max-width:100%;min-inline-size:0;overflow-wrap:anywhere;}
+    /* Single source of truth for the title: block layout so long FA/EN
+       titles wrap naturally; badges + row buttons flow inline after text. */
+    .pl-task-title{
+        display:block;min-width:0;max-width:100%;
+        font-size:clamp(12.5px,2.6vw + 10px,13.5px);font-weight:600;color:#1e293b;
+        line-height:1.55;overflow-wrap:anywhere;word-break:break-word;
+        text-wrap:pretty;cursor:text;border-radius:6px;padding:1px 4px;margin:-1px -4px;
+        transition:background .15s;
+    }
     .pl-task.is-done .pl-task-title{text-decoration:line-through;color:#94a3b8;}
     .pl-expand{
         margin-inline-start:auto;flex-shrink:0;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;
@@ -587,31 +603,59 @@
     body.pl-modal-open{overflow:hidden;}
     .pl-details{display:none;}
     .pl-details.open{display:block;}
-    .pl-task-title{display:flex;align-items:center;gap:4px;}
-    .pl-task-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;}
+    /* Meta row: wraps gracefully, never forces horizontal scroll */
+    .pl-task-meta{
+        display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap;
+        margin-top:5px;min-width:0;max-width:100%;
+    }
+    .pl-task-meta > *{min-width:0;max-width:100%;}
+    .pl-task-estimate-wrapper{min-width:0;max-width:100%;}
     .pl-priority{font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;}
     .pl-proj,.pl-due{font-size:11px;color:#8a8f98;display:inline-flex;align-items:center;gap:4px;}
     .pl-due.overdue{color:#dc2626;font-weight:600;}
 
-    /* Period groups + postpone actions */
-    .pl-period-group{display:flex;flex-direction:column;gap:2px;}
+    /* Period groups + postpone actions — airy, responsive, touch-friendly drop */
+    .pl-period-group{display:flex;flex-direction:column;gap:4px;min-width:0;}
     .pl-period-head{
-        display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;
-        letter-spacing:.05em;text-transform:uppercase;color:#64748b;padding:7px 2px 2px;
+        display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap;
+        font-size:10.5px;font-weight:800;
+        letter-spacing:.05em;text-transform:uppercase;color:#64748b;padding:8px 4px 3px;
     }
-    .pl-period-head i{font-size:12px;}
+    .pl-period-head i{font-size:12px;flex-shrink:0;}
+    .pl-period-head span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
     .pl-period-body{
-        display:flex;flex-direction:column;gap:6px;padding:2px;border-radius:8px;
-        min-height:10px;transition:background .15s;
+        display:flex;flex-direction:column;gap:8px;padding:3px;border-radius:12px;
+        min-height:14px;min-width:0;transition:background .15s,box-shadow .15s;
+    }
+    /* Empty period: visible dashed drop hint instead of a collapsed 10px strip */
+    .pl-period-body:empty{min-height:44px;border:1.5px dashed #e2e8f0;background:#fbfcfe;}
+    .pl-period-body:empty::after{
+        content:'—';display:grid;place-items:center;color:#cbd5e1;font-size:12px;
+        min-height:40px;
     }
     .pl-period-body.drop-active{background:#f5f3ff;box-shadow:inset 0 0 0 2px #ddd6fe;}
+    @media (max-width:640px){
+        .pl-period-body{gap:8px;padding:2px 0 6px;}
+        .pl-period-body:empty{min-height:52px;}
+        .pl-period-head{padding:10px 2px 4px;font-size:11px;}
+    }
     .pl-task[draggable="true"]{cursor:grab;}
     .pl-task[draggable="true"]:active{cursor:grabbing;}
     .pl-task.dragging{opacity:.4;}
     .pl-task.drop-before{box-shadow:inset 0 3px 0 0 #7c3aed;}
     .pl-task.drop-after{box-shadow:inset 0 -3px 0 0 #7c3aed;}
-    .pl-task-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;align-self:center;opacity:.4;transition:opacity .18s;}
+    .pl-task-actions{
+        display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;
+        min-width:0;max-width:100%;flex-shrink:0;align-self:center;
+        opacity:.45;transition:opacity .18s;
+    }
     .pl-task:hover .pl-task-actions,.pl-task:focus-within .pl-task-actions{opacity:1;}
+    /* Narrow task card (container query): actions fall to a full-width second row */
+    @container (max-width:460px){
+        .pl-task{grid-template-columns:auto minmax(0,1fr);row-gap:8px;}
+        .pl-task-actions{grid-column:1 / -1;justify-content:flex-start;opacity:1;
+            border-top:1px solid #f1f5f9;padding-top:8px;}
+    }
     .pl-task-act{
         width:27px;height:27px;display:grid;place-items:center;padding:0;
         border:1px solid #e3e4e8;background:#fff;color:#5b6472;border-radius:8px;
@@ -662,8 +706,15 @@
     .pl-overdue-all:active{transform:scale(0.97);}
     .pl-overdue-all:disabled{opacity:.5;cursor:default;transform:none;}
 
-    /* Inline title editing */
-    .pl-task-title{cursor:text;border-radius:6px;padding:1px 4px;margin:-1px -4px;transition:background .15s;}
+    /* Inline title editing — badges/buttons inside the title stay inline */
+    .pl-task-title .flame,.pl-task-title .steps-count,.pl-task-title .steps-skipped,
+    .pl-task-title .pl-settled-tag,.pl-task-title .pl-avoid-tag{
+        display:inline-flex;vertical-align:middle;white-space:nowrap;
+    }
+    .pl-task-title .pl-expand,.pl-task-title .pl-routine-skip{
+        display:inline-grid;vertical-align:middle;
+    }
+    .pl-task-title .pl-routine-postpone{display:inline-flex;vertical-align:middle;}
     .pl-task-title:hover{background:#f5f3ff;}
     .pl-task-title:hover::after{
         content:'\F4C6';font-family:'bootstrap-icons';font-size:10px;color:#a78bfa;margin-left:6px;vertical-align:middle;
@@ -677,10 +728,18 @@
         box-shadow:0 0 0 3px rgba(124,58,237,.13);background:#fff;
     }
 
+    /* Viewport fallback for browsers without container queries */
+    @media(max-width:640px){
+        .pl-task{grid-template-columns:auto minmax(0,1fr);row-gap:8px;padding:10px;}
+        .pl-task-body{grid-column:2;}
+        .pl-task-actions{grid-column:1 / -1;opacity:1;justify-content:flex-start;
+            border-top:1px solid #f1f5f9;padding-top:8px;}
+    }
     @media(max-width:768px){
         .pl-task-actions{opacity:1;}
         .pl-task-open span{display:none;}
         .pl-task-open{padding:0 8px;}
+        .pl-task-title:hover::after{content:none;}
     }
 
     /* Routine row accent */
@@ -1775,13 +1834,13 @@
         .pl-section-title{font-size:13px;}
         .pl-overdue-all{flex:1 1 100%;justify-content:center;padding:8px;}
         .pl-section-body{padding:6px;}
-        /* Task rows: actions drop to their own full-width row, 34px+ targets */
-        .pl-task{flex-wrap:wrap;padding:10px;}
-        .pl-task-title{font-size:13px;}
-        .pl-task-actions{flex:1 1 100%;opacity:1;justify-content:flex-start;flex-wrap:wrap;gap:6px;margin-top:4px;}
-        .pl-task-act{width:34px;height:34px;font-size:14px;border-radius:9px;}
-        .pl-task-open{height:34px;flex:1;justify-content:center;}
-        .pl-task-meta{row-gap:6px;}
+        /* Task rows: grid already stacks actions; here just comfort + targets */
+        .pl-task{padding:10px;gap:9px;}
+        .pl-task-title{font-size:13px;line-height:1.65;}
+        .pl-task-actions{opacity:1;}
+        .pl-task-act{width:36px;height:36px;font-size:14px;border-radius:10px;}
+        .pl-task-open{height:36px;flex:1;justify-content:center;min-width:44px;}
+        .pl-task-meta{row-gap:6px;font-size:11px;}
         /* Routine steps: always-visible skip, taller chips for thumbs */
         .pl-steps{gap:5px;}
         .pl-step{font-size:11px;min-height:32px;}
