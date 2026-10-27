@@ -24,7 +24,7 @@ class FileController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'file' => 'required|file|mimes:jpeg,png,jpg,gif,svg,doc,docx,pdf,txt,html,css,js,php,java,c,cpp',
+            'file' => 'required|file|mimes:jpeg,png,jpg,gif,svg,doc,docx,pdf,txt',
             'type' => 'required|string|in:project,docs,txt,code,image',
         ]);
 
@@ -56,7 +56,7 @@ class FileController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'file' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,doc,docx,pdf,txt,html,css,js,php,java,c,cpp',
+            'file' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,doc,docx,pdf,txt',
             'type' => 'required|string|in:project,docs,txt,code,image',
         ]);
 

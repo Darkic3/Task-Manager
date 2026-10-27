@@ -95,6 +95,11 @@ class ImageUploadService
      * shopora's Uploader::upload (safe naming). Uses move() so it never
      * depends on getRealPath() — see upload().
      *
+     * Defense-in-depth: any server-side executable extension (php, phtml,
+     * phar, cgi, pl, py, sh, asp, aspx, jsp, …) is rewritten to .txt
+     * regardless of what the controller's whitelist allowed — the file
+     * becomes inert content and can never be executed by the web server.
+     *
      * @return string|null disk-relative path or null on failure
      */
     public static function storeFile(UploadedFile $file, string $folder): ?string
@@ -105,6 +110,14 @@ class ImageUploadService
         $original = basename(str_replace('\\', '/', (string) $file->getClientOriginalName()));
         $safe = preg_replace('/[^A-Za-z0-9._-]/', '_', $original) ?: 'file';
         $name = time().'_'.$safe;
+
+        // Strip executable extensions — never let a script land on the
+        // public disk with a runnable name, even if the upstream
+        // validation whitelist were to change.
+        if (self::isExecutableExtension(pathinfo($name, PATHINFO_EXTENSION))) {
+            $name = pathinfo($name, PATHINFO_FILENAME).'.txt';
+        }
+
         $path = $folder.'/'.$name;
 
         try {
@@ -119,6 +132,25 @@ class ImageUploadService
 
             return null;
         }
+    }
+
+    /**
+     * Extensions the web server could turn into executable code (or that
+     * are not plain content). Checked case-insensitively against the
+     * final stored filename.
+     */
+    private static function isExecutableExtension(string $ext): bool
+    {
+        $ext = strtolower($ext);
+
+        return in_array($ext, [
+            'php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phps', 'phtml',
+            'phar', 'cgi', 'pl', 'py', 'rb', 'sh', 'bash', 'zsh', 'bat',
+            'cmd', 'ps1', 'vbs', 'js', 'jse', 'wsf', 'hta',
+            'asp', 'aspx', 'asa', 'asax', 'ascx', 'ashx', 'asmx',
+            'jsp', 'jspx', 'do', 'action', 'cfm', 'cfml', 'cgi',
+            'exe', 'dll', 'so', 'msi',
+        ], true);
     }
 
     /**
