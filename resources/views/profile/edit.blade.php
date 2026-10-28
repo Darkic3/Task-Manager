@@ -175,7 +175,7 @@
                         <span class="pf-card-ico blue"><i class="bi bi-camera"></i></span>
                         <div>
                             <h2 class="pf-card-title">{{ __('Profile Picture') }}</h2>
-                            <p class="pf-card-sub">{{ __('JPG, PNG or GIF · max 2 MB') }}</p>
+                            <p class="pf-card-sub">{{ __('JPG, PNG, GIF or WebP · max 2 MB') }}</p>
                         </div>
                     </header>
                     <div class="pf-card-bd">
@@ -192,9 +192,12 @@
                         <label class="pf-drop" for="avatar-input">
                             <i class="bi bi-cloud-arrow-up"></i>
                             <strong>{{ __('Click to upload new photo') }}</strong>
-                            <span>{{ __('JPG, PNG or GIF · max 2 MB') }}</span>
-                            <input type="file" name="avatar" id="avatar-input" accept="image/*">
+                            <span>{{ __('JPG, PNG, GIF or WebP · max 2 MB') }}</span>
+                            <input type="file" name="avatar" id="avatar-input" accept="image/jpeg,image/png,image/gif,image/webp" @error('avatar') aria-describedby="avatar-error" @enderror>
                         </label>
+                        @error('avatar')
+                            <p class="pf-err" id="avatar-error" role="alert">{{ $message }}</p>
+                        @enderror
 
                         <div class="pf-filechip" id="avatar-sel">
                             <i class="bi bi-image"></i>

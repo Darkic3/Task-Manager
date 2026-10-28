@@ -72,12 +72,14 @@ class ProfileAvatarTest extends TestCase
         file_put_contents($path, 'not an image');
         $file = new UploadedFile($path, 'evil.txt', 'text/plain', null, true);
 
-        $this->actingAs($user)->put(route('profile.update'), [
+        $this->actingAs($user)->from(route('profile.edit'))->followingRedirects()->put(route('profile.update'), [
             'name' => $user->name,
             'username' => $user->username,
             'email' => $user->email,
             'avatar' => $file,
-        ])->assertSessionHasErrors('avatar');
+        ])->assertOk()
+            ->assertSee('id="avatar-error"', false)
+            ->assertSee('The avatar field must be an image.');
 
         $this->assertNull($user->fresh()->avatar);
     }

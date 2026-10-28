@@ -16,7 +16,7 @@ Task Manager **v2.0** is an open-source Laravel 12 application for managing proj
 
 The beta keeps the current personal modules (projects, tasks, planner, notes, routines, reminders, workouts, reports, and time tracking). File management and all AI actions are disabled at the server and navigation levels. Project team sharing is also disabled until shared-record permissions are designed. Users register with a username and password; email and phone are optional profile fields. Password recovery uses the optional profile email, so production mail delivery must be configured.
 
-After a user registers, promote the developer account from the server terminal with `php artisan task-manager:admin <username>`. The administrator-only **Feature management** page controls module publication. Administrators can preview locked modules; regular accounts cannot access their routes or menu entries until a module is published.
+To seed the initial administrator account, set `ADMIN_NAME=Ahora`, `ADMIN_USERNAME=ahora`, `ADMIN_EMAIL=ahora@a.com`, and a unique `ADMIN_PASSWORD` (at least 14 characters) in the server environment, then run `php artisan db:seed --class=AdminUserSeeder --force`. This dedicated seeder is idempotent and does not seed demo data. The alternative is to register normally and promote that account from the server terminal with `php artisan task-manager:admin <username>`. The administrator-only **Feature management** page controls module publication. Administrators can preview locked modules; regular accounts cannot access their routes or menu entries until a module is published.
 
 ## What's New in v2.0
 

@@ -5,49 +5,66 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AdminUserSeeder extends Seeder
 {
     /**
-     * Create the admin user, or re-sync the existing one with the
-     * credentials defined in the environment file.
-     * php artisan db:seed --class=AdminUserSeeder
+     * Create/promote the configured administrator without seeding demo data.
+     * Production requires an explicitly configured strong ADMIN_PASSWORD.
      */
     public function run(): void
     {
-        if (! app()->environment(['local', 'testing'])) {
-            throw new \RuntimeException('AdminUserSeeder is only available in local and testing environments.');
+        $name = (string) config('admin.name');
+        $username = Str::lower(trim((string) config('admin.username')));
+        $email = Str::lower(trim((string) config('admin.email')));
+        $password = (string) config('admin.password', '');
+
+        if ($name === '' || ! preg_match('/^[a-z0-9_-]{3,30}$/', $username) || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new \RuntimeException('ADMIN_NAME, ADMIN_USERNAME, and ADMIN_EMAIL must be valid before seeding the administrator.');
         }
 
-        $name = env('ADMIN_NAME', 'Ahora');
-        $email = env('ADMIN_EMAIL', 'ahora@a.com');
-        $password = env('ADMIN_PASSWORD', '123123');
-        $username = env('ADMIN_USERNAME', 'admin');
+        $user = User::query()->where('email', $email)->first();
+        $usernameOwner = User::query()->where('username', $username)
+            ->when($user, fn ($query) => $query->where('id', '!=', $user->id))
+            ->first();
 
-        $user = User::where('email', $email)->first();
-
-        if ($user) {
-            $user->forceFill([
-                'name' => $name,
-                'username' => $username,
-                'is_admin' => true,
-                'password' => Hash::make($password),
-            ])->save();
-
-            $this->command?->info("Admin user [{$email}] already exists — credentials re-synced from .env.");
-
-            return;
+        if ($usernameOwner) {
+            throw new \RuntimeException("ADMIN_USERNAME [{$username}] is already used by a different account.");
         }
 
-        $user = User::create([
+        if ($password === '' && ! $user && app()->environment('production')) {
+            throw new \RuntimeException('Set a unique ADMIN_PASSWORD of at least 14 characters before creating the production administrator.');
+        }
+
+        if ($password !== '' && mb_strlen($password) < 2) {
+            throw new \RuntimeException('ADMIN_PASSWORD must contain at least 2 characters.');
+        }
+
+        $generatedPassword = false;
+        if ($password === '' && ! $user) {
+            $password = Str::random(48);
+            $generatedPassword = true;
+        }
+
+        $user ??= new User;
+        $user->forceFill([
             'name' => $name,
             'username' => $username,
             'email' => $email,
-            'password' => Hash::make($password),
-            'email_verified_at' => now(),
+            'email_verified_at' => $user->email_verified_at ?? now(),
+            'is_admin' => true,
         ]);
-        $user->forceFill(['is_admin' => true])->save();
 
-        $this->command?->info("Admin user [{$email}] created from .env credentials.");
+        if ($password !== '') {
+            $user->password = Hash::make($password);
+        }
+
+        $user->save();
+
+        $this->command?->info("Administrator account [{$email}] is ready.");
+        if ($generatedPassword) {
+            $this->command?->warn("One-time local password: {$password}");
+        }
     }
 }
