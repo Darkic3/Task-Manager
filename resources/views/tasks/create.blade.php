@@ -21,7 +21,7 @@
                     <i class="bi bi-plus-circle"></i>
                 </div>
                 <h2>{{ __('Create New Task') }}</h2>
-                <p>{{ __('Define task requirements and assign to team members') }}</p>
+                    <p>{{ __('Add the details for your task') }}</p>
             </div>
 
             <div class="form-body">
@@ -39,7 +39,6 @@
                 <form action="{{ route('tasks.store') }}" method="POST" id="createTaskForm">
                     @csrf
 
-                    <input type="hidden" name="user_id" value="{{ auth()->id() }}">
                     <input type="hidden" name="status" value="to_do">
 
                     <div class="form-group">

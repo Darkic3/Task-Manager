@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\Task;
-use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -45,17 +44,13 @@ class TaskController extends Controller
 
         // Only show projects whose tasks are actually loaded (exclude completed & closed)
         $projects = Project::where('user_id', $user->id)->whereNotIn('status', ['completed', 'closed'])->get(['id', 'name', 'slug', 'status']);
-        $users = User::query()->get(['id', 'name', 'email']);
-
-        return view('tasks.index', compact('tasks', 'taskRoots', 'projects', 'users', 'project'));
+        return view('tasks.index', compact('tasks', 'taskRoots', 'projects', 'project'));
     }
 
     public function create()
     {
-        $projects = Project::all();
-        $users = User::all();
-
-        return view('tasks.create', compact('projects', 'users'));
+        $projects = Auth::user()->projects()->get();
+        return view('tasks.create', compact('projects'));
     }
 
     public function store(Request $request, ?Project $project = null)
@@ -69,7 +64,6 @@ class TaskController extends Controller
 
         $data = $request->validate([
             'project_id' => ['nullable', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
-            'user_id' => 'nullable|exists:users,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'due_date' => 'nullable|date',
@@ -89,7 +83,7 @@ class TaskController extends Controller
         $data['estimated_hours'] = Task::combineEstimate($data['est_hours'] ?? null, $data['est_minutes'] ?? null, $data['estimated_hours'] ?? null);
         unset($data['est_hours'], $data['est_minutes']);
 
-        $data['user_id'] = $data['user_id'] ?? Auth::id();
+        $data['user_id'] = Auth::id();
         $data['status'] = $data['status'] ?? 'to_do';
 
         $task = Task::create($data);
@@ -219,8 +213,7 @@ class TaskController extends Controller
 
     public function edit(Task $task)
     {
-        $projects = Project::all();
-        $users = User::all();
+        $projects = Auth::user()->projects()->get();
         $exclude = array_merge([$task->id], $this->descendantIds($task));
         $parentOptions = Task::where('user_id', $task->user_id)
             ->when($task->project_id !== null,
@@ -230,7 +223,7 @@ class TaskController extends Controller
             ->orderBy('sort_order')->orderBy('id')
             ->get(['id', 'title', 'parent_id']);
 
-        return view('tasks.edit', compact('task', 'projects', 'users', 'parentOptions'));
+        return view('tasks.edit', compact('task', 'projects', 'parentOptions'));
     }
 
     public function update(Request $request, Task $task)
@@ -244,14 +237,15 @@ class TaskController extends Controller
             'estimated_hours' => 'nullable|numeric|min:0',
             'est_hours' => 'nullable|integer|min:0|max:999',
             'est_minutes' => 'nullable|integer|min:0|max:59',
-            'project_id' => 'nullable|integer',
+            'project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
             'parent_id' => 'nullable|integer|exists:tasks,id',
             'weight' => 'nullable|numeric|min:0|max:99',
             'auto_weight' => 'nullable|boolean',
             'sort_order' => 'nullable|integer|min:0',
         ]);
 
-        $this->resolveParent($request->input('parent_id'), $task->project_id, Auth::id(), $task->id);
+        $targetProjectId = array_key_exists('project_id', $data) ? $data['project_id'] : $task->project_id;
+        $this->resolveParent($request->input('parent_id'), $targetProjectId, Auth::id(), $task->id);
 
         $data['estimated_hours'] = Task::combineEstimate($data['est_hours'] ?? null, $data['est_minutes'] ?? null, $data['estimated_hours'] ?? null);
         unset($data['est_hours'], $data['est_minutes']);

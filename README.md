@@ -12,6 +12,12 @@
 
 Task Manager **v2.0** is an open-source Laravel 12 application for managing projects, tasks, notes, reminders, routines, and files — all in one place. Version 2.0 ships with a completely redesigned UI inspired by ClickUp, built from the ground up with a custom design system (`cu-*` component pattern) featuring a consistent indigo/violet gradient palette, two-panel layouts, and smooth interactions across every page.
 
+### Initial beta scope
+
+The beta keeps the current personal modules (projects, tasks, planner, notes, routines, reminders, workouts, reports, and time tracking). File management and all AI actions are disabled at the server and navigation levels. Project team sharing is also disabled until shared-record permissions are designed. Users register with a username and password; email and phone are optional profile fields. Password recovery uses the optional profile email, so production mail delivery must be configured.
+
+After a user registers, promote the developer account from the server terminal with `php artisan task-manager:admin <username>`. The administrator-only **Feature management** page controls module publication. Administrators can preview locked modules; regular accounts cannot access their routes or menu entries until a module is published.
+
 ## What's New in v2.0
 
 - **Complete UI redesign** — consistent design system across all modules: dashboard, projects, tasks, notes, reminders, routines, files, and profile
@@ -94,7 +100,7 @@ Run `php artisan config:clear` after editing `.env`. Full catalog lives in `conf
 
 ### Prerequisites
 
-- PHP 8.2 or higher
+- PHP 8.3 or higher
 - Composer
 - Laravel 12
 - MySQL 8+ or any supported database
@@ -139,13 +145,13 @@ DB_PASSWORD=
 php artisan key:generate
 ```
 
-### Step 5: Run Migrations and Seed Database
+### Step 5: Run Migrations
 
 ```bash
-php artisan migrate --seed
+php artisan migrate
 ```
 
-This will run the `TestDataSeeder` and populate the app with realistic demo data (4 projects, 31 tasks, 8 notes, 9 reminders, 4 routines, and 6 files).
+Seeders are restricted to `local` and `testing` and must not be used to initialize a public production database.
 
 ### Step 6: Build Frontend Assets
 
@@ -169,14 +175,9 @@ php artisan serve
 
 Open `http://localhost:8000` in your browser.
 
-## Demo Login
+## Accounts
 
-```
-Email:    admin@example.com
-Password: secret
-```
-
-> Credentials are created by the seeder. Run `php artisan migrate:fresh --seed` to reset.
+Users create their own account with a unique username and password. Email and phone can be added or changed later in the profile settings; neither is required to register or sign in.
 
 ## How to Use
 

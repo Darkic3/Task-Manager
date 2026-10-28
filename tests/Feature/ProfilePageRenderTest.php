@@ -182,6 +182,7 @@ class ProfilePageRenderTest extends TestCase
 
         $this->actingAs($user)->put(route('profile.update'), [
             'name' => 'Grace Hopper',
+            'username' => $user->username,
             'email' => $user->email,
             'locale' => 'fa',
         ])->assertRedirect(route('profile.show'));

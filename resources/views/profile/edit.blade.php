@@ -49,17 +49,25 @@
                                 @error('name')<p class="pf-err">{{ $message }}</p>@enderror
                             </div>
                             <div class="pf-field">
-                                <label for="email" class="pf-label">{{ __('Email Address') }} <span class="pf-req">*</span></label>
-                                <input type="email" id="email" name="email" required dir="ltr"
-                                       class="pf-input @error('email') is-invalid @enderror"
-                                       value="{{ old('email', $user->email) }}">
-                                @error('email')<p class="pf-err">{{ $message }}</p>@enderror
+                                <label for="username" class="pf-label">{{ __('Username') }} <span class="pf-req">*</span></label>
+                                <input type="text" id="username" name="username" required dir="ltr" autocomplete="username"
+                                       class="pf-input @error('username') is-invalid @enderror"
+                                       value="{{ old('username', $user->username) }}">
+                                @error('username')<p class="pf-err">{{ $message }}</p>@enderror
                             </div>
                         </div>
 
                         <div class="pf-field-row">
                             <div class="pf-field">
-                                <label for="phone" class="pf-label">{{ __('Phone') }}</label>
+                                <label for="email" class="pf-label">{{ __('Email Address') }} <span class="pf-hint">({{ __('Optional') }})</span></label>
+                                <input type="email" id="email" name="email" dir="ltr" autocomplete="email"
+                                       class="pf-input @error('email') is-invalid @enderror"
+                                       value="{{ old('email', $user->email) }}">
+                                <p class="pf-hint">{{ __('Add an email address if you want to recover your password by email.') }}</p>
+                                @error('email')<p class="pf-err">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="pf-field">
+                                <label for="phone" class="pf-label">{{ __('Phone') }} <span class="pf-hint">({{ __('Optional') }})</span></label>
                                 <input type="tel" id="phone" name="phone" dir="ltr" placeholder="+1 555 000 0000"
                                        class="pf-input @error('phone') is-invalid @enderror"
                                        value="{{ old('phone', $user->phone) }}">

@@ -15,15 +15,22 @@ class AdminUserSeeder extends Seeder
      */
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            throw new \RuntimeException('AdminUserSeeder is only available in local and testing environments.');
+        }
+
         $name = env('ADMIN_NAME', 'Ahora');
         $email = env('ADMIN_EMAIL', 'ahora@a.com');
         $password = env('ADMIN_PASSWORD', '123123');
+        $username = env('ADMIN_USERNAME', 'admin');
 
         $user = User::where('email', $email)->first();
 
         if ($user) {
             $user->forceFill([
                 'name' => $name,
+                'username' => $username,
+                'is_admin' => true,
                 'password' => Hash::make($password),
             ])->save();
 
@@ -32,12 +39,14 @@ class AdminUserSeeder extends Seeder
             return;
         }
 
-        User::create([
+        $user = User::create([
             'name' => $name,
+            'username' => $username,
             'email' => $email,
             'password' => Hash::make($password),
             'email_verified_at' => now(),
         ]);
+        $user->forceFill(['is_admin' => true])->save();
 
         $this->command?->info("Admin user [{$email}] created from .env credentials.");
     }

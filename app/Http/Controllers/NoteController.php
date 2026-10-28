@@ -49,7 +49,6 @@ class NoteController extends Controller
             'dailyCounts' => $this->queries->dailyCounts($userId, $filters),
             'kindMeta' => note_kind_meta(),
             'backlinkTarget' => $this->backlinkTarget($request),
-            'collections' => \App\Models\NoteShare::ofUser($userId)->whereNull('ai_conversation_id')->latest()->limit(50)->get(),
         ]);
     }
 
@@ -67,7 +66,6 @@ class NoteController extends Controller
                 'facets' => $this->queries->facets($userId, $filters),
                 'filters' => $filters,
                 'kindMeta' => note_kind_meta(),
-                'collections' => \App\Models\NoteShare::ofUser($userId)->whereNull('ai_conversation_id')->latest()->limit(50)->get(),
             ])->render(),
             'total' => $notes->total(),
         ];
@@ -100,7 +98,6 @@ class NoteController extends Controller
             'notebooks' => Notebook::treeFor($userId),
             'labels' => NoteLabel::ofUser($userId)->orderBy('name')->get(),
             'selectedLabels' => [],
-            'selectedFiles' => [],
             'kindMeta' => note_kind_meta(),
             'mentionPicks' => [],
             'prefillLink' => $this->prefillLink($request, $userId),
@@ -125,7 +122,6 @@ class NoteController extends Controller
         $this->attachPrefill($request, $note);
 
         $this->syncLabels($note, $request->labelIds());
-        $this->syncFiles($note, $request->fileIds());
 
         return redirect()
             ->route('notes.show', $note)
@@ -152,7 +148,7 @@ class NoteController extends Controller
     {
         $this->authorize('view', $note);
 
-        $note->load(['notebook', 'labels', 'links.linkable', 'attachments.file', 'parentNote:id,title']);
+        $note->load(['notebook', 'labels', 'links.linkable', 'parentNote:id,title']);
 
         return view('notes.show', [
             'note' => $note,
@@ -175,14 +171,13 @@ class NoteController extends Controller
         $this->authorize('update', $note);
 
         $userId = (int) Auth::id();
-        $note->load(['labels', 'links.linkable', 'attachments.file']);
+        $note->load(['labels', 'links.linkable']);
 
         return view('notes.edit', [
             'note' => $note,
             'notebooks' => Notebook::treeFor($userId),
             'labels' => NoteLabel::ofUser($userId)->orderBy('name')->get(),
             'selectedLabels' => $note->labels->pluck('id')->all(),
-            'selectedFiles' => $note->attachments->pluck('file_id')->all(),
             'mentionPicks' => $note->links
                 ->filter(fn ($l) => $l->linkable_type !== NoteSubject::class)
                 ->map(fn ($l) => ['type' => strtolower(class_basename($l->linkable_type)), 'id' => $l->linkable_id, 'name' => $l->label])
@@ -216,7 +211,6 @@ class NoteController extends Controller
         $this->links->syncFromText($note, (string) $note->content, $request->mentions());
         $this->pruneDetachedLinks($note, $request->mentions());
         $this->syncLabels($note, $request->labelIds());
-        $this->syncFiles($note, $request->fileIds());
 
         return redirect()
             ->route('notes.show', $note)
@@ -310,15 +304,6 @@ class NoteController extends Controller
         }
 
         $note->labels()->sync($labelIds);
-    }
-
-    private function syncFiles(Note $note, array $fileIds): void
-    {
-        if ($note->exists && ! request()->has('file_ids')) {
-            return;
-        }
-
-        $note->attachments()->sync($fileIds);
     }
 
     /**

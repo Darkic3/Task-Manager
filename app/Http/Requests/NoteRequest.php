@@ -63,11 +63,6 @@ class NoteRequest extends FormRequest
             'mentions.*.type' => ['required', 'string', Rule::in(['subject', 'label', 'project', 'task', 'routine', 'note'])],
             'mentions.*.id' => ['required', 'integer', 'min:1'],
 
-            'file_ids' => ['nullable', 'array', 'max:20'],
-            'file_ids.*' => [
-                'integer',
-                Rule::exists('files', 'id')->where('user_id', $userId),
-            ],
         ];
     }
 
@@ -85,7 +80,7 @@ class NoteRequest extends FormRequest
      */
     public function noteAttributes(bool $creating): array
     {
-        $data = $this->safe()->except(['label_ids', 'mentions', 'file_ids', 'tags']);
+        $data = $this->safe()->except(['label_ids', 'mentions', 'tags']);
 
         $data['kind'] = $this->input('kind') ?: Note::KIND_GENERAL;
         $data['status'] = $this->input('status') ?: Note::STATUS_ACTIVE;
@@ -125,11 +120,6 @@ class NoteRequest extends FormRequest
     public function mentions(): array
     {
         return (array) $this->input('mentions', []);
-    }
-
-    public function fileIds(): array
-    {
-        return array_values(array_unique(array_map('intval', (array) $this->input('file_ids', []))));
     }
 
     /**

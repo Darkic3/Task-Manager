@@ -17,6 +17,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'username',
         'email',
         'password',
         'avatar',
@@ -39,6 +40,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'is_admin',
     ];
 
     /**
@@ -49,7 +51,13 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'morning_checkin_enabled' => 'boolean',
+        'is_admin' => 'boolean',
     ];
+
+    public function isAdministrator(): bool
+    {
+        return (bool) $this->is_admin;
+    }
 
     /**
      * The routine used for the morning wake-up check-in.

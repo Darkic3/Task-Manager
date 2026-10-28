@@ -27,6 +27,7 @@ class MorningCheckinSettingsTest extends TestCase
     {
         return [
             'name' => $user->name,
+            'username' => $user->username,
             'email' => $user->email,
         ];
     }

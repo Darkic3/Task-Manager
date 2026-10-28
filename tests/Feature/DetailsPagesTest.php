@@ -78,8 +78,6 @@ class DetailsPagesTest extends TestCase
         ]);
         Task::factory()->create(['user_id' => $user->id, 'project_id' => $sub->id, 'status' => 'completed']);
         Task::factory()->create(['user_id' => $user->id, 'project_id' => $sub->id, 'status' => 'to_do']);
-        $project->users()->attach($user->id);
-
         $response = $this->actingAs($user)->get(route('projects.show', $project));
 
         $response->assertOk();
@@ -87,7 +85,8 @@ class DetailsPagesTest extends TestCase
         $response->assertSee('Chapter One');
         $response->assertSee('1/2', false);
         $response->assertSee($user->email);
-        $response->assertSee('addMemberModal', false);
+        // Cross-account project sharing is not part of the personal beta.
+        $response->assertDontSee('addMemberModal', false);
         $response->assertSee(route('projects.tasks.index', $project), false);
         // Minimal look: no gradient header, no sidebar panel
         $response->assertDontSee('content-header', false);

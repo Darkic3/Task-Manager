@@ -20,12 +20,17 @@ class TestDataSeeder extends Seeder
      */
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            throw new \RuntimeException('TestDataSeeder is only available in local and testing environments.');
+        }
+
         // Get the first user (admin)
         $user = User::first();
 
         if (!$user) {
             $user = User::create([
                 'name' => 'Test User',
+                'username' => 'test_user',
                 'email' => 'test@example.com',
                 'password' => bcrypt('password'),
             ]);

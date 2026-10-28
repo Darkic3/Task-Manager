@@ -14,6 +14,9 @@ abstract class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Exercise module behavior in feature tests; beta access tests turn
+        // these flags off explicitly to verify deployment gating.
+        config(['beta.features.ai' => true]);
         AiTraceHandler::flush();
     }
 

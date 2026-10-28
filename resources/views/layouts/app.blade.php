@@ -989,6 +989,7 @@
 <body>
 @php
     $navUser = auth()->user();
+    $featureAvailability = app(\App\Support\FeatureAvailability::class);
     $navUser->loadCount([
         'projects',
         'tasks as open_tasks_count' => fn ($query) => $query
@@ -1001,32 +1002,49 @@
             'title' => __('Main'),
             'items' => [
                 ['match' => '/', 'icon' => 'bi-house-door-fill', 'label' => __('Dashboard'), 'url' => route('dashboard')],
-                ['match' => 'projects*', 'icon' => 'bi-folder-fill', 'label' => __('Projects'), 'url' => route('projects.index'), 'badge' => $navUser->projects_count],
-                ['match' => 'tasks*', 'icon' => 'bi-check2-square', 'label' => __('Tasks'), 'url' => route('tasks.index'), 'badge' => $navUser->open_tasks_count],
-                ['match' => 'planner*', 'icon' => 'bi-sun-fill', 'label' => __('My Day'), 'url' => route('planner.index')],
+                ['feature' => 'projects', 'match' => 'projects*', 'icon' => 'bi-folder-fill', 'label' => __('Projects'), 'url' => route('projects.index'), 'badge' => $navUser->projects_count],
+                ['feature' => 'tasks', 'match' => 'tasks*', 'icon' => 'bi-check2-square', 'label' => __('Tasks'), 'url' => route('tasks.index'), 'badge' => $navUser->open_tasks_count],
+                ['feature' => 'planner', 'match' => 'planner*', 'icon' => 'bi-sun-fill', 'label' => __('My Day'), 'url' => route('planner.index')],
             ],
         ],
         [
             'title' => __('Organize'),
             'items' => [
-                ['match' => 'routines*', 'icon' => 'bi-arrow-repeat', 'label' => __('Routines'), 'url' => route('routines.index')],
-                ['match' => 'workouts*', 'icon' => 'bi-heart-pulse-fill', 'label' => __('Workouts'), 'url' => route('workouts.plans.index')],
-                ['match' => 'track*', 'icon' => 'bi-graph-up-arrow', 'label' => __('Track'), 'url' => route('track.index')],
-                ['match' => 'time*', 'icon' => 'bi-stopwatch', 'label' => __('Time'), 'url' => route('time.reports')],
-                ['match' => 'reports*', 'icon' => 'bi-bar-chart-fill', 'label' => __('Reports'), 'url' => route('reports.overview')],
-                ['match' => 'notes*', 'icon' => 'bi-journal-text', 'label' => __('Notes'), 'url' => route('notes.index')],
-                ['match' => 'reminders*', 'icon' => 'bi-bell-fill', 'label' => __('Reminders'), 'url' => route('reminders.index')],
-                ['match' => 'files*', 'icon' => 'bi-file-earmark-fill', 'label' => __('Files'), 'url' => route('files.index')],
+                ['feature' => 'routines', 'match' => 'routines*', 'icon' => 'bi-arrow-repeat', 'label' => __('Routines'), 'url' => route('routines.index')],
+                ['feature' => 'workouts', 'match' => 'workouts*', 'icon' => 'bi-heart-pulse-fill', 'label' => __('Workouts'), 'url' => route('workouts.plans.index')],
+                ['feature' => 'track', 'match' => 'track*', 'icon' => 'bi-graph-up-arrow', 'label' => __('Track'), 'url' => route('track.index')],
+                ['feature' => 'time_tracking', 'match' => 'time*', 'icon' => 'bi-stopwatch', 'label' => __('Time'), 'url' => route('time.reports')],
+                ['feature' => 'reports', 'match' => 'reports*', 'icon' => 'bi-bar-chart-fill', 'label' => __('Reports'), 'url' => route('reports.overview')],
+                ['feature' => 'notes', 'match' => 'notes*', 'icon' => 'bi-journal-text', 'label' => __('Notes'), 'url' => route('notes.index')],
+                ['feature' => 'reminders', 'match' => 'reminders*', 'icon' => 'bi-bell-fill', 'label' => __('Reminders'), 'url' => route('reminders.index')],
+                ['feature' => 'files', 'match' => 'files*', 'icon' => 'bi-file-earmark-fill', 'label' => __('Files'), 'url' => route('files.index')],
             ],
         ],
         [
             'title' => __('Intelligence'),
             'items' => [
-                ['match' => 'ai', 'icon' => 'bi-stars', 'label' => __('Lina AI'), 'url' => route('ai.index')],
-                ['match' => 'ai/settings*', 'icon' => 'bi-sliders', 'label' => __('AI Settings'), 'url' => route('ai.settings')],
+                ['feature' => 'ai', 'match' => 'ai', 'icon' => 'bi-stars', 'label' => __('Lina AI'), 'url' => route('ai.index')],
+                ['feature' => 'ai', 'match' => 'ai/settings*', 'icon' => 'bi-sliders', 'label' => __('AI Settings'), 'url' => route('ai.settings')],
             ],
         ],
     ];
+
+    $navSections = array_values(array_map(function ($section) use ($featureAvailability, $navUser) {
+        $section['items'] = array_values(array_filter($section['items'], fn ($item) =>
+            empty($item['feature']) || $featureAvailability->isEnabled($item['feature'], $navUser)
+        ));
+        return $section;
+    }, $navSections));
+    $navSections = array_values(array_filter($navSections, fn ($section) => $section['items'] !== []));
+
+    if ($navUser->is_admin) {
+        $navSections[] = [
+            'title' => __('Administration'),
+            'items' => [
+                ['match' => 'admin/features*', 'icon' => 'bi-toggles', 'label' => __('Feature management'), 'url' => route('admin.features.index')],
+            ],
+        ];
+    }
 
     $isActive = function (string $pattern) {
         return $pattern === '/'
@@ -1091,8 +1109,8 @@
                 <div class="user-avatar" aria-hidden="true">{{ $navInitials ?: name_initials($navUser->name) }}</div>
             @endif
             <div class="user-info">
-                <div class="user-name">{{ $navUser->name }}</div>
-                <div class="user-email">{{ $navUser->email }}</div>
+                <div class="user-name">{{ $navUser->name }} @if($navUser->is_admin)<span class="badge rounded-pill text-bg-primary ms-1">{{ __('Admin') }}</span>@endif</div>
+                <div class="user-email">{{ $navUser->email ?: '@'.$navUser->username }}</div>
             </div>
             <i class="bi bi-chevron-expand" aria-hidden="true"></i>
         </div>

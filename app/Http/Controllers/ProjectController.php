@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -98,9 +97,6 @@ class ProjectController extends Controller
             'tasks.timeEntries',
             'tasks.checklistItems',
         ]);
-        $teamMembers = $project->users()->get(['users.id', 'users.name', 'users.email']);
-        $users = User::query()->get(['id', 'name', 'email']);
-
         $linkedNotes = \App\Models\Note::ofUser((int) Auth::id())
             ->linkedTo(\App\Models\Project::class, (int) $project->id)
             ->notArchived()
@@ -121,7 +117,7 @@ class ProjectController extends Controller
             ->limit(50)
             ->get(['id', 'title']);
 
-        return view('projects.show', compact('project', 'teamMembers', 'users', 'linkedNotes', 'recentNotes', 'noteLinks'));
+        return view('projects.show', compact('project', 'linkedNotes', 'recentNotes', 'noteLinks'));
     }
 
     public function edit(Project $project)
@@ -266,19 +262,6 @@ class ProjectController extends Controller
         }
 
         return $data;
-    }
-
-    public function addMember(Request $request)
-    {
-        $request->validate([
-            'project_id' => 'required|exists:projects,id',
-            'user_id' => 'required|exists:users,id',
-        ]);
-
-        $project = Project::find($request->project_id);
-        $project->teamProjects()->attach($request->user_id);
-
-        return redirect()->back()->with('success', __('User added successfully.'));
     }
 
     /**

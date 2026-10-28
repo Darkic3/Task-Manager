@@ -59,30 +59,43 @@
 
     {{-- Quick Action Hub --}}
     <div class="quick-hub-bar mb-4">
-        <a href="{{ route('tasks.create') }}" class="quick-hub-btn">
-            <span class="quick-hub-icon bg-primary-subtle text-primary"><i class="bi bi-plus-lg"></i></span>
-            <span>{{ __('New Task') }}</span>
-        </a>
-        <a href="{{ route('workouts.plans.index') }}" class="quick-hub-btn">
-            <span class="quick-hub-icon bg-danger-subtle text-danger"><i class="bi bi-activity"></i></span>
-            <span>{{ __('Workouts') }}</span>
-        </a>
-        <a href="{{ route('planner.index') }}" class="quick-hub-btn">
-            <span class="quick-hub-icon bg-warning-subtle text-warning"><i class="bi bi-calendar-day"></i></span>
-            <span>{{ __('Daily Planner') }}</span>
-        </a>
-        <a href="{{ route('notes.create') }}" class="quick-hub-btn">
-            <span class="quick-hub-icon bg-success-subtle text-success"><i class="bi bi-journal-plus"></i></span>
-            <span>{{ __('Quick Note') }}</span>
-        </a>
-        <a href="{{ route('reminders.create') }}" class="quick-hub-btn">
-            <span class="quick-hub-icon bg-info-subtle text-info"><i class="bi bi-bell-fill"></i></span>
-            <span>{{ __('Set Reminder') }}</span>
-        </a>
-        <a href="{{ route('ai.index') }}" class="quick-hub-btn">
-            <span class="quick-hub-icon bg-purple-subtle text-purple"><i class="bi bi-stars"></i></span>
-            <span>{{ __('Ask Lina') }}</span>
-        </a>
+        @php($featureAccess = app(\App\Support\FeatureAvailability::class))
+        @if ($featureAccess->isEnabled('tasks', auth()->user()))
+            <a href="{{ route('tasks.create') }}" class="quick-hub-btn">
+                <span class="quick-hub-icon bg-primary-subtle text-primary"><i class="bi bi-plus-lg"></i></span>
+                <span>{{ __('New Task') }}</span>
+            </a>
+        @endif
+        @if ($featureAccess->isEnabled('workouts', auth()->user()))
+            <a href="{{ route('workouts.plans.index') }}" class="quick-hub-btn">
+                <span class="quick-hub-icon bg-danger-subtle text-danger"><i class="bi bi-activity"></i></span>
+                <span>{{ __('Workouts') }}</span>
+            </a>
+        @endif
+        @if ($featureAccess->isEnabled('planner', auth()->user()))
+            <a href="{{ route('planner.index') }}" class="quick-hub-btn">
+                <span class="quick-hub-icon bg-warning-subtle text-warning"><i class="bi bi-calendar-day"></i></span>
+                <span>{{ __('Daily Planner') }}</span>
+            </a>
+        @endif
+        @if ($featureAccess->isEnabled('notes', auth()->user()))
+            <a href="{{ route('notes.create') }}" class="quick-hub-btn">
+                <span class="quick-hub-icon bg-success-subtle text-success"><i class="bi bi-journal-plus"></i></span>
+                <span>{{ __('Quick Note') }}</span>
+            </a>
+        @endif
+        @if ($featureAccess->isEnabled('reminders', auth()->user()))
+            <a href="{{ route('reminders.create') }}" class="quick-hub-btn">
+                <span class="quick-hub-icon bg-info-subtle text-info"><i class="bi bi-bell-fill"></i></span>
+                <span>{{ __('Set Reminder') }}</span>
+            </a>
+        @endif
+        @if ($featureAccess->isEnabled('ai', auth()->user()))
+            <a href="{{ route('ai.index') }}" class="quick-hub-btn">
+                <span class="quick-hub-icon bg-purple-subtle text-purple"><i class="bi bi-stars"></i></span>
+                <span>{{ __('Ask Lina') }}</span>
+            </a>
+        @endif
     </div>
 
     {{-- Core 3-Pillar Daily HQ --}}

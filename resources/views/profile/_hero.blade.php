@@ -15,7 +15,7 @@
             <p class="pf-mail"><i class="bi bi-info-circle"></i> {{ $pfSubtitle }}</p>
             <ul class="pf-chips">
                 <li class="pf-chip"><i class="bi bi-person"></i><span>{{ $pfUser->name }}</span></li>
-                <li class="pf-chip"><i class="bi bi-envelope"></i><span dir="ltr">{{ $pfUser->email }}</span></li>
+                <li class="pf-chip"><i class="bi bi-person"></i><span dir="ltr">{{ '@'.$pfUser->username }}</span></li>
             </ul>
         </div>
 

@@ -40,6 +40,7 @@ class ProfileAvatarTest extends TestCase
 
         $this->actingAs($user)->put(route('profile.update'), [
             'name' => $user->name,
+            'username' => $user->username,
             'email' => $user->email,
             'avatar' => $this->uploadFile(self::PIXEL_JPEG, 'me.jpg', 'image/jpeg'),
         ])->assertRedirect(route('profile.show'));
@@ -51,6 +52,7 @@ class ProfileAvatarTest extends TestCase
 
         $this->actingAs($user)->put(route('profile.update'), [
             'name' => $user->name,
+            'username' => $user->username,
             'email' => $user->email,
             'avatar' => $this->uploadFile(self::PIXEL_GIF, 'me2.gif', 'image/gif'),
         ])->assertRedirect(route('profile.show'));
@@ -72,6 +74,7 @@ class ProfileAvatarTest extends TestCase
 
         $this->actingAs($user)->put(route('profile.update'), [
             'name' => $user->name,
+            'username' => $user->username,
             'email' => $user->email,
             'avatar' => $file,
         ])->assertSessionHasErrors('avatar');
@@ -86,6 +89,7 @@ class ProfileAvatarTest extends TestCase
 
         $this->actingAs($user)->put(route('profile.update'), [
             'name' => $user->name,
+            'username' => $user->username,
             'email' => $user->email,
             'avatar' => $this->uploadFile(self::PIXEL_JPEG, 'me.jpg', 'image/jpeg'),
         ])->assertRedirect();

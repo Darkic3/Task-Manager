@@ -12,6 +12,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            throw new \RuntimeException('Demo seeders are disabled outside local and testing environments.');
+        }
+
         $this->call(AdminUserSeeder::class);
 
         $this->call(DemoStudyDataSeeder::class);

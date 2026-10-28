@@ -7,6 +7,13 @@ use App\Http\Controllers\AiProviderController;
 use App\Http\Controllers\AiSettingsController;
 use App\Http\Controllers\AiStudyBuildController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Admin\FeatureManagementController;
+use App\Http\Middleware\BetaFeatureUnavailable;
+use App\Http\Middleware\EnsureOwnedRouteModels;
+use App\Http\Middleware\RequireAdministrator;
 use App\Http\Controllers\ChecklistItemController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FileController;
@@ -37,11 +44,25 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
 
-Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
-Route::post('login', [LoginController::class, 'login']);
-Route::post('logout', [LoginController::class, 'logout'])->name('logout');
+Route::middleware('guest')->group(function () {
+    Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('login', [LoginController::class, 'login'])->middleware('throttle:10,1');
+    Route::get('register', [RegisteredUserController::class, 'create'])->name('register');
+    Route::post('register', [RegisteredUserController::class, 'store'])->middleware('throttle:5,1')->name('register.store');
+    Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
+    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])->middleware('throttle:5,1')->name('password.email');
+    Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
+    Route::post('reset-password', [NewPasswordController::class, 'store'])->middleware('throttle:5,1')->name('password.update');
+});
 
-Route::middleware(['auth'])->group(function () {
+Route::post('logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
+
+Route::middleware(['auth', EnsureOwnedRouteModels::class, BetaFeatureUnavailable::class])->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware(RequireAdministrator::class)->group(function () {
+        Route::get('features', [FeatureManagementController::class, 'index'])->name('features.index');
+        Route::put('features/{feature}', [FeatureManagementController::class, 'update'])->name('features.update');
+    });
+
     // Profile routes
     Route::get('profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::get('profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -55,7 +76,6 @@ Route::middleware(['auth'])->group(function () {
     });
     Route::post('projects/reorder', [ProjectController::class, 'reorder'])->name('projects.reorder');
     Route::resource('projects', ProjectController::class);
-    Route::post('project/team', [ProjectController::class, 'addMember'])->name('projects.addMember');
     Route::get('projects/{project}/tasks', [TaskController::class, 'index'])->name('projects.tasks.index');
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('projects.tasks.store');
 
@@ -216,6 +236,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/time/entries', [TimeTrackingController::class, 'store'])->name('time.entries.store');
     Route::delete('/time/entries/{entry}', [TimeTrackingController::class, 'destroy'])->name('time.entries.destroy');
 
+    // AI endpoints remain registered for the administrator preview. The
+    // account-aware module gate blocks them for regular users while locked.
     // AI Chat
     Route::get('/ai', [AiChatController::class, 'index'])->name('ai.index');
     Route::get('/ai/status', [AiChatController::class, 'status'])->name('ai.status');
@@ -279,7 +301,6 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/ai/conversations/{conversation}/rename', [AiChatController::class, 'renameConversation'])->name('ai.conversations.rename');
     Route::delete('/ai/conversations/{conversation}', [AiChatController::class, 'deleteConversation'])->name('ai.conversations.delete');
     Route::post('/ai/conversations/{conversation}/clear', [AiChatController::class, 'clearConversation'])->name('ai.conversations.clear');
-
     // Unified reports (tasks · routines · avoid habits · workouts · time)
     Route::get('/reports', [\App\Http\Controllers\ReportsController::class, 'overview'])->name('reports.overview');
 

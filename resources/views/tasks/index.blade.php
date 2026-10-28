@@ -1033,19 +1033,6 @@
                                 <x-jalali-date name="due_date" class="cu-input" />
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="cu-field">
-                                <label class="cu-label">{{ __('Assign To') }} <span style="color:#e5484d;">*</span></label>
-                                <select name="user_id" class="cu-input cu-select" required>
-                                    <option value="{{ auth()->id() }}" selected>{{ __('Me') }}</option>
-                                    @foreach($users as $u)
-                                        @if($u->id !== auth()->id())
-                                            <option value="{{ $u->id }}">{{ $u->name }}</option>
-                                        @endif
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
                     </div>
                     <details class="cu-more">
                         <summary>{{ __('More options') }}</summary>
@@ -2051,7 +2038,6 @@ document.addEventListener('DOMContentLoaded', function () {
             <input type="hidden" name="_token" value="${csrf}">
             <input type="hidden" name="title" value="">
             <input type="hidden" name="project_id" value="${projectId}">
-            <input type="hidden" name="user_id" value="{{ auth()->id() }}">
             <input type="hidden" name="priority" value="medium">
             <input type="hidden" name="status" value="${status}">
             <input type="hidden" name="auto_weight" value="1">

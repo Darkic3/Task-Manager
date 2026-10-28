@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Str;
 use App\Models\Routine;
 use App\Services\ImageUploadService;
 
@@ -53,9 +54,15 @@ class ProfileController extends Controller
     {
         $user = Auth::user();
 
+        $request->merge([
+            'username' => Str::lower(trim((string) $request->input('username'))),
+            'email' => filled($request->input('email')) ? Str::lower(trim((string) $request->input('email'))) : null,
+        ]);
+
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'username' => ['required', 'string', 'min:3', 'max:30', 'regex:/^[a-zA-Z0-9_-]+$/', Rule::unique('users', 'username')->ignore($user->id)],
+            'email' => ['nullable', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'bio' => ['nullable', 'string', 'max:500'],
             'phone' => ['nullable', 'string', 'max:20'],
@@ -87,6 +94,7 @@ class ProfileController extends Controller
 
         $updateData = [
             'name' => $request->name,
+            'username' => $request->username,
             'email' => $request->email,
             'bio' => $request->bio,
             'phone' => $request->phone,

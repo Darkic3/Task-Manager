@@ -24,7 +24,6 @@ class TaskCreateTest extends TestCase
 
         $response = $this->actingAs($user)->get(route('tasks.create'));
 
-        $response->assertSee('name="user_id"', false);
         $response->assertSee('name="status"', false);
     }
 
@@ -46,6 +45,23 @@ class TaskCreateTest extends TestCase
             'user_id' => $user->id,
             'title' => 'Buy groceries',
             'status' => 'to_do',
+        ]);
+    }
+
+    public function test_task_owner_is_always_the_authenticated_user_even_if_user_id_is_spoofed(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+
+        $this->actingAs($user)->post(route('tasks.store'), [
+            'user_id' => $other->id,
+            'title' => 'Private task',
+            'priority' => 'medium',
+        ])->assertRedirect(route('tasks.index'));
+
+        $this->assertDatabaseHas('tasks', [
+            'title' => 'Private task',
+            'user_id' => $user->id,
         ]);
     }
 

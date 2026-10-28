@@ -23,6 +23,10 @@ class DemoStudyDataSeeder extends Seeder
 {
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            throw new \RuntimeException('DemoStudyDataSeeder is only available in local and testing environments.');
+        }
+
         $user = User::first();
         if (! $user) {
             $user = User::factory()->create([

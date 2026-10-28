@@ -2133,9 +2133,6 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1" onclick="openEveningShutdown()" title="{{ __('Evening shutdown ritual') }}">
                         <i class="bi bi-moon-stars-fill text-primary"></i> {{ __('Shutdown') }}
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 fw-semibold" onclick="openLinaScheduleModal()" title="{{ __('Optimize schedule with Lina AI') }}">
-                        <i class="bi bi-stars"></i> {{ __('Lina AI') }}
-                    </button>
                 </div>
             @endif
             {{-- Navigation: arrows adapt to RTL/LTR naturally --}}
@@ -2157,6 +2154,11 @@
             @if($view === 'day')
                 <button type="button" class="pl-add-btn" onclick="openQuickAdd('task')">
                     <i class="bi bi-plus-lg"></i> {{ __('Add') }}
+                </button>
+            @endif
+            @if (app(\App\Support\FeatureAvailability::class)->isEnabled('ai', auth()->user()))
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openLinaScheduleModal()">
+                    <i class="bi bi-stars"></i> {{ __('Lina AI') }}
                 </button>
             @endif
         </div>
@@ -2825,10 +2827,12 @@
 
     @include('planner._focus-modal')
     @include('planner._kickoff-modal')
-    @include('planner._ai-schedule-modal')
     @include('planner._next-up-modal')
     @include('planner._floating-focus-bar')
     @include('planner._avoid-history-modal')
+    @if (app(\App\Support\FeatureAvailability::class)->isEnabled('ai', auth()->user()))
+        @include('planner._ai-schedule-modal')
+    @endif
 @endsection
 
 @push('scripts')

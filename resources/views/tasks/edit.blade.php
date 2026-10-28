@@ -248,19 +248,6 @@
                 </select>
                 @error('project_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
-            <div class="te-field">
-                <label for="user_id">{{ __('Assigned to') }}</label>
-                <select name="user_id" id="user_id"
-                        class="te-input {{ $errors->has('user_id') ? 'is-invalid' : '' }}">
-                    @foreach($users as $user)
-                        <option value="{{ $user->id }}"
-                            {{ old('user_id', $task->user_id) == $user->id ? 'selected' : '' }}>
-                            {{ $user->name }}
-                        </option>
-                    @endforeach
-                </select>
-                @error('user_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-            </div>
         </div>
 
         {{-- Advanced options (collapsed) --}}

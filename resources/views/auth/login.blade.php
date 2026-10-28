@@ -399,6 +399,16 @@
             font-weight: 600;
             animation: fade-in .35s ease both;
         }
+        .status-banner {
+            padding: 12px 15px;
+            margin-bottom: 18px;
+            border: 1px solid #a7f3d0;
+            border-radius: var(--radius-md);
+            background: #ecfdf5;
+            color: #047857;
+            font-size: .84rem;
+            font-weight: 600;
+        }
         .alert svg { width: 17px; height: 17px; flex: none; margin-top: 2px; }
         @keyframes fade-in {
             from { opacity: 0; transform: translateY(-6px); }
@@ -753,7 +763,11 @@
             <h1 class="panel-title">{{ __('Welcome back') }}</h1>
             <p class="panel-sub">{{ __('Sign in to your account to continue') }}</p>
 
-            @if ($errors->has('email') && $errors->first('email') === __('auth.failed'))
+            @if (session('status'))
+                <div class="status-banner" role="status">{{ session('status') }}</div>
+            @endif
+
+            @if ($errors->has('username') && $errors->first('username') === __('auth.failed'))
                 <div class="alert" role="alert">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 2.7 17.2A2 2 0 0 0 4.4 20h15.2a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4.5"/><circle cx="12" cy="16.6" r="1" fill="currentColor" stroke="none"/></svg>
                     <span>{{ __('auth.failed') }}</span>
@@ -764,20 +778,20 @@
                 @csrf
 
                 <div class="field">
-                    <label class="field-label" for="email">{{ __('Email') }}</label>
+                    <label class="field-label" for="username">{{ __('Username or email') }}</label>
                     <div class="field-box">
                         <span class="field-ico" aria-hidden="true">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="15" rx="3"/><path d="m3.5 7.5 8.5 6 8.5-6"/></svg>
                         </span>
-                        <input type="email" id="email" name="email"
-                               class="field-input @error('email') is-invalid @enderror"
-                               value="{{ old('email') }}"
-                               placeholder="you@example.com"
+                        <input type="text" id="username" name="username"
+                               class="field-input @error('username') is-invalid @enderror"
+                               value="{{ old('username') }}"
+                               placeholder="username"
                                required autofocus
-                               autocomplete="email" inputmode="email"
+                               autocomplete="username"
                                autocapitalize="off" autocorrect="off" spellcheck="false">
                     </div>
-                    @error('email')
+                    @error('username')
                         @if ($message !== __('auth.failed'))
                             <p class="field-err" role="alert">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4.5"/><circle cx="12" cy="16" r="1" fill="currentColor" stroke="none"/></svg>
@@ -819,6 +833,7 @@
                         </span>
                         <span class="check-label">{{ __('Remember me') }}</span>
                     </label>
+                    <a href="{{ route('password.request') }}">{{ __('Forgot password?') }}</a>
                 </div>
 
                 <button type="submit" class="submit" id="submit-btn">
@@ -829,6 +844,11 @@
                     <span class="spinner" aria-hidden="true"></span>
                 </button>
             </form>
+
+            <p class="panel-foot" style="margin-top:16px;">
+                {{ __('New here?') }}
+                <a href="{{ route('register') }}">{{ __('Create an account') }}</a>
+            </p>
         </div>
 
         <footer class="panel-foot">

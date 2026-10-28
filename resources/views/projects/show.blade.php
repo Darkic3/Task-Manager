@@ -208,7 +208,6 @@
         @if($aggTotal > 0)
             <span class="pj-fact"><i class="bi bi-list-task"></i><strong>{{ $aggDone }}</strong> {{ __('done') }} · <strong>{{ $aggTodo }}</strong> {{ __('open') }}</span>
         @endif
-        <span class="pj-fact"><i class="bi bi-people"></i><strong>{{ $teamMembers->count() }}</strong> {{ __('members') }}</span>
         @if($project->end_date)
             <span class="pj-fact {{ $project->end_date->isPast() ? 'overdue' : '' }}">
                 <i class="bi bi-calendar-event"></i>{{ __('Due') }} <strong>{{ $project->end_date->format('M d, Y') }}</strong>
@@ -310,59 +309,9 @@
         <p class="pj-muted" style="font-style:italic;">{{ __('No description.') }} <a href="{{ route('projects.edit', $project) }}">{{ __('Add one') }} →</a></p>
     @endif
 
-    <hr class="pj-divider">
-    <h2 class="pj-h">
-        {{ __('Team') }} <span class="count">· {{ $teamMembers->count() }}</span>
-        <span class="spacer"></span>
-        <button class="pj-mini-btn" data-bs-toggle="modal" data-bs-target="#addMemberModal"><i class="bi bi-plus-lg"></i> {{ __('Add') }}</button>
-    </h2>
-    <div>
-        @forelse($teamMembers as $member)
-            <div class="pj-row">
-                <div class="pj-row-av round" style="background:{{ $colors[strlen($member->name) % count($colors)] }};">
-                    {{ name_initials($member->name) }}
-                </div>
-                <div class="pj-row-main">
-                    <div class="pj-row-title">{{ $member->name }}</div>
-                    <div class="pj-row-sub">{{ $member->email }}</div>
-                </div>
-            </div>
-        @empty
-            <p class="pj-muted" style="font-style:italic;">{{ __('No team members yet.') }}</p>
-        @endforelse
-    </div>
-
 </div>
 </div>
 
-{{-- Add Member Modal --}}
-<div class="modal fade pj-modal" id="addMemberModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h6 class="modal-title mb-0">{{ __('Add team member') }}</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form action="{{ route('projects.addMember') }}" method="POST">
-                @csrf
-                <input type="hidden" name="project_id" value="{{ $project->id }}">
-                <div class="modal-body">
-                    <label for="user_id" class="form-label" style="font-size:12px;font-weight:600;color:#3d4149;">{{ __('Select user') }}</label>
-                    <select class="form-select" name="user_id" id="user_id" required style="font-size:13px;">
-                        <option value="">{{ __('Choose a user…') }}</option>
-                        @foreach($users as $u)
-                            <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">{{ __('Cancel') }}</button>
-                    <button type="submit" class="btn btn-sm btn-primary">{{ __('Add member') }}</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 @endsection
 
 @push('scripts')

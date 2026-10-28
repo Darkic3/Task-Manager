@@ -52,7 +52,7 @@
             <div class="pf-hero-id">
                 <p class="pf-eyebrow"><i class="bi bi-shield-check"></i> {{ __('Account') }}</p>
                 <h1 class="pf-name">{{ $user->name }}</h1>
-                <p class="pf-mail"><i class="bi bi-envelope"></i> {{ $user->email }}</p>
+                <p class="pf-mail"><i class="bi bi-person"></i> {{ '@'.$user->username }}</p>
 
                 <ul class="pf-chips">
                     <li class="pf-chip @if(!$user->location) is-empty @endif">
@@ -151,11 +151,6 @@
             <span class="pf-stat-num pf-num">{{ app_num($user->notes_count ?? 0) }}</span>
             <span class="pf-stat-lbl">{{ __('Notes') }}</span>
         </a>
-        <a href="{{ route('files.index') }}" class="pf-stat pf-stat-c rose">
-            <span class="pf-stat-ico"><i class="bi bi-paperclip"></i></span>
-            <span class="pf-stat-num pf-num">{{ app_num($user->files_count ?? 0) }}</span>
-            <span class="pf-stat-lbl">{{ __('Files') }}</span>
-        </a>
     </section>
 
     {{-- Columns --}}
@@ -185,7 +180,7 @@
                             <span class="pf-row-ico"><i class="bi bi-envelope"></i></span>
                             <div class="pf-row-txt">
                                 <dt class="pf-row-lbl">{{ __('Email') }}</dt>
-                                <dd class="pf-row-val" dir="ltr">{{ $user->email }}</dd>
+                                <dd class="pf-row-val" dir="ltr">{{ $user->email ?: __('Not set') }}</dd>
                             </div>
                         </div>
                         <div class="pf-row">
@@ -347,7 +342,7 @@
                             <span class="pf-row-ico"><i class="bi bi-envelope"></i></span>
                             <div class="pf-row-txt">
                                 <dt class="pf-row-lbl">{{ __('Email') }}</dt>
-                                <dd class="pf-row-val pf-num" dir="ltr" style="font-size:.85rem;">{{ $user->email }}</dd>
+                                <dd class="pf-row-val pf-num" dir="ltr" style="font-size:.85rem;">{{ $user->email ?: __('Not set') }}</dd>
                             </div>
                         </div>
                         <div class="pf-row">

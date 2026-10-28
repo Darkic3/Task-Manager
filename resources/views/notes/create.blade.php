@@ -30,7 +30,6 @@
     'notebooks' => $notebooks,
     'labels' => $labels,
     'selectedLabels' => $selectedLabels,
-    'selectedFiles' => $selectedFiles,
     'kindMeta' => $kindMeta,
     'mentionPicks' => $mentionPicks ?? [],
     'linkTargets' => $linkTargets ?? ['projects' => [], 'tasks' => [], 'routines' => []],
