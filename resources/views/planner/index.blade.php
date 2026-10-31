@@ -1192,49 +1192,62 @@
         .pl-add-btn{display:none;}
         .pl-fab{display:flex;}
     }
-    .pl-qa{position:fixed;inset:0;z-index:1095;display:flex;align-items:flex-start;justify-content:center;padding:70px 16px 16px;}
+    .pl-qa{position:fixed;inset:0;z-index:1095;display:flex;align-items:flex-start;justify-content:center;padding:70px 16px 16px;animation:plQaFadeIn .22s ease-out;}
     .pl-qa[hidden]{display:none;}
-    .pl-qa-backdrop{position:absolute;inset:0;background:rgba(17,20,26,.45);}
+    .pl-qa-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.48);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:plQaFadeIn .22s ease-out;}
     .pl-qa-dialog{
-        position:relative;background:#fff;border-radius:14px;width:min(440px,96vw);
-        display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;
+        position:relative;background:#fff;border-radius:20px;width:min(460px,96vw);
+        display:flex;flex-direction:column;box-shadow:0 30px 80px -20px rgba(15,23,42,.45),0 0 0 1px rgba(15,23,42,.04);
+        overflow:hidden;animation:plQaPop .26s cubic-bezier(.16,1,.3,1);transform-origin:top center;
     }
-    .pl-qa-head{display:flex;align-items:center;padding:14px 16px 10px;}
-    .pl-qa-title{font-size:14px;font-weight:800;color:#1a1d23;}
-    .pl-qa-x{margin-left:auto;border:none;background:#f2f3f5;color:#6b7385;width:28px;height:28px;border-radius:8px;font-size:16px;line-height:1;cursor:pointer;}
-    .pl-qa-x:hover{background:#e6e8ec;color:#1a1d23;}
-    .pl-qa-tabs{display:flex;gap:4px;padding:0 16px 10px;border-bottom:1px solid #eef0f3;}
+    @keyframes plQaFadeIn{from{opacity:0;}to{opacity:1;}}
+    @keyframes plQaPop{from{opacity:0;transform:translateY(-12px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
+    .pl-qa-head{display:flex;align-items:center;gap:10px;padding:14px 18px 10px;}
+    .pl-qa-title{font-size:14px;font-weight:800;color:#1a1d23;letter-spacing:-.01em;}
+    .pl-qa-x{margin-left:auto;border:none;background:#f1f5f9;color:#64748b;width:30px;height:30px;border-radius:9px;font-size:16px;line-height:1;cursor:pointer;transition:all .15s;display:grid;place-items:center;}
+    .pl-qa-x:hover{background:#e2e8f0;color:#0f172a;transform:rotate(90deg);}
+    .pl-qa-x:focus-visible{outline:2px solid #7c3aed;outline-offset:2px;}
+    .pl-qa-tabs{display:flex;gap:4px;padding:0 18px 10px;border-bottom:1px solid #eef0f3;background:#fafbfc;}
     .pl-qa-tab{
-        border:1px solid transparent;background:transparent;color:#8a8f98;
-        font-size:12.5px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;
+        border:1px solid transparent;background:transparent;color:#64748b;
+        font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:10px;cursor:pointer;transition:all .15s;
+        display:inline-flex;align-items:center;gap:6px;
     }
-    .pl-qa-tab.active{background:#faf5ff;color:#7c3aed;border-color:#ddd6fe;}
-    .pl-qa-form{display:flex;flex-direction:column;gap:10px;padding:14px 16px 16px;}
+    .pl-qa-tab:hover{background:#f1f5f9;color:#334155;}
+    .pl-qa-tab.active{background:#fff;color:#6d28d9;border-color:#ddd6fe;box-shadow:0 2px 8px rgba(124,58,237,.12);}
+    .pl-qa-form{display:flex;flex-direction:column;gap:10px;padding:16px 18px 18px;}
     .pl-qa-form[hidden]{display:none;}
     .pl-qa-input{
-        width:100%;padding:10px 12px;border:1.5px solid #e3e4e8;border-radius:9px;
-        font-size:13.5px;outline:none;transition:border-color .15s;
+        width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:12px;
+        font-size:13.5px;outline:none;transition:all .18s;background:#fafbfc;
     }
-    .pl-qa-input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    .pl-qa-input:hover{border-color:#cbd5e1;background:#fff;}
+    .pl-qa-input:focus{border-color:#7c3aed;box-shadow:0 0 0 4px rgba(124,58,237,.12);background:#fff;}
+    .pl-qa-input::placeholder{color:#94a3b8;font-weight:500;}
     .pl-qa-row{display:flex;gap:8px;}
     .pl-qa-row select,.pl-qa-row input[type="time"]{
-        flex:1;padding:7px 9px;border:1px solid #e3e4e8;border-radius:9px;
-        font-size:12.5px;color:#3d4149;outline:none;background:#fff;
+        flex:1;padding:9px 11px;border:1.5px solid #e2e8f0;border-radius:12px;
+        font-size:12.5px;color:#334155;outline:none;background:#fafbfc;transition:all .15s;min-height:40px;
     }
-    .pl-qa-row select:focus,.pl-qa-row input:focus{border-color:#c4b5fd;}
+    .pl-qa-row select:hover,.pl-qa-row input:hover{border-color:#cbd5e1;background:#fff;}
+    .pl-qa-row select:focus,.pl-qa-row input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);background:#fff;}
     .pl-qa-chips{display:flex;gap:6px;flex-wrap:wrap;}
     .pl-qa-chips button{
-        border:1px solid #e5e7eb;background:#fafbfc;color:#6b6f78;
-        border-radius:20px;padding:4px 12px;font-size:11.5px;font-weight:700;cursor:pointer;transition:all .12s;
+        border:1.5px solid #e2e8f0;background:#fafbfc;color:#64748b;
+        border-radius:999px;padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer;transition:all .15s;
+        display:inline-flex;align-items:center;gap:6px;
     }
-    .pl-qa-chips button:hover{border-color:#c4b5fd;color:#7c3aed;}
-    .pl-qa-chips button.active{background:#ede9fe;border-color:#c4b5fd;color:#7c3aed;}
-    .pl-qa-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:2px;}
+    .pl-qa-chips button:hover{border-color:#c4b5fd;color:#7c3aed;background:#faf5ff;transform:translateY(-1px);}
+    .pl-qa-chips button.active{background:linear-gradient(135deg,#ede9fe,#e0e7ff);border-color:#a78bfa;color:#5b21b6;
+        box-shadow:0 2px 8px rgba(124,58,237,.18);}
+    .pl-qa-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px;}
     .pl-qa-actions button[type="submit"]{
-        background:#7c3aed;color:#fff;border:1px solid #7c3aed;border-radius:9px;
-        padding:8px 18px;font-size:12.5px;font-weight:700;cursor:pointer;
+        background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);color:#fff;border:none;border-radius:12px;
+        padding:10px 22px;font-size:13px;font-weight:800;cursor:pointer;transition:all .18s;
+        box-shadow:0 6px 16px -6px rgba(124,58,237,.55);
     }
-    .pl-qa-actions button[type="submit"]:hover{background:#6d28d9;}
+    .pl-qa-actions button[type="submit"]:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 20px -6px rgba(124,58,237,.65);}
+    .pl-qa-actions button[type="submit"]:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none;}
 
     /* ── Week view redesign: clean, readable day columns ── */
     .pw-grid{display:grid;grid-template-columns:repeat(7,minmax(215px,1fr));gap:12px;align-items:start;}
@@ -1945,118 +1958,160 @@
     }
 
     /* ══ Pro Quick-Add modal: add a task to the day in seconds ── */
-    .pl-qa-dialog-pro{width:min(540px,96vw);border-radius:18px;}
-    .pl-qa-pro-head{display:flex;align-items:center;gap:12px;padding:16px 18px 14px;color:#fff;
-        background:linear-gradient(135deg,#4f46e5 0%,#6d28d9 60%,#7c3aed 100%);position:relative;overflow:hidden;}
-    .pl-qa-pro-head::after{content:'';position:absolute;top:-40px;inset-inline-end:-30px;width:130px;height:130px;
-        background:rgba(255,255,255,.12);border-radius:50%;pointer-events:none;}
-    .pl-qa-pro-icon{width:38px;height:38px;flex-shrink:0;display:grid;place-items:center;border-radius:12px;font-size:17px;
-        background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.3);position:relative;z-index:1;}
-    .pl-qa-pro-titles{display:flex;flex-direction:column;gap:1px;min-width:0;position:relative;z-index:1;}
-    .pl-qa-pro-head .pl-qa-title{font-size:15px;font-weight:800;color:#fff;}
-    .pl-qa-sub{font-size:11.5px;font-weight:600;color:rgba(255,255,255,.75);}
-    .pl-qa-pro-head .pl-qa-x{background:rgba(255,255,255,.15);color:#fff;position:relative;z-index:1;}
-    .pl-qa-pro-head .pl-qa-x:hover{background:rgba(255,255,255,.3);color:#fff;}
-    .pl-qa-dialog-pro .pl-qa-tabs{background:#faf8ff;}
-    .pl-qa-dialog-pro .pl-qa-tab{display:inline-flex;align-items:center;gap:6px;}
-    .pl-qa-dialog-pro .pl-qa-form{gap:9px;padding:16px 18px 18px;}
-    .pl-qa-title-input{font-size:15px !important;font-weight:700;padding:12px 14px !important;border-radius:12px !important;}
-    .pl-qa-title-input::placeholder{font-weight:500;}
-    .pl-qa-label{font-size:11px;font-weight:800;color:#8a8f98;text-transform:uppercase;letter-spacing:.05em;margin-top:4px;}
+    .pl-qa-dialog-pro{width:min(560px,96vw);border-radius:22px;box-shadow:0 32px 90px -24px rgba(79,70,229,.45),0 0 0 1px rgba(124,58,237,.08);}
+    .pl-qa-pro-head{display:flex;align-items:center;gap:14px;padding:18px 20px 16px;color:#fff;
+        background:linear-gradient(135deg,#4f46e5 0%,#6366f1 45%,#7c3aed 100%);position:relative;overflow:hidden;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.2);}
+    .pl-qa-pro-head::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 85% -20%,rgba(255,255,255,.25),transparent 55%);pointer-events:none;}
+    .pl-qa-pro-head::after{content:'';position:absolute;top:-50px;inset-inline-end:-40px;width:160px;height:160px;
+        background:rgba(255,255,255,.14);border-radius:50%;pointer-events:none;}
+    .pl-qa-pro-icon{width:44px;height:44px;flex-shrink:0;display:grid;place-items:center;border-radius:14px;font-size:19px;
+        background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.35);
+        position:relative;z-index:1;backdrop-filter:blur(4px);}
+    .pl-qa-pro-titles{display:flex;flex-direction:column;gap:2px;min-width:0;position:relative;z-index:1;}
+    .pl-qa-pro-head .pl-qa-title{font-size:16px;font-weight:800;color:#fff;letter-spacing:-.01em;}
+    .pl-qa-sub{font-size:12px;font-weight:600;color:rgba(255,255,255,.8);}
+    .pl-qa-pro-head .pl-qa-x{background:rgba(255,255,255,.18);color:#fff;position:relative;z-index:1;
+        border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(4px);}
+    .pl-qa-pro-head .pl-qa-x:hover{background:rgba(255,255,255,.32);color:#fff;}
+    .pl-qa-dialog-pro .pl-qa-tabs{background:linear-gradient(180deg,#faf8ff,#f5f3ff);padding:6px 18px 8px;border-bottom:1px solid #ede9fe;}
+    .pl-qa-dialog-pro .pl-qa-tab{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:12px;font-size:12.5px;}
+    .pl-qa-dialog-pro .pl-qa-form{gap:10px;padding:18px 20px 20px;}
+    .pl-qa-title-input{font-size:15px !important;font-weight:700;padding:13px 16px !important;border-radius:14px !important;
+        box-shadow:0 1px 2px rgba(15,23,42,.04);}
+    .pl-qa-title-input::placeholder{font-weight:500;color:#a5b4fc;}
+    .pl-qa-label{font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-top:6px;
+        display:flex;align-items:center;gap:6px;}
+    .pl-qa-label::before{content:'';width:3px;height:12px;border-radius:2px;background:linear-gradient(180deg,#7c3aed,#a855f7);}
     html[dir="rtl"] .pl-qa-label{letter-spacing:0;}
     .pl-qa-error{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:#b91c1c;
-        background:#fef2f2;border:1px solid #fbd5d5;border-radius:10px;padding:8px 12px;}
+        background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fecaca;border-radius:12px;padding:9px 13px;
+        box-shadow:0 2px 6px rgba(220,38,38,.06);}
     .pl-qa-error[hidden]{display:none;}
     .pl-qa-error::before{content:'\F33B';font-family:'bootstrap-icons';font-size:14px;}
     /* Priority segmented control */
-    .pl-qa-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:#f4f5f8;border-radius:12px;padding:4px;}
-    .pl-qa-seg button{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid transparent;
-        background:transparent;border-radius:9px;min-height:36px;font-size:12.5px;font-weight:800;color:#6b7385;cursor:pointer;transition:all .14s;}
-    .pl-qa-seg button:hover{background:#fff;}
-    .pl-qa-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+    .pl-qa-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:#f1f5f9;border-radius:14px;padding:5px;
+        box-shadow:inset 0 1px 3px rgba(15,23,42,.06);}
+    .pl-qa-seg button{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;
+        background:transparent;border-radius:11px;min-height:40px;font-size:12.5px;font-weight:800;color:#64748b;cursor:pointer;
+        transition:all .18s;}
+    .pl-qa-seg button:hover{background:rgba(255,255,255,.7);}
+    .pl-qa-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 2px rgba(255,255,255,.8);}
     .pl-qa-seg-low .pl-qa-dot{background:#16a34a;}
     .pl-qa-seg-medium .pl-qa-dot{background:#d97706;}
     .pl-qa-seg-high .pl-qa-dot{background:#dc2626;}
-    .pl-qa-seg button.active{background:#fff;box-shadow:0 2px 8px rgba(15,23,42,.1);color:#1a1d23;}
-    .pl-qa-seg-low.active{box-shadow:inset 0 0 0 1.5px #86efac,0 2px 8px rgba(22,163,74,.18);}
-    .pl-qa-seg-medium.active{box-shadow:inset 0 0 0 1.5px #fcd34d,0 2px 8px rgba(217,119,6,.18);}
-    .pl-qa-seg-high.active{box-shadow:inset 0 0 0 1.5px #fca5a5,0 2px 8px rgba(220,38,38,.18);}
+    .pl-qa-seg button.active{background:#fff;box-shadow:0 4px 12px rgba(15,23,42,.12);color:#0f172a;transform:translateY(-1px);}
+    .pl-qa-seg-low.active{box-shadow:inset 0 0 0 1.5px #86efac,0 4px 12px rgba(22,163,74,.18);}
+    .pl-qa-seg-medium.active{box-shadow:inset 0 0 0 1.5px #fcd34d,0 4px 12px rgba(217,119,6,.18);}
+    .pl-qa-seg-high.active{box-shadow:inset 0 0 0 1.5px #fca5a5,0 4px 12px rgba(220,38,38,.18);}
     /* Period + estimate chips */
-    .pl-qa-dialog-pro .pl-qa-chips button{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:5px 13px;font-size:12px;}
+    .pl-qa-dialog-pro .pl-qa-chips button{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:6px 14px;font-size:12px;
+        border-radius:999px;}
     .pl-qa-dialog-pro .pl-qa-chips button.active{background:linear-gradient(135deg,#ede9fe,#e0e7ff);border-color:#a78bfa;color:#5b21b6;
-        box-shadow:0 2px 8px rgba(124,58,237,.2);}
+        box-shadow:0 3px 10px rgba(124,58,237,.22);transform:translateY(-1px);}
+    .pl-qa-dialog-pro .pl-qa-chips button:hover:not(.active){transform:translateY(-1px);}
     /* Labeled fields */
-    .pl-qa-field{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;}
+    .pl-qa-field{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0;}
     .pl-qa-field .pl-qa-label{margin-top:0;}
-    .pl-qa-field select,.pl-qa-field input[type="time"]{min-height:40px;}
+    .pl-qa-field select,.pl-qa-field input[type="time"]{min-height:42px;padding:9px 12px;}
     /* Session-added list */
-    .pl-qa-added{border:1px solid #bbf7d0;background:linear-gradient(135deg,#f4fdf7,#ecfdf5);border-radius:12px;padding:9px 12px;}
+    .pl-qa-added{border:1px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-radius:14px;padding:10px 14px;
+        box-shadow:0 2px 8px rgba(22,163,74,.08);}
     .pl-qa-added[hidden]{display:none;}
-    .pl-qa-added-head{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:#15803d;margin-bottom:5px;}
-    .pl-qa-added ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;max-height:118px;overflow-y:auto;}
-    .pl-qa-added li{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:#334155;
-        background:#fff;border:1px solid #d9f2e3;border-radius:9px;padding:5px 10px;animation:plQaddIn .18s ease;}
+    .pl-qa-added-head{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#15803d;margin-bottom:6px;}
+    .pl-qa-added ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:128px;overflow-y:auto;}
+    .pl-qa-added li{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:700;color:#334155;
+        background:#fff;border:1px solid #d1fae5;border-radius:10px;padding:6px 11px;animation:plQaddIn .2s ease;}
     .pl-qa-added li i{color:#16a34a;font-size:13px;}
+    @keyframes plQaddIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
     /* Footer: ghost + primary */
-    .pl-qa-actions-split{justify-content:space-between;margin-top:4px;}
-    .pl-qa-secondary{display:inline-flex;align-items:center;gap:6px;background:#fff;color:#6d28d9;border:1.5px solid #ddd6fe;
-        border-radius:10px;padding:9px 16px;font-size:12.5px;font-weight:800;cursor:pointer;transition:all .15s;}
-    .pl-qa-secondary:hover:not(:disabled){background:#f5f3ff;border-color:#c4b5fd;transform:translateY(-1px);}
+    .pl-qa-actions-split{justify-content:space-between;margin-top:6px;padding-top:4px;border-top:1px solid #f1f5f9;}
+    .pl-qa-secondary{display:inline-flex;align-items:center;gap:7px;background:#fff;color:#6d28d9;border:1.5px solid #ddd6fe;
+        border-radius:12px;padding:10px 18px;font-size:12.5px;font-weight:800;cursor:pointer;transition:all .18s;}
+    .pl-qa-secondary:hover:not(:disabled){background:#f5f3ff;border-color:#c4b5fd;transform:translateY(-1px);
+        box-shadow:0 4px 12px rgba(124,58,237,.15);}
     .pl-qa-secondary:disabled{opacity:.5;cursor:wait;}
-    .pl-qa-dialog-pro .pl-qa-actions button[type="submit"]{display:inline-flex;align-items:center;gap:7px;border-radius:10px;
-        padding:10px 22px;font-size:13px;box-shadow:0 4px 12px -4px rgba(124,58,237,.5);}
-    .pl-qa-dialog-pro .pl-qa-actions button[type="submit"]:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+    .pl-qa-dialog-pro .pl-qa-actions button[type="submit"]{display:inline-flex;align-items:center;gap:8px;border-radius:12px;
+        padding:11px 24px;font-size:13px;box-shadow:0 6px 18px -6px rgba(124,58,237,.55);}
+    .pl-qa-dialog-pro .pl-qa-actions button[type="submit"]:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none;}
     .pl-qa-submit.is-loading{position:relative;color:transparent !important;pointer-events:none;}
     .pl-qa-submit.is-loading::after{content:'';position:absolute;top:50%;left:50%;width:16px;height:16px;margin:-8px 0 0 -8px;
         border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:plQaSpin .7s linear infinite;}
     @keyframes plQaSpin{to{transform:rotate(360deg);}}
     @media (max-width:575.98px){
-        .pl-qa-dialog-pro{border-radius:18px 18px 0 0;}
+        .pl-qa-dialog-pro{border-radius:22px 22px 0 0;width:100%;max-width:100%;}
         .pl-qa-actions-split{flex-direction:column-reverse;align-items:stretch;}
-        .pl-qa-secondary,.pl-qa-dialog-pro .pl-qa-actions button[type="submit"]{justify-content:center;min-height:46px;}
-        .pl-qa-seg button{min-height:42px;}
+        .pl-qa-secondary,.pl-qa-dialog-pro .pl-qa-actions button[type="submit"]{justify-content:center;min-height:48px;}
+        .pl-qa-seg button{min-height:44px;}
+        .pl-qa-pro-head{padding:16px;}
     }
 
     /* ══ Backlog picker modal: pull existing tasks into the day ── */
     .pl-head-add-existing{
         display:inline-flex;align-items:center;justify-content:center;gap:6px;
-        width:30px;height:30px;border-radius:9px;border:1px solid #e2e8f0;background:#fff;color:#6d28d9;
-        font-size:14px;cursor:pointer;transition:all .15s;flex-shrink:0;
+        width:34px;height:34px;border-radius:11px;border:1.5px solid #e2e8f0;background:#fff;color:#6d28d9;
+        font-size:15px;cursor:pointer;transition:all .18s;flex-shrink:0;box-shadow:0 1px 3px rgba(15,23,42,.05);
     }
-    .pl-head-add-existing:hover{border-color:#c4b5fd;background:#faf5ff;transform:translateY(-1px);
-        box-shadow:0 4px 10px rgba(124,58,237,.18);}
-    .pl-head-add-existing:active{transform:scale(.95);}
-    .pl-bl-search{border-bottom:1px solid #f1eefb;}
-    .pl-qadd-filters{display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px 2px;}
-    .pl-qadd-filters button{display:inline-flex;align-items:center;gap:6px;border:1px solid #e5e7eb;background:#fafbfc;
-        color:#6b6f78;border-radius:20px;padding:5px 13px;font-size:11.5px;font-weight:800;cursor:pointer;transition:all .13s;}
-    .pl-qadd-filters button:hover{border-color:#c4b5fd;color:#7c3aed;}
+    .pl-head-add-existing:hover{border-color:#c4b5fd;background:linear-gradient(135deg,#faf5ff,#f3edff);transform:translateY(-2px);
+        box-shadow:0 6px 16px rgba(124,58,237,.2);}
+    .pl-head-add-existing:active{transform:scale(.94);}
+    .pl-head-add-existing:focus-visible{outline:2px solid #7c3aed;outline-offset:2px;}
+    .pl-bl-search{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid #ede9fe;
+        background:linear-gradient(180deg,#faf8ff,#fff);}
+    .pl-bl-search>i{color:#a78bfa;font-size:14px;}
+    .pl-bl-search input{flex:1;min-width:0;border:1.5px solid #e2e8f0;background:#fff;border-radius:12px;
+        padding:9px 13px;font-size:13px;outline:none;transition:all .18s;}
+    .pl-bl-search input:focus{border-color:#7c3aed;box-shadow:0 0 0 4px rgba(124,58,237,.12);}
+    .pl-bl-search input::placeholder{color:#a5b4fc;}
+    .pl-qadd-clear{border:0;background:#f1f5f9;color:#64748b;width:28px;height:28px;border-radius:9px;cursor:pointer;
+        transition:all .15s;display:grid;place-items:center;}
+    .pl-qadd-clear:hover{background:#e2e8f0;color:#0f172a;}
+    .pl-qadd-clear[hidden]{display:none;}
+    .pl-qa-dialog-pro .pl-bl-search{border-bottom:1px solid #ede9fe;}
+    .pl-backlog-project-wrap{padding:10px 16px 0;}
+    .pl-backlog-project-wrap select{min-height:40px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fafbfc;}
+    .pl-qadd-filters{display:flex;gap:7px;flex-wrap:wrap;padding:12px 16px 4px;}
+    .pl-qadd-filters button{display:inline-flex;align-items:center;gap:7px;border:1.5px solid #e2e8f0;background:#fafbfc;
+        color:#64748b;border-radius:999px;padding:6px 14px;font-size:11.5px;font-weight:800;cursor:pointer;transition:all .16s;}
+    .pl-qadd-filters button:hover{border-color:#c4b5fd;color:#7c3aed;background:#faf5ff;transform:translateY(-1px);}
     .pl-qadd-filters button.active{background:linear-gradient(135deg,#ede9fe,#e0e7ff);border-color:#a78bfa;color:#5b21b6;
-        box-shadow:0 2px 8px rgba(124,58,237,.2);}
-    .pl-qadd-filters button:disabled{opacity:.5;cursor:default;}
-    .pl-bl-list{max-height:320px;min-height:120px;}
-    .pl-bl-list .pl-qadd-item{cursor:pointer;align-items:center;}
-    .pl-bl-list .pl-qadd-item.selected{background:#faf5ff;border-color:#c4b5fd;box-shadow:0 0 0 3px rgba(124,58,237,.08);}
-    .pl-qadd-check{appearance:none;-webkit-appearance:none;width:20px;height:20px;flex-shrink:0;margin:0;cursor:pointer;
-        border:2px solid #cbd5e1;border-radius:7px;background:#fff;display:grid;place-items:center;transition:all .13s;}
+        box-shadow:0 3px 10px rgba(124,58,237,.2);}
+    .pl-qadd-filters button:disabled{opacity:.5;cursor:default;transform:none;}
+    .pl-bl-list{max-height:340px;min-height:130px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;}
+    .pl-bl-list .pl-qadd-item{cursor:pointer;align-items:center;transition:all .16s;border:1.5px solid transparent;
+        border-radius:12px;padding:10px 12px;background:#fafbfc;}
+    .pl-bl-list .pl-qadd-item:hover{background:#f5f3ff;border-color:#ddd6fe;transform:translateX(2px);}
+    html[dir="rtl"] .pl-bl-list .pl-qadd-item:hover{transform:translateX(-2px);}
+    .pl-bl-list .pl-qadd-item.selected{background:linear-gradient(135deg,#faf5ff,#f3edff);border-color:#c4b5fd;
+        box-shadow:0 0 0 3px rgba(124,58,237,.1);}
+    .pl-qadd-check{appearance:none;-webkit-appearance:none;width:22px;height:22px;flex-shrink:0;margin:0;cursor:pointer;
+        border:2px solid #cbd5e1;border-radius:8px;background:#fff;display:grid;place-items:center;transition:all .16s;}
     .pl-qadd-check:hover{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
     .pl-qadd-check:checked{background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:#6d28d9;}
-    .pl-qadd-check:checked::after{content:'✓';color:#fff;font-size:12px;font-weight:900;line-height:1;}
+    .pl-qadd-check:checked::after{content:'✓';color:#fff;font-size:13px;font-weight:900;line-height:1;}
     .pl-qadd-check:focus-visible{outline:2px solid #7c3aed;outline-offset:2px;}
-    .pl-bl-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
-        padding:12px 16px;border-top:1px solid #f1f5f9;background:#f8fafc;border-radius:0 0 18px 18px;}
-    .pl-qa-submit-bl{display:inline-flex;align-items:center;gap:7px;border:1px solid #6d28d9;border-radius:10px;
-        background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);color:#fff;padding:10px 20px;font-size:13px;font-weight:800;
-        cursor:pointer;box-shadow:0 4px 12px -4px rgba(124,58,237,.5);transition:all .15s;position:relative;}
-    .pl-qa-submit-bl:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 16px -4px rgba(124,58,237,.6);}
-    .pl-qa-submit-bl:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+    .pl-qadd-dot{flex-shrink:0;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.9);}
+    .pl-qadd-name{flex:1;min-width:0;font-size:13px;font-weight:700;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .pl-qadd-proj{flex-shrink:0;max-width:140px;font-size:10.5px;font-weight:700;color:#7c3aed;background:#f5f3ff;
+        border:1px solid #ede9fe;border-radius:8px;padding:3px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .pl-qadd-note{padding:24px 16px;text-align:center;font-size:12px;font-weight:600;color:#94a3b8;line-height:1.7;}
+    .pl-qadd-note i{display:block;font-size:26px;margin-bottom:8px;color:#c4b5fd;}
+    .pl-bl-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+        padding:14px 18px;border-top:1px solid #ede9fe;background:linear-gradient(180deg,#f8fafc,#f1f5f9);
+        border-radius:0 0 22px 22px;}
+    .pl-qa-submit-bl{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:12px;
+        background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);color:#fff;padding:11px 22px;font-size:13px;font-weight:800;
+        cursor:pointer;box-shadow:0 6px 18px -6px rgba(124,58,237,.55);transition:all .18s;position:relative;}
+    .pl-qa-submit-bl:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 22px -6px rgba(124,58,237,.65);}
+    .pl-qa-submit-bl:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none;}
     .pl-qa-submit-bl.is-loading{color:transparent !important;pointer-events:none;}
     .pl-qa-submit-bl.is-loading::after{content:'';position:absolute;top:50%;left:50%;width:16px;height:16px;margin:-8px 0 0 -8px;
         border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:plQaSpin .7s linear infinite;}
     @media (max-width:575.98px){
         .pl-bl-foot{flex-direction:column-reverse;align-items:stretch;}
-        .pl-qa-submit-bl,.pl-bl-foot .pl-qa-secondary{justify-content:center;min-height:46px;}
-        .pl-bl-list{max-height:46vh;}
+        .pl-qa-submit-bl,.pl-bl-foot .pl-qa-secondary{justify-content:center;min-height:48px;}
+        .pl-bl-list{max-height:48vh;}
+        .pl-bl-search{padding:10px 12px;}
     }
 </style>
 @endpush
@@ -2152,7 +2207,7 @@
                 </a>
             </div>
             @if($view === 'day')
-                <button type="button" class="pl-add-btn" onclick="openQuickAdd('task')">
+                <button type="button" class="pl-add-btn" onclick="openTaskAddModal('new')">
                     <i class="bi bi-plus-lg"></i> {{ __('Add') }}
                 </button>
             @endif
@@ -2221,7 +2276,11 @@
                 <i class="bi bi-check2-square" style="color:#4f46e5;"></i>
                 <span class="pl-section-title">{{ $isToday ? __("Today's Tasks") : __('Tasks') }}</span>
                 <span class="pl-head-sub">{{ __('Do the work') }}</span>
-                <button type="button" class="pl-head-add-existing" onclick="openBacklogModal()"
+                <button type="button" class="pl-head-add-existing" onclick="openTaskAddModal('new')"
+                        title="{{ __('Create a new task for today') }}" aria-label="{{ __('Create a new task for today') }}">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+                <button type="button" class="pl-head-add-existing" onclick="openTaskAddModal('existing')"
                         title="{{ __('Add existing task to this day') }}" aria-label="{{ __('Add existing task to this day') }}">
                     <i class="bi bi-inboxes"></i>
                 </button>
@@ -2231,13 +2290,22 @@
                 @php $groups = $pending->groupBy(fn ($t) => $t->time_period ?: 'anytime'); @endphp
                 @forelse($pending as $task)@empty
                     <div class="pl-empty"><i class="bi bi-cup-hot"></i>{{ __('Nothing scheduled for this day. Enjoy!') }}</div>
-                    <div class="pl-qadd">
-                        <button type="button" class="pl-qadd-btn" onclick="openBacklogModal()">
+                    <div class="pl-qadd" style="display:flex;flex-direction:column;gap:8px;">
+                        <button type="button" class="pl-qadd-btn" onclick="openTaskAddModal('existing')">
                             <span class="pl-qadd-glow" aria-hidden="true"></span>
                             <span class="pl-qadd-ico"><i class="bi bi-inboxes" aria-hidden="true"></i></span>
                             <span class="pl-qadd-txt">
                                 <b>{{ __('Pull an existing task into today') }}</b>
                                 <small>{{ __('Pick from your unscheduled tasks — nothing gets created') }}</small>
+                            </span>
+                            <span class="pl-qadd-arrow"><i class="bi bi-chevron-right" aria-hidden="true"></i></span>
+                        </button>
+                        <button type="button" class="pl-qadd-btn" onclick="openTaskAddModal('new')">
+                            <span class="pl-qadd-glow" aria-hidden="true"></span>
+                            <span class="pl-qadd-ico"><i class="bi bi-journal-plus" aria-hidden="true"></i></span>
+                            <span class="pl-qadd-txt">
+                                <b>{{ __('Create a new task for today') }}</b>
+                                <small>{{ __('Add a new task directly to this day') }}</small>
                             </span>
                             <span class="pl-qadd-arrow"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>
                         </button>
@@ -2658,7 +2726,7 @@
     </div>
 
     @if($view === 'day')
-        <button type="button" class="pl-fab" onclick="openQuickAdd('task')" aria-label="Quick add">
+        <button type="button" class="pl-fab" onclick="openTaskAddModal('new')" aria-label="Quick add">
             <i class="bi bi-plus-lg"></i>
         </button>
 
@@ -2674,73 +2742,10 @@
                     <button type="button" class="pl-qa-x" data-qa-close aria-label="{{ __('Close') }}">&times;</button>
                 </div>
                 <div class="pl-qa-tabs" role="tablist">
-                    <button type="button" class="pl-qa-tab active" data-qa-tab="task" data-qa-title="{{ __('Add task to this day') }}"><i class="bi bi-check2-square"></i> {{ __('Task') }}</button>
-                    <button type="button" class="pl-qa-tab" data-qa-tab="routine" data-qa-title="{{ __('Add routine to this day') }}"><i class="bi bi-arrow-repeat"></i> {{ __('Routine') }}</button>
+                    <button type="button" class="pl-qa-tab active" data-qa-tab="routine" data-qa-title="{{ __('Add routine to this day') }}"><i class="bi bi-arrow-repeat"></i> {{ __('Routine') }}</button>
                 </div>
 
-                <form class="pl-qa-form" data-qa-panel="task"
-                      data-url="{{ route('planner.quick-add.task') }}"
-                      onsubmit="return submitQuickTask(this)">
-                    <input type="hidden" name="date" value="{{ $date->toDateString() }}">
-                    <input type="text" name="title" class="pl-qa-input pl-qa-title-input" placeholder="{{ __('What needs to be done?') }}" autocomplete="off" maxlength="255">
-                    <div class="pl-qa-error" data-qa-error hidden></div>
-
-                    <span class="pl-qa-label">{{ __('Priority') }}</span>
-                    <div class="pl-qa-seg" data-qa-seg="priority" role="radiogroup" aria-label="{{ __('Priority') }}">
-                        <button type="button" data-val="low" class="pl-qa-seg-low"><span class="pl-qa-dot"></span>{{ __('Low') }}</button>
-                        <button type="button" data-val="medium" class="active pl-qa-seg-medium"><span class="pl-qa-dot"></span>{{ __('Medium') }}</button>
-                        <button type="button" data-val="high" class="pl-qa-seg-high"><span class="pl-qa-dot"></span>{{ __('High') }}</button>
-                    </div>
-                    <input type="hidden" name="priority" value="medium">
-
-                    <span class="pl-qa-label">{{ __('When') }}</span>
-                    <div class="pl-qa-chips pl-qa-chips-period" data-qa-period>
-                        <button type="button" data-val="" class="active"><i class="bi bi-inbox"></i>{{ __('Anytime') }}</button>
-                        @foreach(config('routines.periods', []) as $key => $period)
-                            <button type="button" data-val="{{ $key }}"><i class="bi {{ $period['icon'] }}" style="color:{{ $period['color'] }};"></i>{{ __($period['label']) }}</button>
-                        @endforeach
-                    </div>
-                    <input type="hidden" name="time_period" value="">
-
-                    <div class="pl-qa-row">
-                        <div class="pl-qa-field">
-                            <span class="pl-qa-label">{{ __('Project') }}</span>
-                            <select name="project_id" aria-label="{{ __('Project') }}">
-                                <option value="">{{ __('No Project') }}</option>
-                                @foreach(($quickProjects ?? []) as $proj)
-                                    <option value="{{ $proj->id }}">{{ $proj->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="pl-qa-field">
-                            <span class="pl-qa-label">{{ __('Exact time') }}</span>
-                            <input type="time" name="due_time" aria-label="{{ __('Exact time') }}">
-                        </div>
-                    </div>
-
-                    <span class="pl-qa-label">{{ __('Estimate') }}</span>
-                    <div class="pl-qa-chips" data-qa-minutes>
-                        <button type="button" data-min="15">15m</button>
-                        <button type="button" data-min="30">30m</button>
-                        <button type="button" data-min="45">45m</button>
-                        <button type="button" data-min="60">1h</button>
-                        <button type="button" data-min="90">1h 30m</button>
-                        <button type="button" data-min="120">2h</button>
-                    </div>
-                    <input type="hidden" name="estimated_minutes" value="">
-
-                    <div class="pl-qa-added" data-qa-added hidden>
-                        <div class="pl-qa-added-head"><i class="bi bi-check-circle-fill"></i><span data-qa-added-count></span></div>
-                        <ul data-qa-added-list></ul>
-                    </div>
-
-                    <div class="pl-qa-actions pl-qa-actions-split">
-                        <button type="button" class="pl-qa-secondary" data-qa-add-new="task"><i class="bi bi-plus-lg"></i> {{ __('Add & new') }}</button>
-                        <button type="submit" class="pl-qa-submit" data-qa-submit disabled><i class="bi bi-check-lg"></i> {{ __('Add task') }}</button>
-                    </div>
-                </form>
-
-                <form class="pl-qa-form" data-qa-panel="routine" hidden
+                <form class="pl-qa-form" data-qa-panel="routine"
                       data-url="{{ route('planner.quick-add.routine') }}"
                       onsubmit="return submitQuickRoutine(this)">
                     <input type="hidden" name="date" value="{{ $date->toDateString() }}">
@@ -2781,45 +2786,116 @@
         </div>
 
         {{-- Backlog picker modal: pull existing unscheduled tasks into this day --}}
-        <div class="pl-qa" id="plBacklogModal" hidden data-date="{{ $date->toDateString() }}">
+         <div class="pl-qa" id="plTaskAddModal" hidden data-date="{{ $date->toDateString() }}">
             <div class="pl-qa-backdrop" data-bl-close></div>
-            <div class="pl-qa-dialog pl-qa-dialog-pro" role="dialog" aria-modal="true" aria-labelledby="plBlTitle">
+            <div class="pl-qa-dialog pl-qa-dialog-pro" role="dialog" aria-modal="true" aria-labelledby="plTaTitle">
                 <div class="pl-qa-pro-head">
-                    <span class="pl-qa-pro-icon"><i class="bi bi-inboxes"></i></span>
+                    <span class="pl-qa-pro-icon"><i class="bi bi-plus-lg"></i></span>
                     <span class="pl-qa-pro-titles">
-                        <span class="pl-qa-title" id="plBlTitle">{{ __('Add existing tasks') }}</span>
+                        <span class="pl-qa-title" id="plTaTitle">{{ __('Add task to this day') }}</span>
                         <span class="pl-qa-sub">{{ app_human_date($date) }}</span>
                     </span>
                     <button type="button" class="pl-qa-x" data-bl-close aria-label="{{ __('Close') }}">&times;</button>
                 </div>
-                <div class="pl-qadd-search pl-bl-search">
-                    <i class="bi bi-search" aria-hidden="true"></i>
-                    <input type="search" id="plBacklogSearch" autocomplete="off"
-                           placeholder="{{ __('Search tasks… (unscheduled, overdue, no time)') }}"
-                           aria-label="{{ __('Search tasks') }}">
-                    <button type="button" class="pl-qadd-clear" id="plBacklogClear" hidden
-                            aria-label="{{ __('Close') }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                <div class="pl-qa-tabs" role="tablist">
+                    <button type="button" class="pl-qa-tab active" data-ta-tab="new" data-ta-title="{{ __('Add task to this day') }}"><i class="bi bi-plus-lg"></i> {{ __('New') }}</button>
+                    <button type="button" class="pl-qa-tab" data-ta-tab="existing" data-ta-title="{{ __('Add existing tasks') }}"><i class="bi bi-inboxes"></i> {{ __('Existing') }}</button>
                 </div>
-                <div style="padding:8px 14px 0;">
-                    <select id="plBacklogProject" class="form-select form-select-sm" aria-label="{{ __('Filter by project') }}">
-                        @include('planner._backlog-project-options')
-                    </select>
+
+                <div data-ta-panel="new">
+                    <form class="pl-qa-form" data-qa-panel="task"
+                          data-url="{{ route('planner.quick-add.task') }}"
+                          onsubmit="return submitQuickTask(this)">
+                        <input type="hidden" name="date" value="{{ $date->toDateString() }}">
+                        <input type="text" name="title" class="pl-qa-input pl-qa-title-input" placeholder="{{ __('What needs to be done?') }}" autocomplete="off" maxlength="255">
+                        <div class="pl-qa-error" data-qa-error hidden></div>
+
+                        <span class="pl-qa-label">{{ __('Priority') }}</span>
+                        <div class="pl-qa-seg" data-qa-seg="priority" role="radiogroup" aria-label="{{ __('Priority') }}">
+                            <button type="button" data-val="low" class="pl-qa-seg-low"><span class="pl-qa-dot"></span>{{ __('Low') }}</button>
+                            <button type="button" data-val="medium" class="active pl-qa-seg-medium"><span class="pl-qa-dot"></span>{{ __('Medium') }}</button>
+                            <button type="button" data-val="high" class="pl-qa-seg-high"><span class="pl-qa-dot"></span>{{ __('High') }}</button>
+                        </div>
+                        <input type="hidden" name="priority" value="medium">
+
+                        <span class="pl-qa-label">{{ __('When') }}</span>
+                        <div class="pl-qa-chips pl-qa-chips-period" data-qa-period>
+                            <button type="button" data-val="" class="active"><i class="bi bi-inbox"></i>{{ __('Anytime') }}</button>
+                            @foreach(config('routines.periods', []) as $key => $period)
+                                <button type="button" data-val="{{ $key }}"><i class="bi {{ $period['icon'] }}" style="color:{{ $period['color'] }};"></i>{{ __($period['label']) }}</button>
+                            @endforeach
+                        </div>
+                        <input type="hidden" name="time_period" value="">
+
+                        <div class="pl-qa-row">
+                            <div class="pl-qa-field">
+                                <span class="pl-qa-label">{{ __('Project') }}</span>
+                                <select name="project_id" aria-label="{{ __('Project') }}">
+                                    <option value="">{{ __('No Project') }}</option>
+                                    @foreach(($quickProjects ?? []) as $proj)
+                                        <option value="{{ $proj->id }}">{{ $proj->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="pl-qa-field">
+                                <span class="pl-qa-label">{{ __('Exact time') }}</span>
+                                <input type="time" name="due_time" aria-label="{{ __('Exact time') }}">
+                            </div>
+                        </div>
+
+                        <span class="pl-qa-label">{{ __('Estimate') }}</span>
+                        <div class="pl-qa-chips" data-qa-minutes>
+                            <button type="button" data-min="15">15m</button>
+                            <button type="button" data-min="30">30m</button>
+                            <button type="button" data-min="45">45m</button>
+                            <button type="button" data-min="60">1h</button>
+                            <button type="button" data-min="90">1h 30m</button>
+                            <button type="button" data-min="120">2h</button>
+                        </div>
+                        <input type="hidden" name="estimated_minutes" value="">
+
+                        <div class="pl-qa-added" data-qa-added hidden>
+                            <div class="pl-qa-added-head"><i class="bi bi-check-circle-fill"></i><span data-qa-added-count></span></div>
+                            <ul data-qa-added-list></ul>
+                        </div>
+
+                        <div class="pl-qa-actions pl-qa-actions-split">
+                            <button type="button" class="pl-qa-secondary" data-qa-add-new="task"><i class="bi bi-plus-lg"></i> {{ __('Add & new') }}</button>
+                            <button type="submit" class="pl-qa-submit" data-qa-submit disabled><i class="bi bi-check-lg"></i> {{ __('Add task') }}</button>
+                        </div>
+                    </form>
                 </div>
-                <div class="pl-qadd-filters" data-bl-filters role="group" aria-label="{{ __('Priority') }}">
-                    <button type="button" data-prio="" class="active">{{ __('All') }}</button>
-                    <button type="button" data-prio="high"><span class="pl-qa-dot" style="background:#dc2626;"></span>{{ __('High') }}</button>
-                    <button type="button" data-prio="medium"><span class="pl-qa-dot" style="background:#d97706;"></span>{{ __('Medium') }}</button>
-                    <button type="button" data-prio="low"><span class="pl-qa-dot" style="background:#16a34a;"></span>{{ __('Low') }}</button>
-                </div>
-                <div class="pl-qadd-list pl-bl-list" id="plBacklogList" role="listbox"
-                     aria-label="{{ __('Unscheduled tasks') }}" aria-multiselectable="true"></div>
-                <div class="pl-bl-foot">
-                    <button type="button" class="pl-qa-secondary" data-bl-select-all>
-                        <i class="bi bi-check2-square"></i> <span data-bl-select-all-label>{{ __('Select all') }}</span>
-                    </button>
-                    <button type="button" class="pl-qa-submit-bl" data-bl-add disabled>
-                        <i class="bi bi-arrow-down-circle"></i> <span data-bl-add-label></span>
-                    </button>
+
+                <div data-ta-panel="existing" hidden>
+                    <div class="pl-qadd-search pl-bl-search">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <input type="search" id="plBacklogSearch" autocomplete="off"
+                               placeholder="{{ __('Search tasks… (unscheduled, overdue, no time)') }}"
+                               aria-label="{{ __('Search tasks') }}">
+                        <button type="button" class="pl-qadd-clear" id="plBacklogClear" hidden
+                                aria-label="{{ __('Close') }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="pl-backlog-project-wrap">
+                        <select id="plBacklogProject" class="form-select form-select-sm" aria-label="{{ __('Filter by project') }}">
+                            @include('planner._backlog-project-options')
+                        </select>
+                    </div>
+                    <div class="pl-qadd-filters" data-bl-filters role="group" aria-label="{{ __('Priority') }}">
+                        <button type="button" data-prio="" class="active">{{ __('All') }}</button>
+                        <button type="button" data-prio="high"><span class="pl-qa-dot" style="background:#dc2626;"></span>{{ __('High') }}</button>
+                        <button type="button" data-prio="medium"><span class="pl-qa-dot" style="background:#d97706;"></span>{{ __('Medium') }}</button>
+                        <button type="button" data-prio="low"><span class="pl-qa-dot" style="background:#16a34a;"></span>{{ __('Low') }}</button>
+                    </div>
+                    <div class="pl-qadd-list pl-bl-list" id="plBacklogList" role="listbox"
+                         aria-label="{{ __('Unscheduled tasks') }}" aria-multiselectable="true"></div>
+                    <div class="pl-bl-foot">
+                        <button type="button" class="pl-qa-secondary" data-bl-select-all>
+                            <i class="bi bi-check2-square"></i> <span data-bl-select-all-label>{{ __('Select all') }}</span>
+                        </button>
+                        <button type="button" class="pl-qa-submit-bl" data-bl-add disabled>
+                            <i class="bi bi-arrow-down-circle"></i> <span data-bl-add-label></span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -4649,6 +4725,59 @@
         });
     }
 
+    const plTa = document.getElementById('plTaskAddModal');
+    if (plTa) {
+        plTa.addEventListener('input', e => {
+            const panel = e.target.closest('[data-qa-panel]');
+            if (panel && e.target.name === 'title') { qaSyncSubmit(panel); qaHideError(panel); }
+        });
+        plTa.querySelectorAll('[data-qa-seg]').forEach(seg => {
+            seg.addEventListener('click', e => {
+                const b = e.target.closest('button');
+                if (!b) return;
+                const form = seg.closest('[data-qa-panel]');
+                const input = form.querySelector('[name="priority"]');
+                if (input) input.value = b.dataset.val;
+                seg.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+            });
+        });
+        plTa.querySelectorAll('[data-qa-period]').forEach(wrap => {
+            wrap.addEventListener('click', e => {
+                const b = e.target.closest('button');
+                if (!b) return;
+                const form = wrap.closest('[data-qa-panel]');
+                const input = form.querySelector('[name="time_period"]');
+                const wasActive = b.classList.contains('active');
+                wrap.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+                if (wasActive && (b.dataset.val || '') !== '') {
+                    if (input) input.value = '';
+                    const anytime = wrap.querySelector('button[data-val=""]');
+                    if (anytime) anytime.classList.add('active');
+                } else {
+                    if (input) input.value = b.dataset.val || '';
+                    b.classList.add('active');
+                }
+            });
+        });
+        plTa.querySelectorAll('[data-qa-minutes] button').forEach(b => {
+            b.addEventListener('click', () => {
+                const form = b.closest('[data-qa-panel]');
+                const input = form.querySelector('[name="estimated_minutes"]');
+                const wasActive = b.classList.contains('active');
+                plTa.querySelectorAll('[data-qa-minutes] button').forEach(x => x.classList.remove('active'));
+                input.value = wasActive ? '' : b.dataset.min;
+                if (!wasActive) b.classList.add('active');
+            });
+        });
+        plTa.querySelectorAll('[data-qa-add-new]').forEach(b => {
+            b.addEventListener('click', () => {
+                const form = b.closest('[data-qa-panel]');
+                if (!form) return;
+                submitQuickTask(form, true);
+            });
+        });
+    }
+
     function plInsertRow(containerId, html) {
         const body = document.getElementById(containerId);
         if (!body) return;
@@ -4683,6 +4812,10 @@
                 throw new Error(message);
             }
             const json = await res.json();
+            const pendingBody = document.getElementById('plPendingBody');
+            if (pendingBody) {
+                pendingBody.querySelectorAll('.pl-empty, .pl-qadd').forEach(el => el.remove());
+            }
             const gb = window.plEnsureGroup ? window.plEnsureGroup(json.group || 'anytime') : null;
             let addedEl = null;
             if (gb) {
@@ -4727,7 +4860,7 @@
 
     /* ── Backlog picker modal: pull existing unscheduled tasks into this day.
        Same endpoints the week view uses (backlog + schedule), multi-select. ── */
-    const plBacklogModal = document.getElementById('plBacklogModal');
+     const plBacklogModal = document.getElementById('plTaskAddModal');
     const BL_I18N = {
         selectAll: @json(__('Select all')),
         deselectAll: @json(__('Deselect all')),
@@ -4740,22 +4873,58 @@
         loading: @json(__('Loading…')),
     };
 
-    function openBacklogModal() {
-        if (!plBacklogModal) return;
-        blSelected.clear();
-        const search = document.getElementById('plBacklogSearch');
-        if (search) search.value = '';
-        blSetPrio('');
-        plBacklogModal.hidden = false;
+    function openTaskAddModal(tab) {
+        const modal = document.getElementById('plTaskAddModal');
+        if (!modal) return;
+        tab = tab || 'new';
+        if (tab === 'existing') {
+            blSelected.clear();
+            const search = document.getElementById('plBacklogSearch');
+            if (search) search.value = '';
+            blSetPrio('');
+        }
+        modal.hidden = false;
         document.body.classList.add('pl-modal-open');
-        blLoad('');
-        setTimeout(() => { if (search) search.focus(); }, 40);
+        switchTaskAddTab(tab);
+        if (tab === 'existing') {
+            blLoad('');
+            setTimeout(() => { const s = document.getElementById('plBacklogSearch'); if (s) s.focus(); }, 40);
+        } else {
+            const panel = modal.querySelector('[data-qa-panel="task"]');
+            if (panel) {
+                qaHideError(panel);
+                qaSyncSubmit(panel);
+                setTimeout(() => { const inp = panel.querySelector('[name="title"]'); if (inp) inp.focus(); }, 40);
+            }
+        }
     }
 
-    function closeBacklogModal() {
-        if (!plBacklogModal) return;
-        plBacklogModal.hidden = true;
+    function closeTaskAddModal() {
+        const modal = document.getElementById('plTaskAddModal');
+        if (!modal) return;
+        modal.hidden = true;
         document.body.classList.remove('pl-modal-open');
+        modal.querySelectorAll('[data-qa-added]').forEach(box => {
+            box.hidden = true;
+            const list = box.querySelector('[data-qa-added-list]');
+            if (list) list.replaceChildren();
+        });
+        modal.querySelectorAll('[data-qa-error]').forEach(e => { e.hidden = true; });
+    }
+    function closeBacklogModal() { closeTaskAddModal(); }
+
+    function switchTaskAddTab(tab) {
+        const modal = document.getElementById('plTaskAddModal');
+        if (!modal) return;
+        modal.querySelectorAll('[data-ta-tab]').forEach(b => {
+            const on = b.dataset.taTab === tab;
+            b.classList.toggle('active', on);
+            if (on && b.dataset.taTitle) {
+                const title = document.getElementById('plTaTitle');
+                if (title) title.textContent = b.dataset.taTitle;
+            }
+        });
+        modal.querySelectorAll('[data-ta-panel]').forEach(p => { p.hidden = p.dataset.taPanel !== tab; });
     }
 
     const blSelected = new Set();
@@ -4905,17 +5074,21 @@
                 });
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const json = await res.json();
-                const gb = window.plEnsureGroup ? window.plEnsureGroup(json.group || 'anytime') : null;
-                let addedEl = null;
-                if (gb) {
-                    const wrap = document.createElement('div');
-                    wrap.innerHTML = json.html.trim();
-                    addedEl = wrap.firstElementChild;
-                    gb.appendChild(addedEl);
-                } else {
-                    plInsertRow('plPendingBody', json.html);
-                }
-                if (addedEl) {
+            const pendingBody = document.getElementById('plPendingBody');
+            if (pendingBody) {
+                pendingBody.querySelectorAll('.pl-empty, .pl-qadd').forEach(el => el.remove());
+            }
+            const gb = window.plEnsureGroup ? window.plEnsureGroup(json.group || 'anytime') : null;
+            let addedEl = null;
+            if (gb) {
+                const wrap = document.createElement('div');
+                wrap.innerHTML = json.html.trim();
+                addedEl = wrap.firstElementChild;
+                gb.appendChild(addedEl);
+            } else {
+                plInsertRow('plPendingBody', json.html);
+            }
+            if (addedEl) {
                     addedEl.classList.add('pl-flash');
                     setTimeout(() => addedEl.classList.remove('pl-flash'), 1700);
                 }
@@ -4941,6 +5114,7 @@
         const search = document.getElementById('plBacklogSearch');
         const clear = document.getElementById('plBacklogClear');
         plBacklogModal.querySelectorAll('[data-bl-close]').forEach(b => b.addEventListener('click', closeBacklogModal));
+        plBacklogModal.querySelectorAll('[data-ta-tab]').forEach(b => b.addEventListener('click', () => switchTaskAddTab(b.dataset.taTab)));
         if (clear) clear.addEventListener('click', () => { search.value = ''; search.focus(); blLoad(''); });
         if (search) search.addEventListener('input', () => {
             clearTimeout(searchT);
