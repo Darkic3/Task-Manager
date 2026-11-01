@@ -136,8 +136,8 @@
         .pl-qadd-txt small{display:none;}
     }
 
-    /* ── Desktop duo: side-by-side pairs, day view only (≥992px). Below that, normal stack. ── */
-    @media (min-width: 992px) {
+    /* ── Desktop duo: side-by-side pairs, day view only (≥1200px). Below that, normal stack. ── */
+    @media (min-width: 1200px) {
         .pl-duo{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-bottom:16px;}
         .pl-duo-single{grid-template-columns:1fr;}
         .pl-duo > *{margin-bottom:0 !important;min-width:0;}
