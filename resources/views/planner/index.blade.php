@@ -2996,29 +2996,9 @@ body:has(.pl-task-menu.is-open)::before {
             </div>
             <div class="pl-section-body" id="plPendingBody">
                 @php $groups = $pending->groupBy(fn ($t) => $t->time_period ?: 'anytime'); @endphp
-                @forelse($pending as $task)@empty
-                    <div class="pl-empty"><i class="bi bi-cup-hot"></i>{{ __('Nothing scheduled for this day. Enjoy!') }}</div>
-                    <div class="pl-qadd" style="display:flex;flex-direction:column;gap:8px;">
-                        <button type="button" class="pl-qadd-btn" onclick="openTaskAddModal('existing')">
-                            <span class="pl-qadd-glow" aria-hidden="true"></span>
-                            <span class="pl-qadd-ico"><i class="bi bi-inboxes" aria-hidden="true"></i></span>
-                            <span class="pl-qadd-txt">
-                                <b>{{ __('Pull an existing task into today') }}</b>
-                                <small>{{ __('Pick from your unscheduled tasks — nothing gets created') }}</small>
-                            </span>
-                            <span class="pl-qadd-arrow"><i class="bi bi-chevron-right" aria-hidden="true"></i></span>
-                        </button>
-                        <button type="button" class="pl-qadd-btn" onclick="openTaskAddModal('new')">
-                            <span class="pl-qadd-glow" aria-hidden="true"></span>
-                            <span class="pl-qadd-ico"><i class="bi bi-journal-plus" aria-hidden="true"></i></span>
-                            <span class="pl-qadd-txt">
-                                <b>{{ __('Create a new task for today') }}</b>
-                                <small>{{ __('Add a new task directly to this day') }}</small>
-                            </span>
-                            <span class="pl-qadd-arrow"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>
-                        </button>
-                    </div>
-                @endforelse
+                @if($pending->isEmpty())
+                    @include('planner._empty-day')
+                @endif
                 @foreach(config('routines.periods', []) as $key => $period)
                     @if($groups->has($key))
                         @include('planner._period-group', ['periodKey' => $key, 'period' => $period, 'rows' => $groups->get($key)])
@@ -3033,6 +3013,11 @@ body:has(.pl-task-menu.is-open)::before {
                 @endif
             </div>
         </div>
+
+        {{-- Inert source of the empty-day block for client-side re-inserts
+             (Vue island + plSyncEmptyState). Outside #plPendingBody so mounting
+             never wipes it; <template> never renders on its own. --}}
+        <template id="plEmptyTpl">@include('planner._empty-day')</template>
 
         {{-- Routines second: repeating habits, visually calmer than tasks --}}
         <div class="pl-section pl-section-habit">
@@ -3738,6 +3723,11 @@ body:has(.pl-task-menu.is-open)::before {
                 row.classList.toggle('is-done', !!json.completed);
                 row.dataset.completed = json.completed ? '1' : '0';
             });
+            if (window.PlannerDay && window.PlannerDay.mounted) {
+                window.PlannerDay.setCompleted(id, !!json.completed);
+            } else if (window.plSyncEmptyState) {
+                window.plSyncEmptyState();
+            }
             refreshCounters();
             if (window.pwWeekRefresh) { try { window.pwWeekRefresh(id); } catch (e) {} }
             if (!silent) {
@@ -3787,6 +3777,11 @@ body:has(.pl-task-menu.is-open)::before {
                 const cb = r.querySelector('.pl-check input');
                 if (cb) cb.checked = true;
             });
+            if (window.PlannerDay && window.PlannerDay.mounted) {
+                window.PlannerDay.setCompleted(id, true);
+            } else if (window.plSyncEmptyState) {
+                window.plSyncEmptyState();
+            }
             refreshCounters();
             if (window.pwWeekRefresh) { try { window.pwWeekRefresh(id); } catch (e) {} }
             if (window.TM) { try { await window.TM.sync(); } catch (e) {} }
@@ -3813,6 +3808,31 @@ body:has(.pl-task-menu.is-open)::before {
         if (window.plRefreshDayProgress) window.plRefreshDayProgress();
     }
     window.refreshCounters = refreshCounters;
+
+    /* Single source of truth for the "empty day" block (.pl-empty + .pl-qadd
+       CTAs): visible ⟺ zero OPEN tasks in #plPendingBody. Completed rows stay
+       put — the block simply invites adding more. Bypassed when the Vue
+       island owns the list — it renders the empty state from its own state. */
+    window.plSyncEmptyState = function () {
+        if (window.PlannerDay && window.PlannerDay.mounted) return;
+        const body = document.getElementById('plPendingBody');
+        if (!body) return;
+        const hasOpen = body.querySelectorAll('[data-task-item]:not(.is-done)').length > 0;
+        if (hasOpen) {
+            body.querySelectorAll('.pl-empty, .pl-qadd').forEach(el => el.remove());
+            return;
+        }
+        if (body.querySelector('.pl-empty')) return;
+        const tpl = document.getElementById('plEmptyTpl');
+        if (tpl && tpl.innerHTML.trim()) {
+            body.insertAdjacentHTML('afterbegin', tpl.innerHTML);
+        } else {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'pl-empty';
+            emptyEl.textContent = @json(__('Nothing scheduled for this day. Enjoy!'));
+            body.appendChild(emptyEl);
+        }
+    };
 
     async function toggleRoutine(cb) {
         const url = cb.dataset.url;
@@ -5255,7 +5275,9 @@ body:has(.pl-task-menu.is-open)::before {
             await plFetch(url, { method: 'DELETE', headers: { 'Accept': 'application/json' } });
         } catch (e) { /* best effort */ }
         document.querySelectorAll('[data-' + type + '-item][data-id="' + id + '"]').forEach(row => row.remove());
+        if (type === 'task' && window.PlannerDay && window.PlannerDay.mounted) window.PlannerDay.removeTask(id);
         if (type === 'task') refreshCounters(); else refreshRoutineCounters();
+        if (type === 'task' && window.plSyncEmptyState) window.plSyncEmptyState();
     }
 
     /* Take an existing task back out of this day (keeps the task itself). */
@@ -5273,7 +5295,9 @@ body:has(.pl-task-menu.is-open)::before {
             return;
         }
         document.querySelectorAll('[data-task-item][data-id="' + id + '"]').forEach(row => row.remove());
+        if (window.PlannerDay && window.PlannerDay.mounted) window.PlannerDay.removeTask(id);
         refreshCounters();
+        if (window.plSyncEmptyState) window.plSyncEmptyState();
     }
 
     /* ── Quick add ── */
@@ -5533,22 +5557,26 @@ body:has(.pl-task-menu.is-open)::before {
                 throw new Error(message);
             }
             const json = await res.json();
-            const pendingBody = document.getElementById('plPendingBody');
-            if (pendingBody) {
-                pendingBody.querySelectorAll('.pl-empty, .pl-qadd').forEach(el => el.remove());
-            }
-            const gb = window.plEnsureGroup ? window.plEnsureGroup(json.group || 'anytime') : null;
+            /* Vue island owns the list when mounted: push state, it renders +
+               refreshes chrome itself. Vanilla DOM insert is the fallback. */
+            const viaVue = !!(window.PlannerDay && window.PlannerDay.mounted);
             let addedEl = null;
-            if (gb) {
-                const wrap = document.createElement('div');
-                wrap.innerHTML = json.html.trim();
-                addedEl = wrap.firstElementChild;
-                gb.appendChild(addedEl);
+            if (viaVue) {
+                window.PlannerDay.addTask({ id: json.task.id, group: json.group || 'anytime', html: json.html });
             } else {
-                plInsertRow('plPendingBody', json.html);
+                const gb = window.plEnsureGroup ? window.plEnsureGroup(json.group || 'anytime') : null;
+                if (gb) {
+                    const wrap = document.createElement('div');
+                    wrap.innerHTML = json.html.trim();
+                    addedEl = wrap.firstElementChild;
+                    gb.appendChild(addedEl);
+                } else {
+                    plInsertRow('plPendingBody', json.html);
+                }
+                refreshCounters();
+                if (window.plRefreshDayProgress) window.plRefreshDayProgress();
+                if (window.plSyncEmptyState) window.plSyncEmptyState();
             }
-            refreshCounters();
-            if (window.plRefreshDayProgress) window.plRefreshDayProgress();
             if (keepOpen) {
                 /* Stack mode: clear only the title + estimate, keep prefs, track + spotlight. */
                 titleInput.value = '';
@@ -5563,7 +5591,12 @@ body:has(.pl-task-menu.is-open)::before {
                     setTimeout(() => addedEl.classList.remove('pl-flash'), 1700);
                 }
             } else {
-                closeQuickAdd();
+                /* Close whichever modal hosts this form — the day modal and
+                   the small quick-add modal are different elements. Leaving
+                   the modal open hides the freshly inserted row behind it,
+                   which looks exactly like "needs a refresh". */
+                if (form.closest('#plTaskAddModal')) closeTaskAddModal();
+                else closeQuickAdd();
                 form.reset();
                 qaSyncControls(form);
                 plShowToast(@json(__('Task added')), () => plUndoDelete('task', json.task.id));
@@ -5785,6 +5818,7 @@ body:has(.pl-task-menu.is-open)::before {
         blBusy = true;
         blSyncFoot();
         const SCHEDULE_URL = id => `{{ route('planner.tasks.schedule', ['task' => '__ID__']) }}`.replace('__ID__', id);
+        const viaVueAll = !!(window.PlannerDay && window.PlannerDay.mounted);
         let ok = 0;
         for (const id of ids) {
             try {
@@ -5795,24 +5829,24 @@ body:has(.pl-task-menu.is-open)::before {
                 });
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const json = await res.json();
-            const pendingBody = document.getElementById('plPendingBody');
-            if (pendingBody) {
-                pendingBody.querySelectorAll('.pl-empty, .pl-qadd').forEach(el => el.remove());
-            }
-            const gb = window.plEnsureGroup ? window.plEnsureGroup(json.group || 'anytime') : null;
-            let addedEl = null;
-            if (gb) {
-                const wrap = document.createElement('div');
-                wrap.innerHTML = json.html.trim();
-                addedEl = wrap.firstElementChild;
-                gb.appendChild(addedEl);
+            if (viaVueAll) {
+                window.PlannerDay.addTask({ id: (json.task && json.task.id) || json.id || id, group: json.group || 'anytime', html: json.html });
             } else {
-                plInsertRow('plPendingBody', json.html);
-            }
-            if (addedEl) {
+                const gb = window.plEnsureGroup ? window.plEnsureGroup(json.group || 'anytime') : null;
+                let addedEl = null;
+                if (gb) {
+                    const wrap = document.createElement('div');
+                    wrap.innerHTML = json.html.trim();
+                    addedEl = wrap.firstElementChild;
+                    gb.appendChild(addedEl);
+                } else {
+                    plInsertRow('plPendingBody', json.html);
+                }
+                if (addedEl) {
                     addedEl.classList.add('pl-flash');
                     setTimeout(() => addedEl.classList.remove('pl-flash'), 1700);
                 }
+            }
                 blTasks = blTasks.filter(t => t.id !== id);
                 blSelected.delete(id);
                 ok++;
@@ -5823,10 +5857,20 @@ body:has(.pl-task-menu.is-open)::before {
         }
         blBusy = false;
         blRender();
-        refreshCounters();
-        if (window.plRefreshDayProgress) window.plRefreshDayProgress();
+        if (!viaVueAll) {
+            refreshCounters();
+            if (window.plRefreshDayProgress) window.plRefreshDayProgress();
+            if (window.plSyncEmptyState) window.plSyncEmptyState();
+        }
         if (window.refreshNextUp) window.refreshNextUp();
-        plShowToast(ok ? BL_I18N.moved.replace(':count', plNum(ok)) : BL_I18N.scheduleFail);
+        if (ok > 0) {
+            /* Close the picker so the user actually sees the rows land in
+               the day list — otherwise it looks like nothing happened. */
+            closeBacklogModal();
+            plShowToast(BL_I18N.moved.replace(':count', plNum(ok)));
+        } else {
+            plShowToast(BL_I18N.scheduleFail);
+        }
     }
 
     (function blWire() {
@@ -6231,6 +6275,11 @@ body:has(.pl-task-menu.is-open)::before {
                         row.classList.toggle('is-done', !!json.completed);
                         row.dataset.completed = json.completed ? '1' : '0';
                     });
+                    if (window.PlannerDay && window.PlannerDay.mounted) {
+                        window.PlannerDay.setCompleted(id, !!json.completed);
+                    } else if (window.plSyncEmptyState) {
+                        window.plSyncEmptyState();
+                    }
                     refreshCounters();
                 }
             } else if (stepId && stepUrl) {
@@ -6311,6 +6360,24 @@ body:has(.pl-task-menu.is-open)::before {
     }
     window.refreshNextUp = refreshNextUp;
 </script>
+@endpush
+
+{{-- Vue island for the day task list (barsaz pattern): vendored build, no npm
+     step. Boots from the same rows Blade just printed, so first paint is
+     identical; quick-add + inbox-add then update the list with zero reload.
+     If Vue is unavailable the Blade rows + vanilla handlers keep working. --}}
+@push('scripts')
+@if(($view ?? null) === 'day' && isset($pendingApp))
+<script>
+    window.__PL_DAY_INITIAL__ = {
+        items: @json($pendingApp),
+        periods: @json($periodMeta ?? []),
+        order: @json($periodOrder ?? ['anytime']),
+    };
+</script>
+<script src="{{ asset('assets/vendor/vue/vue.global.prod.js') }}"></script>
+<script src="{{ asset('assets/js/planner-day-app.js') }}"></script>
+@endif
 @endpush
 
 @push('scripts')
@@ -6436,6 +6503,7 @@ body:has(.pl-task-menu.is-open)::before {
             updateRowPeriodChip(dragRow, targetKey);
             dragRow.dataset.period = targetKey;
             clearMarks();
+            if (window.PlannerDay && window.PlannerDay.mounted) window.PlannerDay.syncOrderFromDom();
             const items = groupItems(groupBody);
             if (targetKey !== dragSrcKey) {
                 const srcBody = body.querySelector(`[data-period-body="${dragSrcKey}"]`);
@@ -6471,29 +6539,34 @@ body:has(.pl-task-menu.is-open)::before {
             if (!res.ok) { throw new Error('HTTP ' + res.status); }
             const json = await res.json();
 
-            // Smoothly remove task rows
-            rows.forEach(r => {
-                const parentGroupBody = r.closest('[data-period-body]');
-                r.remove();
-                if (parentGroupBody && parentGroupBody.querySelectorAll('.pl-task').length === 0) {
-                    const pGroup = parentGroupBody.closest('.pl-period-group');
-                    if (pGroup) pGroup.remove();
-                }
-            });
+            // Smoothly remove task rows (Vue island prunes groups itself).
+            const viaVuePost = !!(window.PlannerDay && window.PlannerDay.mounted);
+            if (viaVuePost) {
+                window.PlannerDay.removeTask(id);
+            } else {
+                rows.forEach(r => {
+                    const parentGroupBody = r.closest('[data-period-body]');
+                    r.remove();
+                    if (parentGroupBody && parentGroupBody.querySelectorAll('.pl-task').length === 0) {
+                        const pGroup = parentGroupBody.closest('.pl-period-group');
+                        if (pGroup) pGroup.remove();
+                    }
+                });
 
-            // If all tasks in pending body are gone, display empty message
-            if (body && body.querySelectorAll('.pl-task').length === 0 && !body.querySelector('.pl-empty')) {
-                const emptyEl = document.createElement('div');
-                emptyEl.className = 'pl-empty';
-                emptyEl.textContent = '{{ __("Nothing scheduled for this day. Enjoy!") }}';
-                body.appendChild(emptyEl);
+                // Keep the empty-day block truthful (visible ⟺ zero rows).
+                if (window.plSyncEmptyState) window.plSyncEmptyState();
             }
 
             if (action === 'today' && json.row_html) {
-                const wrap = document.createElement('div');
-                wrap.innerHTML = json.row_html.trim();
-                const gb = window.plEnsureGroup(json.group || 'anytime');
-                gb?.appendChild(wrap.firstElementChild);
+                if (viaVuePost) {
+                    window.PlannerDay.addTask({ id: id, group: json.group || 'anytime', html: json.row_html });
+                } else {
+                    const wrap = document.createElement('div');
+                    wrap.innerHTML = json.row_html.trim();
+                    const gb = window.plEnsureGroup(json.group || 'anytime');
+                    gb?.appendChild(wrap.firstElementChild);
+                    if (window.plSyncEmptyState) window.plSyncEmptyState();
+                }
             }
 
             const overdueCount = document.getElementById('plOverdueCount');

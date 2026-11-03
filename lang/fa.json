@@ -1927,6 +1927,8 @@
     "Day log sentences cannot carry time info.": "ثبت جمله نمی‌تواند اطلاعات زمانی داشته باشد.",
     "Day log entries cannot be merged.": "این ثبت‌ها قابل ادغام نیستند.",
     "Pull an existing task into today": "افزودن تسک به روز",
+    "Create a new task for today": "ساخت تسک جدید برای امروز",
+    "Add a new task directly to this day": "افزودن مستقیم تسک جدید به امروز",
     "Pick from your unscheduled tasks — nothing gets created": "از بین تسک‌های بدون تاریخ انتخاب کن — چیزی ساخته نمی‌شود",
     "Search your unscheduled tasks…": "جستجو در تسک‌های بدون تاریخ…",
     "Search your unscheduled tasks": "جستجو در تسک‌های بدون تاریخ",

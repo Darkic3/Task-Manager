@@ -97,12 +97,33 @@ class PlannerController extends Controller
             }
         }
 
+        // Vue island bootstrap: the day task list renders reactively from this
+        // state (same rows the Blade view prints, so first paint is identical).
+        $periodMeta = collect(config('routines.periods', []))
+            ->mapWithKeys(fn ($p, $k) => [$k => [
+                'label' => __($p['label'] ?? $k),
+                'icon' => $p['icon'] ?? 'bi-clock',
+                'color' => $p['color'] ?? '#64748b',
+            ]])->all();
+        $periodMeta['anytime'] = ['label' => __('Anytime'), 'icon' => 'bi-inbox', 'color' => '#64748b'];
+        $periodOrder = array_values(array_merge(array_keys(config('routines.periods', [])), ['anytime']));
+        $pendingApp = $pending->map(fn ($t) => [
+            'id' => (int) $t->id,
+            'group' => $t->time_period ?: 'anytime',
+            'html' => view('planner._task-row', [
+                'task' => $t, 'count' => true, 'postpone' => 'tomorrow', 'hideDue' => true, 'draggable' => true,
+            ])->render(),
+        ])->values();
+
         return view('planner.index', [
             'view' => 'day',
             'date' => $selected,
             'isToday' => $selected->isSameDay(now()),
             'pending' => $pending,
             'done' => $done,
+            'pendingApp' => $pendingApp,
+            'periodMeta' => $periodMeta,
+            'periodOrder' => $periodOrder,
             'overdue' => $overdue,
             'routines' => $routinesData['today'],
             'bucketWeek' => $routinesData['week'],
