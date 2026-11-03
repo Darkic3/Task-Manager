@@ -7,6 +7,10 @@
  * checklist) see the same data-attributes, and the drag&drop listeners bound
  * on the #plPendingBody container itself survive (Vue keeps the mount element).
  *
+ * REACTIVITY RULE: all state mutations MUST go through the mounted component
+ * instance (`vm.items`), never the raw seed array — raw mutations bypass
+ * Vue 3's reactive proxy and silently skip rendering.
+ *
  * If Vue fails to load or mount for any reason, the Blade-rendered rows stay
  * in place and the legacy vanilla insert/remove paths keep working untouched.
  */
@@ -34,11 +38,17 @@
         });
     }
 
-    var store = { items: initial.items.slice() };
-    store.items.forEach(function (t) {
+    var seedItems = initial.items.slice();
+    seedItems.forEach(function (t) {
         if (t.done === undefined) t.done = false;
+        if (!t.group) t.group = 'anytime';
     });
     var verifyTimer = null;
+    var vm = null;
+
+    function liveItems() {
+        return vm ? vm.items : seedItems;
+    }
 
     function refreshChrome() {
         try {
@@ -50,9 +60,10 @@
     }
 
     function findIndex(id) {
+        var items = liveItems();
         var key = String(id);
-        for (var i = 0; i < store.items.length; i++) {
-            if (String(store.items[i].id) === key) return i;
+        for (var i = 0; i < items.length; i++) {
+            if (String(items[i].id) === key) return i;
         }
         return -1;
     }
@@ -67,7 +78,7 @@
     var app = window.Vue.createApp({
         data: function () {
             return {
-                items: store.items,
+                items: seedItems,
                 periods: initial.periods || {},
                 order: initial.order || ['anytime'],
                 emptyHtml: emptyHtml,
@@ -103,17 +114,24 @@
     });
 
     /* Bridge used by the legacy vanilla flows (quick-add, backlog add,
-       postpone, unschedule, undo-delete, drag&drop). Every mutation refreshes
-       counters / day-progress / next-up after Vue flushes the DOM. */
+       postpone, unschedule, undo-delete, drag&drop). Every mutation goes
+       through the mounted instance so the template actually re-renders,
+       then refreshes counters / day-progress / next-up after Vue flushes. */
     window.PlannerDay = {
         mounted: false,
+        hasOpen: function () {
+            return liveItems().some(function (t) { return !t.done; });
+        },
         addTask: function (payload) {
-            if (!payload || payload.id === undefined || !payload.html) return false;
-            var group = payload.group || 'anytime';
-            var html = String(payload.html);
+            if (!vm || !payload || payload.id === undefined || !payload.html) return false;
             var ix = findIndex(payload.id);
-            if (ix >= 0) store.items.splice(ix, 1);
-            store.items.push({ id: payload.id, group: group, html: html });
+            if (ix >= 0) vm.items.splice(ix, 1);
+            vm.items.push({
+                id: payload.id,
+                group: payload.group || 'anytime',
+                html: String(payload.html),
+                done: false,
+            });
             window.Vue.nextTick(function () {
                 /* Verify the row really landed in the DOM. If Vue's render
                    didn't take for any reason, force a plain DOM insert so
@@ -121,14 +139,14 @@
                 var node = mountEl.querySelector('[data-task-item][data-id="' + payload.id + '"]');
                 if (!node) {
                     try {
-                        var gb = (window.plEnsureGroup && window.plEnsureGroup(group)) || null;
+                        var gb = (window.plEnsureGroup && window.plEnsureGroup(payload.group || 'anytime')) || null;
                         if (gb) {
                             var wrap = document.createElement('div');
-                            wrap.innerHTML = html.trim();
+                            wrap.innerHTML = String(payload.html).trim();
                             node = wrap.firstElementChild;
                             if (node) gb.appendChild(node);
                         } else {
-                            mountEl.insertAdjacentHTML('afterbegin', html.trim());
+                            mountEl.insertAdjacentHTML('afterbegin', String(payload.html).trim());
                             node = mountEl.querySelector('[data-task-item][data-id="' + payload.id + '"]');
                         }
                     } catch (_) {
@@ -150,7 +168,7 @@
                 verifyTimer = null;
                 window.Vue.nextTick(function () {
                     var known = {};
-                    store.items.forEach(function (t) { known[String(t.id)] = true; });
+                    liveItems().forEach(function (t) { known[String(t.id)] = true; });
                     mountEl.querySelectorAll('[data-task-item]').forEach(function (row) {
                         if (!Object.prototype.hasOwnProperty.call(known, String(row.getAttribute('data-id')))) {
                             row.remove();
@@ -161,17 +179,19 @@
             }, 0);
         },
         removeTask: function (id) {
+            if (!vm) return false;
             var ix = findIndex(id);
-            if (ix >= 0) store.items.splice(ix, 1);
+            if (ix >= 0) vm.items.splice(ix, 1);
             this.scheduleVerify();
             return true;
         },
         /* Reflect a done/undone tick in state so the empty block appears as
            soon as zero open tasks remain (and hides again on reopen). */
         setCompleted: function (id, done) {
+            if (!vm) return false;
             var ix = findIndex(id);
             if (ix < 0) return false;
-            store.items[ix].done = !!done;
+            vm.items[ix].done = !!done;
             window.Vue.nextTick(refreshChrome);
             return true;
         },
@@ -179,29 +199,33 @@
            vanilla drag&drop moves nodes directly). State is aligned without
            touching row markup, so no visual jump occurs. */
         syncOrderFromDom: function () {
+            if (!vm) return;
             var ordered = [];
             mountEl.querySelectorAll('[data-period-group]').forEach(function (g) {
                 var key = g.getAttribute('data-period-group');
                 g.querySelectorAll('[data-task-item]').forEach(function (row) {
                     var ix = findIndex(row.getAttribute('data-id'));
                     if (ix >= 0) {
-                        store.items[ix].group = key;
-                        if (ordered.indexOf(store.items[ix]) < 0) ordered.push(store.items[ix]);
+                        vm.items[ix].group = key;
+                        if (ordered.indexOf(vm.items[ix]) < 0) ordered.push(vm.items[ix]);
                     }
                 });
             });
-            store.items.forEach(function (t) {
+            liveItems().forEach(function (t) {
                 if (ordered.indexOf(t) < 0) ordered.push(t);
             });
-            store.items.splice.apply(store.items, [0, store.items.length].concat(ordered));
+            vm.items.splice.apply(vm.items, [0, vm.items.length].concat(ordered));
         },
     };
 
     try {
-        app.mount(mountEl);
+        /* mount() returns the component public instance — all mutations must
+           go through it (see REACTIVITY RULE above). */
+        vm = app.mount(mountEl);
         window.PlannerDay.mounted = true;
         window.__PL_DAY_MOUNTED__ = true;
     } catch (e) {
+        vm = null;
         window.PlannerDay.mounted = false;
         if (window.console && console.error) console.error('[PlannerDay] Vue mount failed, vanilla fallback active', e);
     }

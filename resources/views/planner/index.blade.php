@@ -207,6 +207,7 @@
     .pl-done > summary::-webkit-details-marker{display:none;}
     .pl-done > summary::marker{content:'';}
     .pl-done > summary:focus-visible{outline:2px solid #16a34a;outline-offset:-2px;}
+    details.pl-done[hidden]{display:none;}
     .pl-done-chev{color:#9aa1b5;font-size:12px;transition:transform .15s ease;}
     .pl-done[open] .pl-done-chev{transform:rotate(180deg);}
     @media (min-width: 1600px) {
@@ -3219,22 +3220,21 @@ body:has(.pl-task-menu.is-open)::before {
         </div>
         </div>{{-- /Lower grid --}}
 
-        {{-- Done: archival reference, collapsed at the very bottom to keep the work area tight --}}
-        @if($done->count())
-            <details class="pl-section pl-done">
-                <summary class="pl-section-head">
-                    <i class="bi bi-check-circle-fill" style="color:#16a34a;"></i>
-                    <span class="pl-section-title">{{ __('Completed') }}</span>
-                    <span class="pl-section-count">{{ $done->count() }}</span>
-                    <i class="bi bi-chevron-down pl-done-chev" aria-hidden="true"></i>
-                </summary>
-                <div class="pl-section-body">
-                    @foreach($done as $task)
-                        @include('planner._task-row', ['task' => $task, 'count' => true])
-                    @endforeach
-                </div>
-            </details>
-        @endif
+        {{-- Done: archival reference, collapsed at the very bottom to keep the work area tight.
+             Always rendered (hidden when empty) so completed rows can move here without a refresh. --}}
+        <details class="pl-section pl-done" id="plDoneSection" @if(!$done->count()) hidden @endif>
+            <summary class="pl-section-head">
+                <i class="bi bi-check-circle-fill" style="color:#16a34a;"></i>
+                <span class="pl-section-title">{{ __('Completed') }}</span>
+                <span class="pl-section-count" id="plDoneCount">{{ app_num($done->count()) }}</span>
+                <i class="bi bi-chevron-down pl-done-chev" aria-hidden="true"></i>
+            </summary>
+            <div class="pl-section-body" id="plDoneBody">
+                @foreach($done as $task)
+                    @include('planner._task-row', ['task' => $task, 'count' => true])
+                @endforeach
+            </div>
+        </details>
     @elseif($view === 'month')
         {{-- Month view: compact calendar overview, cells link to the day view --}}
         @php
@@ -3723,11 +3723,9 @@ body:has(.pl-task-menu.is-open)::before {
                 row.classList.toggle('is-done', !!json.completed);
                 row.dataset.completed = json.completed ? '1' : '0';
             });
-            if (window.PlannerDay && window.PlannerDay.mounted) {
-                window.PlannerDay.setCompleted(id, !!json.completed);
-            } else if (window.plSyncEmptyState) {
-                window.plSyncEmptyState();
-            }
+            /* Done rows leave the work box for the archival section (and come
+               back on reopen) — the box only ever holds actionable tasks. */
+            plPlaceTaskRows(id, !!json.completed);
             refreshCounters();
             if (window.pwWeekRefresh) { try { window.pwWeekRefresh(id); } catch (e) {} }
             if (!silent) {
@@ -3777,11 +3775,7 @@ body:has(.pl-task-menu.is-open)::before {
                 const cb = r.querySelector('.pl-check input');
                 if (cb) cb.checked = true;
             });
-            if (window.PlannerDay && window.PlannerDay.mounted) {
-                window.PlannerDay.setCompleted(id, true);
-            } else if (window.plSyncEmptyState) {
-                window.plSyncEmptyState();
-            }
+            plPlaceTaskRows(id, true);
             refreshCounters();
             if (window.pwWeekRefresh) { try { window.pwWeekRefresh(id); } catch (e) {} }
             if (window.TM) { try { await window.TM.sync(); } catch (e) {} }
@@ -3833,6 +3827,133 @@ body:has(.pl-task-menu.is-open)::before {
             body.appendChild(emptyEl);
         }
     };
+
+    /* Open-state HTML stash for faithful reopens (Vue re-add needs markup). */
+    window.__PL_DONE_HTML__ = window.__PL_DONE_HTML__ || {};
+
+    function plDoneBody() { return document.getElementById('plDoneBody'); }
+
+    /* Archival section counter + visibility. */
+    function plUpdateDoneSection() {
+        const sec = document.getElementById('plDoneSection');
+        if (!sec) return;
+        const n = sec.querySelectorAll('[data-task-item]').length;
+        const cnt = document.getElementById('plDoneCount');
+        if (cnt) cnt.textContent = plNum(n);
+        sec.hidden = n === 0;
+    }
+
+    /* Strip day-only affordances before a row joins the archival list. */
+    function plScrubRowForDone(row) {
+        row.style.opacity = '';
+        row.style.transform = '';
+        row.style.transition = '';
+        row.removeAttribute('draggable');
+        row.classList.remove('dragging');
+        const box = row.querySelector('.pl-check input');
+        if (box) box.checked = true;
+        const acts = row.querySelector('.pl-task-actions');
+        if (acts) {
+            const open = acts.querySelector('.pl-task-open');
+            acts.replaceChildren();
+            if (open) acts.appendChild(open);
+        }
+    }
+
+    /* Drop period groups left without rows (vanilla only — the Vue island
+       renders groups from state and never leaves empties behind). */
+    function plPruneDayGroups() {
+        if (window.PlannerDay && window.PlannerDay.mounted) return;
+        const body = document.getElementById('plPendingBody');
+        if (!body) return;
+        body.querySelectorAll('[data-period-group]').forEach(g => {
+            if (!g.querySelector('[data-task-item]')) g.remove();
+        });
+    }
+
+    /* Move a task's day-list rows between the work box and the archival
+       "Completed" section — scoped strictly to those two lists so the week
+       view (whose cards share data-task-item) is never touched.
+       completed=true  → out of the day box (box truly empties out).
+       completed=false → back into its time group, no refresh. */
+    function plPlaceTaskRows(id, completed) {
+        const key = String(id);
+        if (completed) {
+            const openRow = document.querySelector(
+                '#plPendingBody [data-task-item][data-id="' + key + '"],' +
+                '#plOverdueBody [data-task-item][data-id="' + key + '"]'
+            );
+            if (openRow) {
+                /* Callers toggle the done classes first — stash the OPEN-state
+                   markup (what reopen must render back) by reverting them. */
+                window.__PL_DONE_HTML__[key] = openRow.outerHTML
+                    .replace('is-done', '')
+                    .replace('data-completed="1"', 'data-completed="0"')
+                    .replace(/ checked(="")?/, '');
+            }
+            if (window.PlannerDay && window.PlannerDay.mounted) window.PlannerDay.removeTask(id);
+            document.querySelectorAll(
+                '#plPendingBody [data-task-item][data-id="' + key + '"],' +
+                '#plOverdueBody [data-task-item][data-id="' + key + '"]'
+            ).forEach(row => {
+                plScrubRowForDone(row);
+                const done = plDoneBody();
+                if (done) {
+                    done.appendChild(row);
+                    row.classList.add('pl-flash');
+                    setTimeout(() => row.classList.remove('pl-flash'), 1700);
+                } else {
+                    row.remove();
+                }
+            });
+            plUpdateDoneSection();
+            /* Overdue bookkeeping mirrors the postpone flow. */
+            const overdueCount = document.getElementById('plOverdueCount');
+            if (overdueCount) {
+                const left = document.querySelectorAll('#plOverdueBody [data-task-item]').length;
+                overdueCount.textContent = plNum(left);
+                if (left === 0) {
+                    document.getElementById('plOverdueBody')?.closest('.pl-section')?.remove();
+                    document.querySelector('.pl-stat.overdue')?.remove();
+                } else {
+                    const stat = document.getElementById('plOverdueStat');
+                    if (stat) stat.textContent = plNum(left);
+                }
+            }
+        } else {
+            const back = [...document.querySelectorAll('details.pl-done [data-task-item][data-id="' + key + '"]')];
+            if (!back.length) return;
+            const group = back[0].dataset.period || 'anytime';
+            let html = window.__PL_DONE_HTML__[key] || null;
+            if (!html) {
+                /* Completed before this page loaded: rebuild open-state markup. */
+                html = back[0].outerHTML
+                    .replace('is-done', '')
+                    .replace('data-completed="1"', 'data-completed="0"')
+                    .replace(/ checked(="")?/, '');
+            }
+            back.forEach(row => row.remove());
+            if (window.PlannerDay && window.PlannerDay.mounted) {
+                window.PlannerDay.addTask({ id: id, group: group, html: html });
+            } else {
+                const wrap = document.createElement('div');
+                wrap.innerHTML = html.trim();
+                const node = wrap.firstElementChild;
+                if (node) {
+                    node.setAttribute('draggable', 'true');
+                    const gb = window.plEnsureGroup ? window.plEnsureGroup(group) : null;
+                    if (gb) gb.appendChild(node);
+                    else document.getElementById('plPendingBody')?.appendChild(node);
+                    node.classList.add('pl-flash');
+                    setTimeout(() => node.classList.remove('pl-flash'), 1700);
+                }
+            }
+            delete window.__PL_DONE_HTML__[key];
+            plUpdateDoneSection();
+        }
+        plPruneDayGroups();
+        if (window.plSyncEmptyState) window.plSyncEmptyState();
+    }
 
     async function toggleRoutine(cb) {
         const url = cb.dataset.url;
@@ -6275,11 +6396,7 @@ body:has(.pl-task-menu.is-open)::before {
                         row.classList.toggle('is-done', !!json.completed);
                         row.dataset.completed = json.completed ? '1' : '0';
                     });
-                    if (window.PlannerDay && window.PlannerDay.mounted) {
-                        window.PlannerDay.setCompleted(id, !!json.completed);
-                    } else if (window.plSyncEmptyState) {
-                        window.plSyncEmptyState();
-                    }
+                    plPlaceTaskRows(id, !!json.completed);
                     refreshCounters();
                 }
             } else if (stepId && stepUrl) {
@@ -6369,14 +6486,71 @@ body:has(.pl-task-menu.is-open)::before {
 @push('scripts')
 @if(($view ?? null) === 'day' && isset($pendingApp))
 <script>
-    window.__PL_DAY_INITIAL__ = {
-        items: @json($pendingApp),
-        periods: @json($periodMeta ?? []),
-        order: @json($periodOrder ?? ['anytime']),
-    };
+    window.__PL_DAY_INITIAL__ = @json(['items' => $pendingApp, 'periods' => $periodMeta ?? [], 'order' => $periodOrder ?? ['anytime']]);
 </script>
-<script src="{{ asset('assets/vendor/vue/vue.global.prod.js') }}"></script>
-<script src="{{ asset('assets/js/planner-day-app.js') }}"></script>
+<script src="{{ asset('assets/vendor/vue/vue.global.prod.js') }}?v=3.4.38"></script>
+<script src="{{ asset('assets/js/planner-day-app.js') }}?v={{ filemtime(public_path('assets/js/planner-day-app.js')) }}"></script>
+<script>
+/* ── Empty-day invariant guard (self-healing) ──
+   No matter which flow mutated #plPendingBody — quick-add, backlog, postpone,
+   clear, toggle, dnd, or any future code — and whether the Vue island is
+   mounted or not, the empty block (message + both CTAs) is visible ⟺ zero
+   OPEN tasks remain. The callback only converges toward the invariant, so it
+   can never loop: after its own fix-up the next run is a no-op. */
+(function () {
+    var body = document.getElementById('plPendingBody');
+    if (!body || !window.MutationObserver) return;
+    var scheduled = false;
+    function enforceEmptyInvariant() {
+        scheduled = false;
+        var vueOn = !!(window.PlannerDay && window.PlannerDay.mounted);
+        if (!vueOn) {
+            /* No stray period headers (e.g. an emptied "هر زمان" group):
+               the island renders groups from state and never leaves these. */
+            body.querySelectorAll('[data-period-group]').forEach(function (g) {
+                if (!g.querySelector('[data-task-item]')) g.remove();
+            });
+        }
+        var hasOpen = body.querySelectorAll('[data-task-item]:not(.is-done)').length > 0;
+        var empties = body.querySelectorAll('.pl-empty, .pl-qadd');
+        if (!hasOpen && empties.length === 0) {
+            var tpl = document.getElementById('plEmptyTpl');
+            var html = tpl ? tpl.innerHTML.trim() : '';
+            if (html) {
+                body.insertAdjacentHTML('afterbegin', html);
+            } else if (!body.querySelector('.pl-empty')) {
+                var d = document.createElement('div');
+                d.className = 'pl-empty';
+                d.textContent = @json(__('Nothing scheduled for this day. Enjoy!'));
+                body.appendChild(d);
+            }
+        } else if (hasOpen && empties.length) {
+            /* Stale empty block while tasks exist: removing it always
+               converges — in Vue mode the template doesn't render it when
+               open tasks exist, so this only deletes what Vue itself drops. */
+            empties.forEach(function (el) { el.remove(); });
+        }
+    }
+    function scheduleEmptyCheck() {
+        if (scheduled) return;
+        scheduled = true;
+        /* After the current mutation burst — and after Vue's async flush. */
+        if (window.requestAnimationFrame) {
+            requestAnimationFrame(function () { setTimeout(enforceEmptyInvariant, 0); });
+        } else {
+            setTimeout(enforceEmptyInvariant, 0);
+        }
+    }
+    new MutationObserver(scheduleEmptyCheck).observe(body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class'],
+    });
+    /* In case the server render and the live list already disagree. */
+    scheduleEmptyCheck();
+})();
+</script>
 @endif
 @endpush
 
