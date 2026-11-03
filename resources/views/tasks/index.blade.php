@@ -370,6 +370,22 @@
     .cu-chapter-count{font-size:11px;font-weight:600;color:#6b6f78;white-space:nowrap;}
     .cu-chapter-open{flex-shrink:0;}
     .cu-chapter-body{border-top:1px solid #f2f3f5;padding:4px;}
+    /* ─── Nested project groups: parent → chapters → lessons ─── */
+    .cu-chapter.is-child{
+        margin:4px;border-color:#e8e4f5;background:#fcfbff;
+        border-inline-start:3px solid #c4b5fd;
+    }
+    .cu-chapter.is-child > .cu-chapter-head{padding:7px 10px;}
+    .cu-chapter.is-child > .cu-chapter-head .cu-chapter-title{font-size:12.5px;}
+    .cu-chapter.is-child .cu-chapter-body{background:#fcfbff;}
+    .cu-sub-type{
+        font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+        border:1px solid;border-radius:20px;padding:1px 7px;flex-shrink:0;white-space:nowrap;
+    }
+    .cu-sub-count{
+        background:#ede9fe;color:#6d28d9;border-radius:20px;padding:0 8px;
+        font-size:10px;font-weight:700;line-height:18px;flex-shrink:0;white-space:nowrap;
+    }
     .cu-ch-row{
         display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:6px;
     }
@@ -796,9 +812,15 @@
             </select>
             <select class="cu-filter-select" id="cuProject" aria-label="{{ __('Projects') }}">
                 <option value="">{{ __('All') }} {{ __('Projects') }}</option>
-                @foreach($projects as $proj)
-                    <option value="{{ $proj->id }}">{{ $proj->name }}</option>
-                @endforeach
+                @if(isset($projectOptions) && count($projectOptions))
+                    @foreach($projectOptions as $opt)
+                        <option value="{{ $opt['id'] }}" title="{{ $opt['path'] }}">{{ str_repeat('— ', $opt['depth']) }}{{ $opt['name'] }}</option>
+                    @endforeach
+                @else
+                    @foreach($projects as $proj)
+                        <option value="{{ $proj->id }}">{{ $proj->name }}</option>
+                    @endforeach
+                @endif
             </select>
             <select class="cu-filter-select" id="cuStatus" aria-label="{{ __('Status') }}">
                 <option value="">{{ __('All') }} {{ __('Status') }}</option>
@@ -937,13 +959,16 @@
         @endif
     </div>
 
-    {{-- PROJECTS VIEW (global page only) — one collapsible section per project --}}
+    {{-- PROJECTS VIEW (global page only) — nested: one section per ROOT project,
+         child projects (chapters/lessons) collapse inside their parent.
+         First glance shows only parents; click to drill into chapters. --}}
     @if(!isset($project))
         @php
             $orphanTasks = $flatAll->filter(fn ($t) => $t->project_id === null)->values()
                 ->sortBy(fn ($t) => $t->status === 'completed' ? 1 : 0)->values();
-            $projectsWithTasks = $projects->filter(
-                fn ($p) => $flatAll->contains(fn ($t) => (int) $t->project_id === (int) $p->id)
+            $tasksByProject = $flatAll->filter(fn ($t) => $t->project_id !== null)->groupBy(fn ($t) => (int) $t->project_id);
+            $rootProjects = collect($projectRoots ?? [])->filter(
+                fn ($p) => (($projectAggregates[(int) $p->id]['total'] ?? 0) > 0)
             )->values();
         @endphp
         <div class="cu-chapters-view" id="cuProjects" style="display:none;">
@@ -958,21 +983,14 @@
                     'quickProjectId' => 0,
                 ])
             @endif
-            @foreach($projectsWithTasks as $proj)
-                @php
-                    $pTasks   = $flatAll->filter(fn ($t) => (int) $t->project_id === (int) $proj->id)->values()
-                        ->sortBy(fn ($t) => $t->status === 'completed' ? 1 : 0)->values();
-                    $pGrouped = $pTasks->groupBy('parent_id');
-                    $pRoots   = $pTasks->filter(fn ($t) => $t->parent_id === null)->values();
-                @endphp
-                @include('tasks._chapter-section', [
-                    'sectionId'    => 'p-' . $proj->id,
-                    'sectionTitle' => $proj->name,
-                    'sectionUrl'   => route('projects.tasks.index', $proj),
-                    'tasks'        => $pRoots,
-                    'grouped'      => $pGrouped,
-                    'collapsed'    => true,
-                    'quickProjectId' => $proj->id,
+            @foreach($rootProjects as $proj)
+                @include('tasks._project-group', [
+                    'proj' => $proj,
+                    'tasksByProject' => $tasksByProject,
+                    'projectChildren' => $projectChildren ?? [],
+                    'projectAggregates' => $projectAggregates ?? [],
+                    'depth' => 0,
+                    'collapsed' => true,
                 ])
             @endforeach
         </div>
@@ -1273,11 +1291,22 @@ document.addEventListener('DOMContentLoaded', function () {
     const sortSelect     = document.getElementById('cuSort');
 
     const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+    /* Parent project id => every project id in its subtree (strings, self included).
+       Selecting a parent in the filter matches tasks of all its chapters. */
+    const PROJECT_DESCENDANTS = @json($projectDescendants ?? []);
+
+    function projectMatches(rowProject, selected) {
+        if (!selected) return true;
+        if (!rowProject) return false;
+        if (String(rowProject) === String(selected)) return true;
+        const desc = PROJECT_DESCENDANTS[selected] || PROJECT_DESCENDANTS[String(selected)];
+        return Array.isArray(desc) && desc.map(String).includes(String(rowProject));
+    }
 
     function rowMatches(el, term, priority, project, status) {
         return el.dataset.title.includes(term)
             && (!priority || el.dataset.priority === priority)
-            && (!project  || el.dataset.project  === project)
+            && projectMatches(el.dataset.project, project)
             && (!status   || el.dataset.status   === status);
     }
 
@@ -1299,10 +1328,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 && (!onlyOpen || row.dataset.status !== 'completed');
             row.style.display = show ? '' : 'none';
         });
-        document.querySelectorAll('.cu-chapter').forEach(ch => {
-            const visible = [...ch.querySelectorAll('.cu-ch-row')]
+        /* Nested project groups: evaluate innermost chapters first so a parent
+           stays visible when any descendant row matches, and hides otherwise. */
+        [...document.querySelectorAll('.cu-chapter')].reverse().forEach(ch => {
+            const ownVisible = [...ch.querySelectorAll('.cu-ch-row')]
                 .some(r => r.style.display !== 'none');
-            ch.style.display = visible ? '' : 'none';
+            const childChapterVisible = [...ch.querySelectorAll(':scope > .cu-chapter-body > .cu-chapter')]
+                .some(c => c.style.display !== 'none');
+            ch.style.display = (ownVisible || childChapterVisible) ? '' : 'none';
         });
         /* Tree rows */
         document.querySelectorAll('.cu-ttree-row').forEach(row => {
@@ -1927,8 +1960,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         document.querySelectorAll(`.cu-ch-row[data-id="${id}"]`).forEach(row => {
             applyDoneState(row, status);
-            const ch = row.closest('.cu-chapter');
-            if (ch) touched.add(ch);
+            /* Refresh the whole ancestor chain so aggregate parent counts stay correct. */
+            let ch = row.closest('.cu-chapter');
+            while (ch) {
+                touched.add(ch);
+                const parentBody = ch.parentElement?.closest?.('.cu-chapter-body');
+                ch = parentBody ? parentBody.closest('.cu-chapter') : null;
+            }
         });
         document.querySelectorAll(`.cu-list-row[data-id="${id}"]`).forEach(row => {
             applyDoneState(row, status);
@@ -1954,8 +1992,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const touched = new Set();
         document.querySelectorAll(`.cu-task-card[data-id="${id}"]`).forEach(c => c.remove());
         document.querySelectorAll(`.cu-ch-row[data-id="${id}"]`).forEach(r => {
-            const ch = r.closest('.cu-chapter');
-            if (ch) touched.add(ch);
+            let ch = r.closest('.cu-chapter');
+            while (ch) {
+                touched.add(ch);
+                const parentBody = ch.parentElement?.closest?.('.cu-chapter-body');
+                ch = parentBody ? parentBody.closest('.cu-chapter') : null;
+            }
             r.remove();
         });
         document.querySelectorAll(`.cu-list-row[data-id="${id}"]`).forEach(r => r.remove());
@@ -2364,13 +2406,20 @@ document.addEventListener('DOMContentLoaded', function () {
             const json = await res.json();
             if (!json.ok) throw new Error('bad response');
 
-            /* 1. chapter row → top of this project section */
+            /* 1. chapter row → top of this project section (own tasks only,
+               never inside a nested child chapter) */
             if (json.rowHtml && ch) {
                 const row = insertHtml(json.rowHtml);
                 if (row) {
                     row.classList.add('row-flash');
                     const body = ch.querySelector('.cu-chapter-body');
-                    body.insertBefore(row, body.querySelector('.cu-ch-row'));
+                    const firstOwn = body.querySelector(':scope > .cu-ch-row');
+                    if (firstOwn) body.insertBefore(row, firstOwn);
+                    else {
+                        const firstChild = body.querySelector(':scope > .cu-chapter');
+                        if (firstChild) body.insertBefore(row, firstChild);
+                        else body.appendChild(row);
+                    }
                     refreshChapter(ch);
                 }
             }

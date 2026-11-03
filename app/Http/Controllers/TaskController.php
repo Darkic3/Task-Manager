@@ -42,9 +42,83 @@ class TaskController extends Controller
         $allTasks = collect($tasks)->flatten();
         $taskRoots = $allTasks->filter(fn ($t) => $t->parent_id === null)->values();
 
-        // Only show projects whose tasks are actually loaded (exclude completed & closed)
-        $projects = Project::where('user_id', $user->id)->whereNotIn('status', ['completed', 'closed'])->get(['id', 'name', 'slug', 'status']);
-        return view('tasks.index', compact('tasks', 'taskRoots', 'projects', 'project'));
+        // Only show projects whose tasks are actually loaded (exclude completed & closed).
+        // parent_id/type/sort_order are needed to render the Projects view as a
+        // nested tree (parent project -> chapters -> lessons) instead of a flat list.
+        $projects = Project::where('user_id', $user->id)->whereNotIn('status', ['completed', 'closed'])->orderBy('sort_order')->orderBy('id')->get(['id', 'name', 'slug', 'status', 'parent_id', 'type']);
+
+        // ── Project tree helpers for the nested Projects view ──
+        $projectById = $projects->keyBy('id');
+        $projectChildren = [];
+        $projectRoots = [];
+        foreach ($projects as $p) {
+            if ($p->parent_id !== null && isset($projectById[$p->parent_id])) {
+                $projectChildren[$p->parent_id][] = $p;
+            } else {
+                $projectRoots[] = $p;
+            }
+        }
+
+        // Direct task counts per project (every row counts, subtasks included).
+        $directTotal = [];
+        $directDone = [];
+        foreach ($allTasks as $t) {
+            if ($t->project_id === null) {
+                continue;
+            }
+            $pid = (int) $t->project_id;
+            $directTotal[$pid] = ($directTotal[$pid] ?? 0) + 1;
+            if ($t->status === 'completed') {
+                $directDone[$pid] = ($directDone[$pid] ?? 0) + 1;
+            }
+        }
+
+        // Aggregate (subtree) counts + descendant id map, post-order walk.
+        $projectAggregates = [];
+        $projectDescendants = [];
+        $walk = function ($node) use (&$walk, &$projectChildren, &$directTotal, &$directDone, &$projectAggregates, &$projectDescendants) {
+            $id = (int) $node->id;
+            $total = $directTotal[$id] ?? 0;
+            $done = $directDone[$id] ?? 0;
+            $desc = [(string) $id];
+            foreach ($projectChildren[$id] ?? [] as $child) {
+                $sub = $walk($child);
+                $total += $sub['total'];
+                $done += $sub['done'];
+                foreach ($projectDescendants[(int) $child->id] as $d) {
+                    $desc[] = (string) $d;
+                }
+            }
+            $desc = array_values(array_unique($desc));
+            $projectAggregates[$id] = ['total' => $total, 'done' => $done, 'open' => $total - $done];
+            $projectDescendants[$id] = $desc;
+
+            return ['total' => $total, 'done' => $done];
+        };
+        foreach ($projectRoots as $root) {
+            $walk($root);
+        }
+        // Orphaned cycles / unreachable nodes (defensive): treat as roots.
+        foreach ($projects as $p) {
+            if (! isset($projectAggregates[(int) $p->id])) {
+                $walk($p);
+                $projectRoots[] = $p;
+            }
+        }
+
+        // Flattened hierarchical options for the project filter dropdown.
+        $projectOptions = [];
+        $flatten = function ($nodes, $depth = 0, $path = []) use (&$flatten, &$projectChildren, &$projectOptions) {
+            foreach ($nodes as $node) {
+                $id = (int) $node->id;
+                $crumbs = array_merge($path, [$node->name]);
+                $projectOptions[] = ['id' => $id, 'name' => $node->name, 'depth' => $depth, 'path' => implode(' / ', $crumbs)];
+                $flatten($projectChildren[$id] ?? [], $depth + 1, $crumbs);
+            }
+        };
+        $flatten($projectRoots);
+
+        return view('tasks.index', compact('tasks', 'taskRoots', 'projects', 'project', 'projectRoots', 'projectChildren', 'projectAggregates', 'projectDescendants', 'projectOptions'));
     }
 
     public function create()
