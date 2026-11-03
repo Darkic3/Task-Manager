@@ -781,10 +781,10 @@
     <div class="cu-toolbar">
         <div class="cu-toolbar-row cu-toolbar-main">
             <div class="cu-view-toggle" role="tablist">
-                <button class="cu-view-btn active" data-view="kanban"><i class="bi bi-kanban"></i> <span>{{ __('Board') }}</span></button>
                 @if(!isset($project))
-                    <button class="cu-view-btn" data-view="projects"><i class="bi bi-folder"></i> <span>{{ __('Projects') }}</span></button>
+                    <button class="cu-view-btn active" data-view="projects"><i class="bi bi-folder"></i> <span>{{ __('Projects') }}</span></button>
                 @endif
+                <button class="cu-view-btn {{ isset($project) ? 'active' : '' }}" data-view="kanban"><i class="bi bi-kanban"></i> <span>{{ __('Board') }}</span></button>
                 <button class="cu-view-btn" data-view="chapters"><i class="bi bi-collection"></i> <span>{{ __('Chapters') }}</span></button>
                 <button class="cu-view-btn" data-view="list"><i class="bi bi-list-ul"></i> <span>{{ __('List') }}</span></button>
                 <button class="cu-view-btn" data-view="tree"><i class="bi bi-diagram-3"></i> <span>{{ __('Tree') }}</span></button>
@@ -858,7 +858,7 @@
     @else
 
     {{-- KANBAN --}}
-    <div class="cu-kanban" id="cuKanban">
+    <div class="cu-kanban" id="cuKanban" @if(!isset($project)) style="display:none;" @endif>
         @php
             $columns = [
                 'to_do'      => ['label' => __('To Do'),        'dot' => '#94a3b8',            'empty' => __('No tasks here'),     'icon' => 'bi-circle',           'collapsed' => false],
@@ -971,7 +971,7 @@
                 fn ($p) => (($projectAggregates[(int) $p->id]['total'] ?? 0) > 0)
             )->values();
         @endphp
-        <div class="cu-chapters-view" id="cuProjects" style="display:none;">
+        <div class="cu-chapters-view" id="cuProjects" style="display:flex;">
             @if($orphanTasks->count())
                 @include('tasks._chapter-section', [
                     'sectionId'    => 'p-none',
@@ -1427,6 +1427,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const p = JSON.parse(localStorage.getItem(LS) || '{}');
             if (p.view && document.querySelector(`.cu-view-btn[data-view="${p.view}"]`)) {
                 document.querySelector(`.cu-view-btn[data-view="${p.view}"]`).click();
+            } else {
+                /* Fresh visit: default to Projects (falls back to Board on pages without it). */
+                const def = document.querySelector('.cu-view-btn[data-view="projects"]')
+                    || document.querySelector('.cu-view-btn[data-view="kanban"]');
+                def?.click();
             }
             if (searchInput   && p.search)   searchInput.value   = p.search;
             if (prioritySelect && p.priority) prioritySelect.value = p.priority;
