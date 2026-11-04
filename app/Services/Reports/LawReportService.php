@@ -5,7 +5,6 @@ namespace App\Services\Reports;
 use App\Models\Law;
 use App\Models\LawEvent;
 use Carbon\Carbon;
-use Illuminate\Support\Collection;
 
 /**
  * Laws report: XP scored per law and per day within the selected window,

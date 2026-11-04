@@ -72,9 +72,9 @@
                 <form method="POST" action="{{ route('laws.resume', $law) }}" style="display:inline;">@csrf<button class="lw-btn"><i class="bi bi-play-circle"></i>{{ __('Resume') }}</button></form>
                 @endif
                 @if($law->status !== 'archived')
-                <form method="POST" action="{{ route('laws.archive', $law) }}" style="display:inline;" onsubmit="return confirm('{{ __('Archive this law? History is kept.') }}');">@csrf<button class="lw-btn"><i class="bi bi-archive"></i>{{ __('Archive') }}</button></form>
+                <form method="POST" action="{{ route('laws.archive', $law) }}" style="display:inline;" onsubmit="return confirmSwal(this, '{{ __('Archive this law? History is kept.') }}', { isDelete: true });">@csrf<button class="lw-btn"><i class="bi bi-archive"></i>{{ __('Archive') }}</button></form>
                 @endif
-                <form method="POST" action="{{ route('laws.destroy', $law) }}" style="display:inline;" onsubmit="return confirm('{{ __('Delete this law and its history?') }}');">@csrf @method('DELETE')<button class="lw-btn danger"><i class="bi bi-trash"></i>{{ __('Delete') }}</button></form>
+                <form method="POST" action="{{ route('laws.destroy', $law) }}" style="display:inline;" onsubmit="return confirmSwal(this, '{{ __('Delete this law and its history?') }}', { isDelete: true });">@csrf @method('DELETE')<button class="lw-btn danger"><i class="bi bi-trash"></i>{{ __('Delete') }}</button></form>
             </div>
         </div>
     </div>

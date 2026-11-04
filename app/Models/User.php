@@ -165,6 +165,16 @@ class User extends Authenticatable
         return $this->hasMany(Reminder::class);
     }
 
+    public function vocabDecks()
+    {
+        return $this->hasMany(VocabDeck::class);
+    }
+
+    public function vocabCards()
+    {
+        return $this->hasMany(VocabCard::class);
+    }
+
     public function projectMembers()
     {
         return $this->belongsToMany(Project::class, 'project_teams', 'user_id', 'project_id');

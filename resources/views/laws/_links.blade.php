@@ -38,7 +38,7 @@
                         </button>
                     </form>
                     <form method="POST" action="{{ route('laws.links.destroy', [$law, $link]) }}" style="display:inline;"
-                          onsubmit="return confirm('{{ __('Remove this link?') }}');">
+                          onsubmit="return confirmSwal(this, '{{ __('Remove this link?') }}', { isDelete: true });">
                         @csrf @method('DELETE')
                         <button class="lw-mini danger" title="{{ __('Remove') }}"><i class="bi bi-x-lg"></i></button>
                     </form>
@@ -119,7 +119,7 @@
 <style>
 .lw-links { display:flex; flex-direction:column; gap:6px; }
 .lw-link { display:flex; align-items:center; gap:8px; background:#fafbfc; border:1px solid #eef0f2; border-radius:7px; padding:7px 10px; font-size:13px; }
-.lw-link.sub { background:white; margin:4px 0 4px 18px; }
+.lw-link.sub { background:white; margin-top:4px; margin-bottom:4px; margin-inline-start:18px; }
 .lw-link-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#1f2328; font-weight:500; }
 .lw-dir { width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0; }
 .lw-dir.for { background:#dcfce7; color:#15803d; }
@@ -130,7 +130,7 @@
 .lw-mini { width:24px; height:24px; border-radius:6px; border:1px solid #e5e7eb; background:white; color:#8b8d98; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
 .lw-mini:hover { color:#7c3aed; border-color:#7c3aed; }
 .lw-mini.danger:hover { color:#e5484d; border-color:#e5484d; }
-.lw-inherit-toggle { background:none; border:none; color:#7c3aed; font-size:11.5px; font-weight:600; cursor:pointer; padding:4px 0 0 18px; }
+.lw-inherit-toggle { background:none; border:none; color:#7c3aed; font-size:11.5px; font-weight:600; cursor:pointer; padding-top:4px; padding-inline-start:18px; }
 .lw-inherit-list { display:none; }
 .lw-inherit-list.open { display:block; }
 .lw-add { margin-top:14px; border-top:1px dashed #e5e7eb; padding-top:12px; }

@@ -231,7 +231,7 @@ class LawLinkService
      *
      * @return Collection<int, array{law:Law, effect:int}>
      */
-    public function liveLawsForRoutine(\App\Models\Routine $routine): Collection
+    public function liveLawsForRoutine(Routine $routine): Collection
     {
         return LawLink::where('linkable_type', \App\Models\Routine::class)
             ->where('linkable_id', $routine->id)
@@ -252,7 +252,7 @@ class LawLinkService
      *
      * @return Collection<int, array{law:Law, effect:int, direct:bool, via:?string}>
      */
-    public function liveLawsForTask(\App\Models\Task $task): Collection
+    public function liveLawsForTask(Task $task): Collection
     {
         $out = collect();
 
