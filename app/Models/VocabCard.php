@@ -44,6 +44,11 @@ class VocabCard extends Model
         return $this->belongsTo(VocabDeck::class, 'deck_id');
     }
 
+    public function reviews()
+    {
+        return $this->hasMany(VocabReview::class, 'vocab_card_id');
+    }
+
     public function getIsDueAttribute(): bool
     {
         if ($this->next_review_at === null) {

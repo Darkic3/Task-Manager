@@ -491,5 +491,14 @@
     "Direction": "Direction",
     "Front → Back": "Front → Back",
     "Back → Front": "Back → Front",
-    "Mixed": "Mixed"
+    "Mixed": "Mixed",
+    "Progress": "Progress",
+    "Last 14 days": "Last 14 days",
+    "Overall retention": "Overall retention",
+    "Reviewed": "Reviewed",
+    "Retention %": "Retention %",
+    "Reviews": "Reviews",
+    "No review data yet — grade some cards and your retention chart appears here.": "No review data yet — grade some cards and your retention chart appears here.",
+    "Total": "Total",
+    "7-day retention": "7-day retention"
 }

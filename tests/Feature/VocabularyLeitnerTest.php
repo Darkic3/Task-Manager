@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\VocabCard;
 use App\Models\VocabDeck;
+use App\Models\VocabReview;
+use App\Services\Vocabulary\VocabStatsService;
 use App\Http\Controllers\VocabCardController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -159,5 +161,65 @@ class VocabularyLeitnerTest extends TestCase
 
         // Unknown direction falls back to front.
         $this->get(route('vocabulary.review.index', ['dir' => 'bogus']))->assertOk()->assertSee('an apple a day');
+    }
+
+    public function test_grade_logs_review_history(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $card = $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 2, 'next_review_at' => today(),
+        ]);
+
+        // Build a reversed session queue, then grade.
+        $this->get(route('vocabulary.review.index', ['dir' => 'back']))->assertOk();
+        $this->post(route('vocabulary.cards.grade', $card), ['remembered' => 1, 'dir' => 'back'])
+            ->assertRedirect();
+
+        $review = VocabReview::where('user_id', $user->id)->sole();
+        $this->assertTrue($review->remembered);
+        $this->assertEquals(2, $review->box_before);
+        $this->assertEquals(3, $review->box_after);
+        $this->assertTrue($review->reversed);
+        $this->assertEquals($deck->id, $review->deck_id);
+        $this->assertEquals($card->id, $review->vocab_card_id);
+    }
+
+    public function test_stats_service_aggregates_retention(): void
+    {
+        $user = User::factory()->create();
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $card = $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+
+        $make = fn (bool $remembered, string $day) => VocabReview::create([
+            'user_id' => $user->id, 'vocab_card_id' => $card->id, 'deck_id' => $deck->id,
+            'remembered' => $remembered, 'box_before' => 1, 'box_after' => 2,
+            'reversed' => false, 'reviewed_at' => $day,
+        ]);
+
+        $make(true, today()->toDateString());
+        $make(true, today()->toDateString());
+        $make(false, today()->toDateString());
+        $make(false, today()->subDay()->toDateString());
+
+        $daily = VocabStatsService::dailyRetention($user, 2);
+        $this->assertCount(2, $daily);
+        $this->assertSame(1, $daily[0]['reviewed']);
+        $this->assertSame(0.0, $daily[0]['retention']);
+        $this->assertSame(3, $daily[1]['reviewed']);
+        $this->assertEqualsWithDelta(66.7, $daily[1]['retention'], 0.05);
+
+        $summary = VocabStatsService::deckSummary($user);
+        $this->assertCount(1, $summary);
+        $this->assertSame(1, $summary[0]['total']);
+        $this->assertSame(4, $summary[0]['reviewed_7d']);
+        $this->assertEqualsWithDelta(50.0, $summary[0]['retention_7d'], 0.01);
+
+        $this->assertEqualsWithDelta(50.0, VocabStatsService::overallRetention($user), 0.01);
     }
 }

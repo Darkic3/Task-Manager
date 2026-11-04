@@ -90,9 +90,26 @@ class VocabReviewController extends Controller
             'dir' => 'nullable|string',
         ]);
 
+        $boxBefore = (int) $vocabCard->box;
+
         $vocabCard->markResult((bool) $data['remembered']);
 
         $queue = session('vocab_review_queue', ['items' => []]);
+        $queued = collect($queue['items'] ?? [])->firstWhere('id', $vocabCard->id);
+        $reversed = (bool) ($queued['reverse'] ?? false);
+
+        // History log: powers retention stats and is the raw material for
+        // any future SM-2/FSRS scheduler. Never backfilled — starts now.
+        $vocabCard->reviews()->create([
+            'user_id' => Auth::id(),
+            'deck_id' => $vocabCard->deck_id,
+            'remembered' => (bool) $data['remembered'],
+            'box_before' => $boxBefore,
+            'box_after' => (int) $vocabCard->box,
+            'reversed' => $reversed,
+            'reviewed_at' => now(),
+        ]);
+
         $queue['items'] = array_values(array_filter(
             $queue['items'] ?? [],
             fn ($item) => ($item['id'] ?? null) != $vocabCard->id

@@ -34,6 +34,9 @@
 .vb-danger { color:#b91c1c; background:none; border:none; font-size:.75rem; font-weight:600; cursor:pointer; padding:0; }
 .vb-danger:hover { text-decoration:underline; }
 .vb-empty { text-align:center; padding:40px 20px; background:white; border:1px solid #e5e7eb; border-radius:8px; color:#8b8d98; }
+.vb-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+.vb-table th, .vb-table td { border-bottom:1px solid #eef0f3; padding:.45rem .6rem; text-align:start; }
+.vb-table th { color:#6b7280; font-size:.72rem; text-transform:uppercase; letter-spacing:.03em; }
 </style>
 @endpush
 
@@ -57,6 +60,76 @@
         @foreach([1 => __('Box 1 · daily'), 2 => __('Box 2 · 3 days'), 3 => __('Box 3 · weekly'), 4 => __('Box 4 · 2 weeks'), 5 => __('Box 5 · monthly')] as $box => $label)
         <div class="vb-box"><b>{{ app_num($boxCounts[$box] ?? 0) }}</b><span>{{ $label }}</span></div>
         @endforeach
+    </div>
+
+    <div class="vb-form">
+        <h6>{{ __('Progress') }} <span style="color:#6b7280;font-weight:600;">· {{ __('Last 14 days') }}@if(!is_null($overallRetention ?? null)) · {{ __('Overall retention') }}: {{ app_num($overallRetention) }}% @endif</span></h6>
+        @if(collect($daily ?? [])->sum('reviewed') > 0)
+        <div style="position:relative;height:220px;"><canvas id="vbChart"></canvas></div>
+        @push('scripts')
+        <script>
+        (function () {
+            var el = document.getElementById('vbChart');
+            if (!el || typeof Chart === 'undefined') return;
+            var data = @json($daily);
+            new Chart(el, {
+                data: {
+                    labels: data.map(function (d) { return d.label; }),
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: @json(__('Reviewed')),
+                            data: data.map(function (d) { return d.reviewed; }),
+                            backgroundColor: 'rgba(99,102,241,.55)',
+                            borderRadius: 4,
+                            yAxisID: 'y',
+                        },
+                        {
+                            type: 'line',
+                            label: @json(__('Retention %')),
+                            data: data.map(function (d) { return d.retention; }),
+                            borderColor: '#059669',
+                            backgroundColor: '#059669',
+                            tension: .35,
+                            pointRadius: 3,
+                            yAxisID: 'y1',
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: @json(__('Reviews')) } },
+                        y1: { beginAtZero: true, max: 100, position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: function (v) { return v + '%'; } } },
+                    },
+                },
+            });
+        })();
+        </script>
+        @endpush
+        @else
+        <p style="font-size:.82rem;color:#8b8d98;margin:0;">{{ __('No review data yet — grade some cards and your retention chart appears here.') }}</p>
+        @endif
+        @if(!empty($deckStats))
+        <div style="overflow-x:auto;margin-top:.8rem;">
+            <table class="vb-table">
+                <thead><tr><th>{{ __('Deck') }}</th><th>{{ __('Total') }}</th><th>{{ __('Due') }}</th><th>{{ __('Mastered') }}</th><th>{{ __('7-day retention') }}</th></tr></thead>
+                <tbody>
+                    @foreach($deckStats as $ds)
+                    <tr>
+                        <td><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:{{ $ds['color'] ?: '#6366f1' }};margin-inline-end:6px;"></span>{{ $ds['name'] }}</td>
+                        <td>{{ app_num($ds['total']) }}</td>
+                        <td>{{ app_num($ds['due']) }}</td>
+                        <td>{{ app_num($ds['mastered']) }}</td>
+                        <td>{{ is_null($ds['retention_7d']) ? '—' : app_num($ds['retention_7d']).'%' }}</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @endif
     </div>
 
     <div class="vb-form">

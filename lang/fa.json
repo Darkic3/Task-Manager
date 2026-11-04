@@ -2249,5 +2249,11 @@
     "Direction": "جهت",
     "Front → Back": "رو → پشت",
     "Back → Front": "پشت → رو",
-    "Mixed": "ترکیبی"
+    "Mixed": "ترکیبی",
+    "Overall retention": "ماندگاری کلی",
+    "Reviewed": "مرورشده",
+    "Retention %": "درصد ماندگاری",
+    "Reviews": "مرورها",
+    "No review data yet — grade some cards and your retention chart appears here.": "هنوز داده‌ای نیست — چند کارت را نمره بده تا نمودار ماندگاری اینجا ظاهر شود.",
+    "7-day retention": "ماندگاری ۷ روزه"
 }

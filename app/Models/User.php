@@ -175,6 +175,11 @@ class User extends Authenticatable
         return $this->hasMany(VocabCard::class);
     }
 
+    public function vocabReviews()
+    {
+        return $this->hasMany(VocabReview::class);
+    }
+
     public function projectMembers()
     {
         return $this->belongsToMany(Project::class, 'project_teams', 'user_id', 'project_id');
