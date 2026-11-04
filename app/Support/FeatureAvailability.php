@@ -57,6 +57,7 @@ class FeatureAvailability
             'planner', 'day-logs' => 'planner',
             'notes', 'notebooks', 'note-labels', 'note-subjects' => 'notes',
             'routines' => 'routines',
+            'laws' => 'laws',
             'workouts' => 'workouts',
             'track' => 'track',
             'time' => 'time_tracking',

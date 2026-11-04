@@ -28,6 +28,7 @@ use App\Http\Controllers\PlannerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\DayLogController;
+use App\Http\Controllers\LawController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\TaskController;
@@ -102,6 +103,10 @@ Route::middleware(['auth', EnsureOwnedRouteModels::class, BetaFeatureUnavailable
     Route::resource('routines', RoutineController::class)->except(['show']);
     Route::post('routines/reorder', [RoutineController::class, 'reorder'])->name('routines.reorder');
     Route::post('routines/steps/reorder', [RoutineController::class, 'reorderSteps'])->name('routines.steps.reorder');
+    Route::resource('laws', LawController::class);
+    Route::post('laws/{law}/pause', [LawController::class, 'pause'])->name('laws.pause');
+    Route::post('laws/{law}/resume', [LawController::class, 'resume'])->name('laws.resume');
+    Route::post('laws/{law}/archive', [LawController::class, 'archive'])->name('laws.archive');
     Route::prefix('workouts')->name('workouts.')->group(function () {
         Route::resource('exercises', ExerciseController::class)->except(['show']);
         Route::resource('plans', WorkoutPlanController::class)->except(['show'])->parameters(['plans' => 'workoutPlan']);

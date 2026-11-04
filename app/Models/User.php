@@ -189,4 +189,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(DayLog::class);
     }
+
+    public function laws()
+    {
+        return $this->hasMany(Law::class);
+    }
+
+    public function lawEvents()
+    {
+        return $this->hasMany(LawEvent::class);
+    }
 }

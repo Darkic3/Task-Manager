@@ -6,6 +6,7 @@ return [
     'planner' => ['label' => 'Daily planner', 'description' => 'My Day planning and daily logs.', 'default' => true],
     'notes' => ['label' => 'Notes', 'description' => 'Notes, notebooks, labels, and exports.', 'default' => true],
     'routines' => ['label' => 'Routines', 'description' => 'Routines and habit tracking.', 'default' => true],
+    'laws' => ['label' => 'Laws', 'description' => 'Personal laws with coefficients and linked activities.', 'default' => true],
     'workouts' => ['label' => 'Workouts', 'description' => 'Workout plans, sessions, and reports.', 'default' => true],
     'track' => ['label' => 'Track', 'description' => 'Habit tracking views.', 'default' => true],
     'time_tracking' => ['label' => 'Time tracking', 'description' => 'Timers, time entries, and time reports.', 'default' => true],

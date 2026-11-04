@@ -1011,6 +1011,7 @@
             'title' => __('Organize'),
             'items' => [
                 ['feature' => 'routines', 'match' => 'routines*', 'icon' => 'bi-arrow-repeat', 'label' => __('Routines'), 'url' => route('routines.index')],
+                ['feature' => 'laws', 'match' => 'laws*', 'icon' => 'bi-shield-check', 'label' => __('Laws'), 'url' => route('laws.index')],
                 ['feature' => 'workouts', 'match' => 'workouts*', 'icon' => 'bi-heart-pulse-fill', 'label' => __('Workouts'), 'url' => route('workouts.plans.index')],
                 ['feature' => 'track', 'match' => 'track*', 'icon' => 'bi-graph-up-arrow', 'label' => __('Track'), 'url' => route('track.index')],
                 ['feature' => 'time_tracking', 'match' => 'time*', 'icon' => 'bi-stopwatch', 'label' => __('Time'), 'url' => route('time.reports')],
