@@ -35,8 +35,7 @@ class PlannerController extends Controller
     }
 
     private function dayView($user, Carbon $date)
-    {
-        $selected = $date->copy()->startOfDay();
+    {        $selected = $date->copy()->startOfDay();
 
         $tasks = Task::where('user_id', $user->id)
             ->whereDate('due_date', $selected->toDateString())
@@ -136,6 +135,7 @@ class PlannerController extends Controller
             'activeWorkoutPlan' => $activeWorkoutPlan,
             'todayWorkoutDay' => $todayWorkoutDay,
             'todayWorkoutSession' => $todayWorkoutSession,
+            'dayLaws' => $this->dayLaws($user),
             'nextUp' => $this->buildNextUp($pending, $routinesData['today'], $selected),
             'quickProjects' => Project::where('user_id', $user->id)
                 ->whereNotIn('status', ['completed', 'closed'])
@@ -143,6 +143,27 @@ class PlannerController extends Controller
                 ->get(['id', 'name']),
             'backlogProjects' => $this->backlogProjectOptions($user->id),
         ]);
+    }
+
+    /**
+     * Active, unexpired laws for the DayLog law picker (day view only).
+     */
+    private function dayLaws($user): array
+    {
+        return $user->laws()
+            ->where('status', \App\Models\Law::STATUS_ACTIVE)
+            ->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', today()))
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->get(['id', 'title', 'coefficient', 'color', 'icon'])
+            ->map(fn ($law) => [
+                'id' => (int) $law->id,
+                'title' => $law->title,
+                'coefficient' => (int) $law->coefficient,
+                'color' => $law->color ?: '#7c3aed',
+                'icon' => $law->icon ?: 'bi-shield-check',
+            ])
+            ->all();
     }
 
     /**

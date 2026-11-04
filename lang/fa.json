@@ -2148,5 +2148,19 @@
     "Exclude": "مستثنا کن",
     "Include": "برگردان",
     "Task excluded from inheritance.": "تسک از ارث‌بری مستثنا شد.",
-    "Task follows project inheritance again.": "تسک دوباره از پروژه ارث می‌برد."
+    "Task follows project inheritance again.": "تسک دوباره از پروژه ارث می‌برد.",
+    "Law": "قانون",
+    "Related law": "قانون مرتبط",
+    "No law": "بدون قانون",
+    "Optional — but the direction is required": "اختیاری — ولی جهت الزامی است",
+    "How does it count?": "چطور حساب شود؟",
+    "Counts :dir ×:coeff = :xp XP": ":dir با ضریب :coeff می‌شود :xp امتیاز",
+    "No active laws yet — :link first.": "هنوز قانون فعالی نیست — اول :link.",
+    "define one": "یکی بساز",
+    "Change law": "تغییر قانون",
+    "Remove law link": "حذف اتصال قانون",
+    "Law link removed": "اتصال قانون حذف شد",
+    "Law link saved": "اتصال قانون ذخیره شد",
+    "This law is paused, archived or expired.": "این قانون متوقف، آرشیو یا تمام‌شده است.",
+    "Choose whether this counts for or against the law.": "مشخص کن این در جهت قانون است یا خلاف آن."
 }

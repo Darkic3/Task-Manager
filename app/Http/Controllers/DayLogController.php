@@ -22,6 +22,7 @@ class DayLogController extends Controller
 
         $entries = Auth::user()->dayLogs()
             ->where('date', $date)
+            ->with(['law', 'lawEvent'])
             ->orderBy('id')
             ->get()
             ->map(fn (DayLog $log) => $log->toClientArray())
@@ -41,9 +42,25 @@ class DayLogController extends Controller
         $data['mood_picked'] = (bool) ($data['mood_picked'] ?? false);
         $data['is_quit'] = (bool) ($data['is_quit'] ?? false);
 
+        // Fail fast: a broken law link must never leave an orphan entry behind.
+        $lawService = app(\App\Services\LawEventService::class);
+        $lawService->resolveLaw(
+            (int) Auth::id(),
+            isset($data['law_id']) ? (int) $data['law_id'] : null,
+            isset($data['law_direction']) ? (int) $data['law_direction'] : null,
+        );
+
         $log = Auth::user()->dayLogs()->create($data);
 
-        return response()->json(['ok' => true, 'entry' => $log->fresh()->toClientArray()], 201);
+        if (! empty($data['law_id'])) {
+            $lawService->syncForDayLog(
+                $log,
+                (int) $data['law_id'],
+                isset($data['law_direction']) ? (int) $data['law_direction'] : null,
+            );
+        }
+
+        return response()->json(['ok' => true, 'entry' => $log->fresh()->loadMissing(['law', 'lawEvent'])->toClientArray()], 201);
     }
 
     public function update(Request $request, DayLog $dayLog)
@@ -75,15 +92,40 @@ class DayLogController extends Controller
             }
         }
 
+        $lawService = app(\App\Services\LawEventService::class);
+        $touchesLaw = array_key_exists('law_id', $data) || array_key_exists('law_direction', $data);
+        if ($touchesLaw) {
+            $lawId = array_key_exists('law_id', $data)
+                ? ($data['law_id'] !== null ? (int) $data['law_id'] : null)
+                : $dayLog->law_id;
+            $lawDirection = array_key_exists('law_direction', $data)
+                ? ($data['law_direction'] !== null ? (int) $data['law_direction'] : null)
+                : $dayLog->law_direction;
+            $lawService->resolveLaw((int) Auth::id(), $lawId, $lawDirection);
+        }
+
         $dayLog->fill($data);
         $dayLog->save();
 
-        return response()->json(['ok' => true, 'entry' => $dayLog->fresh()->toClientArray()]);
-    }
+        if ($touchesLaw) {
+            $lawService->syncForDayLog(
+                $dayLog->fresh(),
+                array_key_exists('law_id', $data)
+                    ? ($data['law_id'] !== null ? (int) $data['law_id'] : null)
+                    : $dayLog->law_id,
+                array_key_exists('law_direction', $data)
+                    ? ($data['law_direction'] !== null ? (int) $data['law_direction'] : null)
+                    : $dayLog->law_direction,
+            );
+        }
 
+        return response()->json(['ok' => true, 'entry' => $dayLog->fresh()->loadMissing(['law', 'lawEvent'])->toClientArray()]);
+    }
     public function destroy(DayLog $dayLog)
     {
         $this->owned($dayLog);
+
+        app(\App\Services\LawEventService::class)->removeForDayLog($dayLog);
         $dayLog->delete();
 
         return response()->json(['ok' => true]);
@@ -102,7 +144,6 @@ class DayLogController extends Controller
 
         $logs = Auth::user()->dayLogs()->whereIn('id', $ids)->get();
         abort_if($logs->count() !== count($ids), 403);
-
         $titles = $logs->map(fn (DayLog $log) => DayLog::normalizedTitle($log->title))->unique();
         $mergeable = $titles->count() === 1
             && $logs->every(fn (DayLog $log) => $log->kind === DayLog::KIND_ACTIVITY && (int) $log->duration_seconds > 0);
@@ -121,6 +162,7 @@ class DayLogController extends Controller
                 }
                 if ($log->id !== $survivor->id) {
                     $mergedIds[] = $log->id;
+                    app(\App\Services\LawEventService::class)->removeForDayLog($log);
                     $log->delete();
                 }
             }
@@ -136,7 +178,7 @@ class DayLogController extends Controller
 
         return response()->json([
             'ok' => true,
-            'survivor' => $survivor->fresh()->toClientArray(),
+            'survivor' => $survivor->fresh()->loadMissing(['law', 'lawEvent'])->toClientArray(),
             'merged_ids' => $mergedIds,
         ]);
     }
@@ -229,6 +271,8 @@ class DayLogController extends Controller
             'mood_picked' => ['nullable', 'boolean'],
             'is_quit' => ['nullable', 'boolean'],
             'time_entry_id' => ['nullable', 'integer', Rule::exists('time_entries', 'id')->where('user_id', Auth::id()), 'prohibited_if:kind,journal'],
+            'law_id' => ['nullable', 'integer', 'min:1'],
+            'law_direction' => ['nullable', 'integer', Rule::in([1, -1])],
         ];
     }
 

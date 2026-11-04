@@ -386,5 +386,19 @@
     "Exclude": "Exclude",
     "Include": "Include",
     "Task excluded from inheritance.": "Task excluded from inheritance.",
-    "Task follows project inheritance again.": "Task follows project inheritance again."
+    "Task follows project inheritance again.": "Task follows project inheritance again.",
+    "Law": "Law",
+    "Related law": "Related law",
+    "No law": "No law",
+    "Optional — but the direction is required": "Optional — but the direction is required",
+    "How does it count?": "How does it count?",
+    "Counts :dir ×:coeff = :xp XP": "Counts :dir ×:coeff = :xp XP",
+    "No active laws yet — :link first.": "No active laws yet — :link first.",
+    "define one": "define one",
+    "Change law": "Change law",
+    "Remove law link": "Remove law link",
+    "Law link removed": "Law link removed",
+    "Law link saved": "Law link saved",
+    "This law is paused, archived or expired.": "This law is paused, archived or expired.",
+    "Choose whether this counts for or against the law.": "Choose whether this counts for or against the law."
 }

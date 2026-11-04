@@ -2057,6 +2057,31 @@
     .lg-chip:hover{border-color:#ddd6fe;color:#6d28d9;background:#fdfcff;}
     .lg-chip.active{border-color:#c4b5fd;background:linear-gradient(135deg,#f6f2ff,#f1eaff);color:#6d28d9;box-shadow:0 4px 12px -8px rgba(124,58,237,.9);}
     .lg-chip i{font-size:11.5px;}
+
+    /* ── Law picker (phase 3): optional law + required direction ── */
+    .lg-law-sel{flex:1;min-width:200px;}
+    .lg-seg{display:flex;gap:6px;flex-wrap:wrap;}
+    .lg-seg button{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border:1.5px solid #e3e4ec;background:#fff;border-radius:11px;font-family:inherit;font-size:12px;font-weight:800;color:#767c8f;cursor:pointer;transition:all .14s ease;}
+    .lg-seg button:hover{border-color:#c4b5fd;}
+    .lg-seg button.on-for{border-color:#16a34a;background:#f0fdf4;color:#15803d;box-shadow:0 4px 12px -8px rgba(22,163,74,.7);}
+    .lg-seg button.on-against{border-color:#e5484d;background:#fef2f2;color:#b91c1c;box-shadow:0 4px 12px -8px rgba(229,72,77,.7);}
+    .lg-law-xp{font-size:12px;font-weight:800;margin-top:6px;color:#6d28d9;}
+    .lg-law-empty{font-size:12px;color:#8b8d98;margin:8px 0 0;}
+    .lg-law-empty a{color:#7c3aed;font-weight:700;}
+    /* Row badge: which law this entry counts for, and its frozen XP */
+    .lg-lawbadge{display:inline-flex;align-items:center;gap:5px;max-width:100%;border:1px solid;border-radius:20px;padding:1px 9px 1px 7px;font-size:11px;font-weight:800;cursor:pointer;background:#fff;transition:all .14s ease;}
+    .lg-lawbadge:hover{filter:brightness(.96);box-shadow:0 2px 8px -4px rgba(15,23,42,.25);}
+    .lg-lawbadge i{font-size:11px;}
+    .lg-lawbadge .xp{font-variant-numeric:tabular-nums;}
+    .lg-lawbadge.is-for{color:#15803d;border-color:#bbf7d0;background:#f0fdf4;}
+    .lg-lawbadge.is-against{color:#b91c1c;border-color:#fecaca;background:#fef2f2;}
+    .lg-lawedit{display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:#faf9ff;border:1px dashed #c4b5fd;border-radius:10px;padding:8px 10px;margin-top:6px;}
+    .lg-lawedit .lg-sel{height:32px;font-size:11.5px;flex:1;min-width:150px;}
+    .lg-lawedit .lg-mini{height:32px;min-width:32px;padding:0 10px;border-radius:8px;border:1.5px solid #e3e4ec;background:#fff;font-size:12px;font-weight:800;cursor:pointer;color:#767c8f;}
+    .lg-lawedit .lg-mini.on-for{border-color:#16a34a;color:#15803d;background:#f0fdf4;}
+    .lg-lawedit .lg-mini.on-against{border-color:#e5484d;color:#b91c1c;background:#fef2f2;}
+    .lg-lawedit .lg-mini.ok{border-color:#7c3aed;color:#fff;background:#7c3aed;}
+    .lg-lawedit .lg-mini.ghost{border-color:transparent;}
     .lg-label{font-size:11px;font-weight:800;color:#8b90a1;}
 
     /* Quiet summary + one suggestion at a time */
@@ -3100,6 +3125,9 @@ body:has(.pl-task-menu.is-open)::before {
                     <button type="button" class="lg-pill" id="lgPillMood" aria-expanded="false" aria-controls="lgPanelMood">
                         <i class="bi bi-emoji-smile" aria-hidden="true"></i>{{ __('Mood') }}<i class="bi bi-chevron-down lg-chev" aria-hidden="true"></i>
                     </button>
+                    <button type="button" class="lg-pill" id="lgPillLaw" aria-expanded="false" aria-controls="lgPanelLaw">
+                        <i class="bi bi-shield-check" aria-hidden="true"></i><span id="lgLawLabel">{{ __('Law') }}</span><i class="bi bi-chevron-down lg-chev" aria-hidden="true"></i>
+                    </button>
                 </div>
 
                 {{-- No mode switch: the panel shows exactly what the day needs —
@@ -3173,6 +3201,32 @@ body:has(.pl-task-menu.is-open)::before {
                             <option value="{{ $lgMood }}">{{ app_num($lgMood) }}/{{ app_num(10) }}</option>
                         @endfor
                     </select>
+                </div>
+
+                <div class="lg-panel" id="lgPanelLaw" hidden>
+                    <div class="lg-panel-head">
+                        <i class="bi bi-shield-check" aria-hidden="true"></i>
+                        <b>{{ __('Related law') }}</b>
+                        <small>{{ __('Optional — but the direction is required') }}</small>
+                    </div>
+                    <span class="lg-label">{{ __('Law') }}</span>
+                    <select class="lg-sel lg-law-sel" id="lgLaw" name="day_log_law" aria-label="{{ __('Related law') }}">
+                        <option value="">{{ __('No law') }}</option>
+                        @foreach(($dayLaws ?? []) as $lgLaw)
+                            <option value="{{ $lgLaw['id'] }}">{{ $lgLaw['title'] }} · ×{{ app_num($lgLaw['coefficient']) }}</option>
+                        @endforeach
+                    </select>
+                    <div id="lgLawDir" style="margin-top:10px;" hidden>
+                        <span class="lg-label">{{ __('How does it count?') }}</span>
+                        <div class="lg-seg" role="group" aria-label="{{ __('Direction') }}">
+                            <button type="button" data-lg-dir="1"><i class="bi bi-arrow-up-circle" aria-hidden="true"></i>{{ __('For the law') }}</button>
+                            <button type="button" data-lg-dir="-1"><i class="bi bi-arrow-down-circle" aria-hidden="true"></i>{{ __('Against the law') }}</button>
+                        </div>
+                        <div class="lg-law-xp" id="lgLawXp" aria-live="polite"></div>
+                    </div>
+                    @if(empty($dayLaws))
+                    <p class="lg-law-empty">{!! __('No active laws yet — :link first.', ['link' => '<a href="'.route('laws.create').'">'.__('define one').'</a>']) !!}</p>
+                    @endif
                 </div>
 
                 <p class="lg-meta" id="lgMeta" aria-live="polite"></p>
@@ -7489,6 +7543,9 @@ body:has(.pl-task-menu.is-open)::before {
         destroy: id => @json(url('/planner/day-logs')) + '/' + id,
     };
 
+    /* Active laws available to the DayLog law picker (id/title/coefficient/color/icon). */
+    const LG_LAWS = @json($dayLaws ?? []);
+
     const I18N = {
         setTime:    @json(__('Set time')),
         untimed:    @json(__('Untimed')),
@@ -7544,6 +7601,15 @@ body:has(.pl-task-menu.is-open)::before {
         unmarkQuit: @json(__('Stop tracking quit')),
         quitMarked: @json(__('Marked for quit tracking')),
         quitUnmarked: @json(__('Removed from quit tracking')),
+        lawPill:    @json(__('Law')),
+        noLaw:      @json(__('No law')),
+        lawXpPreview: @json(__('Counts :dir ×:coeff = :xp XP')),
+        forShort:   @json(__('For')),
+        againstShort: @json(__('Against')),
+        changeLaw:  @json(__('Change law')),
+        removeLawLink: @json(__('Remove law link')),
+        lawRemoved: @json(__('Law link removed')),
+        lawSaved:   @json(__('Law link saved')),
     };
 
     const PERIODS = @json($lgPeriods);
@@ -7687,7 +7753,8 @@ body:has(.pl-task-menu.is-open)::before {
        range all at once ("پیانو ۴۵ دقیقه عصر"), or none of them. */
     const TIME_UNITS = [UNITS.minute, UNITS.hour];
     const state = { kind: 'activity', amount: null, unit: UNITS.minute,
-                    start: null, end: null, period: null, mood: null, actId: null };
+                    start: null, end: null, period: null, mood: null, actId: null,
+                    lawId: null, lawDir: 1 };
 
     const $ = id => document.getElementById(id);
     const input = $('lgInput');
@@ -7732,6 +7799,10 @@ body:has(.pl-task-menu.is-open)::before {
             mood: s.mood != null ? Number(s.mood) : null,
             moodPicked: !!s.mood_picked, isQuit: !!s.is_quit,
             timeEntryId: s.time_entry_id || null,
+            lawId: s.law_id != null ? Number(s.law_id) : null,
+            lawDir: s.law_direction != null ? Number(s.law_direction) : 1,
+            law: s.law || null,
+            lawXp: s.law_xp != null ? Number(s.law_xp) : null,
             color: colorFor(s.title),
         };
     }
@@ -7760,7 +7831,8 @@ body:has(.pl-task-menu.is-open)::before {
     function snapshotEntry(e) {
         return { title: e.title, note: e.note, kind: e.kind, period: e.period, seconds: e.seconds,
                  amount: e.amount, unitKey: e.unitKey, start: e.start, end: e.end, loggedAt: e.loggedAt,
-                 mood: e.mood, moodPicked: e.moodPicked, isQuit: e.isQuit, timeEntryId: e.timeEntryId };
+                 mood: e.mood, moodPicked: e.moodPicked, isQuit: e.isQuit, timeEntryId: e.timeEntryId,
+                 lawId: e.lawId || null, lawDir: e.lawDir || 1 };
     }
     function snapshotToPayload(s) {
         const isJ = s.kind === 'journal';
@@ -7772,7 +7844,9 @@ body:has(.pl-task-menu.is-open)::before {
             start_time: isJ ? null : (s.start || null), end_time: isJ ? null : (s.end || null),
             logged_at: s.loggedAt || null, mood: s.mood != null ? s.mood : null,
             mood_picked: !!s.moodPicked, is_quit: !!s.isQuit,
-            time_entry_id: s.timeEntryId || null };
+            time_entry_id: s.timeEntryId || null,
+            law_id: s.lawId || null,
+            law_direction: s.lawId ? (s.lawDir === -1 ? -1 : 1) : null };
     }
     const entryToPayload = e => snapshotToPayload(snapshotEntry(e));
 
@@ -7866,8 +7940,17 @@ body:has(.pl-task-menu.is-open)::before {
            or wrap as a block when the title is long. */
         const moodBadge = (e.mood != null && e.moodPicked)
             ? '<span class="lg-mood-badge">' + esc(I18N.moodLabel) + ' ' + NUM(e.mood) + '/' + NUM(10) + '</span>' : '';
-        const sub = (meta || e.note || moodBadge)
-            ? '<div class="lg-row-sub">' + moodBadge +
+        const law = e.law || (e.lawId ? lawById(e.lawId) : null);
+        const lawBadge = law
+            ? '<button type="button" class="lg-lawbadge ' + (e.lawDir === -1 ? 'is-against' : 'is-for') + '" data-lg-act="law"' +
+              ' aria-label="' + esc(I18N.changeLaw) + '" title="' + esc(I18N.changeLaw) + '">' +
+                '<i class="bi ' + esc(law.icon || 'bi-shield-check') + '" aria-hidden="true"></i>' +
+                '<span>' + esc(law.title) + '</span>' +
+                '<span class="xp">' + (e.lawDir === -1 ? '−' : '+') + NUM(e.lawXp != null ? Math.abs(e.lawXp) : Math.abs((law.coefficient || 1))) + ' XP</span>' +
+              '</button>'
+            : '';
+        const sub = (meta || e.note || moodBadge || lawBadge)
+            ? '<div class="lg-row-sub">' + moodBadge + lawBadge +
                 (meta ? '<span class="lg-row-meta">' + esc(meta) + '</span>' : '') +
                 (e.note ? '<span class="lg-row-note">' + esc(e.note) + '</span>' : '') +
               '</div>'
@@ -7964,12 +8047,56 @@ body:has(.pl-task-menu.is-open)::before {
         $('lgTimeLabel').textContent = timePillText();
         $('lgPillTime').classList.toggle('is-on', hasTime());
         $('lgPillMood').classList.toggle('is-on', state.mood != null);
+        const pickedLaw = LG_LAWS.find(l => l.id === state.lawId);
+        $('lgLawLabel').textContent = pickedLaw ? pickedLaw.title : I18N.lawPill;
+        $('lgPillLaw').classList.toggle('is-on', state.lawId != null);
         syncMoodField();
         $('lgCount').textContent = NUM(entries.length);
         $('lgSave').disabled = !input.value.trim();
         document.querySelectorAll('[data-lg-val]').forEach(b =>
             b.classList.toggle('active', Number(b.dataset.lgVal) === state.amount));
     }
+
+    /* ── Law picker: optional law, mandatory direction ── */
+    const lawById = id => LG_LAWS.find(l => l.id === id) || null;
+
+    function syncLawPanel() {
+        const sel = $('lgLaw');
+        if (!sel) { return; }
+        if (sel.value !== String(state.lawId || '')) { sel.value = state.lawId ? String(state.lawId) : ''; }
+        const dirBox = $('lgLawDir');
+        if (dirBox) { dirBox.hidden = state.lawId == null; }
+        document.querySelectorAll('#lgLawDir [data-lg-dir]').forEach(b => {
+            const dir = Number(b.dataset.lgDir);
+            b.classList.toggle('on-for', state.lawId != null && dir === 1 && state.lawDir === 1);
+            b.classList.toggle('on-against', state.lawId != null && dir === -1 && state.lawDir === -1);
+        });
+        const xp = $('lgLawXp');
+        if (xp) {
+            const law = lawById(state.lawId);
+            if (law) {
+                const xpVal = (state.lawDir === -1 ? -1 : 1) * law.coefficient;
+                xp.textContent = esc(I18N.lawXpPreview)
+                    .replace(':dir', esc(state.lawDir === -1 ? I18N.againstShort : I18N.forShort))
+                    .replace(':coeff', NUM(law.coefficient))
+                    .replace(':xp', (xpVal > 0 ? '+' : '−') + NUM(Math.abs(xpVal)));
+            } else { xp.textContent = ''; }
+        }
+    }
+
+    $('lgPillLaw').addEventListener('click', () => { togglePanel('law'); render(); });
+    $('lgLaw').addEventListener('change', e => {
+        state.lawId = e.target.value ? Number(e.target.value) : null;
+        if (state.lawId == null) { state.lawDir = 1; }
+        syncLawPanel();
+        render();
+    });
+    document.querySelectorAll('#lgLawDir [data-lg-dir]').forEach(b => b.addEventListener('click', () => {
+        if (state.lawId == null) { return; }
+        state.lawDir = Number(b.dataset.lgDir) === -1 ? -1 : 1;
+        syncLawPanel();
+        render();
+    }));
 
     /* Insights candidates come from the server (repeat counts); the live
        session nudge stays client-side. One suggestion at a time. */
@@ -8195,6 +8322,72 @@ body:has(.pl-task-menu.is-open)::before {
         field.addEventListener('blur', commit);
     }
 
+    /* Law link editor: swap the badge for a mini-form (law + direction + save).
+       Escape or re-click cancels; the trash unlinks entirely. */
+    function lawEdit(row, entry) {
+        const main = row.querySelector('.lg-row-main');
+        if (!main || main.querySelector('.lg-lawedit')) { render(); return; }
+        if (!LG_LAWS.length) { plShowToast(I18N.noLaw); return; }
+        const box = document.createElement('div');
+        box.className = 'lg-lawedit';
+        const currentId = entry.lawId || (entry.law ? entry.law.id : null);
+        const currentDir = entry.lawDir === -1 ? -1 : 1;
+        box.innerHTML =
+            '<select class="lg-sel" aria-label="' + esc(I18N.lawPill) + '">' +
+                '<option value="">' + esc(I18N.noLaw) + '</option>' +
+                LG_LAWS.map(l => '<option value="' + l.id + '"' + (l.id === currentId ? ' selected' : '') + '>' +
+                    esc(l.title) + ' · ×' + NUM(l.coefficient) + '</option>').join('') +
+            '</select>' +
+            '<button type="button" class="lg-mini" data-dir="1" title="' + esc(I18N.forShort) + '"><i class="bi bi-arrow-up-circle"></i></button>' +
+            '<button type="button" class="lg-mini" data-dir="-1" title="' + esc(I18N.againstShort) + '"><i class="bi bi-arrow-down-circle"></i></button>' +
+            '<button type="button" class="lg-mini ok" data-save="1" title="' + esc(I18N.lawSaved) + '"><i class="bi bi-check-lg"></i></button>' +
+            (currentId ? '<button type="button" class="lg-mini ghost" data-unlink="1" title="' + esc(I18N.removeLawLink) + '"><i class="bi bi-trash"></i></button>' : '');
+        main.appendChild(box);
+
+        const sel = box.querySelector('select');
+        let dir = currentDir;
+        const paint = () => {
+            box.querySelector('[data-dir="1"]').classList.toggle('on-for', dir === 1);
+            box.querySelector('[data-dir="-1"]').classList.toggle('on-against', dir === -1);
+        };
+        box.querySelectorAll('[data-dir]').forEach(b => b.addEventListener('click', ev => {
+            ev.stopPropagation();
+            dir = Number(b.dataset.dir) === -1 ? -1 : 1;
+            paint();
+        }));
+        paint();
+
+        let done = false;
+        const cancel = () => { if (done) { return; } done = true; render(); };
+        const commit = async unlink => {
+            if (done) { return; }
+            done = true;
+            const nextId = unlink ? null : (sel.value ? Number(sel.value) : null);
+            if (!unlink && nextId === currentId && dir === currentDir) { render(); return; }
+            try {
+                const payload = unlink ? { law_id: null, law_direction: null } : { law_id: nextId, law_direction: nextId ? dir : null };
+                const j = await lgApi(LG_ROUTES.update(entry.id), 'PATCH', payload);
+                Object.assign(entry, mapServerEntry(j.entry));
+                render();
+                plShowToast(unlink ? I18N.lawRemoved : I18N.lawSaved);
+            } catch (err) {
+                console.error('[DayLog] law update failed', err);
+                render();
+                plShowToast(apiErr(err, I18N.updateFail));
+            }
+        };
+        box.querySelector('[data-save]').addEventListener('click', ev => { ev.stopPropagation(); commit(false); });
+        const unlinkBtn = box.querySelector('[data-unlink]');
+        if (unlinkBtn) { unlinkBtn.addEventListener('click', ev => { ev.stopPropagation(); commit(true); }); }
+        sel.addEventListener('keydown', ev => {
+            ev.stopPropagation();
+            if (ev.key === 'Enter') { ev.preventDefault(); commit(false); }
+            if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+        });
+        box.addEventListener('click', ev => ev.stopPropagation());
+        sel.focus();
+    }
+
     /* ── Floating-timer link: start from a row, duration lands back on stop. ── */
     function lgTimerTick(snap) {
         if (!lgTimer) { return; }
@@ -8301,6 +8494,7 @@ body:has(.pl-task-menu.is-open)::before {
         time: { panel: 'lgPanelTime', pill: 'lgPillTime' },
         note: { panel: 'lgPanelNote', pill: 'lgPillNote' },
         mood: { panel: 'lgPanelMood', pill: 'lgPillMood' },
+        law: { panel: 'lgPanelLaw', pill: 'lgPillLaw' },
     };
 
     function togglePanel(name) {
@@ -8310,7 +8504,7 @@ body:has(.pl-task-menu.is-open)::before {
             $(PANELS[key].panel).hidden = !isTarget;
             $(PANELS[key].pill).setAttribute('aria-expanded', String(isTarget));
             $(PANELS[key].pill).classList.toggle('is-on', isTarget ||
-                (key === 'time' ? hasTime() : key === 'mood' && state.mood != null));
+                (key === 'time' ? hasTime() : key === 'mood' ? state.mood != null : key === 'law' ? state.lawId != null : false));
         });
         if (open) {
             const focusTarget = $(PANELS[name].panel).querySelector('input, select, button');
@@ -8371,7 +8565,7 @@ body:has(.pl-task-menu.is-open)::before {
         state.actId = null;
         /* An emptied composer is a fresh entry: nothing may leak from the last
            sentence into the next one. */
-        if (!input.value.trim()) { resetTime(); $('lgNote').value = ''; state.mood = null; }
+        if (!input.value.trim()) { resetTime(); $('lgNote').value = ''; state.mood = null; state.lawId = null; state.lawDir = 1; syncLawPanel(); }
         else if (parsed.note) { $('lgNote').value = parsed.note; }
         applyParsed(parsed);
         render();
@@ -8463,7 +8657,8 @@ body:has(.pl-task-menu.is-open)::before {
         const title = isJournal ? input.value.trim() : (parsed.title || input.value.trim());
         const entry = { id: 'tmp' + Date.now(), actId: state.actId, title: title, kind: state.kind,
                         note: $('lgNote').value.trim() || null, unitKey: unitKeyOf(state.unit),
-                        mood: state.mood, moodPicked: segKind === 'mood' };
+                        mood: state.mood, moodPicked: segKind === 'mood',
+                        lawId: state.lawId || null, lawDir: state.lawDir === -1 ? -1 : 1 };
         const now = new Date();
         entry.loggedAt = pad(now.getHours()) + ':' + pad(now.getMinutes());
 
@@ -8509,7 +8704,11 @@ body:has(.pl-task-menu.is-open)::before {
             refreshAsk();
             flashRow(saved.id);
             input.focus();
-            plShowToast(I18N.logged + ': ' + (saved.kind === 'journal' ? I18N.moodSentence : saved.title));
+            let loggedMsg = I18N.logged + ': ' + (saved.kind === 'journal' ? I18N.moodSentence : saved.title);
+            if (saved.law && saved.lawXp != null) {
+                loggedMsg += ' (' + (saved.lawXp >= 0 ? '+' : '−') + NUM(Math.abs(saved.lawXp)) + ' XP)';
+            }
+            plShowToast(loggedMsg);
         } catch (err) {
             console.error('[DayLog] save failed', err);
             plShowToast(apiErr(err, I18N.saveFail));
@@ -8522,6 +8721,9 @@ body:has(.pl-task-menu.is-open)::before {
         $('lgNote').value = '';
         state.actId = null;
         state.mood = null;
+        state.lawId = null;
+        state.lawDir = 1;
+        syncLawPanel();
         resetTime();
         closeSuggest();
     }
@@ -8600,6 +8802,8 @@ body:has(.pl-task-menu.is-open)::before {
             });
         } else if (btn.dataset.lgAct === 'edit') {
             inlineEdit(row, entry);
+        } else if (btn.dataset.lgAct === 'law') {
+            lawEdit(row, entry);
         } else if (btn.dataset.lgAct === 'time') {
             timeEdit(row, entry);
         } else if (btn.dataset.lgAct === 'timer') {
@@ -8691,6 +8895,7 @@ body:has(.pl-task-menu.is-open)::before {
 
     /* Nothing is set until the user says so: the panel starts empty, not at 45. */
     syncTimeFields();
+    syncLawPanel();
     render();
     loadDay();
 })();

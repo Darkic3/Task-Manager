@@ -31,6 +31,8 @@ class DayLog extends Model
         'mood_picked',
         'is_quit',
         'time_entry_id',
+        'law_id',
+        'law_direction',
     ];
 
     protected $casts = [
@@ -40,11 +42,25 @@ class DayLog extends Model
         'mood' => 'integer',
         'mood_picked' => 'boolean',
         'is_quit' => 'boolean',
+        'law_direction' => 'integer',
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function law()
+    {
+        return $this->belongsTo(Law::class);
+    }
+
+    /**
+     * The manual XP event this entry scored (if linked to a law).
+     */
+    public function lawEvent()
+    {
+        return $this->morphOne(LawEvent::class, 'linkable');
     }
 
     public function timeEntry()
@@ -98,6 +114,18 @@ class DayLog extends Model
             'mood_picked' => (bool) $this->mood_picked,
             'is_quit' => (bool) $this->is_quit,
             'time_entry_id' => $this->time_entry_id,
+            'law_id' => $this->law_id,
+            'law_direction' => $this->law_direction !== null ? (int) $this->law_direction : null,
+            'law' => $this->relationLoaded('law') && $this->law ? [
+                'id' => $this->law->id,
+                'title' => $this->law->title,
+                'coefficient' => (int) $this->law->coefficient,
+                'color' => $this->law->color,
+                'icon' => $this->law->icon,
+            ] : null,
+            'law_xp' => $this->relationLoaded('lawEvent') && $this->lawEvent
+                ? (int) $this->lawEvent->xp_delta
+                : null,
         ];
     }
 }

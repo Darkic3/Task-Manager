@@ -139,6 +139,11 @@ class LawController extends Controller
     {
         $this->owned($law);
 
+        // DayLog entries keep their text but lose the law reference;
+        // law_events cascade-delete via FK.
+        \App\Models\DayLog::where('law_id', $law->id)
+            ->update(['law_id' => null, 'law_direction' => null]);
+
         $law->delete();
 
         return redirect()->route('laws.index')
