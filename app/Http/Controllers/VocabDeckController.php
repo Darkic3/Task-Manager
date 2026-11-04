@@ -43,7 +43,7 @@ class VocabDeckController extends Controller
             'stats' => $stats,
             'deck' => new VocabDeck(['color' => '#6366f1']),
             'newToday' => VocabCardController::newTodayCount($user),
-            'newLimit' => VocabCardController::DAILY_NEW_CARD_LIMIT,
+            'newLimit' => $user->vocabDailyLimit(),
             'daily' => \App\Services\Vocabulary\VocabStatsService::dailyRetention($user),
             'deckStats' => \App\Services\Vocabulary\VocabStatsService::deckSummary($user),
             'overallRetention' => \App\Services\Vocabulary\VocabStatsService::overallRetention($user),

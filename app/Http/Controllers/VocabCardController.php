@@ -56,14 +56,15 @@ class VocabCardController extends Controller
             'decks' => $decks,
             'filters' => $request->only(['deck_id', 'box', 'filter', 'search']),
             'newToday' => static::newTodayCount($user),
-            'newLimit' => static::DAILY_NEW_CARD_LIMIT,
+            'newLimit' => $user->vocabDailyLimit(),
         ]);
     }
 
     public function store(Request $request)
     {
-        if (static::newTodayCount($request->user()) >= static::DAILY_NEW_CARD_LIMIT) {
-            return back()->with('error', __('Daily new-card limit reached (:limit/day).', ['limit' => static::DAILY_NEW_CARD_LIMIT]));
+        $limit = $request->user()->vocabDailyLimit();
+        if (static::newTodayCount($request->user()) >= $limit) {
+            return back()->with('error', __('Daily new-card limit reached (:limit/day).', ['limit' => $limit]));
         }
 
         $data = $request->validate($this->rules());

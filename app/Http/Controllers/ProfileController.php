@@ -73,6 +73,9 @@ class ProfileController extends Controller
             'morning_window_start' => ['nullable', 'date_format:H:i'],
             'morning_window_end' => ['nullable', 'date_format:H:i'],
             'wake_routine_id' => ['nullable', 'integer', Rule::exists('routines', 'id')->where('user_id', $user->id)],
+            'vocab_daily_limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'vocab_session_limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'vocab_remind_enabled' => ['nullable', 'boolean'],
         ]);
 
         $checkinEnabled = $request->boolean('morning_checkin_enabled');
@@ -104,6 +107,9 @@ class ProfileController extends Controller
             'morning_window_start' => $windowStart,
             'morning_window_end' => $windowEnd,
             'wake_routine_id' => $wakeRoutineId,
+            'vocab_daily_limit' => (int) ($request->input('vocab_daily_limit') ?: 20),
+            'vocab_session_limit' => (int) ($request->input('vocab_session_limit') ?: 20),
+            'vocab_remind_enabled' => $request->boolean('vocab_remind_enabled'),
         ];
 
         if ($request->filled('locale')) {

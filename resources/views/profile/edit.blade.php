@@ -166,6 +166,46 @@
                         </div>
                     </div>
                 </section>
+
+                {{-- Leitner box --}}
+                <section class="pf-card" style="animation-delay:.24s;">
+                    <header class="pf-card-hd">
+                        <span class="pf-card-ico blue"><i class="bi bi-translate"></i></span>
+                        <div>
+                            <h2 class="pf-card-title">{{ __('Leitner Box') }}</h2>
+                            <p class="pf-card-sub">{{ __('Tune your vocabulary routine') }}</p>
+                        </div>
+                    </header>
+                    <div class="pf-card-bd">
+                        <div class="pf-field-row">
+                            <div class="pf-field">
+                                <label for="vocab_daily_limit" class="pf-label">{{ __('Daily new-card limit') }}</label>
+                                <input type="number" id="vocab_daily_limit" name="vocab_daily_limit" dir="ltr" min="1" max="100"
+                                       class="pf-input @error('vocab_daily_limit') is-invalid @enderror"
+                                       value="{{ old('vocab_daily_limit', $user->vocab_daily_limit ?? 20) }}">
+                                <p class="pf-hint">{{ __('Max new words per day (1–100). Bulk import ignores this limit.') }}</p>
+                                @error('vocab_daily_limit')<p class="pf-err">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="pf-field">
+                                <label for="vocab_session_limit" class="pf-label">{{ __('Cards per review session') }}</label>
+                                <input type="number" id="vocab_session_limit" name="vocab_session_limit" dir="ltr" min="1" max="100"
+                                       class="pf-input @error('vocab_session_limit') is-invalid @enderror"
+                                       value="{{ old('vocab_session_limit', $user->vocab_session_limit ?? 20) }}">
+                                <p class="pf-hint">{{ __('How many due cards each review session covers (1–100).') }}</p>
+                                @error('vocab_session_limit')<p class="pf-err">{{ $message }}</p>@enderror
+                            </div>
+                        </div>
+
+                        <label class="pf-switch">
+                            <input type="checkbox" id="vocab_remind_enabled" name="vocab_remind_enabled" value="1"
+                                   {{ old('vocab_remind_enabled', $user->vocab_remind_enabled ?? true) ? 'checked' : '' }}>
+                            <span class="pf-switch-track" aria-hidden="true"><span class="pf-switch-thumb"></span></span>
+                            <span class="pf-switch-label">{{ __('Enable daily review reminder') }}</span>
+                        </label>
+                        <p class="pf-hint">{{ __('When enabled, you get one reminder per day while cards are due.') }}</p>
+                        @error('vocab_remind_enabled')<p class="pf-err">{{ $message }}</p>@enderror
+                    </div>
+                </section>
             </div>
 
             {{-- Side column --}}

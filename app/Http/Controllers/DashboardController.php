@@ -167,7 +167,7 @@ class DashboardController extends Controller
         // Vocabulary strip: due reviews + today's new-card usage vs daily cap.
         $vocabDue = $user->vocabCards()->due()->count();
         $vocabNewToday = $user->vocabCards()->whereDate('created_at', today())->count();
-        $vocabNewLimit = \App\Http\Controllers\VocabCardController::DAILY_NEW_CARD_LIMIT;
+        $vocabNewLimit = $user->vocabDailyLimit();
 
         return view('dashboard', compact(
             'tasksCount',

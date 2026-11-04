@@ -30,6 +30,9 @@ class User extends Authenticatable
         'morning_window_start',
         'morning_window_end',
         'wake_routine_id',
+        'vocab_daily_limit',
+        'vocab_session_limit',
+        'vocab_remind_enabled',
     ];
 
     /**
@@ -51,6 +54,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'morning_checkin_enabled' => 'boolean',
+        'vocab_remind_enabled' => 'boolean',
         'is_admin' => 'boolean',
     ];
 
@@ -78,6 +82,22 @@ class User extends Authenticatable
             substr((string) ($this->morning_window_start ?? '04:00:00'), 0, 5),
             substr((string) ($this->morning_window_end ?? '12:00:00'), 0, 5),
         ];
+    }
+
+    /**
+     * Max new vocabulary cards the user may add per day (1–100).
+     */
+    public function vocabDailyLimit(): int
+    {
+        return max(1, min(100, (int) ($this->vocab_daily_limit ?? \App\Http\Controllers\VocabCardController::DAILY_NEW_CARD_LIMIT)));
+    }
+
+    /**
+     * Max due cards covered by a single vocabulary review session (1–100).
+     */
+    public function vocabSessionLimit(): int
+    {
+        return max(1, min(100, (int) ($this->vocab_session_limit ?? \App\Http\Controllers\VocabReviewController::SESSION_LIMIT)));
     }
 
     /**
