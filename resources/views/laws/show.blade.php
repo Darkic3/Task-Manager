@@ -39,6 +39,9 @@
 .lw-dot.for { background:#dcfce7; color:#15803d; }
 .lw-dot.against { background:#fee2e2; color:#b91c1c; }
 .lw-ev small { color:#8b8d98; font-size:11.5px; }
+.cu-input { width:100%; border:1px solid #dfe1e6; border-radius:7px; padding:9px 12px; font-size:13.5px; color:#1a1d23; background:white; }
+.cu-input:focus { outline:none; border-color:#7c3aed; box-shadow:0 0 0 3px rgba(124,58,237,.12); }
+.invalid-feedback { color:#dc2626; font-size:12px; margin-top:4px; }
 </style>
 @endpush
 
@@ -91,14 +94,7 @@
         </div>
     </div>
 
-    <div class="lw-panel">
-        <h3><i class="bi bi-diagram-3 me-1"></i>{{ __('Linked activities') }}</h3>
-        @if($law->links->isEmpty())
-        <p class="hint">{{ __('Nothing linked yet. In the next phase you will attach tasks, projects and routines here — each marked for or against this law.') }}</p>
-        @else
-        <p class="hint">{{ app_num($law->links->count()) }} {{ __('linked') }}</p>
-        @endif
-    </div>
+    @include('laws._links')
 
     <div class="lw-panel">
         <h3><i class="bi bi-clock-history me-1"></i>{{ __('History') }}</h3>

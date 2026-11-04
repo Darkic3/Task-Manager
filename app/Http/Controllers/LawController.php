@@ -83,7 +83,7 @@ class LawController extends Controller
             ->with('success', __('Law created.'));
     }
 
-    public function show(Law $law)
+    public function show(Law $law, \App\Services\LawLinkService $links)
     {
         $this->owned($law);
 
@@ -97,10 +97,22 @@ class LawController extends Controller
             'minus' => $law->events()->where('direction', -1)->where('occurred_on', '>=', $weekStart)->count(),
         ];
 
+        $grouped = $links->grouped($law);
+
+        // Project inheritance preview: open tasks of each linked project tree.
+        $projectTasks = [];
+        foreach (($grouped[\App\Models\Project::class] ?? collect()) as $link) {
+            if ($link->linkable) {
+                $projectTasks[$link->id] = $links->projectTasksForLaw($link->linkable, $law);
+            }
+        }
+
         return view('laws.show', [
             'law' => $law,
             'stats' => $stats,
             'week' => $week,
+            'grouped' => $grouped,
+            'projectTasks' => $projectTasks,
         ]);
     }
 

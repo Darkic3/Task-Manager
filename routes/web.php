@@ -29,6 +29,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\DayLogController;
 use App\Http\Controllers\LawController;
+use App\Http\Controllers\LawLinkController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\TaskController;
@@ -107,6 +108,11 @@ Route::middleware(['auth', EnsureOwnedRouteModels::class, BetaFeatureUnavailable
     Route::post('laws/{law}/pause', [LawController::class, 'pause'])->name('laws.pause');
     Route::post('laws/{law}/resume', [LawController::class, 'resume'])->name('laws.resume');
     Route::post('laws/{law}/archive', [LawController::class, 'archive'])->name('laws.archive');
+    Route::post('laws/{law}/links', [LawLinkController::class, 'store'])->name('laws.links.store');
+    Route::get('laws/{law}/candidates', [LawLinkController::class, 'candidates'])->name('laws.candidates');
+    Route::patch('laws/{law}/links/{link}', [LawLinkController::class, 'update'])->name('laws.links.update');
+    Route::delete('laws/{law}/links/{link}', [LawLinkController::class, 'destroy'])->name('laws.links.destroy');
+    Route::post('laws/{law}/tasks/{task}/exclusion', [LawLinkController::class, 'toggleExclusion'])->name('laws.tasks.exclusion');
     Route::prefix('workouts')->name('workouts.')->group(function () {
         Route::resource('exercises', ExerciseController::class)->except(['show']);
         Route::resource('plans', WorkoutPlanController::class)->except(['show'])->parameters(['plans' => 'workoutPlan']);

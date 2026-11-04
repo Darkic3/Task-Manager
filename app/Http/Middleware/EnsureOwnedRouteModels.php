@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\ChecklistItem;
 use App\Models\Exercise;
+use App\Models\LawLink;
 use App\Models\NoteAttachment;
 use App\Models\NoteLink;
 use App\Models\WorkoutDay;
@@ -53,6 +54,7 @@ class EnsureOwnedRouteModels
 
         $ownerId = match (true) {
             $model instanceof ChecklistItem => $model->task?->user_id,
+            $model instanceof LawLink => $model->law?->user_id,
             $model instanceof NoteAttachment => $model->note?->user_id,
             $model instanceof NoteLink => $model->note?->user_id,
             $model instanceof WorkoutDay => $model->plan?->user_id,
