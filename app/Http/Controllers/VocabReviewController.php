@@ -116,6 +116,12 @@ class VocabReviewController extends Controller
         ));
         session(['vocab_review_queue' => $queue]);
 
+        // Queue drained: if nothing is due anymore, the day's review reminder
+        // has served its purpose — complete it automatically.
+        if (($queue['items'] ?? []) === [] && Auth::user()->vocabCards()->due()->count() === 0) {
+            \App\Services\Vocabulary\VocabReminderService::completeForUser(Auth::user());
+        }
+
         $params = [];
         if (! empty($data['deck_id']) && $data['deck_id'] !== 'all') {
             $params['deck_id'] = $data['deck_id'];
@@ -146,7 +152,7 @@ class VocabReviewController extends Controller
     {
         $cards = $this->dueQuery($user, $deckId)
             ->orderBy('box')->orderBy('id')
-            ->limit(self::SESSION_LIMIT)
+            ->limit($user->vocabSessionLimit())
             ->get(['id']);
 
         $items = $cards->map(fn (VocabCard $c) => [

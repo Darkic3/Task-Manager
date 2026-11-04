@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // AI confirmation hygiene: expire stale pendings, drop old terminal rows.
 Schedule::command('ai:prune-pendings')->daily();
+
+// Leitner box: one "time to review" reminder per user per day.
+Schedule::command('vocab:remind-due')->daily();

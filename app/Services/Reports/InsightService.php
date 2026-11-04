@@ -39,6 +39,22 @@ final class InsightService
             ];
         }
 
+        // 1b. Leitner reviews due — a 5-minute session protects the whole schedule.
+        $vocab = $data['vocab'] ?? null;
+        if ($vocab && ($vocab['due_now'] ?? 0) > 0) {
+            $out[] = [
+                'icon' => 'bi-translate', 'tone' => 'info',
+                'title' => __(':count vocab reviews due', ['count' => $vocab['due_now']]),
+                'body' => __('Open the Leitner box — a short session keeps every box on schedule.'),
+            ];
+        } elseif ($vocab && ($vocab['reviewed'] ?? 0) >= 10 && ($vocab['retention'] ?? 100) < 60) {
+            $out[] = [
+                'icon' => 'bi-graph-down-arrow', 'tone' => 'warn',
+                'title' => __('Vocab retention at :rate%', ['rate' => $vocab['retention']]),
+                'body' => __('Failed cards fall back to Box 1 — shorter daily sessions beat cramming.'),
+            ];
+        }
+
         // 1b. Overdue study chapter (most overdue open tasks, tie → most pages left).
         $studyRows = $data['study']['rows'] ?? [];
         $worstChapter = collect($studyRows)

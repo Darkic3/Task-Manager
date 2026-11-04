@@ -222,4 +222,164 @@ class VocabularyLeitnerTest extends TestCase
 
         $this->assertEqualsWithDelta(50.0, VocabStatsService::overallRetention($user), 0.01);
     }
+
+    public function test_reports_page_shows_vocabulary_section_and_insight(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $card = $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+        VocabReview::create([
+            'user_id' => $user->id, 'vocab_card_id' => $card->id, 'deck_id' => $deck->id,
+            'remembered' => true, 'box_before' => 1, 'box_after' => 2,
+            'reversed' => false, 'reviewed_at' => now(),
+        ]);
+
+        $html = $this->get(route('reports.overview', ['range' => 'week']))->assertOk()->getContent();
+
+        $this->assertStringContainsString('id="vocabulary"', $html);
+        $this->assertStringContainsString('vocab reviews due', $html);
+    }
+
+    public function test_daily_reminder_command_creates_and_updates_one_reminder(): void
+    {
+        $user = User::factory()->create();
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+
+        $this->artisan('vocab:remind-due')->assertSuccessful();
+
+        $reminders = \App\Models\Reminder::where('user_id', $user->id)
+            ->where('category', \App\Services\Vocabulary\VocabReminderService::CATEGORY)
+            ->get();
+        $this->assertCount(1, $reminders);
+        $this->assertSame(today()->toDateString(), $reminders->first()->date->toDateString());
+
+        // Re-running refreshes instead of duplicating.
+        $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'book', 'back' => 'کتاب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+        $this->artisan('vocab:remind-due')->assertSuccessful();
+        $this->assertCount(1, \App\Models\Reminder::where('user_id', $user->id)
+            ->where('category', \App\Services\Vocabulary\VocabReminderService::CATEGORY)->get());
+
+        // Completed reminders are never re-created.
+        $reminders->first()->markAsCompleted();
+        $this->artisan('vocab:remind-due')->assertSuccessful();
+        $this->assertCount(1, \App\Models\Reminder::where('user_id', $user->id)
+            ->where('category', \App\Services\Vocabulary\VocabReminderService::CATEGORY)->get());
+    }
+
+    public function test_grading_last_due_card_completes_daily_reminder(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $card = $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+        $reminder = $user->reminders()->create([
+            'title' => 'x', 'description' => '', 'date' => today()->toDateString(), 'time' => '',
+            'priority' => 'medium',
+            'category' => \App\Services\Vocabulary\VocabReminderService::CATEGORY,
+            'recurrence_type' => 'none', 'recurrence_interval' => 1, 'is_completed' => false,
+        ]);
+
+        $this->post(route('vocabulary.cards.grade', $card), ['remembered' => 1])->assertRedirect();
+
+        $this->assertTrue($reminder->fresh()->is_completed);
+    }
+
+    public function test_custom_daily_limit_is_respected(): void
+    {
+        $user = User::factory()->create(['vocab_daily_limit' => 2]);
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+
+        for ($i = 0; $i < 2; $i++) {
+            $this->post(route('vocabulary.cards.store'), [
+                'deck_id' => $deck->id, 'front' => "w{$i}", 'back' => "m{$i}",
+            ])->assertRedirect();
+        }
+        $this->post(route('vocabulary.cards.store'), [
+            'deck_id' => $deck->id, 'front' => 'extra', 'back' => 'اضافی',
+        ])->assertSessionHas('error');
+        $this->assertCount(2, VocabCard::where('user_id', $user->id)->get());
+    }
+
+    public function test_custom_session_limit_caps_review_queue(): void
+    {
+        $user = User::factory()->create(['vocab_session_limit' => 3]);
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        for ($i = 0; $i < 5; $i++) {
+            $user->vocabCards()->create([
+                'deck_id' => $deck->id, 'front' => "w{$i}", 'back' => "m{$i}",
+                'box' => 1, 'next_review_at' => today(),
+            ]);
+        }
+
+        $this->get(route('vocabulary.review.index'))->assertOk();
+        $queue = session('vocab_review_queue');
+        $this->assertCount(3, $queue['items']);
+        $this->assertSame(3, $queue['total']);
+    }
+
+    public function test_disabled_reminder_skips_user(): void
+    {
+        $user = User::factory()->create(['vocab_remind_enabled' => false]);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+
+        $this->artisan('vocab:remind-due')->assertSuccessful();
+        $this->assertCount(0, \App\Models\Reminder::where('user_id', $user->id)->get());
+    }
+
+    public function test_profile_update_saves_vocab_settings(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user)->put(route('profile.update'), [
+            'name' => $user->name,
+            'username' => $user->username,
+            'vocab_daily_limit' => 10,
+            'vocab_session_limit' => 15,
+            'vocab_remind_enabled' => 0,
+        ])->assertRedirect(route('profile.show'));
+
+        $user->refresh();
+        $this->assertSame(10, $user->vocabDailyLimit());
+        $this->assertSame(15, $user->vocabSessionLimit());
+        $this->assertFalse((bool) $user->vocab_remind_enabled);
+
+        $this->actingAs($user)->put(route('profile.update'), [
+            'name' => $user->name,
+            'username' => $user->username,
+            'vocab_daily_limit' => 0,
+        ])->assertSessionHasErrors('vocab_daily_limit');
+    }
+
+    public function test_review_page_renders_focus_timer(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+
+        $this->get(route('vocabulary.review.index'))->assertOk()
+            ->assertSee('id="vbTimer"', false);
+    }
 }

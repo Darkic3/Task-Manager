@@ -532,7 +532,7 @@
                     <span>{{ __('Reports') }}</span>
                 </h1>
                 <p class="rp-hero-sub">
-                    {{ __('Tasks') }} · {{ __('Study') }} · {{ __('Routines') }} · {{ __('Avoid habits') }} · {{ __('Workouts') }} · {{ __('Time') }} · {{ __('Laws') }} — {{ $formattedRange }}
+                    {{ __('Tasks') }} · {{ __('Study') }} · {{ __('Vocabulary') }} · {{ __('Routines') }} · {{ __('Avoid habits') }} · {{ __('Workouts') }} · {{ __('Time') }} · {{ __('Laws') }} — {{ $formattedRange }}
                 </p>
             </div>
             <div class="rp-hero-badge">
@@ -950,6 +950,111 @@
             @endif
         </div>
     </div>
+
+    {{-- Vocabulary (Leitner box) --}}
+    @if(app(\App\Support\FeatureAvailability::class)->isEnabled('vocabulary', auth()->user()))
+    <div class="rp-section-title" id="vocabulary">
+        <i class="bi bi-translate" style="color:#6366f1;"></i>
+        <span>{{ __('Vocabulary') }}</span>
+        <span class="rp-badge-count">{{ $vocab['reviewed'] }} {{ __('reviews') }} · {{ $vocab['retention'] }}%</span>
+    </div>
+    <div class="rp-grid2">
+        <div class="rp-card">
+            <div class="rp-card-header">
+                <span class="rp-card-title"><i class="bi bi-bar-chart"></i> {{ __('Reviews per day') }}</span>
+            </div>
+            <div class="rp-card-body">
+                @if(array_sum($vocab['per_day_reviewed']))
+                    <div class="rp-chart-container">
+                        @foreach($vocab['per_day_reviewed'] as $d => $n)
+                            <div class="rp-bar-col" title="{{ app_date($d) }} — {{ $n }} {{ __('reviews') }}">
+                                <div class="rp-bar-inner green" style="height: {{ round($n / $vocab['per_day_reviewed_max'] * 100) }}%;"></div>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="rp-axis-row">
+                        @foreach($vocab['per_day_reviewed'] as $d => $n)
+                            <span class="rp-axis-cell">{{ \Carbon\Carbon::parse($d)->format('j') }}</span>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="rp-empty-state">
+                        <i class="bi bi-translate"></i>
+                        <span>{{ __('No vocabulary reviews in this range.') }}</span>
+                    </div>
+                @endif
+            </div>
+        </div>
+        <div class="rp-card">
+            <div class="rp-card-header">
+                <span class="rp-card-title"><i class="bi bi-card-checklist"></i> {{ __('Summary') }}</span>
+            </div>
+            <div class="rp-card-body" style="padding-top:10px;padding-bottom:10px;">
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Reviews done') }}</span>
+                    <span class="rp-list-val" style="margin-inline-start:auto;">{{ $vocab['reviewed'] }}</span>
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Remembered') }}</span>
+                    <span class="rp-list-val" style="margin-inline-start:auto;">{{ $vocab['remembered'] }}</span>
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Retention') }}</span>
+                    <span class="rp-list-val" style="margin-inline-start:auto;">{{ $vocab['retention'] }}%</span>
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Due now') }}</span>
+                    <span class="rp-list-val" style="margin-inline-start:auto;color:{{ $vocab['due_now'] > 0 ? '#b45309' : 'inherit' }};font-weight:800;">{{ $vocab['due_now'] }}</span>
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Reviews Δ vs prev') }}</span>
+                    <span class="rp-list-val" style="margin-inline-start:auto;">{{ ($deltas['vocab_reviews'] ?? 0) >= 0 ? '+' : '' }}{{ $deltas['vocab_reviews'] ?? 0 }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="rp-card">
+        <div class="rp-card-header">
+            <span class="rp-card-title"><i class="bi bi-list-task"></i> {{ __('Per deck') }}</span>
+            <a href="{{ route('vocabulary.index') }}" style="font-size:12px;font-weight:700;color:#4f46e5;text-decoration:none;">{{ __('Open Leitner box') }}</a>
+        </div>
+        <div class="rp-card-body" style="padding:4px 8px;">
+            @if(count($vocab['rows']))
+                <table class="rp-table">
+                    <thead>
+                        <tr>
+                            <th>{{ __('Deck') }}</th>
+                            <th>{{ __('Reviewed') }}</th>
+                            <th>{{ __('Retention') }}</th>
+                            <th>{{ __('Due') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($vocab['rows'] as $row)
+                            <tr>
+                                <td><span style="color:#0f172a;font-weight:600;">{{ $row['name'] }}</span></td>
+                                <td>{{ $row['reviewed'] }}</td>
+                                <td>{{ $row['retention'] }}%</td>
+                                <td>
+                                    @if($row['due'] > 0)
+                                        <span style="color:#dc2626;font-weight:700;">{{ $row['due'] }}</span>
+                                    @else
+                                        <span style="color:#94a3b8;">—</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @else
+                <div class="rp-empty-state">
+                    <i class="bi bi-translate"></i>
+                    <span>{{ __('No vocabulary activity yet — add a deck to start.') }}</span>
+                </div>
+            @endif
+        </div>
+    </div>
+    @endif
 
     {{-- Routines --}}
     <div class="rp-section-title" id="routines">
