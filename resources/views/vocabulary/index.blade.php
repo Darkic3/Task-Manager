@@ -72,7 +72,7 @@
 
     @if($decks->isNotEmpty())
     <div class="vb-form">
-        <h6>{{ __('Quick add card') }}</h6>
+        <h6>{{ __('Quick add card') }} <span style="color:#6b7280;font-weight:600;">· {{ app_num($newToday ?? 0) }}/{{ app_num($newLimit ?? 20) }} {{ __('New today') }}</span></h6>
         <form method="POST" action="{{ route('vocabulary.cards.store') }}">
             @csrf
             <div class="vb-row">

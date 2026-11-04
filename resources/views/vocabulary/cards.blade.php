@@ -60,6 +60,7 @@
     @if($decks->isNotEmpty())
     <form method="POST" action="{{ route('vocabulary.cards.store') }}" class="vb-row-card">
         @csrf
+        <div style="font-size:.75rem;color:#6b7280;font-weight:600;margin-bottom:.4rem;">{{ app_num($newToday ?? 0) }}/{{ app_num($newLimit ?? 20) }} {{ __('New today') }}</div>
         <div class="vb-edit">
             <select name="deck_id" class="form-control" required>
                 @foreach($decks as $d)

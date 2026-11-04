@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\VocabCard;
 use App\Models\VocabDeck;
+use App\Http\Controllers\VocabCardController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -71,5 +72,46 @@ class VocabularyLeitnerTest extends TestCase
         $this->actingAs($intruder)
             ->post(route('vocabulary.cards.grade', $card), ['remembered' => 1])
             ->assertForbidden();
+    }
+
+    public function test_daily_new_card_limit_is_enforced(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+
+        for ($i = 0; $i < VocabCardController::DAILY_NEW_CARD_LIMIT; $i++) {
+            $this->post(route('vocabulary.cards.store'), [
+                'deck_id' => $deck->id, 'front' => "w{$i}", 'back' => "m{$i}",
+            ])->assertRedirect();
+        }
+
+        $this->assertEquals(
+            VocabCardController::DAILY_NEW_CARD_LIMIT,
+            VocabCard::where('user_id', $user->id)->count()
+        );
+
+        $this->post(route('vocabulary.cards.store'), [
+            'deck_id' => $deck->id, 'front' => 'extra', 'back' => 'اضافی',
+        ])->assertSessionHas('error');
+
+        $this->assertEquals(
+            VocabCardController::DAILY_NEW_CARD_LIMIT,
+            VocabCard::where('user_id', $user->id)->count()
+        );
+    }
+
+    public function test_dashboard_shows_vocabulary_strip(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+
+        $this->get(route('dashboard'))->assertOk()
+            ->assertSee(route('vocabulary.review.index'), false);
     }
 }

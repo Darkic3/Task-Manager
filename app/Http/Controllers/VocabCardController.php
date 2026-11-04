@@ -10,6 +10,16 @@ use Illuminate\Validation\Rule;
 
 class VocabCardController extends Controller
 {
+    /**
+     * Max new cards a user may add per day. Keeps the review queue sustainable.
+     */
+    public const DAILY_NEW_CARD_LIMIT = 20;
+
+    public static function newTodayCount(\App\Models\User $user): int
+    {
+        return $user->vocabCards()->whereDate('created_at', today())->count();
+    }
+
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -45,11 +55,17 @@ class VocabCardController extends Controller
             'cards' => $cards,
             'decks' => $decks,
             'filters' => $request->only(['deck_id', 'box', 'filter', 'search']),
+            'newToday' => static::newTodayCount($user),
+            'newLimit' => static::DAILY_NEW_CARD_LIMIT,
         ]);
     }
 
     public function store(Request $request)
     {
+        if (static::newTodayCount($request->user()) >= static::DAILY_NEW_CARD_LIMIT) {
+            return back()->with('error', __('Daily new-card limit reached (:limit/day).', ['limit' => static::DAILY_NEW_CARD_LIMIT]));
+        }
+
         $data = $request->validate($this->rules());
 
         $initial = LeitnerScheduler::initialState();

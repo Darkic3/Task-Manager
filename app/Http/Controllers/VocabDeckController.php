@@ -42,6 +42,8 @@ class VocabDeckController extends Controller
             'boxCounts' => $boxCounts,
             'stats' => $stats,
             'deck' => new VocabDeck(['color' => '#6366f1']),
+            'newToday' => VocabCardController::newTodayCount($user),
+            'newLimit' => VocabCardController::DAILY_NEW_CARD_LIMIT,
         ]);
     }
 

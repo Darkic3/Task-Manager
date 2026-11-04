@@ -2225,5 +2225,8 @@
     "Box 3 · weekly": "جعبه ۳ · هفتگی",
     "Box 4 · 2 weeks": "جعبه ۴ · هر ۲ هفته",
     "Box 5 · monthly": "جعبه ۵ · ماهانه",
-    ":done of :total in this session · :due due total": ":done از :total این نشست · :due سررسید کل"
+    ":done of :total in this session · :due due total": ":done از :total این نشست · :due سررسید کل",
+    "New today": "جدید امروز",
+    "Open Leitner box": "باز کردن جعبه لایتنر",
+    "Daily new-card limit reached (:limit/day).": "سقف لغت جدید امروز پر شد (:limit در روز)."
 }

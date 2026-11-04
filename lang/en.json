@@ -466,5 +466,8 @@
     "Box 3 · weekly": "Box 3 · weekly",
     "Box 4 · 2 weeks": "Box 4 · 2 weeks",
     "Box 5 · monthly": "Box 5 · monthly",
-    ":done of :total in this session · :due due total": ":done of :total in this session · :due due total"
+    ":done of :total in this session · :due due total": ":done of :total in this session · :due due total",
+    "New today": "New today",
+    "Open Leitner box": "Open Leitner box",
+    "Daily new-card limit reached (:limit/day).": "Daily new-card limit reached (:limit/day)."
 }
