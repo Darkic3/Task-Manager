@@ -63,6 +63,7 @@ class FeatureAvailability
             'time' => 'time_tracking',
             'reports' => 'reports',
             'reminders', 'reminders-calendar' => 'reminders',
+            'vocabulary' => 'vocabulary',
             'files' => 'files',
             'ai' => 'ai',
             default => null,

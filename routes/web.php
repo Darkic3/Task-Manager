@@ -113,6 +113,20 @@ Route::middleware(['auth', EnsureOwnedRouteModels::class, BetaFeatureUnavailable
     Route::patch('laws/{law}/links/{link}', [LawLinkController::class, 'update'])->name('laws.links.update');
     Route::delete('laws/{law}/links/{link}', [LawLinkController::class, 'destroy'])->name('laws.links.destroy');
     Route::post('laws/{law}/tasks/{task}/exclusion', [LawLinkController::class, 'toggleExclusion'])->name('laws.tasks.exclusion');
+    // ── Vocabulary / Leitner box ──────────────────────────────────
+    Route::prefix('vocabulary')->name('vocabulary.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\VocabDeckController::class, 'index'])->name('index');
+        Route::post('decks', [\App\Http\Controllers\VocabDeckController::class, 'store'])->name('decks.store');
+        Route::put('decks/{vocabDeck}', [\App\Http\Controllers\VocabDeckController::class, 'update'])->name('decks.update');
+        Route::delete('decks/{vocabDeck}', [\App\Http\Controllers\VocabDeckController::class, 'destroy'])->name('decks.destroy');
+        Route::get('cards', [\App\Http\Controllers\VocabCardController::class, 'index'])->name('cards.index');
+        Route::post('cards', [\App\Http\Controllers\VocabCardController::class, 'store'])->name('cards.store');
+        Route::put('cards/{vocabCard}', [\App\Http\Controllers\VocabCardController::class, 'update'])->name('cards.update');
+        Route::delete('cards/{vocabCard}', [\App\Http\Controllers\VocabCardController::class, 'destroy'])->name('cards.destroy');
+        Route::post('cards/{vocabCard}/reset', [\App\Http\Controllers\VocabCardController::class, 'reset'])->name('cards.reset');
+        Route::get('review', [\App\Http\Controllers\VocabReviewController::class, 'index'])->name('review.index');
+        Route::post('cards/{vocabCard}/grade', [\App\Http\Controllers\VocabReviewController::class, 'grade'])->name('cards.grade');
+    });
     Route::prefix('workouts')->name('workouts.')->group(function () {
         Route::resource('exercises', ExerciseController::class)->except(['show']);
         Route::resource('plans', WorkoutPlanController::class)->except(['show'])->parameters(['plans' => 'workoutPlan']);

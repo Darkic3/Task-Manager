@@ -46,7 +46,11 @@ class VocabCard extends Model
 
     public function getIsDueAttribute(): bool
     {
-        return $this->next_review_at === null || $this->next_review_at->isTodayOrPast();
+        if ($this->next_review_at === null) {
+            return true;
+        }
+
+        return $this->next_review_at->isToday() || $this->next_review_at->isPast();
     }
 
     public function getSuccessRateAttribute(): ?float

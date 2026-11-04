@@ -64,7 +64,8 @@ class LeitnerScheduler
     {
         return [
             'box' => self::BOX_MIN,
-            'next_review_at' => static::nextReviewDate(self::BOX_MIN),
+            // New cards are due immediately so today's session picks them up.
+            'next_review_at' => today(),
             'is_mastered' => false,
         ];
     }
