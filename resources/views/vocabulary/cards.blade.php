@@ -31,6 +31,7 @@
     <div class="vb-topbar">
         <h1 class="vb-title">{{ __('Vocabulary cards') }}</h1>
         <a href="{{ route('vocabulary.index') }}" class="vb-btn"><i class="bi bi-arrow-left"></i>{{ __('Decks') }}</a>
+        <a href="{{ route('vocabulary.imports.create') }}" class="vb-btn"><i class="bi bi-upload"></i>{{ __('Import CSV') }}</a>
         <a href="{{ route('vocabulary.review.index') }}" class="vb-btn primary"><i class="bi bi-play-fill"></i>{{ __('Start review') }}</a>
     </div>
 

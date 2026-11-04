@@ -30,16 +30,22 @@
 <div class="vb-wrap">
     <div class="vb-topbar">
         <h1 class="vb-title">{{ __('Review') }}</h1>
-        <form method="GET" action="{{ route('vocabulary.review.index') }}" style="display:flex;gap:.4rem;">
-            <select name="deck_id" class="form-control" onchange="this.form.submit()">
-                <option value="all">{{ __('All decks') }}</option>
-                @foreach($decks as $d)
-                <option value="{{ $d->id }}" {{ (string) $deckId === (string) $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
-                @endforeach
-            </select>
-        </form>
         <a href="{{ route('vocabulary.index') }}" class="vb-btn"><i class="bi bi-arrow-left"></i>{{ __('Decks') }}</a>
     </div>
+
+    <form method="GET" action="{{ route('vocabulary.review.index') }}" style="display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap;">
+        <select name="deck_id" class="form-control" style="flex:1;min-width:130px;" onchange="this.form.submit()">
+            <option value="all">{{ __('All decks') }}</option>
+            @foreach($decks as $d)
+            <option value="{{ $d->id }}" {{ (string) $deckId === (string) $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
+            @endforeach
+        </select>
+        <select name="dir" class="form-control" style="flex:1;min-width:130px;" onchange="this.form.submit()" title="{{ __('Direction') }}">
+            @foreach($dirs as $value => $label)
+            <option value="{{ $value }}" {{ $dir === $value ? 'selected' : '' }}>{{ $label }}</option>
+            @endforeach
+        </select>
+    </form>
 
     @if($sessionCount > 0)
     <div class="vb-progress"><div style="width:{{ $sessionCount > 0 ? round(($reviewedCount / $sessionCount) * 100) : 0 }}%"></div></div>
@@ -56,25 +62,25 @@
     @else
     <div class="vb-flash">
         <div class="vb-deck">{{ $current->deck->name ?? '' }} · {{ __('Box :n', ['n' => $current->box]) }}</div>
-        <div class="vb-front">{{ $current->front }}</div>
+        <div class="vb-front">{{ $prompt }}</div>
 
         <div id="vbAnswer" style="display:none;">
             <hr>
-            <div class="vb-back">{{ $current->back }}</div>
-            @if($current->example)<div class="vb-example">{{ $current->example }}</div>@endif
+            <div class="vb-back">{{ $answer }}</div>
+            @if($showExample)<div class="vb-example">{{ $current->example }}</div>@endif
             <div class="vb-grade">
                 <form method="POST" action="{{ route('vocabulary.cards.grade', $current) }}">
                     @csrf
                     <input type="hidden" name="remembered" value="0">
                     <input type="hidden" name="deck_id" value="{{ $deckId }}">
-                    <input type="hidden" name="remaining" value="{{ implode(',', $remaining) }}">
+                    <input type="hidden" name="dir" value="{{ $dir }}">
                     <button class="vb-forgot" type="submit" style="width:100%;">❌ {{ __('I forgot') }}</button>
                 </form>
                 <form method="POST" action="{{ route('vocabulary.cards.grade', $current) }}">
                     @csrf
                     <input type="hidden" name="remembered" value="1">
                     <input type="hidden" name="deck_id" value="{{ $deckId }}">
-                    <input type="hidden" name="remaining" value="{{ implode(',', $remaining) }}">
+                    <input type="hidden" name="dir" value="{{ $dir }}">
                     <button class="vb-remembered" type="submit" style="width:100%;">✅ {{ __('I remembered') }}</button>
                 </form>
             </div>

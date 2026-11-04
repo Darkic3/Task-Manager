@@ -41,7 +41,8 @@
 <div class="vb-wrap">
     <div class="vb-topbar">
         <h1 class="vb-title">{{ __('Vocabulary') }}</h1>
-        <a href="{{ route('vocabulary.cards.index') }}" class="vb-btn"><i class="bi bi-list-ul"></i>{{ __('All cards') }}</a>
+            <a href="{{ route('vocabulary.cards.index') }}" class="vb-btn"><i class="bi bi-list-ul"></i>{{ __('All cards') }}</a>
+            <a href="{{ route('vocabulary.imports.create') }}" class="vb-btn"><i class="bi bi-upload"></i>{{ __('Import CSV') }}</a>
         <a href="{{ route('vocabulary.review.index') }}" class="vb-btn primary"><i class="bi bi-play-fill"></i>{{ __('Start review') }} ({{ app_num($stats['due']) }})</a>
     </div>
 

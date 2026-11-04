@@ -126,6 +126,10 @@ Route::middleware(['auth', EnsureOwnedRouteModels::class, BetaFeatureUnavailable
         Route::post('cards/{vocabCard}/reset', [\App\Http\Controllers\VocabCardController::class, 'reset'])->name('cards.reset');
         Route::get('review', [\App\Http\Controllers\VocabReviewController::class, 'index'])->name('review.index');
         Route::post('cards/{vocabCard}/grade', [\App\Http\Controllers\VocabReviewController::class, 'grade'])->name('cards.grade');
+        Route::get('imports/create', [\App\Http\Controllers\VocabImportController::class, 'create'])->name('imports.create');
+        Route::get('imports/template', [\App\Http\Controllers\VocabImportController::class, 'template'])->name('imports.template');
+        Route::post('imports/preview', [\App\Http\Controllers\VocabImportController::class, 'preview'])->name('imports.preview');
+        Route::post('imports/confirm', [\App\Http\Controllers\VocabImportController::class, 'confirm'])->name('imports.confirm');
     });
     Route::prefix('workouts')->name('workouts.')->group(function () {
         Route::resource('exercises', ExerciseController::class)->except(['show']);

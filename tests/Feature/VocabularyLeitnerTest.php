@@ -7,6 +7,7 @@ use App\Models\VocabCard;
 use App\Models\VocabDeck;
 use App\Http\Controllers\VocabCardController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class VocabularyLeitnerTest extends TestCase
@@ -113,5 +114,50 @@ class VocabularyLeitnerTest extends TestCase
 
         $this->get(route('dashboard'))->assertOk()
             ->assertSee(route('vocabulary.review.index'), false);
+    }
+
+    public function test_csv_import_preview_and_confirm(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+
+        $csv = "front,back,example\napple,سیب,an apple\nbook,کتاب,\nlonely,\n";
+        $file = UploadedFile::fake()->createWithContent('words.csv', $csv);
+
+        $this->post(route('vocabulary.imports.preview'), ['deck_id' => $deck->id, 'file' => $file])
+            ->assertRedirect(route('vocabulary.imports.create'))
+            ->assertSessionHas('vocab_import_preview');
+
+        $this->get(route('vocabulary.imports.create'))->assertOk()->assertSee('apple');
+
+        $this->post(route('vocabulary.imports.confirm'))
+            ->assertRedirect(route('vocabulary.cards.index', ['deck_id' => $deck->id]));
+
+        $cards = VocabCard::where('user_id', $user->id)->get();
+        $this->assertCount(2, $cards);
+        $this->assertTrue($cards->every(fn (VocabCard $c) => $c->box === 1 && $c->is_due));
+    }
+
+    public function test_review_direction_controls_example_visibility(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'example' => 'an apple a day', 'box' => 1, 'next_review_at' => today(),
+        ]);
+
+        // Word is the prompt: example shown.
+        $this->get(route('vocabulary.review.index'))->assertOk()->assertSee('an apple a day');
+
+        // Meaning is the prompt: example hidden (it would leak the answer).
+        $this->get(route('vocabulary.review.index', ['dir' => 'back']))->assertOk()->assertDontSee('an apple a day');
+
+        $this->get(route('vocabulary.review.index', ['dir' => 'mixed']))->assertOk();
+
+        // Unknown direction falls back to front.
+        $this->get(route('vocabulary.review.index', ['dir' => 'bogus']))->assertOk()->assertSee('an apple a day');
     }
 }
