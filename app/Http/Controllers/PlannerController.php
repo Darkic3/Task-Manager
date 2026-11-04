@@ -10,6 +10,7 @@ use App\Models\RoutineChecklistItem;
 use App\Models\RoutineCompletion;
 use App\Models\Task;
 use App\Models\TimeEntry;
+use App\Services\LawEventService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -136,6 +137,7 @@ class PlannerController extends Controller
             'todayWorkoutDay' => $todayWorkoutDay,
             'todayWorkoutSession' => $todayWorkoutSession,
             'dayLaws' => $this->dayLaws($user),
+            'lawStrip' => $this->lawStrip($user, $selected),
             'nextUp' => $this->buildNextUp($pending, $routinesData['today'], $selected),
             'quickProjects' => Project::where('user_id', $user->id)
                 ->whereNotIn('status', ['completed', 'closed'])
@@ -143,6 +145,31 @@ class PlannerController extends Controller
                 ->get(['id', 'name']),
             'backlogProjects' => $this->backlogProjectOptions($user->id),
         ]);
+    }
+
+    /**
+     * Strip above My Day: live laws for the viewed date plus today's score.
+     */
+    private function lawStrip($user, Carbon $date): array
+    {
+        $selected = $date->toDateString();
+
+        $events = \App\Models\LawEvent::where('user_id', $user->id)
+            ->where('occurred_on', $selected)
+            ->get(['direction', 'xp_delta']);
+
+        $active = $user->laws()
+            ->where('status', \App\Models\Law::STATUS_ACTIVE)
+            ->get(['id', 'starts_on', 'ends_on'])
+            ->filter(fn ($law) => ! $law->isExpired())
+            ->count();
+
+        return [
+            'active' => $active,
+            'plus' => $events->where('direction', 1)->count(),
+            'minus' => $events->where('direction', -1)->count(),
+            'xp' => (int) $events->sum('xp_delta'),
+        ];
     }
 
     /**
@@ -451,6 +478,8 @@ class PlannerController extends Controller
             $task->reopenCompletedAncestors();
         }
 
+        app(LawEventService::class)->syncTaskTree($task);
+
         return response()->json([
             'ok' => true,
             'status' => $task->status,
@@ -490,6 +519,8 @@ class PlannerController extends Controller
         $task->failed_at = null;
         $task->fail_note = null;
         $task->save();
+
+        app(LawEventService::class)->syncTaskTree($task);
 
         $stoppedSeconds = 0;
         $active = TimeEntry::where('user_id', Auth::id())
@@ -542,6 +573,8 @@ class PlannerController extends Controller
 
         $task->fail($data['note'] ?? null, $data['reschedule_date'] ?? null);
 
+        app(LawEventService::class)->syncTaskTree($task);
+
         return response()->json([
             'ok' => true,
             'failed' => true,
@@ -560,6 +593,8 @@ class PlannerController extends Controller
         abort_if($task->user_id !== Auth::id(), 403);
 
         $task->unfail();
+
+        app(LawEventService::class)->syncTaskTree($task);
 
         return response()->json([
             'ok' => true,
@@ -941,6 +976,8 @@ class PlannerController extends Controller
             }
         }
 
+        app(LawEventService::class)->syncRoutineOutcome($routine->fresh(), $date);
+
         return response()->json([
             'ok' => true,
             'completed' => $completed,
@@ -1056,6 +1093,8 @@ class PlannerController extends Controller
             }
         }
 
+        app(LawEventService::class)->syncRoutineOutcome($routine->fresh(), $date);
+
         return response()->json([
             'ok' => true,
             'skipped' => $skipped,
@@ -1102,6 +1141,11 @@ class PlannerController extends Controller
             $routine->skipOn($date, 'postponed');
         }
         $routine->postponeFrom($date);
+
+        // A sanctioned reschedule is not a violation: the skip record carries
+        // reason 'postponed', which syncRoutineOutcome exempts (clearing any
+        // earlier manual-skip score for the day).
+        app(LawEventService::class)->syncRoutineOutcome($routine->fresh(), $date);
 
         return response()->json([
             'ok' => true,
@@ -1198,6 +1242,8 @@ class PlannerController extends Controller
             ->exists();
         [$stepsSkippedNow] = $this->stepSkipCounts($routine, $date);
 
+        app(LawEventService::class)->syncRoutineOutcome($routine->fresh(), $date);
+
         return response()->json([
             'ok' => true,
             'item_id' => $item->id,
@@ -1235,6 +1281,8 @@ class PlannerController extends Controller
         $routineSkipped = $this->syncRoutineSkipWithSteps($item->routine, $date);
 
         [$stepsSkipped, $stepsTotal] = $this->stepSkipCounts($item->routine, $date);
+
+        app(LawEventService::class)->syncRoutineOutcome($item->routine->fresh(), $date);
 
         return response()->json([
             'ok' => true,
@@ -1355,6 +1403,8 @@ class PlannerController extends Controller
             'note' => $data['note'] ?? null,
         ]);
 
+        app(LawEventService::class)->recordSlip($violation);
+
         return response()->json([
             'ok' => true,
             'violation_id' => $violation->id,
@@ -1428,6 +1478,8 @@ class PlannerController extends Controller
             'note' => $data['note'] ?? null,
         ]);
 
+        app(LawEventService::class)->recordSlip($violation);
+
         $stepQty = (int) $routine->violations()
             ->where('checklist_item_id', $item->id)
             ->where('occurred_date', $date->toDateString())
@@ -1463,6 +1515,8 @@ class PlannerController extends Controller
         $routineId = $violation->routine_id;
         $itemId = $violation->checklist_item_id;
         $dateKey = $violDate;
+
+        app(LawEventService::class)->removeSlipEvents($violation);
         $violation->delete();
 
         // Recalculate day quantities
@@ -2403,6 +2457,8 @@ class PlannerController extends Controller
                 $routineCompleted = true;
             }
 
+            app(LawEventService::class)->syncRoutineOutcome($routine->fresh(), $date);
+
             return response()->json([
                 'ok' => true,
                 'values' => $fresh->loggedValues($date),
@@ -2457,6 +2513,8 @@ class PlannerController extends Controller
 
                 return [(int) $it->id => $done];
             })->all();
+
+        app(LawEventService::class)->syncRoutineOutcome($routine->fresh(), $date);
 
         return response()->json([
             'ok' => true,

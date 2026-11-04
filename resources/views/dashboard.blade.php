@@ -48,6 +48,8 @@
                 <span><i class="bi bi-check-circle me-1 text-success"></i> <strong>{{ $tasksCompletedToday }}</strong> {{ __('tasks done today') }}</span>
                 <span>•</span>
                 <span><i class="bi bi-arrow-repeat me-1 text-warning"></i> <strong id="headerRoutineCount">{{ $routineDoneCount }}/{{ $routineTotalCount }}</strong> {{ __('routines checked') }}</span>
+                <span>•</span>
+                <span><i class="bi bi-shield-check me-1" style="color:#7c3aed;"></i> <strong>{{ ($lawToday['xp'] ?? 0) >= 0 ? '+' : '' }}{{ app_num($lawToday['xp'] ?? 0) }} XP</strong> {{ __('laws today') }}</span>
             </div>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -97,6 +99,39 @@
             </a>
         @endif
     </div>
+
+    {{-- Laws strip: today's score + week's top laws --}}
+    @if(app(\App\Support\FeatureAvailability::class)->isEnabled('laws', auth()->user()))
+    <div class="hq-card mb-4">
+        <div class="hq-card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold"><i class="bi bi-shield-check me-1" style="color:#7c3aed;"></i> {{ __('Laws') }}</span>
+            <a href="{{ route('laws.index') }}" class="btn btn-sm btn-outline-primary">{{ __('Open Laws') }}</a>
+        </div>
+        <div class="hq-card-body p-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap mb-2">
+                <span class="text-muted small">{{ __('Active') }}: <strong class="text-dark">{{ app_num($lawActiveCount ?? 0) }}</strong></span>
+                <span class="text-muted small">{{ __('Today') }}:
+                    <strong class="text-success">+{{ app_num($lawToday['plus'] ?? 0) }}</strong><span class="text-muted"> / </span><strong class="text-danger">−{{ app_num($lawToday['minus'] ?? 0) }}</strong>
+                    <strong style="color:{{ ($lawToday['xp'] ?? 0) >= 0 ? '#15803d' : '#b91c1c' }};">({{ ($lawToday['xp'] ?? 0) >= 0 ? '+' : '' }}{{ app_num($lawToday['xp'] ?? 0) }} XP)</strong>
+                </span>
+            </div>
+            @if(($lawWeek ?? collect())->isNotEmpty())
+                <div class="d-flex flex-column gap-2">
+                    @foreach($lawWeek as $row)
+                    <a href="{{ $row->law ? route('laws.show', $row->law) : route('laws.index') }}" class="d-flex align-items-center gap-2 text-decoration-none">
+                        <span style="width:10px;height:10px;border-radius:50%;background:{{ $row->law?->color ?: '#7c3aed' }};flex-shrink:0;"></span>
+                        <span class="text-dark small fw-semibold text-truncate" style="max-width:60%;">{{ $row->law?->title ?? __('Deleted law') }}</span>
+                        <span class="ms-auto small fw-bold" style="color:{{ $row->xp >= 0 ? '#15803d' : '#b91c1c' }};">{{ $row->xp >= 0 ? '+' : '' }}{{ app_num($row->xp) }} XP</span>
+                        <span class="text-muted small">· 7d</span>
+                    </a>
+                    @endforeach
+                </div>
+            @else
+                <div class="text-muted small">{{ __('No law activity this week yet.') }}</div>
+            @endif
+        </div>
+    </div>
+    @endif
 
     {{-- Core 3-Pillar Daily HQ --}}
     <div class="row g-4 mb-4">

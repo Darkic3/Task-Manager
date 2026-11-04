@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\Task;
+use App\Services\LawEventService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -339,6 +340,8 @@ class TaskController extends Controller
             $task->reopenCompletedAncestors();
         }
 
+        app(LawEventService::class)->syncTaskTree($task);
+
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'ok' => true,
@@ -352,6 +355,7 @@ class TaskController extends Controller
 
     public function destroy(Request $request, Task $task)
     {
+        app(LawEventService::class)->removeTaskEvents($task);
         $task->delete();
 
         if ($request->expectsJson()) {
@@ -479,6 +483,7 @@ class TaskController extends Controller
             if ($data['status'] !== 'completed') {
                 $task->reopenCompletedAncestors();
             }
+            app(LawEventService::class)->syncTaskTree($task);
         }
 
         return response()->json(['ok' => true, 'updated' => $tasks->count()]);
@@ -493,6 +498,16 @@ class TaskController extends Controller
             'ids' => 'required|array|min:1|max:200',
             'ids.*' => 'integer',
         ]);
+
+        $ids = Task::where('user_id', Auth::id())
+            ->whereIn('id', $data['ids'])
+            ->pluck('id')
+            ->all();
+
+        \App\Models\LawEvent::where('linkable_type', Task::class)
+            ->whereIn('linkable_id', $ids)
+            ->where('source', \App\Models\LawEvent::SOURCE_AUTO)
+            ->delete();
 
         $count = Task::where('user_id', Auth::id())
             ->whereIn('id', $data['ids'])
@@ -518,6 +533,8 @@ class TaskController extends Controller
         if ($status !== 'completed') {
             $task->reopenCompletedAncestors();
         }
+
+        app(LawEventService::class)->syncTaskTree($task);
 
         return response()->json(['ok' => true, 'message' => __('Task status updated successfully.')]);
     }

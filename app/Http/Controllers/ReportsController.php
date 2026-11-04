@@ -25,9 +25,14 @@ class ReportsController extends Controller
 
         $data = UnifiedReportService::overview(Auth::id(), $range);
 
+        $laws = \App\Services\Reports\LawReportService::summarize(Auth::id(), $range->from, $range->to);
+        $prevLaws = \App\Services\Reports\LawReportService::summarize(Auth::id(), $range->prevFrom, $range->prevTo);
+
         return view('reports.overview', array_merge($data, [
             'range' => $range,
             'periods' => config('routines.periods', []),
+            'laws' => $laws,
+            'laws_delta' => $laws['total_xp'] - $prevLaws['total_xp'],
         ]));
     }
 }

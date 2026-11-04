@@ -2962,6 +2962,12 @@ body:has(.pl-task-menu.is-open)::before {
             @if($overdue->count())
                 <div class="pl-stat overdue"><i class="bi bi-exclamation-triangle"></i> {{ __('Overdue') }} <strong id="plOverdueStat">{{ app_num($overdue->count()) }}</strong></div>
             @endif
+            <a href="{{ route('laws.index') }}" class="pl-stat" style="text-decoration:none;" title="{{ __('Open Laws') }}">
+                <i class="bi bi-shield-check" style="color:#7c3aed;"></i> {{ __('Laws') }} <strong>{{ app_num($lawStrip['active'] ?? 0) }}</strong>
+                @if(($lawStrip['plus'] ?? 0) + ($lawStrip['minus'] ?? 0) > 0)
+                    <span style="font-weight:700;color:{{ ($lawStrip['xp'] ?? 0) >= 0 ? '#15803d' : '#b91c1c' }};">{{ ($lawStrip['xp'] ?? 0) >= 0 ? '+' : '' }}{{ app_num($lawStrip['xp'] ?? 0) }} XP</span>
+                @endif
+            </a>
         </div>
 
 

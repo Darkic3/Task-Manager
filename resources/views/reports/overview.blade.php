@@ -532,7 +532,7 @@
                     <span>{{ __('Reports') }}</span>
                 </h1>
                 <p class="rp-hero-sub">
-                    {{ __('Tasks') }} · {{ __('Study') }} · {{ __('Routines') }} · {{ __('Avoid habits') }} · {{ __('Workouts') }} · {{ __('Time') }} — {{ $formattedRange }}
+                    {{ __('Tasks') }} · {{ __('Study') }} · {{ __('Routines') }} · {{ __('Avoid habits') }} · {{ __('Workouts') }} · {{ __('Time') }} · {{ __('Laws') }} — {{ $formattedRange }}
                 </p>
             </div>
             <div class="rp-hero-badge">
@@ -637,6 +637,19 @@
                 <div class="rp-kpi-label">{{ __('Time tracked') }}</div>
             </div>
             {!! $delta($deltas['time'] !== 0 ? (int) round($deltas['time'] / 3600, 1) : 0, 'h') !!}
+        </div>
+
+        <div class="rp-kpi-card">
+            <div class="rp-kpi-header">
+                <div class="rp-kpi-icon" style="background:#ede9fe;color:#7c3aed;">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+            </div>
+            <div>
+                <div class="rp-kpi-val" style="color:{{ $laws['total_xp'] >= 0 ? '#15803d' : '#b91c1c' }};">{{ $laws['total_xp'] >= 0 ? '+' : '' }}{{ $laws['total_xp'] }}<span style="font-size:13px;font-weight:600;"> XP</span></div>
+                <div class="rp-kpi-label">{{ __('Law XP') }}</div>
+            </div>
+            {!! $delta($laws_delta ?? 0) !!}
         </div>
     </div>
 
@@ -1235,6 +1248,120 @@
             </div>
         </div>
     @endif
+
+    {{-- Laws --}}
+    <div class="rp-section-title" id="laws">
+        <i class="bi bi-shield-check" style="color:#7c3aed;"></i>
+        <span>{{ __('Laws') }}</span>
+        @if(count($laws['rows']))
+            <span class="rp-badge-count">{{ count($laws['rows']) }}</span>
+        @endif
+    </div>
+    <div class="rp-grid2">
+        <div class="rp-card">
+            <div class="rp-card-header">
+                <span class="rp-card-title"><i class="bi bi-bar-chart"></i> {{ __('XP per day') }}</span>
+            </div>
+            <div class="rp-card-body">
+                @php $lawDayMax = max(1, collect($laws['days'])->map(fn ($d) => abs($d['xp']))->max() ?? 0); @endphp
+                @if($lawDayMax > 1 || collect($laws['days'])->sum('xp') !== 0)
+                    <div class="rp-chart-container">
+                        @foreach($laws['days'] as $d)
+                            <div class="rp-bar-col" title="{{ app_date($d['date']) }} — {{ $d['xp'] >= 0 ? '+' : '' }}{{ $d['xp'] }} XP">
+                                <div class="rp-bar-inner {{ $d['xp'] >= 0 ? 'green' : 'red' }}" style="height: {{ max(2, round(abs($d['xp']) / $lawDayMax * 100)) }}%;"></div>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="rp-axis-row">
+                        @foreach($laws['days'] as $d)
+                            <span class="rp-axis-cell">{{ \Carbon\Carbon::parse($d['date'])->format('j') }}</span>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="rp-empty-state">
+                        <i class="bi bi-shield-check"></i>
+                        <span>{{ __('No law activity in this range.') }}</span>
+                    </div>
+                @endif
+            </div>
+        </div>
+        <div class="rp-card">
+            <div class="rp-card-header">
+                <span class="rp-card-title"><i class="bi bi-card-checklist"></i> {{ __('Summary') }}</span>
+            </div>
+            <div class="rp-card-body" style="padding-top:10px;padding-bottom:10px;">
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Total XP') }}</span>
+                    <span class="rp-list-val" style="color:{{ $laws['total_xp'] >= 0 ? '#15803d' : '#b91c1c' }};">{{ $laws['total_xp'] >= 0 ? '+' : '' }}{{ $laws['total_xp'] }}</span>
+                    {!! $delta($laws_delta ?? 0) !!}
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('For the law') }}</span>
+                    <span class="rp-list-val" style="color:#15803d;">+{{ $laws['plus'] }}</span>
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Against the law') }}</span>
+                    <span class="rp-list-val" style="color:#dc2626;">−{{ $laws['minus'] }}</span>
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Automatic (linked work)') }}</span>
+                    <span class="rp-list-val">{{ ($laws['auto_xp'] >= 0 ? '+' : '') . $laws['auto_xp'] }} XP</span>
+                </div>
+                <div class="rp-list-row">
+                    <span class="rp-list-name">{{ __('Manual (day log)') }}</span>
+                    <span class="rp-list-val">{{ ($laws['manual_xp'] >= 0 ? '+' : '') . $laws['manual_xp'] }} XP</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="rp-card">
+        <div class="rp-card-header">
+            <span class="rp-card-title"><i class="bi bi-list-task"></i> {{ __('Per law') }}</span>
+        </div>
+        <div class="rp-card-body" style="padding:4px 8px;">
+            @if(count($laws['rows']))
+                <table class="rp-table">
+                    <thead>
+                        <tr>
+                            <th>{{ __('Law') }}</th>
+                            <th>{{ __('Coefficient') }}</th>
+                            <th>{{ __('For / Against') }}</th>
+                            <th style="width:30%;">{{ __('XP') }}</th>
+                            <th>{{ __('Auto / Manual') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @php $lawXpMax = max(1, collect($laws['rows'])->map(fn ($r) => abs($r['xp']))->max() ?? 0); @endphp
+                        @foreach($laws['rows'] as $row)
+                            <tr>
+                                <td>
+                                    <a href="{{ route('laws.show', $row['id']) }}" style="color:#0f172a;font-weight:600;text-decoration:none;">
+                                        <i class="bi {{ $row['icon'] }}" style="color:{{ $row['color'] }};"></i> {{ $row['title'] }}
+                                    </a>
+                                </td>
+                                <td>×{{ $row['coefficient'] }}</td>
+                                <td><span style="color:#15803d;font-weight:700;">+{{ $row['plus'] }}</span> / <span style="color:#dc2626;font-weight:700;">−{{ $row['minus'] }}</span></td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <div class="rp-progress-track">
+                                            <div class="rp-progress-fill" style="width:{{ max(2, round(abs($row['xp']) / $lawXpMax * 100)) }}%;background:{{ $row['xp'] >= 0 ? '#10b981' : '#ef4444' }};"></div>
+                                        </div>
+                                        <span class="rp-list-val" style="min-width:52px;color:{{ $row['xp'] >= 0 ? '#15803d' : '#b91c1c' }};">{{ $row['xp'] >= 0 ? '+' : '' }}{{ $row['xp'] }}</span>
+                                    </div>
+                                </td>
+                                <td style="color:#64748b;font-size:12px;">{{ ($row['auto_xp'] >= 0 ? '+' : '') . $row['auto_xp'] }} / {{ ($row['manual_xp'] >= 0 ? '+' : '') . $row['manual_xp'] }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @else
+                <div class="rp-empty-state">
+                    <i class="bi bi-shield-check"></i>
+                    <span>{{ __('No law activity in this range.') }}</span>
+                </div>
+            @endif
+        </div>
+    </div>
 
     {{-- Workouts --}}
     <div class="rp-section-title" id="workouts">

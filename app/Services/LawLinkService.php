@@ -227,6 +227,97 @@ class LawLinkService
     }
 
     /**
+     * Live laws linked to a routine (direct links only, exclusions dropped).
+     *
+     * @return Collection<int, array{law:Law, effect:int}>
+     */
+    public function liveLawsForRoutine(\App\Models\Routine $routine): Collection
+    {
+        return LawLink::where('linkable_type', \App\Models\Routine::class)
+            ->where('linkable_id', $routine->id)
+            ->where('is_excluded', false)
+            ->with('law')
+            ->get()
+            ->filter(fn (LawLink $link) => $link->law
+                && (int) $link->law->user_id === (int) $routine->user_id
+                && $link->law->acceptsEvents())
+            ->map(fn (LawLink $link) => ['law' => $link->law, 'effect' => (int) $link->effect])
+            ->values();
+    }
+
+    /**
+     * Live laws effective for a task (direct link wins, else nearest linked
+     * project up the chain; exclusions opt out entirely). Batched: a fixed
+     * handful of queries no matter how many laws exist.
+     *
+     * @return Collection<int, array{law:Law, effect:int, direct:bool, via:?string}>
+     */
+    public function liveLawsForTask(\App\Models\Task $task): Collection
+    {
+        $out = collect();
+
+        $taskLinks = LawLink::where('linkable_type', \App\Models\Task::class)
+            ->where('linkable_id', $task->id)
+            ->with('law')
+            ->get()
+            ->filter(fn (LawLink $link) => $link->law
+                && (int) $link->law->user_id === (int) $task->user_id);
+
+        // An exclusion row opts the task fully out of project inheritance.
+        $excluded = $taskLinks->firstWhere('is_excluded', true) !== null;
+
+        $direct = $taskLinks->where('is_excluded', false);
+        if ($direct->isNotEmpty()) {
+            foreach ($direct as $link) {
+                if ($link->law->acceptsEvents()) {
+                    $out->push(['law' => $link->law, 'effect' => (int) $link->effect, 'direct' => true, 'via' => null]);
+                }
+            }
+
+            return $out;
+        }
+
+        if ($excluded) {
+            return $out;
+        }
+
+        if (! $task->project_id) {
+            return $out;
+        }
+
+        $project = \App\Models\Project::whereKey($task->project_id)->first(['id', 'parent_id', 'name']);
+        if (! $project) {
+            return $out;
+        }
+
+        $chain = $this->projectChainIds($project);
+        $projectLinks = LawLink::where('linkable_type', \App\Models\Project::class)
+            ->whereIn('linkable_id', $chain)
+            ->where('is_excluded', false)
+            ->with('law')
+            ->get()
+            ->filter(fn (LawLink $link) => $link->law
+                && (int) $link->law->user_id === (int) $task->user_id
+                && $link->law->acceptsEvents());
+
+        $seen = [];
+        foreach ($chain as $projectId) {
+            foreach ($projectLinks->where('linkable_id', $projectId) as $link) {
+                if (isset($seen[$link->law_id])) {
+                    continue;
+                }
+                $seen[$link->law_id] = true;
+                $via = $projectId === (int) $project->id
+                    ? $project->name
+                    : (string) (\App\Models\Project::whereKey($projectId)->value('name') ?? '');
+                $out->push(['law' => $link->law, 'effect' => (int) $link->effect, 'direct' => false, 'via' => $via]);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Every law of the user with its effective direction for the given task.
      * Used by the auto-event hooks (phase 4) and the "where does this count" UI.
      *
@@ -234,18 +325,7 @@ class LawLinkService
      */
     public function effectiveLawsForTask(Task $task): Collection
     {
-        $laws = Law::where('user_id', $task->user_id)->get();
-        $out = collect();
-
-        foreach ($laws as $law) {
-            $resolved = $this->resolveForTask($task, $law);
-
-            if ($resolved !== null) {
-                $out->push(['law' => $law] + $resolved);
-            }
-        }
-
-        return $out;
+        return $this->liveLawsForTask($task);
     }
 
     /**

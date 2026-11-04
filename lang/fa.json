@@ -2162,5 +2162,17 @@
     "Law link removed": "اتصال قانون حذف شد",
     "Law link saved": "اتصال قانون ذخیره شد",
     "This law is paused, archived or expired.": "این قانون متوقف، آرشیو یا تمام‌شده است.",
-    "Choose whether this counts for or against the law.": "مشخص کن این در جهت قانون است یا خلاف آن."
+    "Choose whether this counts for or against the law.": "مشخص کن این در جهت قانون است یا خلاف آن.",
+    "laws today": "قوانین امروز",
+    "Open Laws": "باز کردن قوانین",
+    "No law activity this week yet.": "این هفته هنوز فعالیتی برای قوانین ثبت نشده است.",
+    "Deleted law": "قانون حذف‌شده",
+    "Law XP": "امتیاز قوانین",
+    "XP per day": "امتیاز روزانه",
+    "No law activity in this range.": "در این بازه فعالیتی برای قوانین ثبت نشده است.",
+    "Per law": "به تفکیک قانون",
+    "For / Against": "در جهت / خلاف",
+    "Auto / Manual": "خودکار / دستی",
+    "Automatic (linked work)": "خودکار (فعالیت‌های وصل‌شده)",
+    "Manual (day log)": "دستی (دفتر روز)"
 }

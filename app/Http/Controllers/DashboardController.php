@@ -142,6 +142,28 @@ class DashboardController extends Controller
         // Morning wake-up check-in prompt (first thing after login).
         $morningCheckin = $this->morningCheckinData($user);
 
+        // Laws strip: today's score + live laws + week's top laws.
+        $todayKey = now()->toDateString();
+        $lawTodayEvents = \App\Models\LawEvent::where('user_id', $user->id)
+            ->where('occurred_on', $todayKey)
+            ->get(['direction', 'xp_delta']);
+        $lawToday = [
+            'plus' => $lawTodayEvents->where('direction', 1)->count(),
+            'minus' => $lawTodayEvents->where('direction', -1)->count(),
+            'xp' => (int) $lawTodayEvents->sum('xp_delta'),
+        ];
+        $lawActiveLaws = $user->laws()->where('status', \App\Models\Law::STATUS_ACTIVE)->get(['id', 'title', 'color', 'icon', 'starts_on', 'ends_on', 'coefficient']);
+        $lawActiveCount = $lawActiveLaws->filter(fn ($l) => ! $l->isExpired())->count();
+        $weekAgo = now()->subDays(6)->toDateString();
+        $lawWeek = \App\Models\LawEvent::where('user_id', $user->id)
+            ->where('occurred_on', '>=', $weekAgo)
+            ->selectRaw('law_id, COALESCE(SUM(xp_delta), 0) as xp, SUM(direction = 1) as plus, SUM(direction = -1) as minus')
+            ->groupBy('law_id')
+            ->orderByDesc('xp')
+            ->limit(3)
+            ->with('law:id,title,color,icon')
+            ->get();
+
         return view('dashboard', compact(
             'tasksCount',
             'routinesCount',
@@ -168,7 +190,10 @@ class DashboardController extends Controller
             'taskStatusDistribution',
             'priorityDistribution',
             'priorityPercentages',
-            'morningCheckin'
+            'morningCheckin',
+            'lawToday',
+            'lawActiveCount',
+            'lawWeek'
         ));
     }
 
