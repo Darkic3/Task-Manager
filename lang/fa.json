@@ -2289,5 +2289,18 @@
     "You reviewed :count cards in this session.": "در این نشست :count کارت مرور کردی.",
     "Keep going": "ادامه بده",
     "Back to decks": "بازگشت به دسته‌ها",
-    "min": "دقیقه"
+    "min": "دقیقه",
+    "Your Leitner box — a little every day beats cramming.": "جعبه لایتنر تو — هر روز کمی، بهتر از تلنبار کردن.",
+    "Bulk-add words from a spreadsheet in seconds.": "در چند ثانیه لغات را گروهی از فایل اضافه کن.",
+    "Choose a CSV file": "یک فایل CSV انتخاب کن",
+    "max 2 MB": "حداکثر ۲ مگابایت",
+    "Answer honestly — failing is part of learning.": "صادقانه جواب بده — اشتباه بخشی از یادگیری است.",
+    "What is the word for this meaning?": "معادل این معنی چیست؟",
+    "What does this mean?": "معنی این چیست؟",
+    "to reveal": "برای نمایش",
+    "forgot": "یادم نبود",
+    "remembered": "یادم بود",
+    "Box": "جعبه",
+    "Try different filters or add a new word above.": "فیلتر دیگری را امتحان کن یا لغت جدیدی اضافه کن.",
+    "Upload": "آپلود"
 }

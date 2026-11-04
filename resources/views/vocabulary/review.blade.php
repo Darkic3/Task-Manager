@@ -4,61 +4,161 @@
 
 @push('styles')
 <style>
-.vb-wrap { max-width:640px; margin:0 auto; }
-.vb-topbar { display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
-.vb-title { font-size:19px; font-weight:700; color:#1f2328; margin:0; flex:1; }
-.vb-btn { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:6px; border:1px solid #e5e7eb; background:white; color:#6b6f78; font-size:12px; font-weight:600; text-decoration:none; cursor:pointer; }
-.vb-btn:hover { border-color:#6366f1; color:#6366f1; text-decoration:none; }
-.vb-flash { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:2.2rem 1.5rem; text-align:center; box-shadow:0 6px 20px rgba(0,0,0,.06); }
-.vb-deck { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#6366f1; }
-.vb-front { font-size:2rem; font-weight:800; color:#111827; margin:.6rem 0; }
-.vb-back { font-size:1.25rem; font-weight:700; color:#059669; margin:.6rem 0; }
-.vb-example { font-size:.85rem; color:#6b7280; margin-top:.5rem; }
-.vb-progress { height:8px; background:#eef2ff; border-radius:99px; overflow:hidden; margin-bottom:1rem; }
-.vb-progress > div { height:100%; background:linear-gradient(90deg,#6366f1,#8b5cf6); }
-.vb-grade { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; margin-top:1.2rem; }
-.vb-grade button { border:none; border-radius:10px; padding:.8rem; font-weight:800; font-size:.95rem; cursor:pointer; }
-.vb-forgot { background:#fee2e2; color:#b91c1c; }
-.vb-forgot:hover { background:#fecaca; }
-.vb-remembered { background:#dcfce7; color:#15803d; }
-.vb-remembered:hover { background:#bbf7d0; }
-.vb-empty { text-align:center; padding:50px 20px; background:white; border:1px solid #e5e7eb; border-radius:12px; color:#8b8d98; }
-.vb-timer { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:.55rem .8rem; margin-bottom:1rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
-.vb-timer .form-control { width:auto; padding:.25rem .5rem; font-size:.8rem; }
-.vb-timer-clock { font-variant-numeric:tabular-nums; font-weight:800; font-size:1rem; color:#111827; min-width:58px; text-align:center; }
-.vb-timer-bar { flex:1; min-width:80px; height:6px; background:#eef2ff; border-radius:99px; overflow:hidden; }
-.vb-timer-bar > div { height:100%; background:linear-gradient(90deg,#6366f1,#8b5cf6); width:0%; transition:width .5s linear; }
-.vb-timer-btn { border:1px solid #e5e7eb; background:#fff; border-radius:7px; padding:.25rem .6rem; font-size:.78rem; font-weight:700; color:#4b5563; cursor:pointer; }
-.vb-timer-btn:hover { border-color:#6366f1; color:#6366f1; }
-.vb-timer-btn:disabled { opacity:.45; cursor:default; }
-.vb-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); display:flex; align-items:center; justify-content:center; z-index:2000; padding:1rem; }
-.vb-overlay-card { background:#fff; border-radius:14px; padding:2rem 1.6rem; text-align:center; max-width:360px; width:100%; box-shadow:0 24px 48px rgba(0,0,0,.25); }
+.lv-page { max-width:680px; margin:0 auto; }
+
+/* ── Compact hero ── */
+.lv-hero {
+    position:relative; overflow:hidden;
+    background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 55%,#9333ea 100%);
+    border-radius:18px; padding:18px 20px; margin-bottom:14px; color:#fff;
+    box-shadow:0 18px 36px -18px rgba(79,70,229,.55);
+}
+.lv-hero::before {
+    content:''; position:absolute; width:170px; height:170px; top:-70px;
+    inset-inline-end:-45px; border-radius:50%; background:rgba(255,255,255,.10);
+}
+.lv-hero-in { position:relative; z-index:1; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.lv-hero-ico {
+    width:44px; height:44px; flex:none; border-radius:13px;
+    display:grid; place-items:center; font-size:1.3rem;
+    background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.35);
+}
+.lv-hero-txt { flex:1; min-width:140px; }
+.lv-hero-txt h1 { margin:0; font-size:1.15rem; font-weight:800; }
+.lv-hero-txt p { margin:1px 0 0; font-size:.76rem; color:rgba(255,255,255,.82); }
+.lv-hero select {
+    background:rgba(255,255,255,.16); color:#fff; border:1px solid rgba(255,255,255,.35);
+    border-radius:10px; font-size:.78rem; font-weight:700; padding:7px 10px;
+    max-width:150px;
+}
+.lv-hero select option { color:#111827; }
+.lv-btn {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:8px 14px; border-radius:10px; font-size:.8rem; font-weight:700;
+    text-decoration:none; cursor:pointer; border:1px solid transparent;
+    transition:transform .15s, background .15s; white-space:nowrap;
+}
+.lv-btn:active { transform:scale(.97); }
+.lv-btn-glass { background:rgba(255,255,255,.16); color:#fff; border-color:rgba(255,255,255,.35); }
+.lv-btn-glass:hover { background:rgba(255,255,255,.26); color:#fff; }
+
+/* ── Timer ── */
+.lv-timer {
+    background:#fff; border:1px solid #e9ebf1; border-radius:14px;
+    padding:10px 14px; margin-bottom:12px;
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    box-shadow:0 4px 14px -8px rgba(15,23,42,.10);
+}
+.lv-timer .form-control { width:auto; padding:.3rem .6rem; font-size:.78rem; border-radius:9px !important; }
+.lv-timer-clock { font-variant-numeric:tabular-nums; font-weight:800; font-size:1.05rem;
+    color:#111827; min-width:60px; text-align:center; }
+.lv-timer-bar { flex:1; min-width:90px; height:7px; background:#eef2ff; border-radius:99px; overflow:hidden; }
+.lv-timer-bar > div { height:100%; background:linear-gradient(90deg,#6366f1,#a78bfa);
+    width:0%; transition:width .5s linear; }
+.lv-tbtn { border:1px solid #e5e7eb; background:#fff; border-radius:9px; padding:5px 12px;
+    font-size:.76rem; font-weight:800; color:#4b5563; cursor:pointer; transition:all .15s; }
+.lv-tbtn:hover:not(:disabled) { border-color:#6366f1; color:#4f46e5; }
+.lv-tbtn:disabled { opacity:.4; cursor:default; }
+.lv-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); display:flex;
+    align-items:center; justify-content:center; z-index:2000; padding:1rem; backdrop-filter:blur(3px); }
+.lv-overlay-card { background:#fff; border-radius:18px; padding:2rem 1.6rem; text-align:center;
+    max-width:360px; width:100%; box-shadow:0 24px 48px rgba(0,0,0,.25); }
+
+/* ── Session progress ── */
+.lv-progress { height:9px; background:#fff; border:1px solid #e9ebf1; border-radius:99px;
+    overflow:hidden; margin-bottom:6px; box-shadow:inset 0 1px 3px rgba(15,23,42,.06); }
+.lv-progress > div { height:100%; background:linear-gradient(90deg,#6366f1,#a78bfa);
+    border-radius:99px; transition:width .4s; }
+.lv-progress-txt { font-size:.76rem; color:#6b7280; font-weight:600; margin-bottom:12px;
+    display:flex; align-items:center; gap:6px; }
+
+/* ── Flashcard ── */
+.lv-flash {
+    position:relative; overflow:hidden; text-align:center;
+    background:#fff; border:1px solid #e9ebf1; border-radius:20px;
+    padding:0 0 26px; box-shadow:0 24px 48px -20px rgba(79,70,229,.30);
+}
+.lv-flash-ribbon { height:8px; background:linear-gradient(90deg,#4f46e5,#8b5cf6,#d946ef); }
+.lv-flash-top { display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:14px 20px 0; flex-wrap:wrap; }
+.lv-deckname { font-size:.7rem; font-weight:800; text-transform:uppercase;
+    letter-spacing:.06em; color:#6366f1; }
+.lv-boxpill { display:inline-flex; align-items:center; gap:5px; font-size:.66rem; font-weight:800;
+    color:#4f46e5; background:#eef2ff; border-radius:999px; padding:3px 11px; }
+.lv-boxpill .lv-dots { display:inline-flex; gap:3px; }
+.lv-boxpill .lv-dots i { width:6px; height:6px; border-radius:50%; background:#c7d2fe; }
+.lv-boxpill .lv-dots i.on { background:#4f46e5; }
+.lv-prompt { font-size:2.4rem; font-weight:800; color:#111827; margin:14px 20px 6px;
+    line-height:1.25; overflow-wrap:anywhere; }
+.lv-dir-hint { font-size:.72rem; color:#9ca3af; font-weight:600; }
+.lv-answer { display:none; padding:0 24px; animation:lv-rise .3s ease; }
+@keyframes lv-rise { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+.lv-answer hr { border:none; border-top:1px dashed #e5e7eb; margin:16px auto; max-width:220px; }
+.lv-ans { font-size:1.5rem; font-weight:800; color:#059669; overflow-wrap:anywhere; }
+.lv-ex { display:inline-block; font-size:.82rem; color:#6b7280; font-style:italic;
+    background:#f8fafc; border-radius:10px; padding:7px 14px; margin-top:10px; max-width:100%; }
+.lv-grade { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:18px; }
+.lv-grade button {
+    border:none; border-radius:13px; padding:14px 10px; font-weight:800; font-size:.95rem;
+    cursor:pointer; transition:transform .15s, filter .15s;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.lv-grade button:hover { filter:brightness(.96); transform:translateY(-1px); }
+.lv-grade button:active { transform:scale(.98); }
+.lv-forgot { background:linear-gradient(135deg,#fee2e2,#fecaca); color:#b91c1c;
+    box-shadow:0 10px 20px -10px rgba(185,28,28,.4); }
+.lv-remembered { background:linear-gradient(135deg,#d1fae5,#a7f3d0); color:#047857;
+    box-shadow:0 10px 20px -10px rgba(4,120,87,.4); }
+.lv-kbd { font-size:.62rem; font-weight:800; background:rgba(0,0,0,.12); border-radius:5px;
+    padding:1px 6px; }
+.lv-show {
+    margin-top:18px; border:none; cursor:pointer;
+    background:linear-gradient(135deg,#4f46e5,#8b5cf6); color:#fff;
+    font-weight:800; font-size:.9rem; padding:12px 34px; border-radius:12px;
+    box-shadow:0 12px 24px -10px rgba(99,102,241,.6);
+    transition:transform .15s, filter .15s;
+    display:inline-flex; align-items:center; gap:8px;
+}
+.lv-show:hover { filter:brightness(1.06); transform:translateY(-1px); }
+.lv-tip { font-size:.74rem; color:#9ca3af; text-align:center; margin-top:12px; }
+.lv-tip kbd { font-family:inherit; font-size:.66rem; font-weight:800; background:#eef2ff;
+    color:#4f46e5; border-radius:5px; padding:1px 7px; }
+.lv-empty { text-align:center; padding:56px 20px; background:#fff;
+    border:1.5px dashed #d9defc; border-radius:18px; color:#8b8d98; }
+.lv-empty .lv-big { font-size:2.6rem; }
+.lv-empty h5 { color:#111827; font-weight:800; margin:.6rem 0; }
+.lv-empty p { font-size:.85rem; margin-bottom:14px; }
 </style>
 @endpush
 
 @section('content')
-<div class="vb-wrap">
-    <div class="vb-topbar">
-        <h1 class="vb-title">{{ __('Review') }}</h1>
-        <a href="{{ route('vocabulary.index') }}" class="vb-btn"><i class="bi bi-arrow-left"></i>{{ __('Decks') }}</a>
-    </div>
-
-    <form method="GET" action="{{ route('vocabulary.review.index') }}" style="display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap;">
-        <select name="deck_id" class="form-control" style="flex:1;min-width:130px;" onchange="this.form.submit()">
-            <option value="all">{{ __('All decks') }}</option>
-            @foreach($decks as $d)
-            <option value="{{ $d->id }}" {{ (string) $deckId === (string) $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
-            @endforeach
-        </select>
-        <select name="dir" class="form-control" style="flex:1;min-width:130px;" onchange="this.form.submit()" title="{{ __('Direction') }}">
-            @foreach($dirs as $value => $label)
-            <option value="{{ $value }}" {{ $dir === $value ? 'selected' : '' }}>{{ $label }}</option>
-            @endforeach
-        </select>
-    </form>
+<div class="lv-page">
+    <header class="lv-hero">
+        <div class="lv-hero-in">
+            <div class="lv-hero-ico"><i class="bi bi-lightning-charge"></i></div>
+            <div class="lv-hero-txt">
+                <h1>{{ __('Review') }}</h1>
+                <p>{{ __('Answer honestly — failing is part of learning.') }}</p>
+            </div>
+            <form method="GET" action="{{ route('vocabulary.review.index') }}" style="display:flex;gap:8px;flex-wrap:wrap;">
+                <select name="deck_id" onchange="this.form.submit()">
+                    <option value="all">{{ __('All decks') }}</option>
+                    @foreach($decks as $d)
+                    <option value="{{ $d->id }}" {{ (string) $deckId === (string) $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
+                    @endforeach
+                </select>
+                <select name="dir" onchange="this.form.submit()" title="{{ __('Direction') }}">
+                    @foreach($dirs as $value => $label)
+                    <option value="{{ $value }}" {{ $dir === $value ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </form>
+            <a href="{{ route('vocabulary.index') }}" class="lv-btn lv-btn-glass"><i class="bi bi-grid"></i>{{ __('Decks') }}</a>
+        </div>
+    </header>
 
     @if($sessionCount > 0)
-    <div class="vb-timer" id="vbTimer" role="timer" aria-label="{{ __('Focus timer') }}">
+    <div class="lv-timer" id="vbTimer" role="timer" aria-label="{{ __('Focus timer') }}">
         <i class="bi bi-stopwatch" style="color:#6366f1;"></i>
         <select id="vbTimerPreset" class="form-control" title="{{ __('Focus timer') }}">
             <option value="0">{{ __('Off') }}</option>
@@ -67,20 +167,20 @@
             <option value="15">15 {{ __('min') }}</option>
             <option value="25">25 {{ __('min') }}</option>
         </select>
-        <span class="vb-timer-clock" id="vbTimerClock">--:--</span>
-        <div class="vb-timer-bar"><div id="vbTimerFill"></div></div>
-        <button type="button" class="vb-timer-btn" id="vbTimerStart">{{ __('Start') }}</button>
-        <button type="button" class="vb-timer-btn" id="vbTimerPause" disabled>{{ __('Pause') }}</button>
-        <button type="button" class="vb-timer-btn" id="vbTimerReset" disabled>{{ __('Reset') }}</button>
+        <span class="lv-timer-clock" id="vbTimerClock">--:--</span>
+        <div class="lv-timer-bar"><div id="vbTimerFill"></div></div>
+        <button type="button" class="lv-tbtn" id="vbTimerStart">{{ __('Start') }}</button>
+        <button type="button" class="lv-tbtn" id="vbTimerPause" disabled>{{ __('Pause') }}</button>
+        <button type="button" class="lv-tbtn" id="vbTimerReset" disabled>{{ __('Reset') }}</button>
     </div>
-    <div class="vb-overlay" id="vbTimerOverlay" hidden>
-        <div class="vb-overlay-card">
+    <div class="lv-overlay" id="vbTimerOverlay" hidden>
+        <div class="lv-overlay-card">
             <div style="font-size:2.2rem;">⏰</div>
             <h5 style="color:#111827;font-weight:800;margin:.5rem 0;">{{ __("Time's up!") }}</h5>
             <p style="font-size:.85rem;color:#6b7280;" id="vbTimerDoneText"></p>
             <div style="display:flex;gap:.5rem;justify-content:center;margin-top:1rem;flex-wrap:wrap;">
-                <button type="button" class="vb-btn" id="vbTimerKeep">{{ __('Keep going') }}</button>
-                <a href="{{ route('vocabulary.index') }}" class="vb-btn primary">{{ __('Back to decks') }}</a>
+                <button type="button" class="lv-btn" id="vbTimerKeep" style="background:#f3f4f6;color:#374151;">{{ __('Keep going') }}</button>
+                <a href="{{ route('vocabulary.index') }}" class="lv-btn" style="background:linear-gradient(135deg,#4f46e5,#8b5cf6);color:#fff;">{{ __('Back to decks') }}</a>
             </div>
         </div>
     </div>
@@ -189,47 +289,74 @@
     })();
     </script>
     @endpush
-    <div class="vb-progress"><div style="width:{{ $sessionCount > 0 ? round(($reviewedCount / $sessionCount) * 100) : 0 }}%"></div></div>
-    <p style="font-size:.78rem;color:#6b7280;margin:-.4rem 0 .8rem;">{{ __(':done of :total in this session · :due due total', ['done' => app_num($reviewedCount), 'total' => app_num($sessionCount), 'due' => app_num($totalDue)]) }}</p>
+    <div class="lv-progress"><div style="width:{{ $sessionCount > 0 ? round(($reviewedCount / $sessionCount) * 100) : 0 }}%"></div></div>
+    <p class="lv-progress-txt"><i class="bi bi-flag"></i>{{ __(':done of :total in this session · :due due total', ['done' => app_num($reviewedCount), 'total' => app_num($sessionCount), 'due' => app_num($totalDue)]) }}</p>
     @endif
 
     @if(!$current)
-    <div class="vb-empty">
-        <div style="font-size:2.4rem;">🎉</div>
-        <h5 style="color:#111827;font-weight:800;margin:.6rem 0;">{{ __('All caught up!') }}</h5>
+    <div class="lv-empty">
+        <div class="lv-big">🎉</div>
+        <h5>{{ __('All caught up!') }}</h5>
         <p>{{ __('No cards are due right now. Add new words or come back tomorrow.') }}</p>
-        <a href="{{ route('vocabulary.cards.index') }}" class="vb-btn">{{ __('Manage cards') }}</a>
+        <a href="{{ route('vocabulary.cards.index') }}" class="lv-btn" style="background:linear-gradient(135deg,#4f46e5,#8b5cf6);color:#fff;">{{ __('Manage cards') }}</a>
     </div>
     @else
-    <div class="vb-flash">
-        <div class="vb-deck">{{ $current->deck->name ?? '' }} · {{ __('Box :n', ['n' => $current->box]) }}</div>
-        <div class="vb-front">{{ $prompt }}</div>
+    <div class="lv-flash">
+        <div class="lv-flash-ribbon"></div>
+        <div class="lv-flash-top">
+            <span class="lv-deckname">{{ $current->deck->name ?? '' }}</span>
+            <span class="lv-boxpill">{{ __('Box :n', ['n' => $current->box]) }}<span class="lv-dots">@for($i = 1; $i <= 5; $i++)<i class="{{ $i <= $current->box ? 'on' : '' }}"></i>@endfor</span></span>
+        </div>
+        <div class="lv-prompt">{{ $prompt }}</div>
+        <div class="lv-dir-hint">{{ $dir === 'back' ? __('What is the word for this meaning?') : __('What does this mean?') }}</div>
 
-        <div id="vbAnswer" style="display:none;">
+        <div class="lv-answer" id="vbAnswer">
             <hr>
-            <div class="vb-back">{{ $answer }}</div>
-            @if($showExample)<div class="vb-example">{{ $current->example }}</div>@endif
-            <div class="vb-grade">
+            <div class="lv-ans">{{ $answer }}</div>
+            @if($showExample)<div class="lv-ex"><i class="bi bi-quote"></i> {{ $current->example }}</div>@endif
+            <div class="lv-grade">
                 <form method="POST" action="{{ route('vocabulary.cards.grade', $current) }}">
                     @csrf
                     <input type="hidden" name="remembered" value="0">
                     <input type="hidden" name="deck_id" value="{{ $deckId }}">
                     <input type="hidden" name="dir" value="{{ $dir }}">
-                    <button class="vb-forgot" type="submit" style="width:100%;">❌ {{ __('I forgot') }}</button>
+                    <button class="lv-forgot" id="vbForgot" type="submit" style="width:100%;"><span>❌</span> {{ __('I forgot') }} <span class="lv-kbd">1</span></button>
                 </form>
                 <form method="POST" action="{{ route('vocabulary.cards.grade', $current) }}">
                     @csrf
                     <input type="hidden" name="remembered" value="1">
                     <input type="hidden" name="deck_id" value="{{ $deckId }}">
                     <input type="hidden" name="dir" value="{{ $dir }}">
-                    <button class="vb-remembered" type="submit" style="width:100%;">✅ {{ __('I remembered') }}</button>
+                    <button class="lv-remembered" id="vbRemembered" type="submit" style="width:100%;"><span>✅</span> {{ __('I remembered') }} <span class="lv-kbd">2</span></button>
                 </form>
             </div>
         </div>
 
-        <button id="vbShow" class="vb-btn" style="margin-top:.6rem;" onclick="document.getElementById('vbAnswer').style.display='block';this.style.display='none';">{{ __('Show meaning') }}</button>
+        <button id="vbShow" class="lv-show"><i class="bi bi-eye"></i>{{ __('Show meaning') }} <span class="lv-kbd" style="background:rgba(255,255,255,.25);">Space</span></button>
     </div>
-    <p style="font-size:.75rem;color:#9ca3af;text-align:center;margin-top:.7rem;">{{ __('Tip: answer honestly — forgot sends the card back to Box 1.') }}</p>
+    <p class="lv-tip">{{ __('Tip: answer honestly — forgot sends the card back to Box 1.') }}<br>
+        <kbd>Space</kbd> {{ __('to reveal') }} · <kbd>1</kbd> {{ __('forgot') }} · <kbd>2</kbd> {{ __('remembered') }}</p>
     @endif
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    function reveal() {
+        var ans = document.getElementById('vbAnswer');
+        var btn = document.getElementById('vbShow');
+        if (!ans || !btn || ans.style.display === 'block') return;
+        ans.style.display = 'block';
+        btn.style.display = 'none';
+    }
+    document.getElementById('vbShow')?.addEventListener('click', reveal);
+    document.addEventListener('keydown', function (e) {
+        if (e.target.matches('input, select, textarea')) return;
+        if (e.code === 'Space') { e.preventDefault(); reveal(); }
+        else if (e.key === '1') { document.getElementById('vbForgot')?.click(); }
+        else if (e.key === '2') { document.getElementById('vbRemembered')?.click(); }
+    });
+})();
+</script>
+@endpush

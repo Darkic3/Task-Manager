@@ -534,5 +534,19 @@
     "You reviewed :count cards in this session.": "You reviewed :count cards in this session.",
     "Keep going": "Keep going",
     "Back to decks": "Back to decks",
-    "min": "min"
+    "min": "min",
+    "Your Leitner box — a little every day beats cramming.": "Your Leitner box — a little every day beats cramming.",
+    "Bulk-add words from a spreadsheet in seconds.": "Bulk-add words from a spreadsheet in seconds.",
+    "Choose a CSV file": "Choose a CSV file",
+    "max 2 MB": "max 2 MB",
+    "Answer honestly — failing is part of learning.": "Answer honestly — failing is part of learning.",
+    "What is the word for this meaning?": "What is the word for this meaning?",
+    "What does this mean?": "What does this mean?",
+    "to reveal": "to reveal",
+    "forgot": "forgot",
+    "remembered": "remembered",
+    "Box": "Box",
+    "Clear": "Clear",
+    "Try different filters or add a new word above.": "Try different filters or add a new word above.",
+    "Upload": "Upload"
 }
