@@ -152,26 +152,32 @@
         $colors = ['#6366f1','#8b5cf6','#06b6d4','#10a37f','#f59e0b','#ef4444','#ec4899'];
         $projectColor = $colors[strlen($project->name) % count($colors)];
 
-        /* Aggregate over the whole subtree (loaded in-memory, no extra queries) */
-        $stack = $project->tasks->all();
+        /* Deep aggregate over the whole subtree (in-memory; childrenRecursive + tasks are eager-loaded) */
         $aggTodo = $aggDone = 0;
-        $aggLoad = 0;
-        while (! empty($stack) && $aggLoad++ < 5000) {
-            $t = array_shift($stack);
-            if ($t->status === 'completed') { $aggDone++; } else { $aggTodo++; }
-            foreach ($t->children ?? collect() as $kid) { $stack[] = $kid; }
-        }
-        foreach ($project->children as $cp) {
-            $cpStack = $cp->tasks->all();
-            $cpLoad = 0;
-            while (! empty($cpStack) && $cpLoad++ < 5000) {
-                $ct = array_shift($cpStack);
-                if ($ct->status === 'completed') { $aggDone++; } else { $aggTodo++; }
-                foreach ($ct->children ?? collect() as $cct) { $cpStack[] = $cct; }
+        $countTasksDeep = function ($tasks) use (&$countTasksDeep, &$aggTodo, &$aggDone) {
+            foreach ($tasks as $t) {
+                if ($t->status === 'completed') { $aggDone++; } else { $aggTodo++; }
+                $ck = $t->relationLoaded('childrenRecursive') ? $t->childrenRecursive : ($t->relationLoaded('children') ? $t->children : collect());
+                if ($ck->count()) $countTasksDeep($ck);
             }
-        }
+        };
+        $countTasksDeep($project->tasks);
+        $walkProjects = function ($nodes) use (&$walkProjects, &$countTasksDeep) {
+            foreach ($nodes as $n) {
+                $countTasksDeep($n->relationLoaded('tasks') ? $n->tasks : collect());
+                $ck = $n->relationLoaded('childrenRecursive') ? $n->childrenRecursive : ($n->relationLoaded('children') ? $n->children : collect());
+                if ($ck->count()) $walkProjects($ck);
+            }
+        };
+        $directKids = $project->relationLoaded('childrenRecursive') ? $project->childrenRecursive : $project->children;
+        $walkProjects($directKids);
         $aggTotal = $aggDone + $aggTodo;
         $progress = $aggTotal > 0 ? round($aggDone / $aggTotal * 100) : round($project->progressPercent());
+        $hasKids = $directKids->count() > 0;
+        $typeBadgeColors = ['project' => '#6366f1', 'subproject' => '#7c3aed', 'chapter' => '#f59e0b', 'lesson' => '#06b6d4', 'section' => '#ec4899'];
+        $typeBadgeLabels = ['project' => 'Project', 'subproject' => 'Sub-project', 'lesson' => 'Lesson', 'chapter' => 'Chapter', 'section' => 'Section'];
+        $typeBadgeColor = $typeBadgeColors[$project->type] ?? '#6b7280';
+        $typeBadgeLabel = $typeBadgeLabels[$project->type] ?? ucfirst((string) $project->type);
 
         $rawStatus = $project->status;
         $chipMap = [
@@ -193,6 +199,9 @@
         </div>
         <h1 class="pj-title">{{ $project->name }}</h1>
         <span class="pj-chip {{ $chip['class'] }}">{{ __($chip['label']) }}</span>
+        @if($project->type && $project->type !== 'project')
+            <span class="pj-chip" style="background:{{ $typeBadgeColor }}14;color:{{ $typeBadgeColor }};border:1px solid {{ $typeBadgeColor }}33;">{{ __($typeBadgeLabel) }}</span>
+        @endif
     </div>
 
     <div class="pj-progress">
@@ -246,28 +255,25 @@
         </div>
     @endif
 
-    @if($project->children->count() > 0)
+    @if($hasKids)
         <hr class="pj-divider">
         <h2 class="pj-h">
-            {{ __('Sub-projects') }} <span class="count">· {{ $project->children->count() }}</span>
+            {{ __('Structure') }}
+            <span class="count">· {{ __('chapters & lessons') }}</span>
             <span class="spacer"></span>
-            <a href="{{ route('projects.create', ['parent' => $project->id]) }}" class="pj-mini-btn"><i class="bi bi-plus-lg"></i> {{ __('Add') }}</a>
+            <a href="{{ route('projects.tasks.index', $project) }}" class="pj-mini-btn"><i class="bi bi-list-task"></i> {{ __('All tasks') }}</a>
         </h2>
-        <div>
-            @foreach($project->children as $child)
-                @php $childProgress = $child->progressPercent(); @endphp
-                <a href="{{ route('projects.show', $child) }}" class="pj-row">
-                    <div class="pj-row-av" style="background:#7c3aed;">{{ name_initials($child->name) }}</div>
-                    <div class="pj-row-main">
-                        <div class="pj-row-title">{{ $child->name }}</div>
-                        <div class="pj-row-sub">{{ $child->tasks->count() }} {{ __('tasks') }}</div>
-                    </div>
-                    <div class="pj-row-bar"><span style="width:{{ round($childProgress) }}%;"></span></div>
-                    <span class="pj-row-val">{{ round($childProgress) }}%</span>
-                </a>
-            @endforeach
-        </div>
+        @include('projects._structure-manager', ['project' => $project])
     @endif
+
+    <hr class="pj-divider">
+    <h2 class="pj-h">
+        {{ $hasKids ? __('Direct tasks') : __('Tasks') }}
+        <span class="count">· {{ $hasKids ? __('only this level') : __('this lesson') }}</span>
+        <span class="spacer"></span>
+        <a href="{{ route('projects.tasks.index', $project) }}" class="pj-mini-btn"><i class="bi bi-kanban"></i> {{ __('Board') }}</a>
+    </h2>
+    @include('projects._project-tasks', ['project' => $project])
 
     @php $recentTime = $project->timeEntries()->with(['task:id,title'])->latest('started_at')->take(5)->get(); @endphp
     @if($recentTime->count() > 0)

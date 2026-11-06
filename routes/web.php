@@ -77,6 +77,10 @@ Route::middleware(['auth', EnsureOwnedRouteModels::class, BetaFeatureUnavailable
         Route::get('/', 'index')->name('inbox');
     });
     Route::post('projects/reorder', [ProjectController::class, 'reorder'])->name('projects.reorder');
+    Route::get('projects/{project}/structure', [ProjectController::class, 'structure'])->name('projects.structure');
+    Route::post('projects/{project}/nodes', [ProjectController::class, 'storeNode'])->name('projects.nodes.store');
+    Route::patch('projects/{project}/move-nodes', [ProjectController::class, 'moveNodes'])->name('projects.nodes.move');
+    Route::patch('projects/{node}/convert', [ProjectController::class, 'convertNode'])->name('projects.nodes.convert');
     Route::resource('projects', ProjectController::class);
     Route::get('projects/{project}/tasks', [TaskController::class, 'index'])->name('projects.tasks.index');
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('projects.tasks.store');

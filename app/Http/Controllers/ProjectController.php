@@ -169,6 +169,172 @@ class ProjectController extends Controller
         return redirect()->route('projects.index')->with('success', __('Project deleted successfully.'));
     }
 
+    /**
+     * Full subtree as JSON for the Structure Manager (chapters/lessons tree).
+     * Loads the same relations as show() so progress math matches.
+     */
+    public function structure(Project $project)
+    {
+        abort_if($project->user_id !== Auth::id(), 403);
+        $project->load([
+            'childrenRecursive.tasks.childrenRecursive',
+            'childrenRecursive.tasks.timeEntries',
+            'childrenRecursive.childrenRecursive',
+            'tasks.childrenRecursive',
+            'tasks.timeEntries',
+        ]);
+
+        return response()->json(['ok' => true, 'tree' => $this->serializeNode($project)]);
+    }
+
+    /**
+     * Quick-create a chapter/lesson/section/subproject under this tree.
+     * parent_node_id null/empty = direct child of $project.
+     */
+    public function storeNode(Request $request, Project $project)
+    {
+        abort_if($project->user_id !== Auth::id(), 403);
+
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'type' => 'nullable|in:project,subproject,lesson,chapter,section',
+            'parent_node_id' => 'nullable|integer',
+        ]);
+
+        $parent = $project;
+        if (! empty($data['parent_node_id'])) {
+            $parent = Auth::user()->projects()->find($data['parent_node_id']);
+            abort_if(! $parent, 422, __('Invalid destination.'));
+            // Parent must live inside this tree (or be the root itself).
+            $allowed = $project->descendantProjectIds();
+            abort_if(! in_array((int) $parent->id, $allowed, true), 422, __('Destination is outside this project.'));
+        }
+
+        $maxSort = (int) Auth::user()->projects()->where('parent_id', $parent->id)->max('sort_order');
+        $node = Auth::user()->projects()->create([
+            'name' => $data['name'],
+            'type' => $data['type'] ?? 'chapter',
+            'parent_id' => $parent->id,
+            'status' => 'not_started',
+            'sort_order' => $maxSort + 1,
+        ]);
+        $node->reopenCompletedAncestors();
+
+        $node->load(['tasks', 'children']);
+        return response()->json(['ok' => true, 'node' => $this->serializeNode($node)]);
+    }
+
+    /**
+     * Bulk-move nodes inside this tree (drag & drop + "move to" menu + bulk).
+     * destination_id null/empty = direct child of $project (ungrouped).
+     */
+    public function moveNodes(Request $request, Project $project)
+    {
+        abort_if($project->user_id !== Auth::id(), 403);
+
+        $data = $request->validate([
+            'ids' => 'required|array|min:1|max:100',
+            'ids.*' => 'integer',
+            'destination_id' => 'nullable|integer',
+        ]);
+
+        $allowed = $project->descendantProjectIds();
+        foreach ($data['ids'] as $id) {
+            abort_if((int) $id === (int) $project->id, 422, __('Cannot move the root project.'));
+            abort_if(! in_array((int) $id, $allowed, true), 422, __('Some items are outside this project.'));
+        }
+
+        $destination = $project;
+        if (! empty($data['destination_id'])) {
+            abort_if(in_array((int) $data['destination_id'], array_map('intval', $data['ids']), true), 422, __('Cannot move into itself.'));
+            $destination = Auth::user()->projects()->find($data['destination_id']);
+            abort_if(! $destination, 422, __('Invalid destination.'));
+            abort_if(! in_array((int) $destination->id, $allowed, true), 422, __('Destination is outside this project.'));
+            // Destination must not be a descendant of any moved node (cycle).
+            $descOfMoved = [];
+            foreach ($data['ids'] as $id) {
+                $n = Auth::user()->projects()->find($id);
+                if ($n) {
+                    $descOfMoved = array_merge($descOfMoved, $n->descendantProjectIds());
+                }
+            }
+            abort_if(in_array((int) $destination->id, array_map('intval', $descOfMoved), true), 422, __('Cannot move a node under its own descendant.'));
+        }
+
+        $baseSort = (int) Auth::user()->projects()->where('parent_id', $destination->id)->max('sort_order');
+        $nodes = Auth::user()->projects()->whereIn('id', $data['ids'])->orderBy('sort_order')->orderBy('id')->get();
+        foreach ($nodes as $i => $node) {
+            $node->parent_id = $destination->id;
+            $node->sort_order = $baseSort + $i + 1;
+            $node->save();
+            $node->reopenCompletedAncestors();
+        }
+
+        return response()->json(['ok' => true, 'moved' => $nodes->count(), 'destination_id' => (int) $destination->id]);
+    }
+
+    /**
+     * Convert a node's type (lesson <-> chapter <-> section ...) without moving it.
+     */
+    public function convertNode(Request $request, Project $node)
+    {
+        abort_if($node->user_id !== Auth::id(), 403);
+
+        $data = $request->validate([
+            'type' => 'required|in:project,subproject,lesson,chapter,section',
+        ]);
+
+        $node->update(['type' => $data['type']]);
+
+        return response()->json(['ok' => true, 'node' => ['id' => $node->id, 'type' => $node->type]]);
+    }
+
+    private function serializeNode(Project $node): array
+    {
+        $directTotal = $node->tasks->count();
+        $directDone = $node->tasks->where('status', 'completed')->count();
+        $agg = $this->aggregateCounts($node);
+
+        $children = [];
+        foreach ($node->children as $child) {
+            $children[] = $this->serializeNode($child);
+        }
+
+        return [
+            'id' => (int) $node->id,
+            'name' => (string) $node->name,
+            'slug' => (string) $node->slug,
+            'type' => (string) ($node->type ?? 'project'),
+            'status' => (string) $node->status,
+            'sort_order' => (int) ($node->sort_order ?? 0),
+            'url' => route('projects.show', $node),
+            'progress' => round((float) $node->progressPercent()),
+            'tasks_total' => $directTotal,
+            'tasks_done' => $directDone,
+            'agg_total' => $agg['total'],
+            'agg_done' => $agg['done'],
+            'tasks' => $node->tasks->map(fn ($t) => [
+                'id' => (int) $t->id,
+                'title' => (string) $t->title,
+                'status' => (string) $t->status,
+            ])->values()->all(),
+            'children' => $children,
+        ];
+    }
+
+    private function aggregateCounts(Project $node): array
+    {
+        $total = $node->tasks->count();
+        $done = $node->tasks->where('status', 'completed')->count();
+        foreach ($node->children as $child) {
+            $sub = $this->aggregateCounts($child);
+            $total += $sub['total'];
+            $done += $sub['done'];
+        }
+
+        return ['total' => $total, 'done' => $done];
+    }
+
     public function reorder(Request $request)
     {
         $data = $request->validate([
