@@ -44,6 +44,117 @@ class EditPagesTest extends TestCase
         $response->assertDontSee('cu-section-icon', false);
     }
 
+    public function test_project_edit_back_link_returns_to_previous_page(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->create(['user_id' => $user->id, 'name' => 'Child']);
+        $indexUrl = route('projects.index');
+
+        $html = $this->actingAs($user)->withHeaders(['Referer' => $indexUrl])
+            ->get(route('projects.edit', $project))->assertOk()->getContent();
+
+        // Back link, cancel button and the return_to field all target the index.
+        $this->assertStringContainsString('href="' . $indexUrl . '"', $html);
+        $this->assertStringContainsString('name="return_to" value="' . $indexUrl . '"', $html);
+    }
+
+    public function test_project_edit_explicit_return_to_wins_over_referer(): void
+    {
+        $user = User::factory()->create();
+        $parent = Project::factory()->create(['user_id' => $user->id, 'name' => 'Parent']);
+        $project = Project::factory()->create(['user_id' => $user->id, 'name' => 'Child', 'parent_id' => $parent->id]);
+        $parentUrl = route('projects.show', $parent);
+
+        $html = $this->actingAs($user)->withHeaders(['Referer' => route('projects.index')])
+            ->get(route('projects.edit', [$project, 'return_to' => $parentUrl]))
+            ->assertOk()->getContent();
+
+        $this->assertStringContainsString('href="' . $parentUrl . '"', $html);
+        $this->assertStringContainsString('name="return_to" value="' . $parentUrl . '"', $html);
+    }
+
+    public function test_project_update_redirects_to_return_to(): void
+    {
+        $user = User::factory()->create();
+        $parent = Project::factory()->create(['user_id' => $user->id, 'name' => 'Parent']);
+        $project = Project::factory()->create(['user_id' => $user->id, 'name' => 'Child']);
+        $parentUrl = route('projects.show', $parent);
+
+        $this->actingAs($user)->put(route('projects.update', $project), [
+            'name' => 'Child',
+            'status' => 'in_progress',
+            'return_to' => $parentUrl,
+        ])->assertRedirect($parentUrl);
+    }
+
+    public function test_project_update_rejects_external_return_to(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->create(['user_id' => $user->id, 'name' => 'Child']);
+
+        $this->actingAs($user)->put(route('projects.update', $project), [
+            'name' => 'Child',
+            'status' => 'in_progress',
+            'return_to' => 'https://evil.example/phish',
+        ])->assertRedirect(route('projects.index'));
+
+        $this->actingAs($user)->put(route('projects.update', $project), [
+            'name' => 'Child',
+            'status' => 'in_progress',
+            'return_to' => '//evil.example/phish',
+        ])->assertRedirect(route('projects.index'));
+    }
+
+    public function test_edit_accepts_return_url_on_request_host(): void
+    {
+        // Real-world setup: APP_URL is localhost but the app is browsed via
+        // a custom domain. A referer/return_to on the request host must win
+        // over the projects index fallback.
+        config(['app.url' => 'http://localhost']);
+        $user = User::factory()->create();
+        $parent = Project::factory()->create(['user_id' => $user->id, 'name' => 'Parent']);
+        $project = Project::factory()->create(['user_id' => $user->id, 'name' => 'Klah', 'parent_id' => $parent->id]);
+        $parentUrl = 'http://task-manager.test/projects/' . $parent->slug;
+        $editUrl = 'http://task-manager.test/projects/' . $project->slug . '/edit';
+
+        $html = $this->actingAs($user)
+            ->withHeaders(['Referer' => $parentUrl])
+            ->get($editUrl)->assertOk()->getContent();
+
+        $this->assertStringContainsString('href="' . $parentUrl . '"', $html);
+
+        $this->actingAs($user)
+            ->put('http://task-manager.test/projects/' . $project->slug, [
+                'name' => 'Klah',
+                'status' => 'in_progress',
+                'return_to' => $parentUrl,
+            ])->assertRedirect($parentUrl);
+    }
+
+    public function test_edit_entry_links_carry_return_to(): void
+    {
+        $user = User::factory()->create();
+        $parent = Project::factory()->create(['user_id' => $user->id, 'name' => 'Parent']);
+
+        $showHtml = $this->actingAs($user)->get(route('projects.show', $parent))->assertOk()->getContent();
+        $this->assertStringContainsString('return_to=', $showHtml);
+
+        $indexHtml = $this->actingAs($user)->get(route('projects.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('return_to=', $indexHtml);
+    }
+
+    public function test_project_edit_falls_back_to_show_page(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->create(['user_id' => $user->id, 'name' => 'Child']);
+
+        // External referer must never leak into the back link.
+        $html = $this->actingAs($user)->withHeaders(['Referer' => 'https://evil.example/phish'])
+            ->get(route('projects.edit', $project))->assertOk()->getContent();
+
+        $this->assertStringContainsString('href="' . route('projects.show', $project) . '"', $html);
+    }
+
     public function test_project_edit_form_renders_minimal_layout(): void
     {
         $user = User::factory()->create();

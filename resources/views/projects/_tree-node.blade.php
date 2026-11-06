@@ -32,7 +32,7 @@
         <div class="cu-tree-actions">
             <a href="{{ route('projects.create', ['parent' => $project->id]) }}" class="cu-action-btn" title="{{ __('Add sub-project') }}"><i class="bi bi-plus"></i></a>
             <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
-            <a href="{{ route('projects.edit', $project) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
+            <a href="{{ route('projects.edit', $project) }}?return_to={{ urlencode(request()->fullUrl()) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
         </div>
     </div>
     @if($childCount > 0)

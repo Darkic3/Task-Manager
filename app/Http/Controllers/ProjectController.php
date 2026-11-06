@@ -117,17 +117,32 @@ class ProjectController extends Controller
             ->limit(50)
             ->get(['id', 'title']);
 
-        return view('projects.show', compact('project', 'linkedNotes', 'recentNotes', 'noteLinks'));
+        // Seed for the structure Vue island (Phase 2 consumes it; harmless data today).
+        $directKids = $project->relationLoaded('childrenRecursive') ? $project->childrenRecursive : $project->children;
+        $structureSeed = $directKids->count() > 0 ? $this->serializeNode($project) : null;
+
+        return view('projects.show', compact('project', 'linkedNotes', 'recentNotes', 'noteLinks', 'structureSeed'));
     }
 
-    public function edit(Project $project)
+    public function edit(Request $request, Project $project)
     {
         $exclude = array_merge([$project->id], $this->descendantIds($project));
         $parentOptions = Auth::user()->projects()
             ->whereNotIn('id', $exclude)
             ->orderBy('name')->get(['id', 'name', 'parent_id']);
 
-        return view('projects.edit', compact('project', 'parentOptions'));
+        // Back target: explicit ?return_to= wins; otherwise the page we came
+        // from (index / show / parent show); never the edit page itself.
+        $editUrl = route('projects.edit', $project);
+        $requested = $request->query('return_to', $request->query('back'));
+        $previous = url()->previous();
+        $candidate = $requested ?: ($previous !== $editUrl ? $previous : null);
+        $backUrl = $this->safeBackUrl($candidate, route('projects.show', $project), $request);
+        if ($this->samePath($backUrl, $editUrl)) {
+            $backUrl = route('projects.show', $project);
+        }
+
+        return view('projects.edit', compact('project', 'parentOptions', 'backUrl'));
     }
 
     public function update(Request $request, Project $project)
@@ -159,12 +174,72 @@ class ProjectController extends Controller
             $project->reopenCompletedAncestors();
         }
 
-        return redirect()->route('projects.index')->with('success', __('Project updated successfully.'));
+        // Return to where the edit was opened from when a safe target was given.
+        $backUrl = $this->safeBackUrl($request->input('return_to'), route('projects.index'), $request);
+        if ($this->samePath($backUrl, route('projects.edit', $project))) {
+            $backUrl = route('projects.index');
+        }
+
+        return redirect()->to($backUrl)->with('success', __('Project updated successfully.'));
     }
 
-    public function destroy(Project $project)
+    /**
+     * Hosts a return URL may point to: the current request host (covers
+     * custom local domains like task-manager.test when APP_URL is localhost)
+     * plus the configured app host. Anything else is rejected.
+     */
+    private function trustedReturnHosts(Request $request): array
+    {
+        $hosts = [strtolower($request->getHost())];
+        $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+        if (is_string($appHost) && $appHost !== '') {
+            $hosts[] = strtolower($appHost);
+        }
+
+        return array_values(array_unique(array_filter($hosts)));
+    }
+
+    /**
+     * Allow only same-origin return URLs (absolute with a trusted host, or
+     * root-relative paths) — never open redirects.
+     */
+    private function safeBackUrl(?string $url, string $fallback, ?Request $request = null): string
+    {
+        if (is_string($url) && $url !== '') {
+            $hosts = $request
+                ? $this->trustedReturnHosts($request)
+                : array_filter([strtolower((string) parse_url((string) config('app.url'), PHP_URL_HOST))]);
+            $parts = parse_url($url);
+            if (isset($parts['host'])) {
+                if (in_array(strtolower($parts['host']), $hosts, true)) {
+                    return $url;
+                }
+            } elseif (isset($parts['path']) && str_starts_with($parts['path'], '/') && ! str_starts_with($parts['path'], '//')) {
+                return $url;
+            }
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * Compare two URLs by path only (ignores query string / host).
+     */
+    private function samePath(string $a, string $b): bool
+    {
+        $pa = parse_url($a, PHP_URL_PATH);
+        $pb = parse_url($b, PHP_URL_PATH);
+
+        return is_string($pa) && is_string($pb) && rtrim($pa, '/') === rtrim($pb, '/');
+    }
+
+    public function destroy(Request $request, Project $project)
     {
         $project->delete();
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['ok' => true]);
+        }
 
         return redirect()->route('projects.index')->with('success', __('Project deleted successfully.'));
     }
@@ -221,7 +296,14 @@ class ProjectController extends Controller
         $node->reopenCompletedAncestors();
 
         $node->load(['tasks', 'children']);
-        return response()->json(['ok' => true, 'node' => $this->serializeNode($node)]);
+        $node->refresh();
+
+        return response()->json([
+            'ok' => true,
+            'node' => $this->serializeNode($node),
+            'nodeHtml' => $this->renderNodeHtml($node, $project),
+            'parent_id' => (int) $node->parent_id,
+        ]);
     }
 
     /**
@@ -274,6 +356,41 @@ class ProjectController extends Controller
     }
 
     /**
+     * Batch-render structure rows (single source of truth stays the Blade
+     * partial). Used by the structure Vue island to swap fresh markup after
+     * mutations instead of reloading the page.
+     * GET projects/{project}/rows-html?ids[]=1&ids[]=2
+     */
+    public function rowsHtml(Request $request, Project $project)
+    {
+        abort_if($project->user_id !== Auth::id(), 403);
+
+        $data = $request->validate([
+            'ids' => 'required|array|min:1|max:50',
+            'ids.*' => 'integer',
+        ]);
+
+        $allowed = $project->descendantProjectIds();
+        $nodes = Auth::user()->projects()->whereIn('id', $data['ids'])->get()->keyBy('id');
+        $rows = [];
+        foreach ($data['ids'] as $id) {
+            if ((int) $id === (int) $project->id) {
+                continue; // the root itself has no structure row
+            }
+            if (! in_array((int) $id, $allowed, true)) {
+                continue; // outside this tree: skip (two-tab resilient)
+            }
+            $node = $nodes->get($id);
+            if (! $node) {
+                continue;
+            }
+            $rows[$id] = $this->renderNodeHtml($node, $project);
+        }
+
+        return response()->json(['ok' => true, 'rows' => $rows]);
+    }
+
+    /**
      * Convert a node's type (lesson <-> chapter <-> section ...) without moving it.
      */
     public function convertNode(Request $request, Project $node)
@@ -289,6 +406,38 @@ class ProjectController extends Controller
         return response()->json(['ok' => true, 'node' => ['id' => $node->id, 'type' => $node->type]]);
     }
 
+    /**
+     * Rename a node (chapter/lesson/...) without moving it.
+     * Used by the structure island's inline rename (no page reload).
+     */
+    public function renameNode(Request $request, Project $node)
+    {
+        abort_if($node->user_id !== Auth::id(), 403);
+
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        $node->update(['name' => $data['name']]);
+        $node->refresh();
+
+        return response()->json(['ok' => true, 'node' => [
+            'id' => (int) $node->id,
+            'name' => (string) $node->name,
+            'slug' => (string) $node->slug,
+            'url' => route('projects.show', $node),
+        ]]);
+    }
+
+    /**
+     * Prefer the already-loaded recursive relation (no extra queries);
+     * fall back to the direct one (e.g. a freshly created node).
+     */
+    private function childNodes(Project $node)
+    {
+        return $node->relationLoaded('childrenRecursive') ? $node->childrenRecursive : $node->children;
+    }
+
     private function serializeNode(Project $node): array
     {
         $directTotal = $node->tasks->count();
@@ -296,7 +445,7 @@ class ProjectController extends Controller
         $agg = $this->aggregateCounts($node);
 
         $children = [];
-        foreach ($node->children as $child) {
+        foreach ($this->childNodes($node) as $child) {
             $children[] = $this->serializeNode($child);
         }
 
@@ -326,13 +475,56 @@ class ProjectController extends Controller
     {
         $total = $node->tasks->count();
         $done = $node->tasks->where('status', 'completed')->count();
-        foreach ($node->children as $child) {
+        foreach ($this->childNodes($node) as $child) {
             $sub = $this->aggregateCounts($child);
             $total += $sub['total'];
             $done += $sub['done'];
         }
 
         return ['total' => $total, 'done' => $done];
+    }
+
+    /**
+     * Flat [id, name, depth, type] options for the node's "move to" menu,
+     * mirroring the Blade partial's own flattening.
+     */
+    private function structureDestOptions(Project $root): array
+    {
+        $root->loadMissing('childrenRecursive');
+        $out = [];
+        $flat = function ($nodes, $depth) use (&$flat, &$out) {
+            foreach ($nodes as $n) {
+                $out[] = [
+                    'id' => (int) $n->id,
+                    'name' => (string) $n->name,
+                    'depth' => $depth,
+                    'type' => (string) ($n->type ?? 'project'),
+                ];
+                $kids = $n->relationLoaded('childrenRecursive') ? $n->childrenRecursive : collect();
+                if ($kids->count()) {
+                    $flat($kids, $depth + 1);
+                }
+            }
+        };
+        $flat($this->childNodes($root), 0);
+
+        return $out;
+    }
+
+    /**
+     * Server-rendered HTML of one structure row (single source of truth stays
+     * the Blade partial, so translations/styles never drift for the island).
+     */
+    private function renderNodeHtml(Project $node, Project $root): string
+    {
+        $node->loadMissing(['tasks', 'childrenRecursive']);
+
+        return view('projects._structure-node', [
+            'node' => $node,
+            'depth' => 0,
+            'rootId' => (int) $root->id,
+            'destOptions' => $this->structureDestOptions($root),
+        ])->render();
     }
 
     public function reorder(Request $request)

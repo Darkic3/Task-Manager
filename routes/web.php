@@ -78,14 +78,17 @@ Route::middleware(['auth', EnsureOwnedRouteModels::class, BetaFeatureUnavailable
     });
     Route::post('projects/reorder', [ProjectController::class, 'reorder'])->name('projects.reorder');
     Route::get('projects/{project}/structure', [ProjectController::class, 'structure'])->name('projects.structure');
+    Route::get('projects/{project}/rows-html', [ProjectController::class, 'rowsHtml'])->name('projects.rows.html');
     Route::post('projects/{project}/nodes', [ProjectController::class, 'storeNode'])->name('projects.nodes.store');
     Route::patch('projects/{project}/move-nodes', [ProjectController::class, 'moveNodes'])->name('projects.nodes.move');
     Route::patch('projects/{node}/convert', [ProjectController::class, 'convertNode'])->name('projects.nodes.convert');
+    Route::patch('projects/{node}/rename', [ProjectController::class, 'renameNode'])->name('projects.nodes.rename');
     Route::resource('projects', ProjectController::class);
     Route::get('projects/{project}/tasks', [TaskController::class, 'index'])->name('projects.tasks.index');
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('projects.tasks.store');
 
     Route::post('tasks/reorder', [TaskController::class, 'reorder'])->name('tasks.reorder');
+    Route::patch('tasks/{task}/move', [TaskController::class, 'move'])->name('tasks.move');
     Route::post('tasks/quick-store', [TaskController::class, 'quickStore'])->name('tasks.quick-store');
     Route::post('tasks/bulk-update', [TaskController::class, 'bulkUpdate'])->name('tasks.bulk-update');
     Route::delete('tasks/bulk-destroy', [TaskController::class, 'bulkDestroy'])->name('tasks.bulk-destroy');

@@ -111,14 +111,15 @@
 <div class="pe-wrap">
 
     <div class="pe-topbar">
-        <a href="{{ route('projects.show', $project) }}" class="pe-back">
-            <i class="bi bi-arrow-left"></i> {{ __('Back to') }} <span>{{ $project->name }}</span>
+        <a href="{{ $backUrl ?? route('projects.show', $project) }}" class="pe-back">
+            <i class="bi bi-arrow-left"></i> {{ __('Back') }}
         </a>
     </div>
 
     <form action="{{ route('projects.update', $project) }}" method="POST" id="editProjectForm" class="pe-form">
         @csrf
         @method('PUT')
+        <input type="hidden" name="return_to" value="{{ $backUrl ?? route('projects.show', $project) }}">
 
         @php
             $statusMap = [
@@ -227,7 +228,7 @@
 
         {{-- Action bar --}}
         <div class="pe-actions-bar">
-            <a href="{{ route('projects.show', $project) }}" class="pe-cancel">{{ __('Cancel') }}</a>
+            <a href="{{ $backUrl ?? route('projects.show', $project) }}" class="pe-cancel">{{ __('Cancel') }}</a>
             <button type="submit" class="pe-save">
                 <i class="bi bi-check-lg"></i>{{ __('Save changes') }}
             </button>

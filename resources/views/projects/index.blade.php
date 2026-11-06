@@ -836,7 +836,7 @@
                         <div class="cu-card-actions">
                             <a href="{{ route('projects.tasks.index', $project) }}" class="cu-action-btn" title="{{ __('Tasks') }}"><i class="bi bi-list-task"></i></a>
                             <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
-                            <a href="{{ route('projects.edit', $project) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
+                            <a href="{{ route('projects.edit', $project) }}?return_to={{ urlencode(request()->fullUrl()) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
                             <form action="{{ route('projects.destroy', $project) }}" method="POST" class="d-inline"
                                   onsubmit="return confirmSwal(this, @json(__('Delete this project? This cannot be undone.')), { isDelete: true })">
                                 @csrf @method('DELETE')
@@ -903,7 +903,7 @@
                     <div><span class="cu-chip {{ $chipClass }}"><i class="bi bi-circle-fill" style="font-size:6px;"></i>{{ __($chipLabel) }}</span></div>
                     <div class="cu-list-actions">
                         <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
-                        <a href="{{ route('projects.edit', $project) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
+                        <a href="{{ route('projects.edit', $project) }}?return_to={{ urlencode(request()->fullUrl()) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
                         <form action="{{ route('projects.destroy', $project) }}" method="POST" class="d-inline"
                               onsubmit="return confirmSwal(this, @json(__('Delete this project?')), { isDelete: true })">
                             @csrf @method('DELETE')

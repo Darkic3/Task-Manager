@@ -404,6 +404,44 @@ class TaskController extends Controller
     }
 
     /**
+     * Move a task to another project (chapter/lesson) and/or parent + position.
+     * Used by drag & drop on the project Structure page.
+     */
+    public function move(Request $request, Task $task)
+    {
+        abort_if($task->user_id !== Auth::id(), 403);
+
+        $data = $request->validate([
+            'project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')->where('user_id', Auth::id())],
+            'parent_id' => 'nullable|integer|exists:tasks,id',
+            'sort_order' => 'nullable|integer|min:0',
+        ]);
+
+        $targetProjectId = array_key_exists('project_id', $data) ? $data['project_id'] : $task->project_id;
+        // Switching projects drops the old (cross-project) parent unless one is given.
+        $parentId = array_key_exists('parent_id', $data)
+            ? $data['parent_id']
+            : ((int) $targetProjectId === (int) $task->project_id ? $task->parent_id : null);
+
+        $this->resolveParent($parentId, $targetProjectId, Auth::id(), $task->id);
+
+        $task->project_id = $targetProjectId;
+        $task->parent_id = $parentId;
+        $task->sort_order = array_key_exists('sort_order', $data) && $data['sort_order'] !== null
+            ? $data['sort_order']
+            : (int) Task::where('user_id', Auth::id())
+                ->where('project_id', $targetProjectId)
+                ->when($parentId, fn ($q) => $q->where('parent_id', $parentId), fn ($q) => $q->whereNull('parent_id'))
+                ->where('id', '!=', $task->id)
+                ->max('sort_order') + 1;
+        $task->save();
+        $task->reopenCompletedAncestors();
+        app(LawEventService::class)->syncTaskTree($task);
+
+        return response()->json(['ok' => true, 'task_id' => $task->id, 'project_id' => $task->project_id]);
+    }
+
+    /**
      * Ensure the proposed parent belongs to the same project (or has none,
      * matching the child) + user and does not create a cycle.
      */

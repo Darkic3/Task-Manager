@@ -45,7 +45,7 @@
         <div class="cu-list-actions">
             <a href="{{ route('projects.tasks.index', $child) }}" class="cu-action-btn" title="{{ __('Tasks') }}"><i class="bi bi-list-task"></i></a>
             <a href="{{ route('projects.show', $child) }}" class="cu-action-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
-            <a href="{{ route('projects.edit', $child) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
+            <a href="{{ route('projects.edit', $child) }}?return_to={{ urlencode(request()->fullUrl()) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
         </div>
     </div>
     @if($child->childrenRecursive->count() > 0)

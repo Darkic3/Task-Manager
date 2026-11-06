@@ -128,7 +128,7 @@
             <nav class="pj-crumbs">
                 @foreach($crumbs as $crumb)
                     <a href="{{ route('projects.show', $crumb) }}">{{ $crumb->name }}</a>
-                    <span>›</span>
+                    <span>{{ app()->getLocale() === 'fa' ? '‹' : '›' }}</span>
                 @endforeach
             </nav>
         @endif
@@ -136,7 +136,7 @@
             <a href="{{ route('projects.tasks.index', $project) }}" class="pj-btn primary">
                 <i class="bi bi-list-task"></i> <span>{{ __('Tasks') }}</span>
             </a>
-            <a href="{{ route('projects.edit', $project) }}" class="pj-btn">
+            <a href="{{ route('projects.edit', $project) }}?return_to={{ urlencode(request()->fullUrl()) }}" class="pj-btn">
                 <i class="bi bi-pencil"></i> <span>{{ __('Edit') }}</span>
             </a>
             <button type="button" class="pj-btn danger" onclick="confirmDelete()">
@@ -207,7 +207,7 @@
     <div class="pj-progress">
         <div class="pj-progress-bar"><div class="pj-progress-fill" style="background:{{ $projectColor }};width:{{ $progress }}%;"></div></div>
         @if($aggTotal > 0)
-            <span class="pj-progress-lbl">{{ $aggDone }}/{{ $aggTotal }} · {{ $progress }}%</span>
+            <span class="pj-progress-lbl">{{ app_num($aggDone) }}/{{ app_num($aggTotal) }} · {{ app_num($progress) }}%</span>
         @else
             <span class="pj-progress-lbl">{{ __('No tasks yet') }}</span>
         @endif
@@ -215,11 +215,11 @@
 
     <div class="pj-facts">
         @if($aggTotal > 0)
-            <span class="pj-fact"><i class="bi bi-list-task"></i><strong>{{ $aggDone }}</strong> {{ __('done') }} · <strong>{{ $aggTodo }}</strong> {{ __('open') }}</span>
+            <span class="pj-fact"><i class="bi bi-list-task"></i><strong>{{ app_num($aggDone) }}</strong> {{ __('done') }} · <strong>{{ app_num($aggTodo) }}</strong> {{ __('open') }}</span>
         @endif
         @if($project->end_date)
             <span class="pj-fact {{ $project->end_date->isPast() ? 'overdue' : '' }}">
-                <i class="bi bi-calendar-event"></i>{{ __('Due') }} <strong>{{ $project->end_date->format('M d, Y') }}</strong>
+                <i class="bi bi-calendar-event"></i>{{ __('Due') }} <strong>{{ app()->getLocale() === 'fa' ? app_date($project->end_date, 'd M Y') : $project->end_date->format('M d, Y') }}</strong>
             </span>
         @endif
         @if($project->budget)
@@ -236,7 +236,7 @@
                 <span style="font-size:12px;font-weight:700;color:#1f2328;"><i class="bi bi-flag"></i> {{ __('Daily goal') }}</span>
                 <span style="font-size:12px;font-weight:600;color:{{ $goal['met'] ? '#29774b' : '#6b6f78' }};">{{ $project->dailyGoalLabel($goal) }}</span>
                 <span style="margin-left:auto;font-size:11px;font-weight:700;color:{{ $goal['met'] ? '#29774b' : '#7c3aed' }};">
-                    @if($goal['met']) {{ __('Done for today ✓') }} @else {{ __(':n left today', ['n' => $goal['remaining']]) }} @endif
+                    @if($goal['met']) {{ __('Done for today ✓') }} @else {{ __(':n left today', ['n' => app_num($goal['remaining'])]) }} @endif
                 </span>
             </div>
             <div class="pj-progress-bar" style="margin-top:8px;"><div class="pj-progress-fill" style="background:{{ $goal['met'] ? '#30a46c' : '#7c3aed' }};width:{{ $goal['percent'] }}%;"></div></div>
@@ -248,8 +248,8 @@
                     @endforeach
                 </div>
                 <span style="font-size:11px;font-weight:600;color:#6b6f78;">
-                    <i class="bi bi-fire" style="color:#f59e0b;"></i> {{ __(':n-day streak', ['n' => $goalHist['streak']]) }}
-                    · {{ $goalHist['met'] }}/{{ $goalHist['total'] }} ({{ $goalHist['rate'] }}%)
+                    <i class="bi bi-fire" style="color:#f59e0b;"></i> {{ __(':n-day streak', ['n' => app_num($goalHist['streak'])]) }}
+                    · {{ app_num($goalHist['met']) }}/{{ app_num($goalHist['total']) }} ({{ app_num($goalHist['rate']) }}%)
                 </span>
             </div>
         </div>
@@ -263,6 +263,21 @@
             <span class="spacer"></span>
             <a href="{{ route('projects.tasks.index', $project) }}" class="pj-mini-btn"><i class="bi bi-list-task"></i> {{ __('All tasks') }}</a>
         </h2>
+        @if(isset($structureSeed) && $structureSeed)
+            <script>window.__PJ_STRUCTURE_INITIAL__ = @json($structureSeed);</script>
+            <script>
+                window.__PJ_I18N__ = {
+                    chapter: @json(__('Chapter')),
+                    lesson: @json(__('Lesson')),
+                    chaptersGroups: @json(__('Chapters & groups')),
+                    ungroupedLessons: @json(__('Ungrouped lessons')),
+                    ungroupedHint: @json(__('These lessons sit directly under the book. Move them into a chapter with drag & drop or the ⋯ menu.')),
+                    emptyTitle: @json(__('No chapters or lessons yet. Start with a chapter, then add lessons into it.')),
+                    newChapter: @json(__('New chapter')),
+                    newLesson: @json(__('New lesson'))
+                };
+            </script>
+        @endif
         @include('projects._structure-manager', ['project' => $project])
     @endif
 
@@ -289,7 +304,7 @@
                     <div class="pj-row-av round" style="background:#eef0f2;color:#8b8d98;"><i class="bi bi-clock" style="font-size:12px;"></i></div>
                     <div class="pj-row-main">
                         <div class="pj-row-title">{{ $entry->task?->title ?? $entry->description ?? __('Work session') }}</div>
-                        <div class="pj-row-sub">{{ $entry->started_at->format('M d, g:i A') }}</div>
+                        <div class="pj-row-sub">{{ app()->getLocale() === 'fa' ? app_datetime($entry->started_at) : $entry->started_at->format('M d, g:i A') }}</div>
                     </div>
                     <span class="pj-row-val">{{ \App\Models\TimeEntry::formatDuration($entry->status === 'stopped' ? (int) $entry->duration_seconds : $entry->elapsedSeconds()) }}</span>
                 </div>
