@@ -316,15 +316,18 @@ class AiProviderService
                 return ['ok' => true, 'message' => __('Connection OK (:model).', ['model' => $model])];
             }
 
-            // Default: OpenAI-compatible
+            // Default: OpenAI-compatible. Send a MINIMAL probe (model + messages
+            // only, exactly like the provider quickstart examples). Extra params
+            // such as temperature / max_tokens are NOT safe for a generic probe:
+            // reasoning & free-tier models (e.g. NaraRouter free aliases) reject
+            // them with HTTP 400 ("parameter is invalid"), and a tiny
+            // max_tokens budget can starve thinking models. Keep the probe
+            // parameter-free so Test reflects reachability, not param support.
             $endpoint = $this->endpointFor($provider->base_url, 'openai');
-            $payload = $this->openAiPayload(
-                [['role' => 'user', 'content' => 'ping']],
-                $model,
-                false,
-                $endpoint
-            );
-            $payload['max_tokens'] = 5;
+            $payload = [
+                'model'    => $model,
+                'messages' => [['role' => 'user', 'content' => 'ping']],
+            ];
             $res = $this->postJson($endpoint, $payload, ['Authorization' => 'Bearer ' . $key], self::TIMEOUT_TEST, $callCtx);
             if ($res->failed()) {
                 return ['ok' => false, 'message' => $this->formatErrorResponse($res)];
@@ -530,8 +533,24 @@ class AiProviderService
             ? $this->formatErrorArray($err)
             : (trim((string) $response->body()) ?: 'Unknown error');
 
+        // Surface the provider's machine-readable type + request id when
+        // present (e.g. Nara: {"error":{"type":"bad_request",...,"request_id":"..."}}).
+        // The type tells 400-validation apart from plan/entitlement issues and
+        // the request_id is what provider support needs to trace a failure.
+        $suffix = '';
+        if (is_array($err)) {
+            $type = $err['type'] ?? null;
+            $reqId = $err['request_id'] ?? ($json['request_id'] ?? null);
+            if (is_string($type) && trim($type) !== '') {
+                $suffix .= ' [type: ' . trim($type) . ']';
+            }
+            if (is_string($reqId) && trim($reqId) !== '') {
+                $suffix .= ' (ref: ' . trim($reqId) . ')';
+            }
+        }
+
         // Belt and braces: scrub the raw body too (non-JSON error pages).
-        return 'HTTP ' . $response->status() . ': ' . \App\Exceptions\AiProviderException::scrub($detail);
+        return 'HTTP ' . $response->status() . ': ' . \App\Exceptions\AiProviderException::scrub($detail) . $suffix;
     }
 
     public function openAiPayload(array $messages, string $model, bool $stream = false, ?string $baseUrl = null, ?array $tools = null): array
