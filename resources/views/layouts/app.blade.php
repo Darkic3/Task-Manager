@@ -1084,6 +1084,7 @@
             'title' => __('Administration'),
             'items' => [
                 ['match' => 'admin/features*', 'icon' => 'bi-toggles', 'label' => __('Feature management'), 'url' => route('admin.features.index')],
+                ['match' => 'admin/users*', 'icon' => 'bi-people-fill', 'label' => __('User management'), 'url' => route('admin.users.index')],
             ],
         ];
     }

@@ -11,7 +11,9 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Admin\FeatureManagementController;
+use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Middleware\BetaFeatureUnavailable;
+use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureOwnedRouteModels;
 use App\Http\Middleware\RequireAdministrator;
 use App\Http\Controllers\ChecklistItemController;
@@ -59,10 +61,22 @@ Route::middleware('guest')->group(function () {
 
 Route::post('logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
 
-Route::middleware(['auth', EnsureOwnedRouteModels::class, BetaFeatureUnavailable::class])->group(function () {
+Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels::class, BetaFeatureUnavailable::class])->group(function () {
     Route::prefix('admin')->name('admin.')->middleware(RequireAdministrator::class)->group(function () {
         Route::get('features', [FeatureManagementController::class, 'index'])->name('features.index');
         Route::put('features/{feature}', [FeatureManagementController::class, 'update'])->name('features.update');
+
+        // Administrator user management. The parameter is a plain id (not
+        // an implicit User binding) because EnsureOwnedRouteModels scopes
+        // every bound model to the current user.
+        Route::get('users', [UserManagementController::class, 'index'])->name('users.index');
+        Route::get('users/create', [UserManagementController::class, 'create'])->name('users.create');
+        Route::post('users', [UserManagementController::class, 'store'])->name('users.store');
+        Route::get('users/{userId}/edit', [UserManagementController::class, 'edit'])->whereNumber('userId')->name('users.edit');
+        Route::put('users/{userId}', [UserManagementController::class, 'update'])->whereNumber('userId')->name('users.update');
+        Route::put('users/{userId}/role', [UserManagementController::class, 'toggleRole'])->whereNumber('userId')->name('users.role');
+        Route::put('users/{userId}/status', [UserManagementController::class, 'toggleStatus'])->whereNumber('userId')->name('users.status');
+        Route::delete('users/{userId}', [UserManagementController::class, 'destroy'])->whereNumber('userId')->name('users.destroy');
     });
 
     // Profile routes

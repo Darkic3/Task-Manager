@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -34,6 +35,7 @@ class User extends Authenticatable
         'vocab_session_limit',
         'vocab_remind_enabled',
         'onboarding_state',
+        'is_active',
     ];
 
     /**
@@ -57,12 +59,28 @@ class User extends Authenticatable
         'morning_checkin_enabled' => 'boolean',
         'vocab_remind_enabled' => 'boolean',
         'is_admin' => 'boolean',
+        'is_active' => 'boolean',
+        'deleted_at' => 'datetime',
         'onboarding_state' => 'array',
     ];
 
     public function isAdministrator(): bool
     {
         return (bool) $this->is_admin;
+    }
+
+    /**
+     * Administrator-side account state: active, suspended (banned) or
+     * soft-deleted. Soft-deleted accounts are hidden from every default
+     * query and can never authenticate.
+     */
+    public function status(): string
+    {
+        if ($this->deleted_at !== null) {
+            return 'deleted';
+        }
+
+        return $this->is_active === false ? 'banned' : 'active';
     }
 
     /**
