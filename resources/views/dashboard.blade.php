@@ -7,6 +7,10 @@
 @section('content')
 <div class="container-fluid px-3 px-lg-4 py-3">
 
+    @include('onboarding._styles')
+    @include('onboarding._journey-bar', ['onboarding' => $onboarding ?? []])
+    @include('onboarding._selector', ['showOnboardingPicker' => ($onboarding['needs_priorities'] ?? false)])
+
     {{-- Live Active Timer Widget (if running) --}}
     @if($activeTimeEntry)
     <div class="live-timer-banner mb-4">

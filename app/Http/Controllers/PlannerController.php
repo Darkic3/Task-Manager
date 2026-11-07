@@ -148,6 +148,7 @@ class PlannerController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name']),
             'backlogProjects' => $this->backlogProjectOptions($user->id),
+            'onboarding' => $this->onboardingSnapshot($user),
         ]);
     }
 
@@ -195,6 +196,16 @@ class PlannerController extends Controller
                 'icon' => $law->icon ?: 'bi-shield-check',
             ])
             ->all();
+    }
+
+    /** Onboarding quest snapshot for the planner quest bar (never breaks planner). */
+    private function onboardingSnapshot($user): array
+    {
+        try {
+            return app(\App\Services\Onboarding\OnboardingQuestService::class)->progressForUser($user);
+        } catch (\Throwable $e) {
+            return ['needs_priorities' => false, 'ordered' => [], 'active' => 'planner', 'total_done' => 0, 'total_steps' => 1, 'percent' => 0, 'modules' => []];
+        }
     }
 
     /**

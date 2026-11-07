@@ -187,6 +187,13 @@ class DashboardController extends Controller
             $vocabNewToday = $user->vocabCards()->whereDate('created_at', today())->count();
         }
 
+        // ── Onboarding quests (Phase 2): never break dashboard for this. ──
+        try {
+            $onboarding = app(\App\Services\Onboarding\OnboardingQuestService::class)->progressForUser($user);
+        } catch (\Throwable $e) {
+            $onboarding = ['needs_priorities' => false, 'ordered' => [], 'active' => 'planner', 'total_done' => 0, 'total_steps' => 1, 'percent' => 0, 'modules' => []];
+        }
+
         return view('dashboard', compact(
             'tasksCount',
             'routinesCount',
@@ -219,7 +226,8 @@ class DashboardController extends Controller
             'lawWeek',
             'vocabDue',
             'vocabNewToday',
-            'vocabNewLimit'
+            'vocabNewLimit',
+            'onboarding'
         ));
     }
 

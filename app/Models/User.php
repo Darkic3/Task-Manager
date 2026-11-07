@@ -33,6 +33,7 @@ class User extends Authenticatable
         'vocab_daily_limit',
         'vocab_session_limit',
         'vocab_remind_enabled',
+        'onboarding_state',
     ];
 
     /**
@@ -56,6 +57,7 @@ class User extends Authenticatable
         'morning_checkin_enabled' => 'boolean',
         'vocab_remind_enabled' => 'boolean',
         'is_admin' => 'boolean',
+        'onboarding_state' => 'array',
     ];
 
     public function isAdministrator(): bool

@@ -940,6 +940,43 @@
         /* ── Quarantined MVP modules: admin preview shows them dimmed ── */
         .locked-module { opacity: .45; filter: grayscale(.35); }
 
+        /* ── Onboarding discovery states (Phase 2): undiscovered = dim,
+           active quest = bright + pulse, mastered = full color ── */
+        .nav-link.ob-undiscovered { opacity: .48; }
+        .nav-link.ob-undiscovered i { background: #eef1f6 !important; color: #9aa3b2 !important; filter: grayscale(.7); box-shadow: none !important; }
+        .nav-link.ob-undiscovered span:first-of-type { color: #94a3b8; }
+        .nav-link.ob-undiscovered:hover { opacity: .8; }
+        .nav-link.ob-in_progress { opacity: .85; }
+        .nav-link.ob-active {
+            opacity: 1;
+            background: linear-gradient(135deg, #eef2ff 0%, #f6f3ff 100%) !important;
+            color: var(--primary-700) !important;
+            box-shadow: inset 0 0 0 1.5px #c7d2fe, 0 8px 20px -12px rgba(79,70,229,.7) !important;
+        }
+        .nav-link.ob-active i {
+            background: linear-gradient(135deg, var(--primary-500), #8b5cf6) !important;
+            color: #fff !important;
+            box-shadow: 0 8px 16px -8px rgba(79,70,229,.75) !important;
+        }
+        .nav-link.ob-mastered { opacity: 1; }
+        .ob-dot {
+            width: 8px; height: 8px; border-radius: 50%; flex: none;
+            background: linear-gradient(135deg, var(--primary-500), #8b5cf6);
+            box-shadow: 0 0 0 0 rgba(99,102,241,.6);
+            animation: ob-pulse 2s ease-out infinite;
+        }
+        @keyframes ob-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(99,102,241,.55); }
+            70% { box-shadow: 0 0 0 7px rgba(99,102,241,0); }
+            100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+        }
+        .ob-mini {
+            flex: none; font-size: .62rem; font-weight: 800; color: var(--primary-700);
+            background: #eef2ff; border: 1px solid #e0e7ff; border-radius: 999px;
+            padding: 1px 7px; font-variant-numeric: tabular-nums;
+        }
+        .nav-link.ob-mastered .ob-mini { color: #15803d; background: #dcfce7; border-color: #bbf7d0; }
+
         /* ── Responsive Design ── */
         @media (max-width: 1100px) {
             .topnav-clock-date { display: none; }
@@ -1061,6 +1098,20 @@
         return (! empty($item['feature']) && ! $featureAvailability->published($item['feature'])) ? ' locked-module' : '';
     };
 
+    $onbVisualMap = $onbVisual ?? [];
+    $onbClass = function (array $item) use ($onbVisualMap) {
+        $feat = $item['feature'] ?? null;
+        if (! $feat || ! isset($onbVisualMap[$feat])) {
+            return '';
+        }
+        return match ($onbVisualMap[$feat]) {
+            'active' => ' ob-active',
+            'in_progress' => ' ob-in_progress',
+            'undiscovered' => ' ob-undiscovered',
+            default => ' ob-mastered',
+        };
+    };
+
     $activeItem = null;
     $activeSection = null;
     foreach ($navSections as $section) {
@@ -1094,11 +1145,14 @@
                 <ul class="nav flex-column">
                     @foreach($section['items'] as $item)
                         <li class="nav-item">
-                            <a class="nav-link {{ $isActive($item['match']) ? 'active' : '' }}{{ $lockedClass($item) }}"
+                            <a class="nav-link {{ $isActive($item['match']) ? 'active' : '' }}{{ $lockedClass($item) }}{{ $onbClass($item) }}"
                                href="{{ $item['url'] }}"
                                @if($isActive($item['match'])) aria-current="page" @endif>
                                 <i class="bi {{ $item['icon'] }}" aria-hidden="true"></i>
                                 <span>{{ $item['label'] }}</span>
+                                @if(! empty($item['feature']) && ($onbVisualMap[$item['feature']] ?? null) === 'active')
+                                    <span class="ob-dot" aria-hidden="true"></span>
+                                @endif
                                 @if(($item['badge'] ?? null) !== null)
                                     <span class="nav-badge">{{ app_num($item['badge']) }}</span>
                                 @endif

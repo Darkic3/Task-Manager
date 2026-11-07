@@ -2978,6 +2978,9 @@ body:has(.pl-task-menu.is-open)::before {
             @endif
         </div>
 
+        {{-- Quest bar (Phase 2): 4 guided steps for My Day --}}
+        @include('onboarding._styles')
+        @include('onboarding._quest-bar', ['questModule' => 'planner', 'onboarding' => $onboarding ?? []])
 
         {{-- Day progress (tasks + routines combined) --}}
         <div class="pl-daybar">

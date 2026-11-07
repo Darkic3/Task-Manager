@@ -73,6 +73,11 @@ Route::middleware(['auth', EnsureOwnedRouteModels::class, BetaFeatureUnavailable
     Route::put('profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
     Route::delete('profile/avatar', [ProfileController::class, 'deleteAvatar'])->name('profile.avatar.delete');
 
+    // ── Onboarding quests (Phase 2: MVP discovery, game-like) ──
+    Route::post('onboarding/priorities', [\App\Http\Controllers\OnboardingController::class, 'selectPriorities'])->name('onboarding.priorities');
+    Route::post('onboarding/seed', [\App\Http\Controllers\OnboardingController::class, 'seedTemplate'])->name('onboarding.seed');
+    Route::post('onboarding/step', [\App\Http\Controllers\OnboardingController::class, 'completeStep'])->name('onboarding.step');
+
     Route::controller(MailController::class)->prefix('mail')->name('mail.')->group(function () {
         Route::get('/', 'index')->name('inbox');
     });
