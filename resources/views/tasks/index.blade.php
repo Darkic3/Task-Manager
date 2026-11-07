@@ -1421,24 +1421,38 @@ document.addEventListener('DOMContentLoaded', function () {
     sortSelect?.addEventListener('change', () => { applySort(); applyFilters(); });
 
     /* ─── Persistence (localStorage) ─── */
-    const LS = 'cu_tasks_ui';
+    /* Separate storage key per context so a project page's default view
+       (Board) can never overwrite the global page's preferred view. */
+    const IS_PROJECT_PAGE = {{ isset($project) ? 'true' : 'false' }};
+    const LS = IS_PROJECT_PAGE ? 'cu_tasks_ui_proj' : 'cu_tasks_ui';
     function loadPrefs() {
         try {
             const p = JSON.parse(localStorage.getItem(LS) || '{}');
-            if (p.view && document.querySelector(`.cu-view-btn[data-view="${p.view}"]`)) {
-                document.querySelector(`.cu-view-btn[data-view="${p.view}"]`).click();
-            } else {
-                /* Fresh visit: default to Projects (falls back to Board on pages without it). */
-                const def = document.querySelector('.cu-view-btn[data-view="projects"]')
-                    || document.querySelector('.cu-view-btn[data-view="kanban"]');
-                def?.click();
-            }
+            /* Restore filters BEFORE touching the view, so the initial view
+               click (which persists preferences) keeps them intact. */
             if (searchInput   && p.search)   searchInput.value   = p.search;
             if (prioritySelect && p.priority) prioritySelect.value = p.priority;
             if (projectSelect && p.project)  projectSelect.value = p.project;
             if (statusSelect  && p.status)   statusSelect.value  = p.status;
             if (sortSelect    && p.sort)     sortSelect.value    = p.sort;
             if (unfinishedBox) unfinishedBox.checked = !!p.unfinished;
+            if (!IS_PROJECT_PAGE) {
+                /* Global tasks page: Projects is ALWAYS the default view on
+                   load, regardless of any previously stored preference. The
+                   user can still switch to another view during the session. */
+                const projBtn = document.querySelector('.cu-view-btn[data-view="projects"]');
+                if (projBtn) { projBtn.click(); }
+                else {
+                    const def = document.querySelector('.cu-view-btn[data-view="kanban"]');
+                    def?.click();
+                }
+            } else if (p.view && document.querySelector(`.cu-view-btn[data-view="${p.view}"]`)) {
+                document.querySelector(`.cu-view-btn[data-view="${p.view}"]`).click();
+            } else {
+                /* Fresh visit on a project page: Board is the only sensible default. */
+                const def = document.querySelector('.cu-view-btn[data-view="kanban"]');
+                def?.click();
+            }
             if (p.chapters) {
                 Object.entries(p.chapters).forEach(([sectionId, isCollapsed]) => {
                     const ch = document.querySelector(`[data-chapter="${sectionId}"]`);
