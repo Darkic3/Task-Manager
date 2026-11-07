@@ -2,6 +2,8 @@
 
 namespace App\Services\Reports;
 
+use App\Models\User;
+use App\Support\FeatureAvailability;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -25,13 +27,21 @@ final class UnifiedReportService
     {        $from = $range->from;
         $to = $range->to;
 
+        // MVP quarantine: skip vocabulary queries when the module is not available.
+        $vocabEnabled = app(FeatureAvailability::class)->isEnabled('vocabulary', User::find($userId));
+        $emptyVocab = [
+            'reviewed' => 0, 'remembered' => 0, 'retention' => 0.0,
+            'per_day_reviewed' => [], 'per_day_reviewed_max' => 1, 'per_day_retention' => [],
+            'due_now' => 0, 'total_cards' => 0, 'mastered' => 0, 'rows' => [],
+        ];
+
         $tasks = TaskReportService::summarize($userId, $from, $to);
         $routines = RoutineReportService::summarize($userId, $from, $to);
         $avoid = AvoidanceReportService::summarize($userId, $from, $to);
         $workouts = WorkoutReportService::summarize($userId, $from, $to);
         $time = TimeReportService::summarize($userId, $from, $to);
         $study = StudyReportService::summarize($userId, $from, $to);
-        $vocab = VocabReportService::summarize($userId, $from, $to);
+        $vocab = $vocabEnabled ? VocabReportService::summarize($userId, $from, $to) : $emptyVocab;
 
         $prevTasks = TaskReportService::summarize($userId, $range->prevFrom, $range->prevTo);
         $prevRoutines = RoutineReportService::summarize($userId, $range->prevFrom, $range->prevTo);
@@ -39,7 +49,7 @@ final class UnifiedReportService
         $prevWorkouts = WorkoutReportService::summarize($userId, $range->prevFrom, $range->prevTo);
         $prevTime = TimeReportService::summarize($userId, $range->prevFrom, $range->prevTo);
         $prevStudy = StudyReportService::summarize($userId, $range->prevFrom, $range->prevTo);
-        $prevVocab = VocabReportService::summarize($userId, $range->prevFrom, $range->prevTo);
+        $prevVocab = $vocabEnabled ? VocabReportService::summarize($userId, $range->prevFrom, $range->prevTo) : $emptyVocab;
 
         $report = [
             'tasks' => $tasks,

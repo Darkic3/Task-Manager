@@ -518,6 +518,14 @@
         'custom' => (app()->getLocale() === 'fa' ? app_date($range->from).' تا '.app_date($range->to) : $range->label),
         default => __('This week'),
     };
+
+    // MVP quarantine: hide vocab/laws mentions from the hero subtitle.
+    $rpFeature = app(\App\Support\FeatureAvailability::class);
+    $rpParts = [__('Tasks'), __('Study')];
+    if ($rpFeature->isEnabled('vocabulary', auth()->user())) { $rpParts[] = __('Vocabulary'); }
+    array_push($rpParts, __('Routines'), __('Avoid habits'), __('Workouts'), __('Time'));
+    if ($rpFeature->isEnabled('laws', auth()->user())) { $rpParts[] = __('Laws'); }
+    $rpHeroSubjects = implode(' · ', $rpParts);
 @endphp
 
 @section('content')
@@ -532,7 +540,7 @@
                     <span>{{ __('Reports') }}</span>
                 </h1>
                 <p class="rp-hero-sub">
-                    {{ __('Tasks') }} · {{ __('Study') }} · {{ __('Vocabulary') }} · {{ __('Routines') }} · {{ __('Avoid habits') }} · {{ __('Workouts') }} · {{ __('Time') }} · {{ __('Laws') }} — {{ $formattedRange }}
+                    {{ $rpHeroSubjects }} — {{ $formattedRange }}
                 </p>
             </div>
             <div class="rp-hero-badge">
@@ -639,7 +647,8 @@
             {!! $delta($deltas['time'] !== 0 ? (int) round($deltas['time'] / 3600, 1) : 0, 'h') !!}
         </div>
 
-        <div class="rp-kpi-card">
+        @if(app(\App\Support\FeatureAvailability::class)->isEnabled('laws', auth()->user()))
+        <div class="rp-kpi-card {{ app(\App\Support\FeatureAvailability::class)->published('laws') ? '' : 'locked-module' }}">
             <div class="rp-kpi-header">
                 <div class="rp-kpi-icon" style="background:#ede9fe;color:#7c3aed;">
                     <i class="bi bi-shield-check"></i>
@@ -651,6 +660,7 @@
             </div>
             {!! $delta($laws_delta ?? 0) !!}
         </div>
+        @endif
     </div>
 
     {{-- Insights --}}
@@ -953,12 +963,15 @@
 
     {{-- Vocabulary (Leitner box) --}}
     @if(app(\App\Support\FeatureAvailability::class)->isEnabled('vocabulary', auth()->user()))
-    <div class="rp-section-title" id="vocabulary">
+    @php
+        $rpVocabLocked = ! app(\App\Support\FeatureAvailability::class)->published('vocabulary');
+    @endphp
+    <div class="rp-section-title {{ $rpVocabLocked ? 'locked-module' : '' }}" id="vocabulary">
         <i class="bi bi-translate" style="color:#6366f1;"></i>
         <span>{{ __('Vocabulary') }}</span>
         <span class="rp-badge-count">{{ $vocab['reviewed'] }} {{ __('reviews') }} · {{ $vocab['retention'] }}%</span>
     </div>
-    <div class="rp-grid2">
+    <div class="rp-grid2 {{ $rpVocabLocked ? 'locked-module' : '' }}">
         <div class="rp-card">
             <div class="rp-card-header">
                 <span class="rp-card-title"><i class="bi bi-bar-chart"></i> {{ __('Reviews per day') }}</span>
@@ -1013,7 +1026,7 @@
             </div>
         </div>
     </div>
-    <div class="rp-card">
+    <div class="rp-card {{ $rpVocabLocked ? 'locked-module' : '' }}">
         <div class="rp-card-header">
             <span class="rp-card-title"><i class="bi bi-list-task"></i> {{ __('Per deck') }}</span>
             <a href="{{ route('vocabulary.index') }}" style="font-size:12px;font-weight:700;color:#4f46e5;text-decoration:none;">{{ __('Open Leitner box') }}</a>
@@ -1355,14 +1368,18 @@
     @endif
 
     {{-- Laws --}}
-    <div class="rp-section-title" id="laws">
+    @if(app(\App\Support\FeatureAvailability::class)->isEnabled('laws', auth()->user()))
+    @php
+        $rpLawsLocked = ! app(\App\Support\FeatureAvailability::class)->published('laws');
+    @endphp
+    <div class="rp-section-title {{ $rpLawsLocked ? 'locked-module' : '' }}" id="laws">
         <i class="bi bi-shield-check" style="color:#7c3aed;"></i>
         <span>{{ __('Laws') }}</span>
         @if(count($laws['rows']))
             <span class="rp-badge-count">{{ count($laws['rows']) }}</span>
         @endif
     </div>
-    <div class="rp-grid2">
+    <div class="rp-grid2 {{ $rpLawsLocked ? 'locked-module' : '' }}">
         <div class="rp-card">
             <div class="rp-card-header">
                 <span class="rp-card-title"><i class="bi bi-bar-chart"></i> {{ __('XP per day') }}</span>
@@ -1419,7 +1436,7 @@
             </div>
         </div>
     </div>
-    <div class="rp-card">
+    <div class="rp-card {{ $rpLawsLocked ? 'locked-module' : '' }}">
         <div class="rp-card-header">
             <span class="rp-card-title"><i class="bi bi-list-task"></i> {{ __('Per law') }}</span>
         </div>
@@ -1467,6 +1484,7 @@
             @endif
         </div>
     </div>
+    @endif
 
     {{-- Workouts --}}
     <div class="rp-section-title" id="workouts">

@@ -168,7 +168,8 @@
                 </section>
 
                 {{-- Leitner box --}}
-                <section class="pf-card" style="animation-delay:.24s;">
+                @if(app(\App\Support\FeatureAvailability::class)->isEnabled('vocabulary', auth()->user()))
+                <section class="pf-card {{ app(\App\Support\FeatureAvailability::class)->published('vocabulary') ? '' : 'locked-module' }}" style="animation-delay:.24s;">
                     <header class="pf-card-hd">
                         <span class="pf-card-ico blue"><i class="bi bi-translate"></i></span>
                         <div>
@@ -206,6 +207,7 @@
                         @error('vocab_remind_enabled')<p class="pf-err">{{ $message }}</p>@enderror
                     </div>
                 </section>
+                @endif
             </div>
 
             {{-- Side column --}}

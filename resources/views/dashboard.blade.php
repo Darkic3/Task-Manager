@@ -48,8 +48,10 @@
                 <span><i class="bi bi-check-circle me-1 text-success"></i> <strong>{{ $tasksCompletedToday }}</strong> {{ __('tasks done today') }}</span>
                 <span>•</span>
                 <span><i class="bi bi-arrow-repeat me-1 text-warning"></i> <strong id="headerRoutineCount">{{ $routineDoneCount }}/{{ $routineTotalCount }}</strong> {{ __('routines checked') }}</span>
+                @if(app(\App\Support\FeatureAvailability::class)->isEnabled('laws', auth()->user()))
                 <span>•</span>
-                <span><i class="bi bi-shield-check me-1" style="color:#7c3aed;"></i> <strong>{{ ($lawToday['xp'] ?? 0) >= 0 ? '+' : '' }}{{ app_num($lawToday['xp'] ?? 0) }} XP</strong> {{ __('laws today') }}</span>
+                <span class="{{ app(\App\Support\FeatureAvailability::class)->published('laws') ? '' : 'locked-module' }}"><i class="bi bi-shield-check me-1" style="color:#7c3aed;"></i> <strong>{{ ($lawToday['xp'] ?? 0) >= 0 ? '+' : '' }}{{ app_num($lawToday['xp'] ?? 0) }} XP</strong> {{ __('laws today') }}</span>
+                @endif
             </div>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -87,7 +89,7 @@
             </a>
         @endif
         @if ($featureAccess->isEnabled('reminders', auth()->user()))
-            <a href="{{ route('reminders.create') }}" class="quick-hub-btn">
+            <a href="{{ route('reminders.create') }}" class="quick-hub-btn {{ $featureAccess->published('reminders') ? '' : 'locked-module' }}">
                 <span class="quick-hub-icon bg-info-subtle text-info"><i class="bi bi-bell-fill"></i></span>
                 <span>{{ __('Set Reminder') }}</span>
             </a>
@@ -102,7 +104,7 @@
 
     {{-- Laws strip: today's score + week's top laws --}}
     @if(app(\App\Support\FeatureAvailability::class)->isEnabled('laws', auth()->user()))
-    <div class="hq-card mb-4">
+    <div class="hq-card mb-4 {{ app(\App\Support\FeatureAvailability::class)->published('laws') ? '' : 'locked-module' }}">
         <div class="hq-card-header d-flex justify-content-between align-items-center">
             <span class="fw-bold"><i class="bi bi-shield-check me-1" style="color:#7c3aed;"></i> {{ __('Laws') }}</span>
             <a href="{{ route('laws.index') }}" class="btn btn-sm btn-outline-primary">{{ __('Open Laws') }}</a>
@@ -135,7 +137,7 @@
 
     {{-- Vocabulary strip: today's Leitner review + new-card budget --}}
     @if(app(\App\Support\FeatureAvailability::class)->isEnabled('vocabulary', auth()->user()))
-    <div class="hq-card mb-4">
+    <div class="hq-card mb-4 {{ app(\App\Support\FeatureAvailability::class)->published('vocabulary') ? '' : 'locked-module' }}">
         <div class="hq-card-header d-flex justify-content-between align-items-center">
             <span class="fw-bold"><i class="bi bi-translate me-1" style="color:#6366f1;"></i> {{ __('Vocabulary') }}</span>
             <a href="{{ route('vocabulary.review.index') }}" class="btn btn-sm btn-outline-primary">{{ __('Start review') }}</a>
@@ -406,10 +408,12 @@
 
     {{-- Bottom Secondary Feeds: Reminders & Notes --}}
     <div class="row g-4">
-        
+
+        @php($dashFeatureAccess = app(\App\Support\FeatureAvailability::class))
+        @if($dashFeatureAccess->isEnabled('reminders', auth()->user()))
         {{-- Upcoming Reminders --}}
         <div class="col-xl-6">
-            <div class="hq-card">
+            <div class="hq-card {{ $dashFeatureAccess->published('reminders') ? '' : 'locked-module' }}">
                 <div class="hq-card-header d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-2">
                         <span class="hq-badge-icon bg-warning-subtle text-warning"><i class="bi bi-bell"></i></span>
@@ -447,8 +451,10 @@
             </div>
         </div>
 
+        @endif
+
         {{-- Recent Saved Notes --}}
-        <div class="col-xl-6">
+        <div class="{{ $dashFeatureAccess->isEnabled('reminders', auth()->user()) ? 'col-xl-6' : 'col-xl-12' }}">
             <div class="hq-card">
                 <div class="hq-card-header d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-2">

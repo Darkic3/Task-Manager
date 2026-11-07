@@ -2962,12 +2962,20 @@ body:has(.pl-task-menu.is-open)::before {
             @if($overdue->count())
                 <div class="pl-stat overdue"><i class="bi bi-exclamation-triangle"></i> {{ __('Overdue') }} <strong id="plOverdueStat">{{ app_num($overdue->count()) }}</strong></div>
             @endif
-            <a href="{{ route('laws.index') }}" class="pl-stat" style="text-decoration:none;" title="{{ __('Open Laws') }}">
+            @php
+                $plLawsEnabled = ($lawsEnabled ?? false);
+            @endphp
+            @php
+                $plLawsLocked = $plLawsEnabled && ! app(\App\Support\FeatureAvailability::class)->published('laws');
+            @endphp
+            @if($plLawsEnabled)
+            <a href="{{ route('laws.index') }}" class="pl-stat {{ $plLawsLocked ? 'locked-module' : '' }}" style="text-decoration:none;" title="{{ __('Open Laws') }}">
                 <i class="bi bi-shield-check" style="color:#7c3aed;"></i> {{ __('Laws') }} <strong>{{ app_num($lawStrip['active'] ?? 0) }}</strong>
                 @if(($lawStrip['plus'] ?? 0) + ($lawStrip['minus'] ?? 0) > 0)
                     <span style="font-weight:700;color:{{ ($lawStrip['xp'] ?? 0) >= 0 ? '#15803d' : '#b91c1c' }};">{{ ($lawStrip['xp'] ?? 0) >= 0 ? '+' : '' }}{{ app_num($lawStrip['xp'] ?? 0) }} XP</span>
                 @endif
             </a>
+            @endif
         </div>
 
 
@@ -3131,9 +3139,11 @@ body:has(.pl-task-menu.is-open)::before {
                     <button type="button" class="lg-pill" id="lgPillMood" aria-expanded="false" aria-controls="lgPanelMood">
                         <i class="bi bi-emoji-smile" aria-hidden="true"></i>{{ __('Mood') }}<i class="bi bi-chevron-down lg-chev" aria-hidden="true"></i>
                     </button>
-                    <button type="button" class="lg-pill" id="lgPillLaw" aria-expanded="false" aria-controls="lgPanelLaw">
+                    @if($lawsEnabled ?? false)
+                    <button type="button" class="lg-pill {{ app(\App\Support\FeatureAvailability::class)->published('laws') ? '' : 'locked-module' }}" id="lgPillLaw" aria-expanded="false" aria-controls="lgPanelLaw">
                         <i class="bi bi-shield-check" aria-hidden="true"></i><span id="lgLawLabel">{{ __('Law') }}</span><i class="bi bi-chevron-down lg-chev" aria-hidden="true"></i>
                     </button>
+                    @endif
                 </div>
 
                 {{-- No mode switch: the panel shows exactly what the day needs —
@@ -3209,7 +3219,8 @@ body:has(.pl-task-menu.is-open)::before {
                     </select>
                 </div>
 
-                <div class="lg-panel" id="lgPanelLaw" hidden>
+                @if($lawsEnabled ?? false)
+                <div class="lg-panel {{ app(\App\Support\FeatureAvailability::class)->published('laws') ? '' : 'locked-module' }}" id="lgPanelLaw" hidden>
                     <div class="lg-panel-head">
                         <i class="bi bi-shield-check" aria-hidden="true"></i>
                         <b>{{ __('Related law') }}</b>
@@ -3234,6 +3245,7 @@ body:has(.pl-task-menu.is-open)::before {
                     <p class="lg-law-empty">{!! __('No active laws yet — :link first.', ['link' => '<a href="'.route('laws.create').'">'.__('define one').'</a>']) !!}</p>
                     @endif
                 </div>
+                @endif
 
                 <p class="lg-meta" id="lgMeta" aria-live="polite"></p>
                 </section>
@@ -7551,6 +7563,8 @@ body:has(.pl-task-menu.is-open)::before {
 
     /* Active laws available to the DayLog law picker (id/title/coefficient/color/icon). */
     const LG_LAWS = @json($dayLaws ?? []);
+    /* MVP quarantine: laws module off for this user — no law UI anywhere in the timeline. */
+    const LG_LAWS_ENABLED = @json(($lawsEnabled ?? false) && count($dayLaws ?? []) > 0);
 
     const I18N = {
         setTime:    @json(__('Set time')),
@@ -7946,7 +7960,7 @@ body:has(.pl-task-menu.is-open)::before {
            or wrap as a block when the title is long. */
         const moodBadge = (e.mood != null && e.moodPicked)
             ? '<span class="lg-mood-badge">' + esc(I18N.moodLabel) + ' ' + NUM(e.mood) + '/' + NUM(10) + '</span>' : '';
-        const law = e.law || (e.lawId ? lawById(e.lawId) : null);
+        const law = LG_LAWS_ENABLED ? (e.law || (e.lawId ? lawById(e.lawId) : null)) : null;
         const lawBadge = law
             ? '<button type="button" class="lg-lawbadge ' + (e.lawDir === -1 ? 'is-against' : 'is-for') + '" data-lg-act="law"' +
               ' aria-label="' + esc(I18N.changeLaw) + '" title="' + esc(I18N.changeLaw) + '">' +
@@ -8053,9 +8067,11 @@ body:has(.pl-task-menu.is-open)::before {
         $('lgTimeLabel').textContent = timePillText();
         $('lgPillTime').classList.toggle('is-on', hasTime());
         $('lgPillMood').classList.toggle('is-on', state.mood != null);
-        const pickedLaw = LG_LAWS.find(l => l.id === state.lawId);
-        $('lgLawLabel').textContent = pickedLaw ? pickedLaw.title : I18N.lawPill;
-        $('lgPillLaw').classList.toggle('is-on', state.lawId != null);
+        if ($('lgPillLaw')) {
+            const pickedLaw = LG_LAWS.find(l => l.id === state.lawId);
+            $('lgLawLabel').textContent = pickedLaw ? pickedLaw.title : I18N.lawPill;
+            $('lgPillLaw').classList.toggle('is-on', state.lawId != null);
+        }
         syncMoodField();
         $('lgCount').textContent = NUM(entries.length);
         $('lgSave').disabled = !input.value.trim();
@@ -8090,19 +8106,21 @@ body:has(.pl-task-menu.is-open)::before {
         }
     }
 
-    $('lgPillLaw').addEventListener('click', () => { togglePanel('law'); render(); });
-    $('lgLaw').addEventListener('change', e => {
-        state.lawId = e.target.value ? Number(e.target.value) : null;
-        if (state.lawId == null) { state.lawDir = 1; }
-        syncLawPanel();
-        render();
-    });
-    document.querySelectorAll('#lgLawDir [data-lg-dir]').forEach(b => b.addEventListener('click', () => {
-        if (state.lawId == null) { return; }
-        state.lawDir = Number(b.dataset.lgDir) === -1 ? -1 : 1;
-        syncLawPanel();
-        render();
-    }));
+    if ($('lgPillLaw')) {
+        $('lgPillLaw').addEventListener('click', () => { togglePanel('law'); render(); });
+        $('lgLaw').addEventListener('change', e => {
+            state.lawId = e.target.value ? Number(e.target.value) : null;
+            if (state.lawId == null) { state.lawDir = 1; }
+            syncLawPanel();
+            render();
+        });
+        document.querySelectorAll('#lgLawDir [data-lg-dir]').forEach(b => b.addEventListener('click', () => {
+            if (state.lawId == null) { return; }
+            state.lawDir = Number(b.dataset.lgDir) === -1 ? -1 : 1;
+            syncLawPanel();
+            render();
+        }));
+    }
 
     /* Insights candidates come from the server (repeat counts); the live
        session nudge stays client-side. One suggestion at a time. */
@@ -8500,16 +8518,21 @@ body:has(.pl-task-menu.is-open)::before {
         time: { panel: 'lgPanelTime', pill: 'lgPillTime' },
         note: { panel: 'lgPanelNote', pill: 'lgPillNote' },
         mood: { panel: 'lgPanelMood', pill: 'lgPillMood' },
+@if($lawsEnabled ?? false)
         law: { panel: 'lgPanelLaw', pill: 'lgPillLaw' },
+@endif
     };
 
     function togglePanel(name) {
         const open = $(PANELS[name].panel).hidden;
         Object.keys(PANELS).forEach(key => {
             const isTarget = key === name && open;
-            $(PANELS[key].panel).hidden = !isTarget;
-            $(PANELS[key].pill).setAttribute('aria-expanded', String(isTarget));
-            $(PANELS[key].pill).classList.toggle('is-on', isTarget ||
+            const panelEl = $(PANELS[key].panel);
+            const pillEl = $(PANELS[key].pill);
+            if (!panelEl || !pillEl) { return; }
+            panelEl.hidden = !isTarget;
+            pillEl.setAttribute('aria-expanded', String(isTarget));
+            pillEl.classList.toggle('is-on', isTarget ||
                 (key === 'time' ? hasTime() : key === 'mood' ? state.mood != null : key === 'law' ? state.lawId != null : false));
         });
         if (open) {

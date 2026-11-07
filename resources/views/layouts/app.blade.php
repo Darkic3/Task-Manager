@@ -937,6 +937,9 @@
             display: inline-block;
         }
 
+        /* ── Quarantined MVP modules: admin preview shows them dimmed ── */
+        .locked-module { opacity: .45; filter: grayscale(.35); }
+
         /* ── Responsive Design ── */
         @media (max-width: 1100px) {
             .topnav-clock-date { display: none; }
@@ -1054,6 +1057,10 @@
             : request()->is($pattern);
     };
 
+    $lockedClass = function (array $item) use ($featureAvailability) {
+        return (! empty($item['feature']) && ! $featureAvailability->published($item['feature'])) ? ' locked-module' : '';
+    };
+
     $activeItem = null;
     $activeSection = null;
     foreach ($navSections as $section) {
@@ -1087,7 +1094,7 @@
                 <ul class="nav flex-column">
                     @foreach($section['items'] as $item)
                         <li class="nav-item">
-                            <a class="nav-link {{ $isActive($item['match']) ? 'active' : '' }}"
+                            <a class="nav-link {{ $isActive($item['match']) ? 'active' : '' }}{{ $lockedClass($item) }}"
                                href="{{ $item['url'] }}"
                                @if($isActive($item['match'])) aria-current="page" @endif>
                                 <i class="bi {{ $item['icon'] }}" aria-hidden="true"></i>
@@ -1218,11 +1225,13 @@
                                 <i class="bi bi-journal-plus" aria-hidden="true"></i>{{ __('New Note') }}
                             </a>
                         </li>
-                        <li>
+                        @if($featureAvailability->isEnabled('reminders', $navUser))
+                        <li class="{{ $featureAvailability->published('reminders') ? '' : 'locked-module' }}">
                             <a class="dropdown-item" href="{{ route('reminders.create') }}">
                                 <i class="bi bi-bell" aria-hidden="true"></i>{{ __('New Reminder') }}
                             </a>
                         </li>
+                        @endif
                     </ul>
                 </div>
             </div>

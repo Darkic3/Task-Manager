@@ -38,6 +38,9 @@ class PlannerController extends Controller
     private function dayView($user, Carbon $date)
     {        $selected = $date->copy()->startOfDay();
 
+        // MVP quarantine: skip laws queries & picker data when unpublished.
+        $lawsEnabled = app(\App\Support\FeatureAvailability::class)->isEnabled('laws', $user);
+
         $tasks = Task::where('user_id', $user->id)
             ->whereDate('due_date', $selected->toDateString())
             ->with('project:id,name')
@@ -136,8 +139,9 @@ class PlannerController extends Controller
             'activeWorkoutPlan' => $activeWorkoutPlan,
             'todayWorkoutDay' => $todayWorkoutDay,
             'todayWorkoutSession' => $todayWorkoutSession,
-            'dayLaws' => $this->dayLaws($user),
-            'lawStrip' => $this->lawStrip($user, $selected),
+            'dayLaws' => $lawsEnabled ? $this->dayLaws($user) : [],
+            'lawStrip' => $lawsEnabled ? $this->lawStrip($user, $selected) : ['active' => 0, 'plus' => 0, 'minus' => 0, 'xp' => 0],
+            'lawsEnabled' => $lawsEnabled,
             'nextUp' => $this->buildNextUp($pending, $routinesData['today'], $selected),
             'quickProjects' => Project::where('user_id', $user->id)
                 ->whereNotIn('status', ['completed', 'closed'])

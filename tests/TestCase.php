@@ -16,7 +16,12 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
         // Exercise module behavior in feature tests; beta access tests turn
         // these flags off explicitly to verify deployment gating.
-        config(['beta.features.ai' => true]);
+        config([
+            'beta.features.ai' => true,
+            'beta.features.laws' => true,
+            'beta.features.vocabulary' => true,
+            'beta.features.reminders' => true,
+        ]);
         AiTraceHandler::flush();
     }
 

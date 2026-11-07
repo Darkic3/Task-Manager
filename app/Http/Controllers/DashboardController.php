@@ -15,12 +15,19 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
+        // MVP quarantine: default-only modules skip their queries entirely.
+        $features = app(\App\Support\FeatureAvailability::class);
+        $lawsEnabled = $features->isEnabled('laws', $user);
+        $vocabularyEnabled = $features->isEnabled('vocabulary', $user);
+        $remindersEnabled = $features->isEnabled('reminders', $user);
+        $filesEnabled = $features->isEnabled('files', $user);
+
         // Basic counts
         $tasksCount = $user->tasks()->count();
         $routinesCount = $user->routines()->active()->count();
         $notesCount = $user->notes()->count();
-        $remindersCount = $user->reminders()->count();
-        $filesCount = $user->files()->count();
+        $remindersCount = $remindersEnabled ? $user->reminders()->count() : 0;
+        $filesCount = $filesEnabled ? $user->files()->count() : 0;
         $projectsCount = $user->projects()->count();
 
         // Recent items
@@ -42,11 +49,13 @@ class DashboardController extends Controller
         $routineDoneCount  = $routinesData['done'];
 
         // Upcoming reminders
-        $upcomingReminders = $user->reminders()
-            ->where('date', '>=', now())
-            ->orderBy('date')
-            ->take(5)
-            ->get();
+        $upcomingReminders = $remindersEnabled
+            ? $user->reminders()
+                ->where('date', '>=', now())
+                ->orderBy('date')
+                ->take(5)
+                ->get()
+            : collect();
 
         // Additional statistics for analytics (aggregated: 2 group-by queries + 3 counts)
         $statusCounts = $user->tasks()->selectRaw('status, COUNT(*) as c')->groupBy('status')->pluck('c', 'status');
@@ -143,31 +152,40 @@ class DashboardController extends Controller
         $morningCheckin = $this->morningCheckinData($user);
 
         // Laws strip: today's score + live laws + week's top laws.
-        $todayKey = now()->toDateString();
-        $lawTodayEvents = \App\Models\LawEvent::where('user_id', $user->id)
-            ->where('occurred_on', $todayKey)
-            ->get(['direction', 'xp_delta']);
-        $lawToday = [
-            'plus' => $lawTodayEvents->where('direction', 1)->count(),
-            'minus' => $lawTodayEvents->where('direction', -1)->count(),
-            'xp' => (int) $lawTodayEvents->sum('xp_delta'),
-        ];
-        $lawActiveLaws = $user->laws()->where('status', \App\Models\Law::STATUS_ACTIVE)->get(['id', 'title', 'color', 'icon', 'starts_on', 'ends_on', 'coefficient']);
-        $lawActiveCount = $lawActiveLaws->filter(fn ($l) => ! $l->isExpired())->count();
-        $weekAgo = now()->subDays(6)->toDateString();
-        $lawWeek = \App\Models\LawEvent::where('user_id', $user->id)
-            ->where('occurred_on', '>=', $weekAgo)
-            ->selectRaw('law_id, COALESCE(SUM(xp_delta), 0) as xp, SUM(direction = 1) as plus, SUM(direction = -1) as minus')
-            ->groupBy('law_id')
-            ->orderByDesc('xp')
-            ->limit(3)
-            ->with('law:id,title,color,icon')
-            ->get();
+        $lawToday = ['plus' => 0, 'minus' => 0, 'xp' => 0];
+        $lawActiveCount = 0;
+        $lawWeek = collect();
+        if ($lawsEnabled) {
+            $todayKey = now()->toDateString();
+            $lawTodayEvents = \App\Models\LawEvent::where('user_id', $user->id)
+                ->where('occurred_on', $todayKey)
+                ->get(['direction', 'xp_delta']);
+            $lawToday = [
+                'plus' => $lawTodayEvents->where('direction', 1)->count(),
+                'minus' => $lawTodayEvents->where('direction', -1)->count(),
+                'xp' => (int) $lawTodayEvents->sum('xp_delta'),
+            ];
+            $lawActiveLaws = $user->laws()->where('status', \App\Models\Law::STATUS_ACTIVE)->get(['id', 'title', 'color', 'icon', 'starts_on', 'ends_on', 'coefficient']);
+            $lawActiveCount = $lawActiveLaws->filter(fn ($l) => ! $l->isExpired())->count();
+            $weekAgo = now()->subDays(6)->toDateString();
+            $lawWeek = \App\Models\LawEvent::where('user_id', $user->id)
+                ->where('occurred_on', '>=', $weekAgo)
+                ->selectRaw('law_id, COALESCE(SUM(xp_delta), 0) as xp, SUM(direction = 1) as plus, SUM(direction = -1) as minus')
+                ->groupBy('law_id')
+                ->orderByDesc('xp')
+                ->limit(3)
+                ->with('law:id,title,color,icon')
+                ->get();
+        }
 
         // Vocabulary strip: due reviews + today's new-card usage vs daily cap.
-        $vocabDue = $user->vocabCards()->due()->count();
-        $vocabNewToday = $user->vocabCards()->whereDate('created_at', today())->count();
+        $vocabDue = 0;
+        $vocabNewToday = 0;
         $vocabNewLimit = $user->vocabDailyLimit();
+        if ($vocabularyEnabled) {
+            $vocabDue = $user->vocabCards()->due()->count();
+            $vocabNewToday = $user->vocabCards()->whereDate('created_at', today())->count();
+        }
 
         return view('dashboard', compact(
             'tasksCount',
