@@ -3,7 +3,7 @@
 return [
     'features' => [
         'files' => (bool) env('BETA_ENABLE_FILES', false),
-        'ai' => (bool) env('BETA_ENABLE_AI', false),
+        'ai' => (bool) env('BETA_ENABLE_AI', true),
         'laws' => (bool) env('BETA_ENABLE_LAWS', false),
         'vocabulary' => (bool) env('BETA_ENABLE_VOCABULARY', false),
         'reminders' => (bool) env('BETA_ENABLE_REMINDERS', false),

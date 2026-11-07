@@ -14,5 +14,5 @@ return [
     'reminders' => ['label' => 'Reminders', 'description' => 'Personal reminders and calendar.', 'default' => (bool) env('BETA_ENABLE_REMINDERS', false)],
     'vocabulary' => ['label' => 'Vocabulary', 'description' => 'Leitner-box language vocabulary.', 'default' => (bool) env('BETA_ENABLE_VOCABULARY', false)],
     'files' => ['label' => 'Files', 'description' => 'File manager and file uploads.', 'default' => (bool) env('BETA_ENABLE_FILES', false)],
-    'ai' => ['label' => 'AI assistant', 'description' => 'Lina, AI providers, and AI-powered actions.', 'default' => (bool) env('BETA_ENABLE_AI', false)],
+    'ai' => ['label' => 'AI assistant', 'description' => 'Lina, AI providers, and AI-powered actions.', 'default' => (bool) env('BETA_ENABLE_AI', true)],
 ];
