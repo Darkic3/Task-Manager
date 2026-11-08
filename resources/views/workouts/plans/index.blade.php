@@ -540,14 +540,6 @@
             </div>
         @endif
 
-        @if(session('success'))
-            <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2 p-3 rounded-4 shadow-sm mb-4" role="alert">
-                <i class="bi bi-check-circle-fill fs-5 text-success"></i>
-                <div class="fw-semibold">{{ session('success') }}</div>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ __('Close') }}"></button>
-            </div>
-        @endif
-
         {{-- Plans List --}}
         @if($plans->count())
             <div class="wp-list">

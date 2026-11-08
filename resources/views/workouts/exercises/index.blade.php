@@ -17,7 +17,6 @@
         <a href="{{ route('workouts.plans.index') }}" class="wk-btn"><i class="bi bi-calendar3"></i><span>{{ __('Plans') }}</span></a>
         <a href="{{ route('workouts.exercises.create') }}" class="wk-btn primary"><i class="bi bi-plus-lg"></i><span>{{ __('New Exercise') }}</span></a>
     </div>
-    @if(session('success'))<div class="alert alert-success py-2 small">{{ session('success') }}</div>@endif
     <form class="wk-card wk-toolbar" method="GET">
         <input class="wk-input wk-search" name="q" value="{{ request('q') }}" placeholder="{{ __('Search exercises or aliases...') }}">
         <select class="wk-input" name="category"><option value="">{{ __('All categories') }}</option>@foreach($categories as $category)<option value="{{ $category }}" @selected(request('category') === $category)>{{ $category }}</option>@endforeach</select>

@@ -28,10 +28,6 @@
         <h4 class="m-0 fw-bold">{{ __('AI Settings') }}</h4>
     </div>
 
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
-
     <form method="POST" action="{{ route('ai.settings.update') }}">
         @csrf
         @method('PUT')

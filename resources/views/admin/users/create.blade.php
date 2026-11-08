@@ -15,10 +15,6 @@
         </a>
     </div>
 
-    @if (session('success'))
-        <div class="alert alert-success" role="status">{{ session('success') }}</div>
-    @endif
-
     <form method="POST" action="{{ route('admin.users.store') }}" class="card border-0 shadow-sm">
         @csrf
         <div class="card-body p-4">

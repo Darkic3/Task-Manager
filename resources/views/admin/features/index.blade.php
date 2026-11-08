@@ -13,10 +13,6 @@
         <span class="badge rounded-pill text-bg-primary px-3 py-2">{{ __('Admin preview is always enabled') }}</span>
     </div>
 
-    @if (session('success'))
-        <div class="alert alert-success" role="status">{{ session('success') }}</div>
-    @endif
-
     <div class="row g-3">
         @foreach ($modules as $key => $module)
             @php($flag = $updates->get($key))

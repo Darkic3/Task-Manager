@@ -131,14 +131,6 @@
 .cu-file-btn.delete { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
 .cu-file-btn.delete:hover { background: #dc2626; border-color: #dc2626; color: #fff; }
 
-/* Alert */
-.cu-alert {
-    background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 8px;
-    padding: 10px 14px; margin-bottom: 14px;
-    display: flex; align-items: center; gap: 8px;
-    font-size: 13px; color: #065f46;
-}
-
 /* Empty state */
 .cu-empty {
     background: white; border: 1px dashed #d1d5db; border-radius: 8px;
@@ -186,13 +178,6 @@
             </a>
         </div>
     </div>
-
-    {{-- Flash message --}}
-    @if(session('success'))
-    <div class="cu-alert">
-        <i class="bi bi-check-circle-fill"></i> {{ session('success') }}
-    </div>
-    @endif
 
     {{-- Stat tiles --}}
     <div class="cu-stats">

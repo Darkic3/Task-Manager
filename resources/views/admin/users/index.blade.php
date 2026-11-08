@@ -15,13 +15,6 @@
         </a>
     </div>
 
-    @if (session('success'))
-        <div class="alert alert-success" role="status">{{ session('success') }}</div>
-    @endif
-    @if (session('error'))
-        <div class="alert alert-danger" role="alert">{{ session('error') }}</div>
-    @endif
-
     {{-- Filters --}}
     <section class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">

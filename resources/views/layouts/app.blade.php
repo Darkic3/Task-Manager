@@ -1023,6 +1023,134 @@
         @media (max-width: 420px) {
             .topnav-clock { display: none; }
         }
+
+        /* ── System flash messages as corner toasts ── */
+        .tm-toasts {
+            position: fixed;
+            top: 72px;
+            inset-inline-end: 18px;
+            z-index: 1090;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: min(360px, calc(100vw - 32px));
+            pointer-events: none;
+        }
+
+        .tm-toast {
+            --tm-accent: var(--gray-500);
+            --tm-ico-bg: var(--gray-100);
+            --tm-tint: #ffffff;
+            --tm-line: var(--gray-200);
+            --tm-ink: var(--gray-800);
+            --tm-ms: 4200ms;
+
+            pointer-events: auto;
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 13px 14px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--tm-line);
+            background: var(--tm-tint);
+            color: var(--tm-ink);
+            font-size: .82rem;
+            font-weight: 600;
+            line-height: 1.65;
+            overflow: hidden;
+            box-shadow: 0 18px 36px -22px rgba(15, 23, 42, .5), 0 2px 8px -5px rgba(15, 23, 42, .18);
+            animation: tmToastIn .3s cubic-bezier(.2, .9, .3, 1.15);
+        }
+
+        .tm-toast[data-tone="success"] { --tm-accent: #059669; --tm-ico-bg: #d1fae5; --tm-tint: #f7fefb; --tm-line: #a7f3d0; --tm-ink: #065f46; }
+        .tm-toast[data-tone="error"]   { --tm-accent: #dc2626; --tm-ico-bg: #fee2e2; --tm-tint: #fff8f8; --tm-line: #fecaca; --tm-ink: #7f1d1d; }
+        .tm-toast[data-tone="warning"] { --tm-accent: #d97706; --tm-ico-bg: #fef3c7; --tm-tint: #fffdf5; --tm-line: #fde68a; --tm-ink: #78350f; }
+        .tm-toast[data-tone="info"]    { --tm-accent: #2563eb; --tm-ico-bg: #dbeafe; --tm-tint: #f7fbff; --tm-line: #bfdbfe; --tm-ink: #1e3a8a; }
+
+        .tm-toast-ico {
+            flex: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 27px;
+            height: 27px;
+            border-radius: 9px;
+            background: var(--tm-ico-bg);
+            color: var(--tm-accent);
+            font-size: .9rem;
+        }
+
+        .tm-toast-msg { flex: 1 1 auto; min-width: 0; }
+
+        .tm-toast-x {
+            flex: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: var(--tm-ink);
+            opacity: .45;
+            font-size: .7rem;
+            cursor: pointer;
+            transition: opacity .15s ease, background-color .15s ease;
+        }
+
+        .tm-toast-x:hover, .tm-toast-x:focus-visible {
+            opacity: 1;
+            background: rgba(15, 23, 42, .07);
+        }
+
+        .tm-toast-bar {
+            position: absolute;
+            bottom: 0;
+            inset-inline: 0;
+            height: 3px;
+            background: var(--tm-accent);
+            opacity: .4;
+            transform-origin: left center;
+            animation: tmToastBar var(--tm-ms) linear forwards;
+        }
+
+        [dir="rtl"] .tm-toast-bar { transform-origin: right center; }
+
+        .tm-toast.is-out { animation: tmToastOut .24s ease forwards; }
+
+        .tm-toast:hover .tm-toast-bar,
+        .tm-toast:focus-within .tm-toast-bar { animation-play-state: paused; }
+
+        @keyframes tmToastIn {
+            from { opacity: 0; transform: translateY(-14px) scale(.97); }
+            to { opacity: 1; transform: none; }
+        }
+
+        @keyframes tmToastOut {
+            to { opacity: 0; transform: translateY(-8px) scale(.98); }
+        }
+
+        @keyframes tmToastBar {
+            from { transform: scaleX(1); }
+            to { transform: scaleX(0); }
+        }
+
+        @media (max-width: 768px) {
+            .tm-toasts {
+                top: 62px;
+                inset-inline: 12px;
+                width: auto;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .tm-toast { animation: none; }
+            .tm-toast.is-out { opacity: 0; }
+            .tm-toast-bar { display: none; }
+        }
     </style>
 </head>
 
@@ -1293,22 +1421,32 @@
         </div>
     </header>
 
-        <!-- Flash Messages -->
-        @foreach(['success' => ['bi-check-circle','#166534','#f0fdf4','#86efac'], 'error' => ['bi-exclamation-circle','#991b1b','#fef2f2','#fca5a5'], 'warning' => ['bi-exclamation-triangle','#92400e','#fffbeb','#fcd34d'], 'info' => ['bi-info-circle','#1e40af','#eff6ff','#93c5fd']] as $type => [$icon,$textColor,$bgColor,$borderColor])
-            @if(session($type))
-            <div class="px-4 pt-3" style="max-width:100%;">
-                <div role="alert" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;border:1px solid {{ $borderColor }};background:{{ $bgColor }};color:{{ $textColor }};font-size:13px;font-weight:500;line-height:1.4;">
-                    <i class="bi {{ $icon }}" style="font-size:15px;flex-shrink:0;"></i>
-                    <span style="flex:1;">{{ session($type) }}</span>
-                    <button type="button" data-bs-dismiss="alert" aria-label="Close"
-                            style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:none;background:none;cursor:pointer;color:{{ $textColor }};opacity:.6;padding:0;flex-shrink:0;font-size:14px;line-height:1;"
-                            onclick="this.closest('[role=alert]').parentElement.remove()">
-                        <i class="bi bi-x-lg"></i>
+        {{-- System flash messages — shown as self-dismissing corner toasts --}}
+        @php
+            $tmFlashMap = [
+                'success' => ['bi-check-circle-fill', 'success', 4200],
+                'error' => ['bi-exclamation-octagon-fill', 'error', 8000],
+                'warning' => ['bi-exclamation-triangle-fill', 'warning', 6500],
+                'info' => ['bi-info-circle-fill', 'info', 5200],
+            ];
+        @endphp
+        <div class="tm-toasts" id="tmToasts" aria-live="polite" aria-atomic="false">
+            @foreach($tmFlashMap as $tmFlashKey => [$tmFlashIcon, $tmFlashTone, $tmFlashMs])
+                @if(session($tmFlashKey))
+                <div class="tm-toast" data-tm-toast data-tone="{{ $tmFlashTone }}" data-duration="{{ $tmFlashMs }}"
+                     style="--tm-ms: {{ $tmFlashMs }}ms;"
+                     role="{{ $tmFlashTone === 'error' ? 'alert' : 'status' }}">
+                    <span class="tm-toast-ico" aria-hidden="true"><i class="bi {{ $tmFlashIcon }}"></i></span>
+                    <span class="tm-toast-msg">{{ session($tmFlashKey) }}</span>
+                    <button type="button" class="tm-toast-x" data-tm-toast-close
+                            aria-label="{{ __('Close') }}" title="{{ __('Close') }}">
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
                     </button>
+                    <span class="tm-toast-bar" aria-hidden="true"></span>
                 </div>
-            </div>
-            @endif
-        @endforeach
+                @endif
+            @endforeach
+        </div>
 
         <main>
             @yield('content')
@@ -1397,6 +1535,70 @@
         window.addEventListener('resize', function () {
             if (window.innerWidth > 768) setSidebar(false);
         });
+
+        // ── System flash messages as self-dismissing corner toasts ──
+        (function () {
+            const stack = document.getElementById('tmToasts');
+            if (!stack) return;
+
+            const dismiss = function (el) {
+                if (!el || el.dataset.tmClosing) return;
+                el.dataset.tmClosing = '1';
+                el.classList.add('is-out');
+                window.setTimeout(function () {
+                    el.remove();
+                    if (!stack.querySelector('[data-tm-toast]')) stack.remove();
+                }, 260);
+            };
+
+            stack.querySelectorAll('[data-tm-toast]').forEach(function (el) {
+                const bar = el.querySelector('.tm-toast-bar');
+                let remaining = parseInt(el.dataset.duration, 10) || 4200;
+                let startedAt = 0;
+                let timer = null;
+
+                const arm = function (ms) {
+                    startedAt = Date.now();
+                    timer = window.setTimeout(function () { dismiss(el); }, ms);
+                };
+                // Hovering or focusing a toast freezes its countdown (bar included).
+                const hold = function () {
+                    if (timer === null) return;
+                    window.clearTimeout(timer);
+                    timer = null;
+                    remaining = Math.max(0, remaining - (Date.now() - startedAt));
+                    if (bar) bar.style.animationPlayState = 'paused';
+                };
+                const resume = function () {
+                    if (timer !== null || el.dataset.tmClosing) return;
+                    if (bar) bar.style.animationPlayState = 'running';
+                    if (remaining <= 0) { dismiss(el); return; }
+                    arm(remaining);
+                };
+
+                el.addEventListener('mouseenter', hold);
+                el.addEventListener('mouseleave', resume);
+                el.addEventListener('focusin', hold);
+                el.addEventListener('focusout', function (e) {
+                    if (e.relatedTarget && el.contains(e.relatedTarget)) return;
+                    resume();
+                });
+
+                const closeBtn = el.querySelector('[data-tm-toast-close]');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        dismiss(el);
+                    });
+                }
+                el.addEventListener('click', function (e) {
+                    if (e.target.closest('button, a')) return;
+                    dismiss(el);
+                });
+
+                arm(remaining);
+            });
+        })();
     </script>
     @include('time._store')
     @include('time._widget')
