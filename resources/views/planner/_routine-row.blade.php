@@ -52,7 +52,21 @@
     $allStepsSkipped = $stepCount > 0 && $stepsSkippedN === $stepCount;
     $failedDay = $isSkipped || $allStepsSkipped;
     $settledPartial = ! $isDone && ! $failedDay && $stepCount > 0 && $stepsOpenN === 0 && $stepsDoneN > 0;
-    $checkLocked = $failedDay || $settledPartial;
+    /* Tracked (value/sets) routines can only be completed through their
+       logged numbers: a bare tick without a log is rejected by the server
+       with 422. Lock the checkbox until a value has been logged, so the
+       user is guided to the log input instead of hitting that error. */
+    $trackedLocked = false;
+    if ($toggleable && ! $isDone && $trackMode !== 'none') {
+        if ($trackMode === 'value') {
+            $trackedLocked = empty($logValues['value']);
+        } elseif ($trackMode === 'sets' && $stepCount > 0) {
+            $loggedItemIds = array_map('strval', array_keys($logValues));
+            $stepIds = array_map(fn ($s) => (string) ($s['id'] ?? 0), (array) ($routine->ringSteps ?? []));
+            $trackedLocked = count(array_intersect($loggedItemIds, $stepIds)) < $stepCount;
+        }
+    }
+    $checkLocked = $failedDay || $settledPartial || $trackedLocked;
 @endphp
 <div class="pl-task pl-routine {{ $isDone ? 'is-done' : '' }} {{ $failedDay ? 'is-skipped' : '' }} {{ $settledPartial ? 'is-settled' : '' }}"
      @if($toggleable)
@@ -83,7 +97,7 @@
                 <i class="bi {{ $avoidBad ? 'bi-shield-fill-exclamation' : 'bi-shield-fill-check' }}"></i>
             </span>
         @else
-        <label class="pl-habit {{ $checkLocked ? 'is-locked' : '' }}" title="{{ $failedDay ? __('Failed for today — reopen a step to continue') : ($settledPartial ? __('Settled for today') : ($isDone ? __('Mark as not done') : __('Mark as done'))) }}{{ $ringRate !== null ? ' · ' . __(':rate% adherence (30d)', ['rate' => app_num($ringRate)]) : '' }}">
+        <label class="pl-habit {{ $checkLocked ? 'is-locked' : '' }}" title="{{ $failedDay ? __('Failed for today — reopen a step to continue') : ($trackedLocked ? __('Log a value first, then tick') : ($settledPartial ? __('Settled for today') : ($isDone ? __('Mark as not done') : __('Mark as done')))) }}{{ $ringRate !== null ? ' · ' . __(':rate% adherence (30d)', ['rate' => app_num($ringRate)]) : '' }}">
             <input type="checkbox"
                    {{ ($isDone || $settledPartial) ? 'checked' : '' }}
                    {{ $checkLocked ? 'disabled' : '' }}
