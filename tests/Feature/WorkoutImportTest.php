@@ -80,4 +80,36 @@ class WorkoutImportTest extends TestCase
         $this->actingAs($other)->get(route('workouts.imports.show', $import))->assertForbidden();
         $this->actingAs($other)->post(route('workouts.imports.confirm', $import))->assertForbidden();
     }
+
+    public function test_import_confirm_reuses_an_existing_movement_instead_of_duplicating_it(): void
+    {
+        $user = User::factory()->create();
+        $existing = Exercise::create(['user_id' => $user->id, 'name' => 'Pull-up', 'normalized_name' => 'pull-up']);
+
+        $import = WorkoutImport::create([
+            'user_id' => $user->id,
+            'source_text' => 'A workout plan with enough content.',
+            'structure' => app(WorkoutImportService::class)->normalizeStructure([
+                'title' => 'Dedupe import',
+                'days' => [[
+                    'weekday' => 'saturday', 'title' => 'Pull A', 'type' => 'training',
+                    'exercises' => [
+                        ['name' => 'Pull Up', 'section' => 'main'],
+                        ['name' => ' pull-up ', 'section' => 'accessory'],
+                    ],
+                ]],
+            ]),
+            'status' => WorkoutImport::PREVIEW,
+            'expires_at' => now()->addMinutes(10),
+        ]);
+
+        $this->actingAs($user)->get(route('workouts.imports.show', $import))->assertOk();
+        $this->actingAs($user)->post(route('workouts.imports.confirm', $import))->assertRedirect();
+
+        $this->assertSame(1, Exercise::where('user_id', $user->id)->count());
+        $plan = WorkoutPlan::where('title', 'Dedupe import')->firstOrFail();
+        $dayExercises = $plan->days()->firstOrFail()->exercises()->orderBy('sort_order')->get();
+        $this->assertCount(2, $dayExercises);
+        $this->assertSame([$existing->id, $existing->id], $dayExercises->pluck('exercise_id')->all());
+    }
 }

@@ -42,9 +42,16 @@ class ExerciseController extends Controller
     public function store(StoreExerciseRequest $request): RedirectResponse
     {
         $payload = $request->payload();
-        $duplicate = Exercise::forUser($request->user()->id)
-            ->where('normalized_name', $payload['normalized_name'])
-            ->first();
+        $duplicate = Exercise::findDuplicate((int) $request->user()->id, $payload['name'], $payload['aliases']);
+
+        // Re-adding an archived movement restores it (same record, history kept)
+        // instead of creating a second row with the same identity.
+        if ($duplicate && $duplicate->trashed()) {
+            $duplicate->restore();
+            $duplicate->update($payload);
+
+            return redirect()->route('workouts.exercises.index')->with('success', __('Exercise restored from your archive.'));
+        }
 
         if ($duplicate) {
             return back()->withInput()->withErrors(['name' => __('This exercise already exists: :name.', ['name' => $duplicate->name])]);
@@ -66,10 +73,7 @@ class ExerciseController extends Controller
     {
         $this->authorizeExercise($exercise);
         $payload = $request->payload();
-        $duplicate = Exercise::forUser($request->user()->id)
-            ->where('id', '!=', $exercise->id)
-            ->where('normalized_name', $payload['normalized_name'])
-            ->first();
+        $duplicate = Exercise::findDuplicate((int) $request->user()->id, $payload['name'], $payload['aliases'], (int) $exercise->id);
 
         if ($duplicate) {
             return back()->withInput()->withErrors(['name' => __('This exercise already exists: :name.', ['name' => $duplicate->name])]);

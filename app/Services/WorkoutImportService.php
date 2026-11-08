@@ -131,18 +131,23 @@ PROMPT;
                 $day['exercises'] = collect($day['exercises'] ?? [])->map(function (array $exercise) use ($userId, $exerciseCache): array {
                     $matchedId = $exercise['matched_exercise_id'] ?? null;
                     if (! $matchedId || ! $exerciseCache->has((int) $matchedId)) {
-                        $normalizedName = StoreExerciseRequest::normalize($exercise['name']);
-                        $existing = $exerciseCache->first(fn (Exercise $candidate) => $candidate->normalized_name === $normalizedName);
-                        if (! $existing) {
+                        // Never create a second row for a movement the user (or the
+                        // shared library) already has under another spelling/alias.
+                        $existing = Exercise::findDuplicate($userId, (string) $exercise['name']);
+                        if ($existing) {
+                            if ($existing->trashed()) {
+                                $existing->restore();
+                            }
+                        } else {
                             $existing = Exercise::create([
                                 'user_id' => $userId,
                                 'name' => $exercise['name'],
-                                'normalized_name' => $normalizedName,
+                                'normalized_name' => StoreExerciseRequest::normalize($exercise['name']),
                                 'aliases' => [],
                                 'category' => null,
                             ]);
-                            $exerciseCache->put($existing->id, $existing);
                         }
+                        $exerciseCache->put($existing->id, $existing);
                         $matchedId = $existing->id;
                     }
 
@@ -189,12 +194,12 @@ PROMPT;
 
     private function matchExercise(string $name, $exercises): ?Exercise
     {
-        $needle = StoreExerciseRequest::normalize($name);
+        $needles = Exercise::identityKeys($name);
+        if ($needles === []) {
+            return null;
+        }
 
-        return $exercises->first(function (Exercise $exercise) use ($needle): bool {
-            return $exercise->normalized_name === $needle
-                || collect($exercise->aliases ?? [])->contains(fn ($alias) => StoreExerciseRequest::normalize($alias) === $needle);
-        });
+        return $exercises->first(fn (Exercise $exercise): bool => array_intersect($needles, $exercise->identityKeysFor()) !== []);
     }
 
     private function requestModel(array $resolved, array $messages): string

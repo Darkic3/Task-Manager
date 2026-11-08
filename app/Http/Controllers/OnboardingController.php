@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreExerciseRequest;
+use App\Models\Exercise;
 use App\Services\Onboarding\OnboardingQuestService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -157,10 +159,23 @@ class OnboardingController extends Controller
             'status' => 'active',
             'start_date' => today()->toDateString(),
         ]);
-        $exercise = $user->exercises()->firstOrCreate(
-            ['name' => __('Push-up')],
-            ['category' => 'strength', 'muscle_groups' => ['chest'], 'equipment' => ['bodyweight']]
-        );
+        // Reuse the movement when the user already has it under any spelling,
+        // so a starter plan never creates a duplicate exercise record.
+        $exercise = Exercise::findDuplicate((int) $user->id, __('Push-up'));
+
+        if ($exercise) {
+            if ($exercise->trashed()) {
+                $exercise->restore();
+            }
+        } else {
+            $exercise = $user->exercises()->create([
+                'name' => __('Push-up'),
+                'normalized_name' => StoreExerciseRequest::normalize(__('Push-up')),
+                'category' => 'strength',
+                'muscle_groups' => ['chest'],
+                'equipment' => ['bodyweight'],
+            ]);
+        }
         foreach (['saturday', 'monday', 'wednesday'] as $i => $day) {
             $wd = $plan->days()->create([
                 'weekday' => $day,
