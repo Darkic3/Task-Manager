@@ -2373,5 +2373,11 @@
     ":count cards imported · :skipped duplicates skipped.": ":count کارت ایمپورت شد · :skipped تکراری رد شد.",
     "Nothing new to import — :count rows are already in this deck.": "چیز جدیدی برای ایمپورت نیست — :count ردیف از قبل در این جعبه هست.",
     "Nothing new to import — those words are already in this deck.": "چیز جدیدی برای ایمپورت نیست — این لغت‌ها از قبل در این جعبه هستند.",
-    "Duplicate words already in the deck are skipped automatically.": "لغت‌های تکراری که از قبل در جعبه هستند خودکار رد می‌شوند."
+    "Duplicate words already in the deck are skipped automatically.": "لغت‌های تکراری که از قبل در جعبه هستند خودکار رد می‌شوند.",
+    "Session complete": "جلسه تمام شد",
+    "Forgot": "فراموش کردم",
+    "Accuracy": "دقت",
+    "Keep reviewing": "ادامه‌ی مرور",
+    "Nothing left due today — nicely done.": "امروز چیزی برای مرور نمانده — عالی بود.",
+    ":count cards still due today.": ":count کارت دیگر امروز مانده."
 }

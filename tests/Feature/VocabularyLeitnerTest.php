@@ -387,7 +387,13 @@ class VocabularyLeitnerTest extends TestCase
         ]);
 
         $this->get(route('vocabulary.review.index'))->assertOk()
-            ->assertSee('id="vbTimer"', false);
+            ->assertSee('id="vbTimer"', false)
+            // Hooks the no-reload grading, undo bar and summary dialog need.
+            ->assertSee('data-grade="1"', false)
+            ->assertSee('id="vbGrade"', false)
+            ->assertSee('id="vbUndo"', false)
+            ->assertSee('id="vbSummary"', false)
+            ->assertSee('id="vbProgressText"', false);
     }
 
     public function test_duplicate_words_are_rejected_within_a_deck(): void
@@ -499,5 +505,101 @@ class VocabularyLeitnerTest extends TestCase
 
         $this->assertSame(1, VocabReview::where('user_id', $user->id)->count());
         $this->assertSame(2, $card->fresh()->box);
+    }
+
+    public function test_ajax_grading_returns_the_next_card(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+
+        $first = $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+        $second = $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'book', 'back' => 'کتاب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+
+        $this->get(route('vocabulary.review.index'))->assertOk();
+
+        $this->postJson(route('vocabulary.cards.grade', $first), [
+            'remembered' => 1, 'deck_id' => 'all', 'dir' => 'front',
+        ])->assertOk()
+            ->assertJsonPath('finished', false)
+            ->assertJsonPath('progress.done', 1)
+            ->assertJsonPath('progress.total', 2)
+            ->assertJsonPath('next.id', $second->id)
+            ->assertJsonPath('next.prompt', 'book')
+            ->assertJsonStructure([
+                'next' => ['id', 'prompt', 'answer', 'deck', 'box', 'box_label', 'direction', 'grade_url'],
+                'progress' => ['done', 'total', 'percent', 'due', 'text'],
+                'undo' => ['review_id', 'front'],
+            ]);
+    }
+
+    public function test_ajax_grading_the_last_card_returns_a_session_summary(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $card = $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+
+        $this->get(route('vocabulary.review.index'))->assertOk();
+
+        $this->postJson(route('vocabulary.cards.grade', $card), ['remembered' => 1])
+            ->assertOk()
+            ->assertJsonPath('finished', true)
+            ->assertJsonPath('next', null)
+            ->assertJsonPath('summary.total', 1)
+            ->assertJsonPath('summary.remembered', 1)
+            ->assertJsonPath('summary.accuracy', 100)
+            ->assertJsonPath('summary.due_left', 0);
+    }
+
+    public function test_ajax_undo_returns_the_restored_card(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $card = $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 2, 'next_review_at' => today(),
+        ]);
+
+        $this->get(route('vocabulary.review.index'))->assertOk();
+
+        $grade = $this->postJson(route('vocabulary.cards.grade', $card), ['remembered' => 1])->assertOk();
+        $reviewId = $grade->json('undo.review_id');
+
+        $this->postJson(route('vocabulary.reviews.undo'), ['review_id' => $reviewId])
+            ->assertOk()
+            ->assertJsonPath('restored.id', $card->id)
+            ->assertJsonPath('restored.prompt', 'apple')
+            ->assertJsonPath('progress.done', 0)
+            ->assertJsonPath('progress.total', 1);
+
+        $this->assertSame(2, $card->fresh()->box);
+    }
+
+    public function test_finished_session_renders_a_server_side_summary(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $card = $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+
+        $this->get(route('vocabulary.review.index'))->assertOk();
+        $this->post(route('vocabulary.cards.grade', $card), ['remembered' => 0])->assertRedirect();
+
+        $this->get(route('vocabulary.review.index'))->assertOk()
+            ->assertSee('data-session-summary', false);
     }
 }

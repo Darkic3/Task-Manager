@@ -97,7 +97,7 @@
 .lv-ans { font-size:1.5rem; font-weight:800; color:#059669; overflow-wrap:anywhere; }
 .lv-ex { display:inline-block; font-size:.82rem; color:#6b7280; font-style:italic;
     background:#f8fafc; border-radius:10px; padding:7px 14px; margin-top:10px; max-width:100%; }
-.lv-grade { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:18px; }
+.lv-grade { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:18px; padding:0 24px; }
 .lv-grade button {
     border:none; border-radius:13px; padding:14px 10px; font-weight:800; font-size:.95rem;
     cursor:pointer; transition:transform .15s, filter .15s;
@@ -124,9 +124,22 @@
 .lv-tip kbd { font-family:inherit; font-size:.66rem; font-weight:800; background:#eef2ff;
     color:#4f46e5; border-radius:5px; padding:1px 7px; }
 /* ── Undo bar (five seconds) ── */
+/* Sticky grading bar on phones: the buttons stay under the thumb. */
+@media (max-width:640px) {
+    .lv-page { padding-bottom:84px; }
+    .lv-flash { padding-bottom:18px; }
+    .lv-grade {
+        position:fixed; inset-inline:0; bottom:0; z-index:1400; margin:0;
+        padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+        background:rgba(255,255,255,.95); backdrop-filter:blur(8px);
+        border-top:1px solid #e9ebf1;
+        box-shadow:0 -8px 20px -14px rgba(15,23,42,.35);
+    }
+}
+
 .lv-undo {
     position:fixed; bottom:22px; inset-inline:0; margin-inline:auto;
-    width:min(430px, calc(100% - 24px)); z-index:1500;
+    width:min(430px, calc(100% - 24px)); z-index:2100;
     display:flex; align-items:center; gap:9px; overflow:hidden;
     background:#111827; color:#f9fafb; border-radius:14px;
     padding:11px 12px 12px; box-shadow:0 18px 34px -14px rgba(15,23,42,.65);
@@ -152,6 +165,15 @@
 @keyframes lvUndoIn { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
 @keyframes lvUndoOut { to { opacity:0; transform:translateY(10px); } }
 @keyframes lvUndoBar { from { transform:scaleX(1); } to { transform:scaleX(0); } }
+
+/* ── Session summary ── */
+.lv-sum { display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin:.2rem 0 .9rem; }
+.lv-sum div { background:#f8fafc; border:1px solid #eef0f3; border-radius:12px; padding:10px 12px; text-align:center; }
+.lv-sum b { display:block; font-size:1.25rem; font-weight:800; color:#111827; line-height:1.2; }
+.lv-sum span { font-size:.7rem; font-weight:700; color:#6b7280; }
+.lv-sum-due { text-align:center; font-size:.8rem; color:#6b7280; margin:0 0 .9rem; }
+.lv-sum-actions { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.lv-summary-card { max-width:430px; }
 
 .lv-empty { text-align:center; padding:56px 20px; background:#fff;
     border:1.5px dashed #d9defc; border-radius:18px; color:#8b8d98; }
@@ -319,47 +341,58 @@
     })();
     </script>
     @endpush
-    <div class="lv-progress"><div style="width:{{ $sessionCount > 0 ? round(($reviewedCount / $sessionCount) * 100) : 0 }}%"></div></div>
-    <p class="lv-progress-txt"><i class="bi bi-flag"></i>{{ __(':done of :total in this session · :due due total', ['done' => app_num($reviewedCount), 'total' => app_num($sessionCount), 'due' => app_num($totalDue)]) }}</p>
+    <div class="lv-progress"><div id="vbProgressFill" style="width:{{ $sessionCount > 0 ? round(($reviewedCount / $sessionCount) * 100) : 0 }}%"></div></div>
+    <p class="lv-progress-txt" aria-live="polite"><i class="bi bi-flag"></i><span id="vbProgressText">{{ __(':done of :total in this session · :due due total', ['done' => app_num($reviewedCount), 'total' => app_num($sessionCount), 'due' => app_num($totalDue)]) }}</span></p>
     @endif
 
     @if(!$current)
     <div class="lv-empty">
         <div class="lv-big">🎉</div>
-        <h5>{{ __('All caught up!') }}</h5>
+        <h5>{{ $summary ? __('Session complete') : __('All caught up!') }}</h5>
+        @if($summary)
+        <div class="lv-sum" data-session-summary style="max-width:420px;margin:.9rem auto 0;">
+            <div><b>{{ app_num($summary['total']) }}</b><span>{{ __('Reviewed') }}</span></div>
+            <div><b>{{ app_num($summary['remembered']) }}</b><span>{{ __('Remembered') }}</span></div>
+            <div><b>{{ app_num($summary['forgotten']) }}</b><span>{{ __('Forgot') }}</span></div>
+            <div><b>{{ app_num($summary['accuracy']) }}%</b><span>{{ __('Accuracy') }}</span></div>
+        </div>
+        <p class="lv-sum-due" style="margin-top:.8rem;">{{ $summary['due_text'] }}</p>
+        @else
         <p>{{ __('No cards are due right now. Add new words or come back tomorrow.') }}</p>
+        @endif
         <a href="{{ route('vocabulary.cards.index') }}" class="lv-btn" style="background:linear-gradient(135deg,#4f46e5,#8b5cf6);color:#fff;">{{ __('Manage cards') }}</a>
     </div>
     @else
-    <div class="lv-flash">
+    <div class="lv-flash" id="vbCard">
         <div class="lv-flash-ribbon"></div>
         <div class="lv-flash-top">
-            <span class="lv-deckname">{{ $current->deck->name ?? '' }}</span>
-            <span class="lv-boxpill">{{ __('Box :n', ['n' => $current->box]) }}<span class="lv-dots">@for($i = 1; $i <= 5; $i++)<i class="{{ $i <= $current->box ? 'on' : '' }}"></i>@endfor</span></span>
+            <span class="lv-deckname" data-f="deck">{{ $current->deck->name ?? '' }}</span>
+            <span class="lv-boxpill"><span data-f="boxlabel">{{ __('Box :n', ['n' => $current->box]) }}</span><span class="lv-dots" data-f="dots">@for($i = 1; $i <= 5; $i++)<i class="{{ $i <= $current->box ? 'on' : '' }}"></i>@endfor</span></span>
         </div>
-        <div class="lv-prompt">{{ $prompt }}</div>
-        <div class="lv-dir-hint">{{ $dir === 'back' ? __('What is the word for this meaning?') : __('What does this mean?') }}</div>
+        <div class="lv-prompt" data-f="prompt">{{ $prompt }}</div>
+        <div class="lv-dir-hint" data-f="direction">{{ $reverse ? __('What is the word for this meaning?') : __('What does this mean?') }}</div>
 
         <div class="lv-answer" id="vbAnswer">
             <hr>
-            <div class="lv-ans">{{ $answer }}</div>
-            @if($showExample)<div class="lv-ex"><i class="bi bi-quote"></i> {{ $current->example }}</div>@endif
-            <div class="lv-grade">
-                <form method="POST" action="{{ route('vocabulary.cards.grade', $current) }}">
-                    @csrf
-                    <input type="hidden" name="remembered" value="0">
-                    <input type="hidden" name="deck_id" value="{{ $deckId }}">
-                    <input type="hidden" name="dir" value="{{ $dir }}">
-                    <button class="lv-forgot" id="vbForgot" type="submit" style="width:100%;"><span>❌</span> {{ __('I forgot') }} <span class="lv-kbd">1</span></button>
-                </form>
-                <form method="POST" action="{{ route('vocabulary.cards.grade', $current) }}">
-                    @csrf
-                    <input type="hidden" name="remembered" value="1">
-                    <input type="hidden" name="deck_id" value="{{ $deckId }}">
-                    <input type="hidden" name="dir" value="{{ $dir }}">
-                    <button class="lv-remembered" id="vbRemembered" type="submit" style="width:100%;"><span>✅</span> {{ __('I remembered') }} <span class="lv-kbd">2</span></button>
-                </form>
-            </div>
+            <div class="lv-ans" data-f="answer">{{ $answer }}</div>
+            <div class="lv-ex" data-example @if(!$showExample) hidden @endif><i class="bi bi-quote"></i> <span data-f="example">{{ $showExample ? $current->example : '' }}</span></div>
+        </div>
+
+        <div class="lv-grade" id="vbGrade" hidden>
+            <form method="POST" action="{{ route('vocabulary.cards.grade', $current) }}" data-grade="0">
+                @csrf
+                <input type="hidden" name="remembered" value="0">
+                <input type="hidden" name="deck_id" value="{{ $deckId }}">
+                <input type="hidden" name="dir" value="{{ $dir }}">
+                <button class="lv-forgot" id="vbForgot" type="submit" style="width:100%;"><span>❌</span> {{ __('I forgot') }} <span class="lv-kbd">1</span></button>
+            </form>
+            <form method="POST" action="{{ route('vocabulary.cards.grade', $current) }}" data-grade="1">
+                @csrf
+                <input type="hidden" name="remembered" value="1">
+                <input type="hidden" name="deck_id" value="{{ $deckId }}">
+                <input type="hidden" name="dir" value="{{ $dir }}">
+                <button class="lv-remembered" id="vbRemembered" type="submit" style="width:100%;"><span>✅</span> {{ __('I remembered') }} <span class="lv-kbd">2</span></button>
+            </form>
         </div>
 
         <button id="vbShow" class="lv-show"><i class="bi bi-eye"></i>{{ __('Show meaning') }} <span class="lv-kbd" style="background:rgba(255,255,255,.25);">Space</span></button>
@@ -368,40 +401,238 @@
         <kbd>Space</kbd> {{ __('to reveal') }} · <kbd>1</kbd> {{ __('forgot') }} · <kbd>2</kbd> {{ __('remembered') }}</p>
     @endif
 
-    @if(session('vocab_undo'))
-    <div class="lv-undo" id="vbUndo" role="status">
+    <div class="lv-overlay" id="vbSummary" hidden>
+        <div class="lv-overlay-card lv-summary-card" role="dialog" aria-modal="true" aria-labelledby="vbSummaryTitle">
+            <div style="font-size:2.2rem;text-align:center;">🎉</div>
+            <h5 id="vbSummaryTitle" style="text-align:center;color:#111827;font-weight:800;margin:.45rem 0 .9rem;">{{ __('Session complete') }}</h5>
+            <div class="lv-sum">
+                <div><b data-sum="total">0</b><span>{{ __('Reviewed') }}</span></div>
+                <div><b data-sum="remembered">0</b><span>{{ __('Remembered') }}</span></div>
+                <div><b data-sum="forgotten">0</b><span>{{ __('Forgot') }}</span></div>
+                <div><b data-sum="accuracy">0%</b><span>{{ __('Accuracy') }}</span></div>
+            </div>
+            <p class="lv-sum-due" data-sum="due_text"></p>
+            <div class="lv-sum-actions">
+                <button type="button" class="lv-btn" data-sum-continue hidden style="background:linear-gradient(135deg,#4f46e5,#8b5cf6);color:#fff;">{{ __('Keep reviewing') }}</button>
+                <a href="{{ route('vocabulary.cards.index') }}" class="lv-btn" style="background:#f3f4f6;color:#374151;">{{ __('All cards') }}</a>
+                <a href="{{ route('vocabulary.index') }}" class="lv-btn" style="background:#f3f4f6;color:#374151;">{{ __('Back to decks') }}</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="lv-undo" id="vbUndo" role="status" @if(!session('vocab_undo')) hidden @endif>
         <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
-        <span class="lv-undo-txt">{{ __('Card graded.') }} <strong>{{ \Illuminate\Support\Str::limit(session('vocab_undo')['front'] ?? '', 24) }}</strong></span>
-        <form method="POST" action="{{ route('vocabulary.reviews.undo') }}">
+        <span class="lv-undo-txt">{{ __('Card graded.') }} <strong data-undo-front>{{ \Illuminate\Support\Str::limit(session('vocab_undo')['front'] ?? '', 24) }}</strong></span>
+        <form method="POST" action="{{ route('vocabulary.reviews.undo') }}" id="vbUndoForm">
             @csrf
-            <input type="hidden" name="review_id" value="{{ session('vocab_undo')['review_id'] }}">
+            <input type="hidden" name="review_id" value="{{ session('vocab_undo')['review_id'] ?? '' }}" data-undo-id>
             <input type="hidden" name="deck_id" value="{{ $deckId }}">
             <input type="hidden" name="dir" value="{{ $dir }}">
             <button type="submit" class="lv-undo-btn">{{ __('Undo') }}</button>
         </form>
         <span class="lv-undo-bar" aria-hidden="true"></span>
     </div>
-    @endif
 </div>
 @endsection
 
 @push('scripts')
 <script>
 (function () {
-    function reveal() {
-        var ans = document.getElementById('vbAnswer');
-        var btn = document.getElementById('vbShow');
-        if (!ans || !btn || ans.style.display === 'block') return;
-        ans.style.display = 'block';
-        btn.style.display = 'none';
-    }
+    var cardEl = document.getElementById('vbCard');
+    var undoEl = document.getElementById('vbUndo');
+    var undoForm = document.getElementById('vbUndoForm');
+    var summaryEl = document.getElementById('vbSummary');
+    var undoTimer = null;
+    var busy = false;
+
     function answersVisible() {
         var ans = document.getElementById('vbAnswer');
         return !!ans && ans.style.display === 'block';
     }
+
+    function reveal() {
+        var ans = document.getElementById('vbAnswer');
+        var btn = document.getElementById('vbShow');
+        var grade = document.getElementById('vbGrade');
+        if (!ans || !btn || ans.style.display === 'block') return;
+        ans.style.display = 'block';
+        btn.style.display = 'none';
+        if (grade) grade.hidden = false;
+    }
+
+    function resetReveal() {
+        var ans = document.getElementById('vbAnswer');
+        var show = document.getElementById('vbShow');
+        var grade = document.getElementById('vbGrade');
+        if (ans) ans.style.display = 'none';
+        if (show) show.style.display = '';
+        if (grade) grade.hidden = true;
+    }
+
+    function fill(root, key, value) {
+        var el = root.querySelector('[data-f="' + key + '"]');
+        if (el) el.textContent = value;
+    }
+
+    function renderCard(card) {
+        if (!cardEl || !card) return;
+        fill(cardEl, 'deck', card.deck);
+        fill(cardEl, 'boxlabel', card.box_label);
+        fill(cardEl, 'prompt', card.prompt);
+        fill(cardEl, 'direction', card.direction);
+        fill(cardEl, 'answer', card.answer);
+
+        var ex = cardEl.querySelector('[data-example]');
+        if (ex) {
+            ex.hidden = !card.example;
+            if (card.example) fill(cardEl, 'example', card.example);
+        }
+
+        var dots = cardEl.querySelector('[data-f="dots"]');
+        if (dots) {
+            Array.prototype.forEach.call(dots.children, function (dot, i) {
+                dot.classList.toggle('on', i < card.box);
+            });
+        }
+
+        cardEl.querySelectorAll('form[data-grade]').forEach(function (form) {
+            form.action = card.grade_url;
+        });
+
+        resetReveal();
+    }
+
+    function updateProgress(p) {
+        if (!p) return;
+        var fillEl = document.getElementById('vbProgressFill');
+        var textEl = document.getElementById('vbProgressText');
+        if (fillEl) fillEl.style.width = p.percent + '%';
+        if (textEl) textEl.textContent = p.text;
+    }
+
+    function restartBar() {
+        if (!undoEl) return;
+        var bar = undoEl.querySelector('.lv-undo-bar');
+        if (!bar) return;
+        bar.style.animation = 'none';
+        void bar.offsetWidth;
+        bar.style.animation = '';
+    }
+
+    function hideUndo() {
+        if (!undoEl) return;
+        undoEl.classList.add('is-out');
+        window.setTimeout(function () {
+            undoEl.hidden = true;
+            undoEl.classList.remove('is-out');
+        }, 220);
+    }
+
+    function showUndo(undo) {
+        if (!undoEl || !undo || !undo.review_id) return;
+        undoEl.hidden = false;
+        undoEl.classList.remove('is-out');
+        var front = undoEl.querySelector('[data-undo-front]');
+        var input = undoEl.querySelector('[data-undo-id]');
+        if (front) front.textContent = undo.front || '';
+        if (input) input.value = undo.review_id;
+        restartBar();
+        window.clearTimeout(undoTimer);
+        undoTimer = window.setTimeout(hideUndo, 5000);
+    }
+
+    function setBusy(state) {
+        busy = state;
+        if (!cardEl) return;
+        cardEl.querySelectorAll('form[data-grade] button').forEach(function (btn) {
+            btn.disabled = state;
+        });
+    }
+
+    function paintSummary(summary) {
+        if (!summaryEl || !summary) return;
+        ['total', 'remembered', 'forgotten'].forEach(function (key) {
+            var el = summaryEl.querySelector('[data-sum="' + key + '"]');
+            if (el) el.textContent = summary[key];
+        });
+        var acc = summaryEl.querySelector('[data-sum="accuracy"]');
+        if (acc) acc.textContent = summary.accuracy + '%';
+        var due = summaryEl.querySelector('[data-sum="due_text"]');
+        if (due) due.textContent = summary.due_text || '';
+        var cont = summaryEl.querySelector('[data-sum-continue]');
+        if (cont) cont.hidden = !(summary.due_left > 0);
+        summaryEl.hidden = false;
+        resetReveal();
+    }
+
+    function token(form) {
+        var input = form ? form.querySelector('input[name="_token"]') : null;
+        return input ? input.value : '';
+    }
+
+    function postJson(form) {
+        return fetch(form.action, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRF-TOKEN': token(form),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+            body: new FormData(form),
+        }).then(function (res) {
+            if (!res.ok) throw new Error('request failed');
+            return res.json();
+        });
+    }
+
+    document.addEventListener('submit', function (e) {
+        var form = e.target && e.target.closest ? e.target.closest('form[data-grade]') : null;
+        if (!form || !window.fetch) return;
+        e.preventDefault();
+        if (busy || (summaryEl && !summaryEl.hidden)) return;
+
+        setBusy(true);
+        postJson(form).then(function (data) {
+            setBusy(false);
+            updateProgress(data.progress);
+            showUndo(data.undo);
+            if (data.finished) {
+                paintSummary(data.summary);
+            } else {
+                renderCard(data.next);
+            }
+        }).catch(function () {
+            setBusy(false);
+            form.submit();
+        });
+    }, true);
+
+    document.addEventListener('submit', function (e) {
+        var form = e.target && e.target.closest ? e.target.closest('#vbUndoForm') : null;
+        if (!form || !window.fetch) return;
+        e.preventDefault();
+
+        postJson(form).then(function (data) {
+            if (summaryEl) summaryEl.hidden = true;
+            updateProgress(data.progress);
+            if (data.restored) renderCard(data.restored);
+            window.clearTimeout(undoTimer);
+            hideUndo();
+        }).catch(function () {
+            form.submit();
+        });
+    }, true);
+
+    document.querySelector('[data-sum-continue]')?.addEventListener('click', function () {
+        window.location.reload();
+    });
+
     document.getElementById('vbShow')?.addEventListener('click', reveal);
+
     document.addEventListener('keydown', function (e) {
         if (e.target.matches('input, select, textarea')) return;
+        if (summaryEl && !summaryEl.hidden) return;
         if (e.code === 'Space') { e.preventDefault(); reveal(); return; }
         // Grading only works once the answer is on screen — a stray 1 or 2
         // must never mark a card the user has not seen yet.
@@ -410,13 +641,16 @@
         else if (e.key === '2') { document.getElementById('vbRemembered')?.click(); }
     });
 
-    // Undo bar fades away after its five seconds are up.
-    var undo = document.getElementById('vbUndo');
-    if (undo) {
-        window.setTimeout(function () {
-            undo.classList.add('is-out');
-            window.setTimeout(function () { undo.remove(); }, 220);
-        }, 5000);
+    // Re-hide the server-rendered undo bar after its five seconds.
+    if (undoEl && !undoEl.hidden) {
+        restartBar();
+        undoTimer = window.setTimeout(hideUndo, 5000);
+    }
+
+    if (undoForm) {
+        undoForm.addEventListener('submit', function () {
+            window.clearTimeout(undoTimer);
+        });
     }
 })();
 </script>
