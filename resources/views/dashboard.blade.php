@@ -67,7 +67,9 @@
 
     {{-- Quick Action Hub --}}
     <div class="quick-hub-bar mb-4">
-        @php($featureAccess = app(\App\Support\FeatureAvailability::class))
+        @php
+            $featureAccess = app(\App\Support\FeatureAvailability::class);
+        @endphp
         @if ($featureAccess->isEnabled('tasks', auth()->user()))
             <a href="{{ route('tasks.create') }}" class="quick-hub-btn">
                 <span class="quick-hub-icon bg-primary-subtle text-primary"><i class="bi bi-plus-lg"></i></span>
@@ -160,60 +162,71 @@
     <div class="row g-4 mb-4">
         
         {{-- Pillar 1: Today's Focus & Top Priority Tasks --}}
-        <div class="col-xl-4 col-md-6">
-            <div class="hq-card h-100">
-                <div class="hq-card-header d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-2">
+        <div class="col-xl-4 col-md-6 d-flex">
+            <div class="hq-card hq-focus-card h-100 w-100">
+                <div class="hq-card-header hq-focus-head">
+                    <div class="hq-focus-head-main">
                         <span class="hq-badge-icon bg-danger-subtle text-danger"><i class="bi bi-bullseye"></i></span>
                         <h3 class="hq-title m-0">{{ __("Today's Focus") }}</h3>
+                        @if($todayFocusTasks->isNotEmpty())
+                        <span class="hq-count-pill">{{ app_num($todayFocusTasks->count()) }}</span>
+                        @endif
                     </div>
                     <a href="{{ route('tasks.index') }}" class="hq-link">{{ __('View All') }} <i class="bi bi-arrow-right"></i></a>
                 </div>
-                <div class="hq-card-body p-0">
-                    <div class="focus-task-list">
+                <div class="hq-card-body hq-focus-body p-0">
+                    <div class="focus-task-list" id="focusTaskList">
                         @forelse($todayFocusTasks as $task)
-                        <div class="focus-task-item d-flex align-items-start gap-3 p-3 border-bottom {{ $task->status === 'completed' ? 'task-done' : '' }}" id="dash-task-{{ $task->id }}">
-                            <div class="task-check-wrap pt-1">
-                                <input type="checkbox" class="form-check-input task-inline-check" 
+                        @php
+                            $focusDue = $task->due_date ? \Carbon\Carbon::parse($task->due_date) : null;
+                            $focusLate = $focusDue && $focusDue->isPast() && ! $focusDue->isToday();
+                            $focusCheckTotal = $task->checklistItems->count();
+                            $focusCheckDone = $task->checklistItems->where('completed', true)->count();
+                            $focusPriority = $task->priority ?: 'medium';
+                        @endphp
+                        <div class="focus-task-item {{ $task->status === 'completed' ? 'task-done' : '' }}"
+                             id="dash-task-{{ $task->id }}" data-priority="{{ $focusPriority }}">
+                            <span class="focus-rail" aria-hidden="true"></span>
+                            <div class="task-check-wrap">
+                                <input type="checkbox" class="form-check-input task-inline-check"
                                        id="check-task-{{ $task->id }}"
                                        data-task-id="{{ $task->id }}"
                                        data-url="{{ url('tasks/' . $task->id . '/update-status') }}"
                                        {{ $task->status === 'completed' ? 'checked' : '' }}
                                        onchange="toggleDashTaskStatus(this)">
                             </div>
-                            <div class="flex-grow-1 min-w-0">
-                                <div class="d-flex align-items-center justify-content-between gap-2">
-                                    <div class="task-title-text fw-medium text-truncate" title="{{ $task->title }}" style="cursor:pointer;" onclick="openTaskDrawer({{ $task->id }})">
-                                        {{ $task->title }}
-                                    </div>
-                                    <span class="badge {{ $task->priority === 'high' ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning' }} rounded-pill text-uppercase px-2" style="font-size:10px;">
-                                        {{ $task->priority }}
-                                    </span>
-                                </div>
-                                <div class="d-flex align-items-center gap-2 mt-1 text-muted small flex-wrap">
+                            <div class="focus-task-main">
+                                <div class="focus-task-title" title="{{ $task->title }}" onclick="openTaskDrawer({{ $task->id }})">{{ $task->title }}</div>
+                                @if($task->project || $focusDue || $focusCheckTotal)
+                                <div class="focus-task-meta">
                                     @if($task->project)
-                                    <span class="project-tag"><i class="bi bi-folder2 text-secondary"></i> {{ $task->project->name }}</span>
-                                    @endif
-                                    @if($task->due_date)
-                                    <span class="{{ \Carbon\Carbon::parse($task->due_date)->isPast() && !\Carbon\Carbon::parse($task->due_date)->isToday() ? 'text-danger fw-medium' : '' }}">
-                                        <i class="bi bi-clock"></i> {{ \Carbon\Carbon::parse($task->due_date)->isToday() ? __('Today') : app_date($task->due_date, 'M d') }}
+                                    <span class="focus-chip" title="{{ $task->project->name }}">
+                                        <i class="bi bi-folder2" aria-hidden="true"></i><span class="focus-chip-txt">{{ $task->project->name }}</span>
                                     </span>
                                     @endif
-                                    @if($task->checklistItems->isNotEmpty())
-                                    <span>
-                                        <i class="bi bi-check2-square"></i> {{ $task->checklistItems->where('completed', true)->count() }}/{{ $task->checklistItems->count() }}
+                                    @if($focusDue)
+                                    <span class="focus-chip {{ $focusLate ? 'is-late' : ($focusDue->isToday() ? 'is-today' : '') }}">
+                                        <i class="bi bi-clock" aria-hidden="true"></i>{{ $focusDue->isToday() ? __('Today') : app_date($task->due_date, 'M d') }}
+                                    </span>
+                                    @endif
+                                    @if($focusCheckTotal)
+                                    <span class="focus-chip">
+                                        <i class="bi bi-check2-square" aria-hidden="true"></i>{{ app_num($focusCheckDone) }}/{{ app_num($focusCheckTotal) }}
                                     </span>
                                     @endif
                                 </div>
+                                @endif
                             </div>
-                            <div class="task-actions-wrap pt-1">
-                                <button type="button" class="btn btn-sm btn-light border p-1 text-muted hover-primary" title="{{ __('Start') }}" onclick="startTimerForTask(this, {{ $task->id }}, {{ $task->project_id ?? 'null' }}, '{{ addslashes($task->title) }}')">
-                                    <i class="bi bi-play-fill text-success fs-6"></i>
+                            <div class="focus-task-side">
+                                <span class="focus-priority" data-priority="{{ $focusPriority }}">{{ __(ucfirst($focusPriority)) }}</span>
+                                <button type="button" class="focus-play" title="{{ __('Start') }}" aria-label="{{ __('Start') }}"
+                                        onclick="startTimerForTask(this, {{ $task->id }}, {{ $task->project_id ?? 'null' }}, '{{ addslashes($task->title) }}')">
+                                    <i class="bi bi-play-fill" aria-hidden="true"></i>
                                 </button>
                             </div>
                         </div>
                         @empty
-                        <div class="text-center py-5 px-3">
+                        <div class="focus-empty">
                             <div class="empty-icon-circle mx-auto mb-3 bg-success-subtle text-success">
                                 <i class="bi bi-check2-all fs-4"></i>
                             </div>
@@ -413,7 +426,9 @@
     {{-- Bottom Secondary Feeds: Reminders & Notes --}}
     <div class="row g-4">
 
-        @php($dashFeatureAccess = app(\App\Support\FeatureAvailability::class))
+        @php
+            $dashFeatureAccess = app(\App\Support\FeatureAvailability::class);
+        @endphp
         @if($dashFeatureAccess->isEnabled('reminders', auth()->user()))
         {{-- Upcoming Reminders --}}
         <div class="col-xl-6">
@@ -604,12 +619,135 @@
     .hq-link:hover { text-decoration: underline; color: var(--primary-700); }
 
     /* Focus Tasks & Routines Interactive Checkboxes */
-    .task-inline-check { width: 18px; height: 18px; cursor: pointer; border-radius: 4px; }
-    .focus-task-item { transition: all 0.15s ease; }
-    .focus-task-item:hover { background-color: #f8fafc; }
-    .focus-task-item.task-done .task-title-text { text-decoration: line-through; color: #94a3b8; }
+    .task-inline-check { width: 18px; height: 18px; cursor: pointer; border-radius: 5px; }
     .project-tag { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
     .empty-icon-circle { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+    /* ─── Today's Focus (Pillar 1) ─── */
+    .hq-focus-head {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .hq-focus-head-main { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .hq-count-pill {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 21px; height: 20px; padding: 0 7px;
+        border-radius: 999px; background: #fee2e2; color: #b91c1c;
+        font-size: .68rem; font-weight: 700; line-height: 1;
+    }
+
+    /* Body is the scroll frame: rows never escape the card, however many there are. */
+    .hq-focus-body {
+        position: relative; flex: 1 1 auto; min-height: 0;
+        display: flex; flex-direction: column;
+    }
+    .hq-focus-body::after {
+        content: ''; position: absolute; inset-inline: 0; bottom: 0; height: 26px;
+        background: linear-gradient(to top, #fff 20%, rgba(255, 255, 255, 0));
+        pointer-events: none; opacity: 0; transition: opacity .2s ease;
+    }
+    .hq-focus-body.has-more::after { opacity: 1; }
+
+    .focus-task-list {
+        flex: 1 1 auto; min-height: 0;
+        display: flex; flex-direction: column; gap: 2px;
+        max-height: clamp(288px, 46vh, 452px);
+        padding: 6px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: var(--gray-300) transparent;
+    }
+    .focus-task-list::-webkit-scrollbar { width: 6px; }
+    .focus-task-list::-webkit-scrollbar-track { background: transparent; }
+    .focus-task-list::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 999px; }
+    .focus-task-list::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+    .focus-task-item {
+        position: relative;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: start;
+        column-gap: 10px;
+        padding-block: 10px;
+        padding-inline: 13px 9px;
+        border-radius: 10px;
+        transition: background-color .16s ease;
+    }
+    .focus-task-item:hover { background-color: var(--gray-50); }
+    .focus-task-item.task-done { opacity: .7; }
+
+    .focus-rail {
+        position: absolute; inset-inline-start: 4px; top: 11px; bottom: 11px; width: 3px;
+        border-radius: 999px; background: var(--gray-300); opacity: 0;
+        transition: opacity .16s ease;
+    }
+    .focus-task-item[data-priority="high"] .focus-rail { background: #ef4444; opacity: .8; }
+    .focus-task-item[data-priority="medium"] .focus-rail { background: #f59e0b; opacity: .5; }
+    .focus-task-item:hover .focus-rail { opacity: 1; }
+
+    .focus-task-item .task-check-wrap { padding-top: 1px; }
+    .focus-task-item .task-inline-check { border-color: var(--gray-300); }
+    .focus-task-item .task-inline-check:checked { background-color: var(--success-500); border-color: var(--success-500); }
+
+    .focus-task-main { min-width: 0; }
+    .focus-task-title {
+        min-width: 0;
+        font-size: .845rem; font-weight: 600; line-height: 1.45; color: var(--gray-800);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        cursor: pointer; transition: color .15s ease;
+    }
+    .focus-task-item:hover .focus-task-title { color: var(--primary-700); }
+    .focus-task-item.task-done .focus-task-title { text-decoration: line-through; color: var(--gray-400); }
+
+    .focus-task-meta { display: flex; align-items: center; gap: 5px; margin-top: 5px; min-width: 0; overflow: hidden; }
+    .focus-chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        min-width: 0; max-width: 60%; padding: 1px 7px 2px;
+        border-radius: 6px; background: var(--gray-100); color: var(--gray-600);
+        font-size: .68rem; font-weight: 600; line-height: 1.6; white-space: nowrap;
+    }
+    .focus-chip i { font-size: .7rem; opacity: .8; flex: none; }
+    .focus-chip-txt { overflow: hidden; text-overflow: ellipsis; }
+    .focus-chip.is-late { background: #fef2f2; color: #b91c1c; }
+    .focus-chip.is-today { background: #eff6ff; color: #1d4ed8; }
+
+    .focus-task-side { display: flex; align-items: center; gap: 5px; }
+    .focus-priority {
+        display: inline-flex; align-items: center; height: 19px; padding: 0 7px;
+        border-radius: 999px; white-space: nowrap;
+        font-size: .62rem; font-weight: 700; line-height: 1;
+        background: var(--gray-100); color: var(--gray-600);
+    }
+    .focus-priority[data-priority="high"] { background: #fee2e2; color: #b91c1c; }
+    .focus-priority[data-priority="medium"] { background: #fef3c7; color: #b45309; }
+    .focus-priority[data-priority="low"] { background: #ecfdf5; color: #047857; }
+
+    .focus-play {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 26px; height: 26px; padding: 0;
+        border: 1px solid var(--gray-200); border-radius: 8px;
+        background: #fff; color: var(--success-600);
+        font-size: 1rem; line-height: 1; cursor: pointer; opacity: .62;
+        transition: opacity .15s ease, background-color .15s ease, border-color .15s ease, transform .15s ease;
+    }
+    .focus-task-item:hover .focus-play, .focus-play:focus-visible { opacity: 1; }
+    .focus-play:hover { background: #ecfdf5; border-color: #a7f3d0; transform: translateY(-1px); }
+    .focus-play:disabled { opacity: .45; cursor: default; transform: none; }
+
+    .focus-empty { width: 100%; text-align: center; padding: 34px 20px 30px; }
+
+    @media (max-width: 575.98px) {
+        .focus-task-list { max-height: none; padding: 4px; }
+        .focus-task-item { padding-inline: 12px 6px; }
+        .focus-play { opacity: 1; }
+    }
+    @media (max-width: 420px) {
+        .focus-priority { display: none; }
+    }
+    @media (hover: none) {
+        .focus-play { opacity: 1; }
+        .focus-task-item .focus-rail { opacity: 1; }
+    }
 
     /* ─── Planner Habit & Routine Row Styling ─── */
     .pl-task {
@@ -1025,6 +1163,20 @@
             console.error('Failed to update task status', e);
         }
     }
+
+    // Today's Focus list: keep the bottom fade in sync with the rows still to scroll
+    (function () {
+        var list = document.getElementById('focusTaskList');
+        if (!list) return;
+        var body = list.closest('.hq-focus-body');
+        if (!body) return;
+        var sync = function () {
+            body.classList.toggle('has-more', list.scrollHeight - list.scrollTop - list.clientHeight > 4);
+        };
+        list.addEventListener('scroll', sync, { passive: true });
+        window.addEventListener('resize', sync);
+        sync();
+    })();
 
     // Start timer for a specific task
     async function startTimerForTask(btn, taskId, projectId, taskTitle) {
