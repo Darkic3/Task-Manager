@@ -33,6 +33,36 @@ if (!function_exists('app_date')) {
     }
 }
 
+if (!function_exists('app_relative_date')) {
+    /**
+     * Friendly relative day label (امروز، فردا، ۳ روز دیگر، ۲ روز عقب‌افتاده).
+     */
+    function app_relative_date($date): string
+    {
+        if (!$date) {
+            return '';
+        }
+
+        try {
+            if (!($date instanceof Carbon)) {
+                $date = Carbon::parse($date);
+            }
+
+            $days = (int) today()->startOfDay()->diffInDays($date->copy()->startOfDay(), false);
+
+            return match (true) {
+                $days === 0 => __('Today'),
+                $days === 1 => __('Tomorrow'),
+                $days === -1 => __('Yesterday'),
+                $days > 1 => __(':n days from now', ['n' => app_num($days)]),
+                default => __(':n days overdue', ['n' => app_num(abs($days))]),
+            };
+        } catch (\Throwable $e) {
+            return (string) $date;
+        }
+    }
+}
+
 if (!function_exists('app_datetime')) {
     /**
      * Format date and time based on active locale.

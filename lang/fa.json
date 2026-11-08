@@ -2359,5 +2359,19 @@
     "Get things done daily": "کارهای روزانه را جمع کن",
     "Study & big projects": "مطالعه و پروژه‌های بزرگ",
     "Build discipline & habits": "دیسیپلین و عادت بساز",
-    "Train & log workouts": "تمرین و ثبت ورزش"
+    "Train & log workouts": "تمرین و ثبت ورزش",
+    "This word is already in this deck.": "این لغت قبلاً در همین جعبه ثبت شده است.",
+    "Card updated — progress restarted in Box 1.": "کارت ذخیره شد — پیشرفت از جعبه ۱ شروع می‌شود.",
+    "Card graded.": "کارت ثبت شد.",
+    "Review undone — the card is back in the queue.": "واگرد انجام شد — کارت به صف برگشت.",
+    "That review can no longer be undone.": "دیگر نمی‌توان این مرور را واگرد کرد.",
+    ":n days from now": ":n روز دیگر",
+    ":n days overdue": ":n روز عقب‌افتاده",
+    "Restart this card in Box 1?": "این کارت از جعبه ۱ شروع شود؟",
+    "Changing the word restarts this card in Box 1. Editing only the meaning keeps its progress.": "تغییر خودِ لغت، کارت را از جعبه ۱ شروع می‌کند؛ تغییر تنها معنی، پیشرفت را حفظ می‌کند.",
+    ":count duplicates skipped": ":count تکراری رد شد",
+    ":count cards imported · :skipped duplicates skipped.": ":count کارت ایمپورت شد · :skipped تکراری رد شد.",
+    "Nothing new to import — :count rows are already in this deck.": "چیز جدیدی برای ایمپورت نیست — :count ردیف از قبل در این جعبه هست.",
+    "Nothing new to import — those words are already in this deck.": "چیز جدیدی برای ایمپورت نیست — این لغت‌ها از قبل در این جعبه هستند.",
+    "Duplicate words already in the deck are skipped automatically.": "لغت‌های تکراری که از قبل در جعبه هستند خودکار رد می‌شوند."
 }

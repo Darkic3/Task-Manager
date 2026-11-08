@@ -152,6 +152,7 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
         Route::post('cards/{vocabCard}/reset', [\App\Http\Controllers\VocabCardController::class, 'reset'])->name('cards.reset');
         Route::get('review', [\App\Http\Controllers\VocabReviewController::class, 'index'])->name('review.index');
         Route::post('cards/{vocabCard}/grade', [\App\Http\Controllers\VocabReviewController::class, 'grade'])->name('cards.grade');
+        Route::post('reviews/undo', [\App\Http\Controllers\VocabReviewController::class, 'undo'])->name('reviews.undo');
         Route::get('imports/create', [\App\Http\Controllers\VocabImportController::class, 'create'])->name('imports.create');
         Route::get('imports/template', [\App\Http\Controllers\VocabImportController::class, 'template'])->name('imports.template');
         Route::post('imports/preview', [\App\Http\Controllers\VocabImportController::class, 'preview'])->name('imports.preview');

@@ -123,6 +123,36 @@
 .lv-tip { font-size:.74rem; color:#9ca3af; text-align:center; margin-top:12px; }
 .lv-tip kbd { font-family:inherit; font-size:.66rem; font-weight:800; background:#eef2ff;
     color:#4f46e5; border-radius:5px; padding:1px 7px; }
+/* ── Undo bar (five seconds) ── */
+.lv-undo {
+    position:fixed; bottom:22px; inset-inline:0; margin-inline:auto;
+    width:min(430px, calc(100% - 24px)); z-index:1500;
+    display:flex; align-items:center; gap:9px; overflow:hidden;
+    background:#111827; color:#f9fafb; border-radius:14px;
+    padding:11px 12px 12px; box-shadow:0 18px 34px -14px rgba(15,23,42,.65);
+    animation:lvUndoIn .25s ease;
+}
+.lv-undo > .bi { font-size:1.05rem; color:#a5b4fc; }
+.lv-undo-txt { flex:1; min-width:0; font-size:.78rem; font-weight:700; }
+.lv-undo-txt strong { color:#fff; }
+.lv-undo form { flex:none; margin:0; }
+.lv-undo-btn {
+    border:none; cursor:pointer; border-radius:9px; padding:7px 14px;
+    font-size:.78rem; font-weight:800; color:#312e81; background:#c7d2fe;
+    transition:filter .15s;
+}
+.lv-undo-btn:hover { filter:brightness(1.07); }
+.lv-undo-bar {
+    position:absolute; bottom:0; inset-inline:0; height:3px;
+    background:linear-gradient(90deg,#818cf8,#c4b5fd);
+    transform-origin:left center; animation:lvUndoBar 5s linear forwards;
+}
+[dir="rtl"] .lv-undo-bar { transform-origin:right center; }
+.lv-undo.is-out { animation:lvUndoOut .2s ease forwards; }
+@keyframes lvUndoIn { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+@keyframes lvUndoOut { to { opacity:0; transform:translateY(10px); } }
+@keyframes lvUndoBar { from { transform:scaleX(1); } to { transform:scaleX(0); } }
+
 .lv-empty { text-align:center; padding:56px 20px; background:#fff;
     border:1.5px dashed #d9defc; border-radius:18px; color:#8b8d98; }
 .lv-empty .lv-big { font-size:2.6rem; }
@@ -337,6 +367,21 @@
     <p class="lv-tip">{{ __('Tip: answer honestly — forgot sends the card back to Box 1.') }}<br>
         <kbd>Space</kbd> {{ __('to reveal') }} · <kbd>1</kbd> {{ __('forgot') }} · <kbd>2</kbd> {{ __('remembered') }}</p>
     @endif
+
+    @if(session('vocab_undo'))
+    <div class="lv-undo" id="vbUndo" role="status">
+        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+        <span class="lv-undo-txt">{{ __('Card graded.') }} <strong>{{ \Illuminate\Support\Str::limit(session('vocab_undo')['front'] ?? '', 24) }}</strong></span>
+        <form method="POST" action="{{ route('vocabulary.reviews.undo') }}">
+            @csrf
+            <input type="hidden" name="review_id" value="{{ session('vocab_undo')['review_id'] }}">
+            <input type="hidden" name="deck_id" value="{{ $deckId }}">
+            <input type="hidden" name="dir" value="{{ $dir }}">
+            <button type="submit" class="lv-undo-btn">{{ __('Undo') }}</button>
+        </form>
+        <span class="lv-undo-bar" aria-hidden="true"></span>
+    </div>
+    @endif
 </div>
 @endsection
 
@@ -350,13 +395,29 @@
         ans.style.display = 'block';
         btn.style.display = 'none';
     }
+    function answersVisible() {
+        var ans = document.getElementById('vbAnswer');
+        return !!ans && ans.style.display === 'block';
+    }
     document.getElementById('vbShow')?.addEventListener('click', reveal);
     document.addEventListener('keydown', function (e) {
         if (e.target.matches('input, select, textarea')) return;
-        if (e.code === 'Space') { e.preventDefault(); reveal(); }
-        else if (e.key === '1') { document.getElementById('vbForgot')?.click(); }
+        if (e.code === 'Space') { e.preventDefault(); reveal(); return; }
+        // Grading only works once the answer is on screen — a stray 1 or 2
+        // must never mark a card the user has not seen yet.
+        if (!answersVisible()) return;
+        if (e.key === '1') { document.getElementById('vbForgot')?.click(); }
         else if (e.key === '2') { document.getElementById('vbRemembered')?.click(); }
     });
+
+    // Undo bar fades away after its five seconds are up.
+    var undo = document.getElementById('vbUndo');
+    if (undo) {
+        window.setTimeout(function () {
+            undo.classList.add('is-out');
+            window.setTimeout(function () { undo.remove(); }, 220);
+        }, 5000);
+    }
 })();
 </script>
 @endpush

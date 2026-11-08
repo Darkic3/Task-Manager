@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\VocabCard;
+use App\Models\VocabReview;
+use App\Services\Vocabulary\LeitnerScheduler;
+use App\Services\Vocabulary\VocabReminderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -100,7 +103,7 @@ class VocabReviewController extends Controller
 
         // History log: powers retention stats and is the raw material for
         // any future SM-2/FSRS scheduler. Never backfilled — starts now.
-        $vocabCard->reviews()->create([
+        $review = $vocabCard->reviews()->create([
             'user_id' => Auth::id(),
             'deck_id' => $vocabCard->deck_id,
             'remembered' => (bool) $data['remembered'],
@@ -119,19 +122,91 @@ class VocabReviewController extends Controller
         // Queue drained: if nothing is due anymore, the day's review reminder
         // has served its purpose — complete it automatically.
         if (($queue['items'] ?? []) === [] && Auth::user()->vocabCards()->due()->count() === 0) {
-            \App\Services\Vocabulary\VocabReminderService::completeForUser(Auth::user());
+            VocabReminderService::completeForUser(Auth::user());
         }
 
-        $params = [];
-        if (! empty($data['deck_id']) && $data['deck_id'] !== 'all') {
-            $params['deck_id'] = $data['deck_id'];
+        return redirect()->route('vocabulary.review.index', $this->filterParams($data))
+            ->with('success', $data['remembered'] ? __('Well done — moved forward.') : __('Back to Box 1 for tomorrow.'))
+            // Lets the next page offer a five-second undo for this grade.
+            ->with('vocab_undo', [
+                'review_id' => $review->id,
+                'front' => $vocabCard->front,
+                'box_after' => (int) $vocabCard->box,
+            ]);
+    }
+
+    /**
+     * Revert the last grade: the card returns to its previous box, becomes due
+     * again and goes back to the front of the session queue.
+     */
+    public function undo(Request $request)
+    {
+        $data = $request->validate([
+            'review_id' => 'required|integer',
+            'deck_id' => 'nullable|string',
+            'dir' => 'nullable|string',
+        ]);
+
+        $params = $this->filterParams($data);
+        $review = VocabReview::where('user_id', Auth::id())->find($data['review_id']);
+        $card = $review?->card;
+
+        if (! $review || ! $card || $card->user_id !== Auth::id()
+            || $review->reviewed_at->lt(now()->subMinutes(2))) {
+            return redirect()->route('vocabulary.review.index', $params)
+                ->with('error', __('That review can no longer be undone.'));
         }
-        if (! empty($data['dir']) && $data['dir'] !== self::DIR_FRONT) {
-            $params['dir'] = $data['dir'];
+
+        $review->delete();
+
+        $previous = $card->reviews()->latest('id')->first();
+
+        $card->update([
+            'box' => max(LeitnerScheduler::BOX_MIN, min(LeitnerScheduler::BOX_MAX, (int) $review->box_before)),
+            'next_review_at' => today(),
+            'last_reviewed_at' => $previous?->reviewed_at,
+            'review_count' => max(0, (int) $card->review_count - 1),
+            'success_count' => max(0, (int) $card->success_count - ($review->remembered ? 1 : 0)),
+            'is_mastered' => (int) $review->box_before === LeitnerScheduler::MASTERED_BOX,
+        ]);
+
+        // Put the card back at the front of the running queue, same direction.
+        $queue = session('vocab_review_queue');
+        if (is_array($queue) && isset($queue['items']) && is_array($queue['items'])) {
+            $queue['items'] = array_values(array_filter(
+                $queue['items'],
+                fn ($item) => ($item['id'] ?? null) != $card->id
+            ));
+            array_unshift($queue['items'], ['id' => $card->id, 'reverse' => (bool) $review->reversed]);
+            session(['vocab_review_queue' => $queue]);
         }
+
+        // The card is due again, so today's reminder is no longer finished.
+        VocabReminderService::reopenForUser(Auth::user());
 
         return redirect()->route('vocabulary.review.index', $params)
-            ->with('success', $data['remembered'] ? __('Well done — moved forward.') : __('Back to Box 1 for tomorrow.'));
+            ->with('success', __('Review undone — the card is back in the queue.'));
+    }
+
+    /**
+     * Review-page query params that keep the current deck/direction filter.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, string>
+     */
+    private function filterParams(array $data): array
+    {
+        $params = [];
+
+        if (! empty($data['deck_id']) && $data['deck_id'] !== 'all') {
+            $params['deck_id'] = (string) $data['deck_id'];
+        }
+
+        if (! empty($data['dir']) && $data['dir'] !== self::DIR_FRONT) {
+            $params['dir'] = (string) $data['dir'];
+        }
+
+        return $params;
     }
 
     private function dueQuery(User $user, string $deckId)

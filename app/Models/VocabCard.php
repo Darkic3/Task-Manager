@@ -49,6 +49,51 @@ class VocabCard extends Model
         return $this->hasMany(VocabReview::class, 'vocab_card_id');
     }
 
+    /**
+     * Identity key used to spot duplicate words. Case, Persian/Arabic letter
+     * variants, diacritics, zero-width joiners, punctuation and spacing all
+     * normalise away, so "Apple", "apple." and "apple" are the same word.
+     */
+    public static function normalizeFront(string $front): string
+    {
+        $value = mb_strtolower(trim($front), 'UTF-8');
+        $value = str_replace(
+            ['ي', 'ى', 'ك', 'ة', 'ۀ', 'أ', 'إ', 'آ', 'ؤ', 'ئ', "\u{200C}", "\u{200D}", "\u{0640}"],
+            ['ی', 'ی', 'ک', 'ه', 'ه', 'ا', 'ا', 'ا', 'و', 'ی', ' ', ' ', ' '],
+            $value
+        );
+        // Arabic/Persian diacritics never change which word this is.
+        $value = preg_replace('/[\x{064B}-\x{065F}\x{0670}\x{06D6}-\x{06ED}]/u', '', $value) ?? $value;
+        $value = preg_replace('/[\p{P}\p{S}\s]+/u', ' ', $value) ?? $value;
+
+        return trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
+    }
+
+    public function duplicateKey(): string
+    {
+        return static::normalizeFront((string) $this->front);
+    }
+
+    /**
+     * An existing card in the same deck that already means this word.
+     * Duplicates are per deck: the same word may live in several decks.
+     */
+    public static function findDuplicateInDeck(int $userId, int $deckId, string $front, ?int $ignoreId = null): ?self
+    {
+        $needle = static::normalizeFront($front);
+
+        if ($needle === '') {
+            return null;
+        }
+
+        return static::query()
+            ->where('user_id', $userId)
+            ->where('deck_id', $deckId)
+            ->when($ignoreId !== null, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->get(['id', 'front'])
+            ->first(fn (self $card) => $card->duplicateKey() === $needle);
+    }
+
     public function getIsDueAttribute(): bool
     {
         if ($this->next_review_at === null) {

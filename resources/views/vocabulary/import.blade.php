@@ -136,7 +136,7 @@
             </div>
         </form>
         <p class="lv-hint">{{ __('Columns: word, meaning, example (optional), note (optional). Header row, commas or semicolons — all auto-detected. Max 1000 rows per file.') }}</p>
-        <p class="lv-hint">{{ __('Bulk import skips the daily new-card limit — every imported card starts in Box 1, due today.') }}</p>
+        <p class="lv-hint">{{ __('Bulk import skips the daily new-card limit — every imported card starts in Box 1, due today.') }} {{ __('Duplicate words already in the deck are skipped automatically.') }}</p>
     </section>
 
     @if($preview)
@@ -147,6 +147,7 @@
             <span class="lv-ok-count"><i class="bi bi-check-circle-fill"></i>{{ __(':valid valid rows', ['valid' => app_num(count($preview['rows']))]) }}</span>
             @if(!empty($preview['errors']))<span class="lv-bad-count"><i class="bi bi-exclamation-triangle-fill"></i>{{ __(':invalid invalid', ['invalid' => app_num(count($preview['errors']))]) }}</span>@endif
             @if(!empty($preview['truncated']))<span class="lv-bad-count">{{ __('truncated to 1000 rows') }}</span>@endif
+            @if(!empty($preview['duplicates']))<span class="lv-bad-count"><i class="bi bi-files"></i>{{ __(':count duplicates skipped', ['count' => app_num($preview['duplicates'])]) }}</span>@endif
         </div>
         <div style="overflow-x:auto;">
             <table class="lv-table">

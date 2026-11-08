@@ -133,6 +133,9 @@
 .lv-meta i { color:#a5b4fc; font-size:.78rem; }
 .lv-meta .ex { flex-basis:100%; color:#6b7280; background:#f8fafc; border-radius:8px;
     padding:5px 10px; margin-top:2px; font-style:italic; }
+.lv-meta .lv-next.is-overdue { color:#b91c1c; font-weight:700; }
+.lv-meta .lv-next.is-overdue i { color:#f87171; }
+.lv-edit-hint { flex-basis:100%; margin:0; font-size:.72rem; color:#6b7280; }
 .lv-actions { display:flex; gap:2px; flex:none; }
 .lv-iconbtn {
     width:32px; height:32px; border-radius:9px; border:1px solid transparent;
@@ -253,7 +256,7 @@
             </div>
             <div class="lv-meta">
                 <span><i class="bi bi-collection"></i>{{ $card->deck->name ?? '' }}</span>
-                <span><i class="bi bi-calendar-event"></i>{{ __('Next') }}: {{ $card->next_review_at?->format('Y-m-d') }}</span>
+                <span class="lv-next {{ $card->next_review_at && $card->next_review_at->isBefore(today()) ? 'is-overdue' : '' }}"><i class="bi bi-calendar-event"></i>{{ __('Next') }}: <span title="{{ app_date($card->next_review_at) }}">{{ app_relative_date($card->next_review_at) }}</span></span>
                 <span><i class="bi bi-arrow-repeat"></i>{{ app_num($card->review_count) }} {{ __('reviews') }}</span>
                 @if($card->example)<span class="ex"><i class="bi bi-quote"></i>{{ \Illuminate\Support\Str::limit($card->example, 80) }}</span>@endif
             </div>
@@ -265,13 +268,14 @@
                     <input name="back" class="form-control" value="{{ $card->back }}" required maxlength="2000">
                     <button class="lv-btn lv-btn-primary" type="submit"><i class="bi bi-check-lg"></i>{{ __('Save') }}</button>
                 </form>
+                <p class="lv-edit-hint">{{ __('Changing the word restarts this card in Box 1. Editing only the meaning keeps its progress.') }}</p>
             </div>
         </div>
         <div class="lv-actions">
             <button type="button" class="lv-iconbtn" data-edit-toggle="edit-{{ $card->id }}" title="{{ __('Save') }}"><i class="bi bi-pencil"></i></button>
-            <form method="POST" action="{{ route('vocabulary.cards.reset', $card) }}" style="display:inline;">
+            <form method="POST" action="{{ route('vocabulary.cards.reset', $card) }}" style="display:inline;" onsubmit="return confirm('{{ __('Restart this card in Box 1?') }}')">
                 @csrf
-                <button class="lv-iconbtn" type="submit" title="{{ __('Back to Box 1') }}"><i class="bi bi-arrow-counterclockwise"></i></button>
+                <button class="lv-iconbtn" type="submit" title="{{ __('Back to Box 1') }}" aria-label="{{ __('Back to Box 1') }}"><i class="bi bi-arrow-counterclockwise"></i></button>
             </form>
             <form method="POST" action="{{ route('vocabulary.cards.destroy', $card) }}" style="display:inline;" onsubmit="return confirm('{{ __('Delete this card?') }}')">
                 @csrf @method('DELETE')

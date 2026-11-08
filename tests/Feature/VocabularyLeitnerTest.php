@@ -53,10 +53,17 @@ class VocabularyLeitnerTest extends TestCase
         $card->refresh();
         $this->assertEquals(1, $card->box);
 
-        // Editing the meaning restarts progress.
+        // Editing only the meaning keeps Leitner progress…
         $card->update(['box' => 3, 'review_count' => 5, 'success_count' => 4]);
         $this->put(route('vocabulary.cards.update', $card), [
             'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'میوه سیب',
+        ])->assertRedirect();
+        $this->assertEquals(3, $card->fresh()->box);
+        $this->assertEquals(5, $card->fresh()->review_count);
+
+        // …renaming the word restarts it in Box 1.
+        $this->put(route('vocabulary.cards.update', $card), [
+            'deck_id' => $deck->id, 'front' => 'apples', 'back' => 'میوه سیب',
         ])->assertRedirect();
         $this->assertEquals(1, $card->fresh()->box);
         $this->assertEquals(0, $card->fresh()->review_count);
@@ -381,5 +388,116 @@ class VocabularyLeitnerTest extends TestCase
 
         $this->get(route('vocabulary.review.index'))->assertOk()
             ->assertSee('id="vbTimer"', false);
+    }
+
+    public function test_duplicate_words_are_rejected_within_a_deck(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $other = $user->vocabDecks()->create(['name' => 'TOEFL']);
+
+        $this->post(route('vocabulary.cards.store'), [
+            'deck_id' => $deck->id, 'front' => 'Apple', 'back' => 'سیب',
+        ])->assertRedirect();
+
+        // Case, spacing and punctuation normalise away.
+        $this->post(route('vocabulary.cards.store'), [
+            'deck_id' => $deck->id, 'front' => '  apple. ', 'back' => 'سیب',
+        ])->assertSessionHas('error');
+
+        $this->assertSame(1, VocabCard::where('user_id', $user->id)->count());
+
+        // The same word may live in another deck.
+        $this->post(route('vocabulary.cards.store'), [
+            'deck_id' => $other->id, 'front' => 'apple', 'back' => 'سیب',
+        ])->assertSessionHas('success');
+
+        $this->assertSame(2, VocabCard::where('user_id', $user->id)->count());
+    }
+
+    public function test_import_skips_words_the_deck_already_has(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 1, 'next_review_at' => today(),
+        ]);
+
+        // One existing word, one new word and one repeat inside the file.
+        $csv = "front,back\nApple,سیب\nbook,کتاب\nBOOK,کتاب\n";
+        $file = UploadedFile::fake()->createWithContent('words.csv', $csv);
+
+        $this->post(route('vocabulary.imports.preview'), ['deck_id' => $deck->id, 'file' => $file])
+            ->assertRedirect(route('vocabulary.imports.create'));
+
+        $preview = session('vocab_import_preview');
+        $this->assertCount(1, $preview['rows']);
+        $this->assertSame('book', $preview['rows'][0]['front']);
+        $this->assertSame(2, $preview['duplicates']);
+
+        $this->post(route('vocabulary.imports.confirm'))->assertRedirect();
+
+        $this->assertSame(2, VocabCard::where('user_id', $user->id)->count());
+    }
+
+    public function test_a_grade_can_be_undone(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $card = $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 2, 'next_review_at' => today(),
+            'review_count' => 3, 'success_count' => 2,
+        ]);
+
+        $this->get(route('vocabulary.review.index'))->assertOk();
+
+        $this->post(route('vocabulary.cards.grade', $card), ['remembered' => 1])->assertRedirect();
+
+        $this->assertSame(3, $card->fresh()->box);
+        $undo = session('vocab_undo');
+        $this->assertNotNull($undo);
+
+        $this->post(route('vocabulary.reviews.undo'), [
+            'review_id' => $undo['review_id'], 'deck_id' => 'all', 'dir' => 'front',
+        ])->assertRedirect();
+
+        $card->refresh();
+        $this->assertSame(2, $card->box);
+        $this->assertSame(3, $card->review_count);
+        $this->assertSame(2, $card->success_count);
+        $this->assertTrue($card->is_due);
+        $this->assertSame(0, VocabReview::where('user_id', $user->id)->count());
+
+        // Back at the front of the running queue.
+        $queue = session('vocab_review_queue');
+        $this->assertSame($card->id, $queue['items'][0]['id']);
+    }
+
+    public function test_undo_is_rejected_after_its_window(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $deck = $user->vocabDecks()->create(['name' => 'English']);
+        $card = $user->vocabCards()->create([
+            'deck_id' => $deck->id, 'front' => 'apple', 'back' => 'سیب',
+            'box' => 2, 'next_review_at' => today(),
+        ]);
+
+        $review = VocabReview::create([
+            'user_id' => $user->id, 'vocab_card_id' => $card->id, 'deck_id' => $deck->id,
+            'remembered' => true, 'box_before' => 2, 'box_after' => 3,
+            'reversed' => false, 'reviewed_at' => now()->subMinutes(10),
+        ]);
+
+        $this->post(route('vocabulary.reviews.undo'), ['review_id' => $review->id])
+            ->assertSessionHas('error');
+
+        $this->assertSame(1, VocabReview::where('user_id', $user->id)->count());
+        $this->assertSame(2, $card->fresh()->box);
     }
 }

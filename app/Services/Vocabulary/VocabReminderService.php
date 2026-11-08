@@ -63,6 +63,31 @@ class VocabReminderService
     }
 
     /**
+     * Re-open today's reminder after an undone review puts a card back in the
+     * queue — the day would otherwise look finished with work still due.
+     */
+    public static function reopenForUser(User $user): void
+    {
+        if (! $user->vocab_remind_enabled) {
+            return;
+        }
+
+        if ($user->vocabCards()->due()->count() === 0) {
+            return;
+        }
+
+        Reminder::where('user_id', $user->id)
+            ->where('category', self::CATEGORY)
+            ->whereDate('date', today()->toDateString())
+            ->where('is_completed', true)
+            ->get()
+            ->each(fn (Reminder $reminder) => $reminder->update([
+                'is_completed' => false,
+                'completed_at' => null,
+            ]));
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private static function payload(int $due): array

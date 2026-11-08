@@ -62,16 +62,22 @@ class VocabCardController extends Controller
 
     public function store(Request $request)
     {
-        $limit = $request->user()->vocabDailyLimit();
-        if (static::newTodayCount($request->user()) >= $limit) {
-            return back()->with('error', __('Daily new-card limit reached (:limit/day).', ['limit' => $limit]));
+        $data = $request->validate($this->rules());
+
+        $user = $request->user();
+
+        if (VocabCard::findDuplicateInDeck((int) $user->id, (int) $data['deck_id'], (string) $data['front'])) {
+            return back()->withInput()->with('error', __('This word is already in this deck.'));
         }
 
-        $data = $request->validate($this->rules());
+        $limit = $user->vocabDailyLimit();
+        if (static::newTodayCount($user) >= $limit) {
+            return back()->withInput()->with('error', __('Daily new-card limit reached (:limit/day).', ['limit' => $limit]));
+        }
 
         $initial = LeitnerScheduler::initialState();
 
-        Auth::user()->vocabCards()->create($data + $initial);
+        $user->vocabCards()->create($data + $initial);
 
         return back()->with('success', __('Card added.'));
     }
@@ -82,16 +88,31 @@ class VocabCardController extends Controller
 
         $data = $request->validate($this->rules());
 
-        $reset = $vocabCard->front !== $data['front'] || $vocabCard->back !== $data['back'];
+        $duplicate = VocabCard::findDuplicateInDeck(
+            (int) $vocabCard->user_id,
+            (int) $data['deck_id'],
+            (string) $data['front'],
+            (int) $vocabCard->id
+        );
+
+        if ($duplicate) {
+            return back()->withInput()->with('error', __('This word is already in this deck.'));
+        }
+
+        // Only renaming the word restarts its progress — fixing a typo in the
+        // meaning must never throw a mastered card back to Box 1.
+        $reset = VocabCard::normalizeFront((string) $vocabCard->front)
+            !== VocabCard::normalizeFront((string) $data['front']);
 
         $vocabCard->update($data);
 
-        // Edited word/meaning restarts Leitner progress for that card.
         if ($reset) {
             $vocabCard->resetProgress();
         }
 
-        return back()->with('success', __('Card updated.'));
+        return back()->with('success', $reset
+            ? __('Card updated — progress restarted in Box 1.')
+            : __('Card updated.'));
     }
 
     public function destroy(VocabCard $vocabCard)
