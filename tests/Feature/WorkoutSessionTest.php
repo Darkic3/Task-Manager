@@ -346,6 +346,92 @@ class WorkoutSessionTest extends TestCase
         $this->assertStringNotContainsString('<span class="pr-badge"', $html);
     }
 
+    public function test_more_reps_at_the_same_weight_is_a_record(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Bench Press', 'normalized_name' => 'bench press']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $user->id);
+        $day = $plan->days()->first();
+        $workoutExercise = $day->exercises()->first();
+
+        // Baseline: 10kg × 8 is not a record yet (nothing to beat).
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-20']);
+        $baseline = WorkoutSession::latest('id')->firstOrFail();
+        $this->actingAs($user)->postJson(route('workouts.sessions.sets.store', $baseline), [
+            'workout_exercise_id' => $workoutExercise->id, 'set_number' => 1, 'reps' => 8, 'weight' => 10,
+        ])->assertOk()->assertJsonPath('is_pr', false);
+
+        // Same weight, two more reps → rep record at that weight.
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-27']);
+        $session = WorkoutSession::latest('id')->firstOrFail();
+        $this->actingAs($user)->postJson(route('workouts.sessions.sets.store', $session), [
+            'workout_exercise_id' => $workoutExercise->id, 'set_number' => 1, 'reps' => 10, 'weight' => 10,
+        ])->assertOk()
+            ->assertJsonPath('is_pr', true)
+            ->assertJsonPath('pr_kind', 'reps')
+            ->assertJsonPath('previous_best_reps_at_weight', 8);
+
+        // A second set of the same session cannot claim the same record again.
+        $this->actingAs($user)->postJson(route('workouts.sessions.sets.store', $session), [
+            'workout_exercise_id' => $workoutExercise->id, 'set_number' => 2, 'reps' => 8, 'weight' => 10,
+        ])->assertOk()->assertJsonPath('is_pr', false);
+
+        // Matching the record exactly on a later day is not a new PR either.
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-10-04']);
+        $later = WorkoutSession::latest('id')->firstOrFail();
+        $this->actingAs($user)->postJson(route('workouts.sessions.sets.store', $later), [
+            'workout_exercise_id' => $workoutExercise->id, 'set_number' => 1, 'reps' => 10, 'weight' => 10,
+        ])->assertOk()->assertJsonPath('is_pr', false);
+
+        $this->assertTrue($session->exerciseLogs()->firstOrFail()->setLogs()->where('set_number', 1)->firstOrFail()->fresh()->is_pr);
+    }
+
+    public function test_a_heavier_load_is_a_weight_record_even_with_fewer_reps(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Squat', 'normalized_name' => 'squat']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $user->id);
+        $day = $plan->days()->first();
+        $workoutExercise = $day->exercises()->first();
+
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-20']);
+        $baseline = WorkoutSession::latest('id')->firstOrFail();
+        $this->actingAs($user)->postJson(route('workouts.sessions.sets.store', $baseline), [
+            'workout_exercise_id' => $workoutExercise->id, 'set_number' => 1, 'reps' => 10, 'weight' => 60,
+        ])->assertOk()->assertJsonPath('is_pr', false);
+
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-27']);
+        $session = WorkoutSession::latest('id')->firstOrFail();
+        $this->actingAs($user)->postJson(route('workouts.sessions.sets.store', $session), [
+            'workout_exercise_id' => $workoutExercise->id, 'set_number' => 1, 'reps' => 5, 'weight' => 65,
+        ])->assertOk()
+            ->assertJsonPath('is_pr', true)
+            ->assertJsonPath('pr_kind', 'weight');
+    }
+
+    public function test_bodyweight_movements_track_rep_records(): void
+    {
+        $user = User::factory()->create();
+        $exercise = Exercise::create(['user_id' => $user->id, 'name' => 'Push-up', 'normalized_name' => 'push-up']);
+        $plan = app(WorkoutPlanService::class)->save($this->planPayload($exercise->id), $user->id);
+        $day = $plan->days()->first();
+        $workoutExercise = $day->exercises()->first();
+
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-20']);
+        $baseline = WorkoutSession::latest('id')->firstOrFail();
+        $this->actingAs($user)->postJson(route('workouts.sessions.sets.store', $baseline), [
+            'workout_exercise_id' => $workoutExercise->id, 'set_number' => 1, 'reps' => 20,
+        ])->assertOk()->assertJsonPath('is_pr', false);
+
+        $this->actingAs($user)->post(route('workouts.sessions.start', $day), ['date' => '2026-09-27']);
+        $session = WorkoutSession::latest('id')->firstOrFail();
+        $this->actingAs($user)->postJson(route('workouts.sessions.sets.store', $session), [
+            'workout_exercise_id' => $workoutExercise->id, 'set_number' => 1, 'reps' => 24,
+        ])->assertOk()
+            ->assertJsonPath('is_pr', true)
+            ->assertJsonPath('pr_kind', 'reps');
+    }
+
     private function planPayload(int $exerciseId): array
     {
         return [

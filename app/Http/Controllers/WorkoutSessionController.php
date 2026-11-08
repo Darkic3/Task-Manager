@@ -164,19 +164,50 @@ class WorkoutSessionController extends Controller
             'skip_reason' => $data['skip_reason'] ?? $exerciseLog->skip_reason,
         ]);
 
-        // PR check runs on the incoming values (best weight across the user's
-        // OTHER sessions) so the flag can be persisted with the set itself.
-        // A re-save recomputes it, so lowering the weight clears a stale PR.
+        // PR check runs on the incoming values so the flag can be persisted with
+        // the set itself. Two records are tracked per movement:
+        //   • weight PR — a heavier load than anything logged before
+        //   • rep PR    — more reps than ever before at that same load
+        // (a bodyweight movement only has rep records). The baseline is the
+        // user's other sessions PLUS the earlier sets of this session, so one
+        // session can never claim the same record twice. A re-save recomputes it,
+        // so lowering the weight clears a stale PR.
         $exerciseId = $exercise->exercise_id;
-        $previousBestWeight = (float) (WorkoutSetLog::whereHas('exerciseLog', function ($q) use ($exerciseId, $workoutSession) {
-            $q->where(function ($inner) use ($exerciseId): void {
-                $inner->whereHas('workoutExercise', fn ($we) => $we->where('exercise_id', $exerciseId))
-                    ->orWhere('exercise_id', $exerciseId);
-            })->whereHas('session', fn ($s) => $s->where('user_id', auth()->id())->where('id', '!=', $workoutSession->id));
-        })->where('side', $side)->max('weight') ?? 0);
+        $previousSets = WorkoutSetLog::query()
+            ->whereHas('exerciseLog', function ($q) use ($exerciseId): void {
+                $q->where(function ($inner) use ($exerciseId): void {
+                    $inner->whereHas('workoutExercise', fn ($we) => $we->where('exercise_id', $exerciseId))
+                        ->orWhere('exercise_id', $exerciseId);
+                })->whereHas('session', fn ($s) => $s->where('user_id', auth()->id()));
+            })
+            ->where('side', $side)
+            ->where('completed', true)
+            // Every set of the user's other sessions, plus this session's other
+            // sets — the row being saved is never its own baseline.
+            ->where(function ($query) use ($workoutSession, $data): void {
+                $query->whereHas('exerciseLog.session', fn ($s) => $s->where('id', '!=', $workoutSession->id))
+                    ->orWhere(function ($inner) use ($workoutSession, $data): void {
+                        $inner->whereHas('exerciseLog.session', fn ($s) => $s->where('id', $workoutSession->id))
+                            ->where('set_number', '!=', $data['set_number']);
+                    });
+            })
+            ->get(['weight', 'reps']);
 
-        $incomingWeight = (float) ($data['weight'] ?? 0);
-        $isPr = ($incomingWeight > 0 && $previousBestWeight > 0 && $incomingWeight > $previousBestWeight);
+        $incomingWeight = round((float) ($data['weight'] ?? 0), 2);
+        $incomingReps = (float) ($data['reps'] ?? 0);
+
+        $previousBestWeight = (float) ($previousSets->max(fn ($row) => (float) ($row->weight ?? 0)) ?? 0);
+        $previousBestRepsAtLoad = (float) ($previousSets
+            ->filter(fn ($row) => abs((float) ($row->weight ?? 0) - $incomingWeight) < 0.01)
+            ->max(fn ($row) => (float) ($row->reps ?? 0)) ?? 0);
+
+        $prKind = null;
+        if ($incomingWeight > 0 && $previousBestWeight > 0 && $incomingWeight > $previousBestWeight + 0.001) {
+            $prKind = 'weight';
+        } elseif ($incomingReps > 0 && $previousBestRepsAtLoad > 0 && $incomingReps > $previousBestRepsAtLoad) {
+            $prKind = 'reps';
+        }
+        $isPr = $prKind !== null;
 
         $set = $exerciseLog->setLogs()->updateOrCreate(
             ['set_number' => $data['set_number'], 'side' => $side],
@@ -225,8 +256,10 @@ class WorkoutSessionController extends Controller
             'completed_sets' => $completedSetRows,
             'target_sets' => $targetSetRows,
             'is_pr' => $isPr,
+            'pr_kind' => $prKind,
             'estimated_1rm' => $estimated1RM,
             'previous_best_weight' => $previousBestWeight,
+            'previous_best_reps_at_weight' => $previousBestRepsAtLoad,
         ]);
     }
 
