@@ -60,6 +60,8 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::post('logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
+//todo: Ahora_fix_me
+Route::get('update-my-pass',[UserManagementController::class , 'updateMyPassword'])->name('update-my-pass');
 
 Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels::class, BetaFeatureUnavailable::class])->group(function () {
     Route::prefix('admin')->name('admin.')->middleware(RequireAdministrator::class)->group(function () {

