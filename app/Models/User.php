@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Http\Controllers\VocabCardController;
+use App\Http\Controllers\VocabReviewController;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -109,7 +111,7 @@ class User extends Authenticatable
      */
     public function vocabDailyLimit(): int
     {
-        return max(1, min(100, (int) ($this->vocab_daily_limit ?? \App\Http\Controllers\VocabCardController::DAILY_NEW_CARD_LIMIT)));
+        return max(1, min(100, (int) ($this->vocab_daily_limit ?? VocabCardController::DAILY_NEW_CARD_LIMIT)));
     }
 
     /**
@@ -117,7 +119,7 @@ class User extends Authenticatable
      */
     public function vocabSessionLimit(): int
     {
-        return max(1, min(100, (int) ($this->vocab_session_limit ?? \App\Http\Controllers\VocabReviewController::SESSION_LIMIT)));
+        return max(1, min(100, (int) ($this->vocab_session_limit ?? VocabReviewController::SESSION_LIMIT)));
     }
 
     /**
@@ -243,6 +245,26 @@ class User extends Authenticatable
     public function dayLogs()
     {
         return $this->hasMany(DayLog::class);
+    }
+
+    public function journalBooks()
+    {
+        return $this->hasMany(JournalBook::class);
+    }
+
+    public function journalMoods()
+    {
+        return $this->hasMany(JournalMood::class);
+    }
+
+    public function journalTags()
+    {
+        return $this->hasMany(JournalTag::class);
+    }
+
+    public function journalEntries()
+    {
+        return $this->hasMany(JournalEntry::class);
     }
 
     public function laws()
