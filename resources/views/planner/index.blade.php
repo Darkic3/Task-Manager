@@ -3080,6 +3080,29 @@ body:has(.pl-task-menu.is-open)::before {
         </div>
         </div>{{-- /Main work grid --}}
 
+        {{-- Journal (daily diary) quick access --}}
+        <div class="pl-section" style="margin-bottom:12px;">
+            <div class="pl-section-head">
+                <span class="pl-section-title"><i class="bi bi-book me-1"></i>{{ __('Journal') }}</span>
+                <span class="pl-section-count">{{ app_num($journalTodayCount ?? 0) }}</span>
+            </div>
+            <div class="pl-section-body d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                <div class="small text-muted">
+                    @if (($journalTodayLatest ?? null))
+                        {{ __('Latest:') }} {{ $journalTodayLatest->title ?: __('Untitled entry') }}
+                    @else
+                        {{ __('No entry today yet.') }}
+                    @endif
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ route('journal.create', ['date' => $date->toDateString()]) }}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-plus-lg"></i> {{ __('Write today') }}
+                    </a>
+                    <a href="{{ route('journal.index') }}" class="btn btn-sm btn-outline-secondary">{{ __('Open journal') }}</a>
+                </div>
+            </div>
+        </div>
+
         {{-- LOWER: Day Log (wide) + side rail (workout, secondary) --}}
         <div class="pl-duo pl-lower-grid">
         {{-- ── Day Log (دفتر روز) — persisted via the day-logs API. --}}

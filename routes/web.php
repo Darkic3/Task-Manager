@@ -30,6 +30,7 @@ use App\Http\Controllers\PlannerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\DayLogController;
+use App\Http\Controllers\JournalController;
 use App\Http\Controllers\LawController;
 use App\Http\Controllers\LawLinkController;
 use App\Http\Controllers\ReminderController;
@@ -281,6 +282,16 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
     Route::post('/planner/day-logs/merge', [DayLogController::class, 'merge'])->name('day-logs.merge');
     Route::patch('/planner/day-logs/{dayLog}', [DayLogController::class, 'update'])->name('day-logs.update');
     Route::delete('/planner/day-logs/{dayLog}', [DayLogController::class, 'destroy'])->name('day-logs.destroy');
+
+    // Journal (daily diary)
+    Route::get('/journal', [JournalController::class, 'index'])->name('journal.index');
+    Route::get('/journal/create', [JournalController::class, 'create'])->name('journal.create');
+    Route::post('/journal', [JournalController::class, 'store'])->name('journal.store');
+    Route::get('/journal/calendar', [JournalController::class, 'calendar'])->name('journal.calendar');
+    Route::get('/journal/{journalEntry}', [JournalController::class, 'show'])->name('journal.show');
+    Route::get('/journal/{journalEntry}/edit', [JournalController::class, 'edit'])->name('journal.edit');
+    Route::patch('/journal/{journalEntry}', [JournalController::class, 'update'])->name('journal.update');
+    Route::delete('/journal/{journalEntry}', [JournalController::class, 'destroy'])->name('journal.destroy');
 
     // Time tracking
     Route::get('/time/active', [TimeTrackingController::class, 'active'])->name('time.active');

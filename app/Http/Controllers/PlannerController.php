@@ -149,6 +149,13 @@ class PlannerController extends Controller
                 ->get(['id', 'name']),
             'backlogProjects' => $this->backlogProjectOptions($user->id),
             'onboarding' => $this->onboardingSnapshot($user),
+            'journalTodayCount' => \App\Models\JournalEntry::where('user_id', $user->id)
+                ->whereDate('entry_date', $selected->toDateString())
+                ->count(),
+            'journalTodayLatest' => \App\Models\JournalEntry::where('user_id', $user->id)
+                ->whereDate('entry_date', $selected->toDateString())
+                ->latest('id')
+                ->first(['id', 'title']),
         ]);
     }
 

@@ -89,7 +89,7 @@ return new class extends Migration
             $table->primary(['journal_entry_id', 'journal_mood_id']);
         });
 
-        Schema::create('journal_entry_link', function (Blueprint $table) {
+        Schema::create('journal_entry_links', function (Blueprint $table) {
             $table->id();
             $table->foreignId('journal_entry_id')->constrained('journal_entries')->cascadeOnDelete();
             $table->string('linkable_type', 191);
@@ -117,7 +117,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('journal_entry_revisions');
-        Schema::dropIfExists('journal_entry_link');
+        Schema::dropIfExists('journal_entry_links');
         Schema::dropIfExists('journal_entry_mood');
         Schema::dropIfExists('journal_entry_tag');
         Schema::dropIfExists('journal_entries');
