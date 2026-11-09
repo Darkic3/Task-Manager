@@ -42,8 +42,72 @@
             @endif
         </header>
 
-        <div class="journal-content">
+        <div class="journal-content mb-3">
             {!! \App\Support\MarkdownRenderer::toHtml((string) $entry->content) !!}
+        </div>
+
+        @if ($entry->moods->count())
+            <div class="mb-3">
+                @foreach ($entry->moods as $mood)
+                    <span class="badge" style="background-color: {{ $mood->color ?? '#6c757d' }};">
+                        {{ $mood->name }} ({{ $mood->pivot->intensity }}/5)
+                    </span>
+                @endforeach
+            </div>
+        @endif
+
+        @if ($entry->links->count())
+            <div class="mb-3">
+                <h5>{{ __('Linked to') }}</h5>
+                <ul class="list-group">
+                    @foreach ($entry->links as $link)
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                <span class="badge bg-secondary">{{ class_basename($link->linkable_type) }}</span>
+                                {{ $link->linkable?->title ?? ('#'.$link->linkable_id) }}
+                                @if ($link->label) — {{ $link->label }} @endif
+                            </span>
+                            <form method="POST" action="{{ route('journal.links.destroy', [$entry, $link]) }}" style="display:inline" onsubmit="return confirm('{{ __('Remove link?') }}');">
+                                @csrf @method('DELETE')
+                                <button class="btn btn-sm btn-outline-danger">{{ __('Remove') }}</button>
+                            </form>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        <div class="mb-4">
+            <h5>{{ __('Add link') }}</h5>
+            <form method="POST" action="{{ route('journal.links.store', $entry) }}" class="row g-2">
+                @csrf
+                <div class="col-md-3">
+                    <select name="linkable_type" class="form-select" required>
+                        <option value="task">{{ __('Task') }}</option>
+                        <option value="routine">{{ __('Routine') }}</option>
+                        <option value="law">{{ __('Law') }}</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <select name="linkable_id" class="form-select" required>
+                        <optgroup label="{{ __('Tasks') }}">
+                            @foreach ($tasks as $t)<option value="{{ $t->id }}">{{ $t->title }}</option>@endforeach
+                        </optgroup>
+                        <optgroup label="{{ __('Routines') }}">
+                            @foreach ($routines as $r)<option value="{{ $r->id }}">{{ $r->title }}</option>@endforeach
+                        </optgroup>
+                        <optgroup label="{{ __('Laws') }}">
+                            @foreach ($laws as $l)<option value="{{ $l->id }}">{{ $l->title }}</option>@endforeach
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <input type="text" name="label" class="form-control" placeholder="{{ __('Label') }}">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100">{{ __('Add') }}</button>
+                </div>
+            </form>
         </div>
     </article>
 
@@ -56,4 +120,32 @@
         </form>
     </div>
 </div>
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const typeSel = document.querySelector('select[name="linkable_type"]');
+    const idSel = document.querySelector('select[name="linkable_id"]');
+    if (!typeSel || !idSel) return;
+    function filter() {
+        const type = typeSel.value;
+        Array.from(idSel.querySelectorAll('optgroup')).forEach(g => {
+            const label = g.getAttribute('label').toLowerCase();
+            const match = (type === 'task' && label.includes('task')) ||
+                          (type === 'routine' && label.includes('routine')) ||
+                          (type === 'law' && label.includes('law'));
+            g.hidden = !match;
+        });
+        // reset selection if hidden
+        const selected = idSel.options[idSel.selectedIndex];
+        if (selected && selected.parentElement && selected.parentElement.hidden) {
+            const firstVisible = idSel.querySelector('optgroup:not([hidden]) option');
+            if (firstVisible) idSel.value = firstVisible.value;
+        }
+    }
+    typeSel.addEventListener('change', filter);
+    filter();
+});
+</script>
+@endpush
+
 @endsection

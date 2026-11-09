@@ -6,9 +6,14 @@
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0">{{ __('Journal') }}</h1>
-        <a href="{{ route('journal.create') }}" class="btn btn-primary">
-            <i class="bi bi-plus-lg"></i> {{ __('New entry') }}
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{{ route('journal.books.index') }}" class="btn btn-outline-secondary btn-sm">{{ __('Books') }}</a>
+            <a href="{{ route('journal.tags.index') }}" class="btn btn-outline-secondary btn-sm">{{ __('Tags') }}</a>
+            <a href="{{ route('journal.moods.index') }}" class="btn btn-outline-secondary btn-sm">{{ __('Moods') }}</a>
+            <a href="{{ route('journal.create') }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg"></i> {{ __('New entry') }}
+            </a>
+        </div>
     </div>
 
     <form method="GET" action="{{ route('journal.index') }}" class="row g-2 mb-3">

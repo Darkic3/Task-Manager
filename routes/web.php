@@ -31,6 +31,9 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\DayLogController;
 use App\Http\Controllers\JournalController;
+use App\Http\Controllers\JournalBookController;
+use App\Http\Controllers\JournalTagController;
+use App\Http\Controllers\JournalMoodController;
 use App\Http\Controllers\LawController;
 use App\Http\Controllers\LawLinkController;
 use App\Http\Controllers\ReminderController;
@@ -292,6 +295,12 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
     Route::get('/journal/{journalEntry}/edit', [JournalController::class, 'edit'])->name('journal.edit');
     Route::patch('/journal/{journalEntry}', [JournalController::class, 'update'])->name('journal.update');
     Route::delete('/journal/{journalEntry}', [JournalController::class, 'destroy'])->name('journal.destroy');
+    Route::post('/journal/{journalEntry}/links', [JournalController::class, 'storeLink'])->name('journal.links.store');
+    Route::delete('/journal/{journalEntry}/links/{link}', [JournalController::class, 'destroyLink'])->name('journal.links.destroy');
+
+    Route::resource('journal-books', JournalBookController::class)->names('journal.books');
+    Route::resource('journal-tags', JournalTagController::class)->names('journal.tags');
+    Route::resource('journal-moods', JournalMoodController::class)->names('journal.moods');
 
     // Time tracking
     Route::get('/time/active', [TimeTrackingController::class, 'active'])->name('time.active');

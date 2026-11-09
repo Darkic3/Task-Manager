@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\JournalBook;
 use App\Models\JournalEntry;
+use App\Models\JournalEntryLink;
 use App\Models\JournalMood;
 use App\Models\JournalTag;
 use Illuminate\Http\Request;
@@ -86,9 +87,16 @@ class JournalController extends Controller
     public function show(JournalEntry $journalEntry)
     {
         $this->authorizeEntry($journalEntry);
-        $journalEntry->load(['book', 'tags', 'moods', 'links']);
+        $journalEntry->load(['book', 'tags', 'moods', 'links.linkable']);
 
-        return view('journal.show', ['entry' => $journalEntry]);
+        $user = Auth::user();
+
+        return view('journal.show', [
+            'entry' => $journalEntry,
+            'tasks' => $user->tasks()->orderBy('title')->limit(100)->get(['id', 'title']),
+            'routines' => $user->routines()->orderBy('title')->limit(100)->get(['id', 'title']),
+            'laws' => $user->laws()->orderBy('title')->limit(100)->get(['id', 'title']),
+        ]);
     }
 
     public function edit(JournalEntry $journalEntry)
@@ -127,6 +135,42 @@ class JournalController extends Controller
         $journalEntry->delete();
 
         return redirect()->route('journal.index')->with('status', __('Journal entry deleted.'));
+    }
+
+    public function storeLink(Request $request, JournalEntry $journalEntry)
+    {
+        $this->authorizeEntry($journalEntry);
+        $data = $request->validate([
+            'linkable_type' => ['required', 'string', 'in:task,routine,law'],
+            'linkable_id' => ['required', 'integer', 'min:1'],
+            'label' => ['nullable', 'string', 'max:191'],
+        ]);
+
+        $map = [
+            'task' => \App\Models\Task::class,
+            'routine' => \App\Models\Routine::class,
+            'law' => \App\Models\Law::class,
+        ];
+        $class = $map[$data['linkable_type']];
+        $model = $class::where('user_id', Auth::id())->find($data['linkable_id']);
+        abort_if(! $model, 404);
+
+        $journalEntry->links()->create([
+            'linkable_type' => $class,
+            'linkable_id' => $model->id,
+            'label' => $data['label'] ?? null,
+        ]);
+
+        return redirect()->route('journal.show', $journalEntry)->with('status', __('Link added.'));
+    }
+
+    public function destroyLink(JournalEntry $journalEntry, JournalEntryLink $link)
+    {
+        $this->authorizeEntry($journalEntry);
+        abort_if($link->journal_entry_id !== $journalEntry->id, 403);
+        $link->delete();
+
+        return redirect()->route('journal.show', $journalEntry)->with('status', __('Link removed.'));
     }
 
     public function calendar(Request $request)
