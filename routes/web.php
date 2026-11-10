@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\FeatureManagementController;
+use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\AiActionController;
 use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\AiPlanController;
@@ -10,44 +12,50 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
-use App\Http\Controllers\Admin\FeatureManagementController;
-use App\Http\Controllers\Admin\UserManagementController;
-use App\Http\Middleware\BetaFeatureUnavailable;
-use App\Http\Middleware\EnsureAccountIsActive;
-use App\Http\Middleware\EnsureOwnedRouteModels;
-use App\Http\Middleware\RequireAdministrator;
 use App\Http\Controllers\ChecklistItemController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DayLogController;
+use App\Http\Controllers\ExerciseController;
 use App\Http\Controllers\FileController;
+use App\Http\Controllers\JournalBookController;
+use App\Http\Controllers\JournalController;
+use App\Http\Controllers\JournalMoodController;
+use App\Http\Controllers\JournalTagController;
+use App\Http\Controllers\LawController;
+use App\Http\Controllers\LawLinkController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MailController;
-use App\Http\Controllers\NoteController;
+use App\Http\Controllers\NoteAiController;
 use App\Http\Controllers\NotebookController;
+use App\Http\Controllers\NoteCollectionController;
+use App\Http\Controllers\NoteController;
 use App\Http\Controllers\NoteExportController;
 use App\Http\Controllers\NoteLabelController;
 use App\Http\Controllers\NoteLinkController;
 use App\Http\Controllers\NoteQuickCaptureController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PlannerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
-use App\Http\Controllers\DayLogController;
-use App\Http\Controllers\JournalController;
-use App\Http\Controllers\JournalBookController;
-use App\Http\Controllers\JournalTagController;
-use App\Http\Controllers\JournalMoodController;
-use App\Http\Controllers\LawController;
-use App\Http\Controllers\LawLinkController;
 use App\Http\Controllers\ReminderController;
+use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TimeTrackingController;
 use App\Http\Controllers\TrackController;
-use App\Http\Controllers\ExerciseController;
+use App\Http\Controllers\VocabCardController;
+use App\Http\Controllers\VocabDeckController;
+use App\Http\Controllers\VocabImportController;
+use App\Http\Controllers\VocabReviewController;
 use App\Http\Controllers\WorkoutDayController;
-use App\Http\Controllers\WorkoutPlanController;
-use App\Http\Controllers\WorkoutSessionController;
-use App\Http\Controllers\WorkoutReportController;
 use App\Http\Controllers\WorkoutImportController;
-use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\WorkoutPlanController;
+use App\Http\Controllers\WorkoutReportController;
+use App\Http\Controllers\WorkoutSessionController;
+use App\Http\Middleware\BetaFeatureUnavailable;
+use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsureOwnedRouteModels;
+use App\Http\Middleware\RequireAdministrator;
 use Illuminate\Support\Facades\Route;
 
 Route::get('locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
@@ -64,8 +72,8 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::post('logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
-//todo: Ahora_fix_me
-Route::get('update-my-pass',[UserManagementController::class , 'updateMyPassword'])->name('update-my-pass');
+// todo: Ahora_fix_me
+Route::get('update-my-pass', [UserManagementController::class, 'updateMyPassword'])->name('update-my-pass');
 
 Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels::class, BetaFeatureUnavailable::class])->group(function () {
     Route::prefix('admin')->name('admin.')->middleware(RequireAdministrator::class)->group(function () {
@@ -94,9 +102,9 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
     Route::delete('profile/avatar', [ProfileController::class, 'deleteAvatar'])->name('profile.avatar.delete');
 
     // ── Onboarding quests (Phase 2: MVP discovery, game-like) ──
-    Route::post('onboarding/priorities', [\App\Http\Controllers\OnboardingController::class, 'selectPriorities'])->name('onboarding.priorities');
-    Route::post('onboarding/seed', [\App\Http\Controllers\OnboardingController::class, 'seedTemplate'])->name('onboarding.seed');
-    Route::post('onboarding/step', [\App\Http\Controllers\OnboardingController::class, 'completeStep'])->name('onboarding.step');
+    Route::post('onboarding/priorities', [OnboardingController::class, 'selectPriorities'])->name('onboarding.priorities');
+    Route::post('onboarding/seed', [OnboardingController::class, 'seedTemplate'])->name('onboarding.seed');
+    Route::post('onboarding/step', [OnboardingController::class, 'completeStep'])->name('onboarding.step');
 
     Route::controller(MailController::class)->prefix('mail')->name('mail.')->group(function () {
         Route::get('/', 'index')->name('inbox');
@@ -130,8 +138,8 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
     Route::delete('tasks/{task}/notes/{link}', [TaskController::class, 'detachNote'])->name('tasks.notes.detach');
     Route::post('projects/{project}/notes', [ProjectController::class, 'attachNote'])->name('projects.notes.attach');
     Route::delete('projects/{project}/notes/{link}', [ProjectController::class, 'detachNote'])->name('projects.notes.detach');
-    Route::post('routines/{routine}/notes', [\App\Http\Controllers\RoutineController::class, 'attachNote'])->name('routines.notes.attach');
-    Route::delete('routines/{routine}/notes/{link}', [\App\Http\Controllers\RoutineController::class, 'detachNote'])->name('routines.notes.detach');
+    Route::post('routines/{routine}/notes', [RoutineController::class, 'attachNote'])->name('routines.notes.attach');
+    Route::delete('routines/{routine}/notes/{link}', [RoutineController::class, 'detachNote'])->name('routines.notes.detach');
 
     Route::resource('routines', RoutineController::class)->except(['show']);
     Route::post('routines/reorder', [RoutineController::class, 'reorder'])->name('routines.reorder');
@@ -147,22 +155,22 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
     Route::post('laws/{law}/tasks/{task}/exclusion', [LawLinkController::class, 'toggleExclusion'])->name('laws.tasks.exclusion');
     // ── Vocabulary / Leitner box ──────────────────────────────────
     Route::prefix('vocabulary')->name('vocabulary.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\VocabDeckController::class, 'index'])->name('index');
-        Route::post('decks', [\App\Http\Controllers\VocabDeckController::class, 'store'])->name('decks.store');
-        Route::put('decks/{vocabDeck}', [\App\Http\Controllers\VocabDeckController::class, 'update'])->name('decks.update');
-        Route::delete('decks/{vocabDeck}', [\App\Http\Controllers\VocabDeckController::class, 'destroy'])->name('decks.destroy');
-        Route::get('cards', [\App\Http\Controllers\VocabCardController::class, 'index'])->name('cards.index');
-        Route::post('cards', [\App\Http\Controllers\VocabCardController::class, 'store'])->name('cards.store');
-        Route::put('cards/{vocabCard}', [\App\Http\Controllers\VocabCardController::class, 'update'])->name('cards.update');
-        Route::delete('cards/{vocabCard}', [\App\Http\Controllers\VocabCardController::class, 'destroy'])->name('cards.destroy');
-        Route::post('cards/{vocabCard}/reset', [\App\Http\Controllers\VocabCardController::class, 'reset'])->name('cards.reset');
-        Route::get('review', [\App\Http\Controllers\VocabReviewController::class, 'index'])->name('review.index');
-        Route::post('cards/{vocabCard}/grade', [\App\Http\Controllers\VocabReviewController::class, 'grade'])->name('cards.grade');
-        Route::post('reviews/undo', [\App\Http\Controllers\VocabReviewController::class, 'undo'])->name('reviews.undo');
-        Route::get('imports/create', [\App\Http\Controllers\VocabImportController::class, 'create'])->name('imports.create');
-        Route::get('imports/template', [\App\Http\Controllers\VocabImportController::class, 'template'])->name('imports.template');
-        Route::post('imports/preview', [\App\Http\Controllers\VocabImportController::class, 'preview'])->name('imports.preview');
-        Route::post('imports/confirm', [\App\Http\Controllers\VocabImportController::class, 'confirm'])->name('imports.confirm');
+        Route::get('/', [VocabDeckController::class, 'index'])->name('index');
+        Route::post('decks', [VocabDeckController::class, 'store'])->name('decks.store');
+        Route::put('decks/{vocabDeck}', [VocabDeckController::class, 'update'])->name('decks.update');
+        Route::delete('decks/{vocabDeck}', [VocabDeckController::class, 'destroy'])->name('decks.destroy');
+        Route::get('cards', [VocabCardController::class, 'index'])->name('cards.index');
+        Route::post('cards', [VocabCardController::class, 'store'])->name('cards.store');
+        Route::put('cards/{vocabCard}', [VocabCardController::class, 'update'])->name('cards.update');
+        Route::delete('cards/{vocabCard}', [VocabCardController::class, 'destroy'])->name('cards.destroy');
+        Route::post('cards/{vocabCard}/reset', [VocabCardController::class, 'reset'])->name('cards.reset');
+        Route::get('review', [VocabReviewController::class, 'index'])->name('review.index');
+        Route::post('cards/{vocabCard}/grade', [VocabReviewController::class, 'grade'])->name('cards.grade');
+        Route::post('reviews/undo', [VocabReviewController::class, 'undo'])->name('reviews.undo');
+        Route::get('imports/create', [VocabImportController::class, 'create'])->name('imports.create');
+        Route::get('imports/template', [VocabImportController::class, 'template'])->name('imports.template');
+        Route::post('imports/preview', [VocabImportController::class, 'preview'])->name('imports.preview');
+        Route::post('imports/confirm', [VocabImportController::class, 'confirm'])->name('imports.confirm');
     });
     Route::prefix('workouts')->name('workouts.')->group(function () {
         Route::resource('exercises', ExerciseController::class)->except(['show']);
@@ -213,13 +221,13 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
     Route::get('notes/timeline', [NoteController::class, 'index'])->defaults('view', 'timeline')->name('notes.timeline');
     Route::get('notes/export/markdown', [NoteExportController::class, 'markdown'])->name('notes.export.markdown');
     Route::get('notes/export/preview', [NoteExportController::class, 'preview'])->name('notes.export.preview');
-    Route::post('notes/collections', [\App\Http\Controllers\NoteCollectionController::class, 'store'])->name('notes.collections.store');
-    Route::post('notes/send-to-ai', [\App\Http\Controllers\NoteAiController::class, 'sendCollection'])->name('notes.ai.send');
-    Route::get('notes/{note}/extract', [\App\Http\Controllers\NoteAiController::class, 'extractPreview'])->name('notes.ai.extract');
-    Route::post('notes/{note}/extract', [\App\Http\Controllers\NoteAiController::class, 'extractApply'])->name('notes.ai.extract.apply');
-    Route::post('note-subjects/{subject}/summarize', [\App\Http\Controllers\NoteAiController::class, 'summarizeSubject'])->name('note-subjects.summarize');
-    Route::get('notes/collections/{collection}/apply', [\App\Http\Controllers\NoteCollectionController::class, 'apply'])->name('notes.collections.apply');
-    Route::delete('notes/collections/{collection}', [\App\Http\Controllers\NoteCollectionController::class, 'destroy'])->name('notes.collections.destroy');
+    Route::post('notes/collections', [NoteCollectionController::class, 'store'])->name('notes.collections.store');
+    Route::post('notes/send-to-ai', [NoteAiController::class, 'sendCollection'])->name('notes.ai.send');
+    Route::get('notes/{note}/extract', [NoteAiController::class, 'extractPreview'])->name('notes.ai.extract');
+    Route::post('notes/{note}/extract', [NoteAiController::class, 'extractApply'])->name('notes.ai.extract.apply');
+    Route::post('note-subjects/{subject}/summarize', [NoteAiController::class, 'summarizeSubject'])->name('note-subjects.summarize');
+    Route::get('notes/collections/{collection}/apply', [NoteCollectionController::class, 'apply'])->name('notes.collections.apply');
+    Route::delete('notes/collections/{collection}', [NoteCollectionController::class, 'destroy'])->name('notes.collections.destroy');
     Route::get('notes/backlinks/{type}', [NoteLinkController::class, 'backlinks'])->name('notes.backlinks.index');
     Route::get('notes/{note}/revisions', [NoteController::class, 'revisions'])->name('notes.revisions.index');
     Route::post('notes/{note}/revisions/{revision}/restore', [NoteController::class, 'restoreRevision'])->name('notes.revisions.restore');
@@ -288,6 +296,8 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
 
     // Journal (daily diary)
     Route::get('/journal', [JournalController::class, 'index'])->name('journal.index');
+    Route::get('/journal/insights', [JournalController::class, 'insights'])->name('journal.insights');
+    Route::get('/journal/export', [JournalController::class, 'export'])->name('journal.export');
     Route::get('/journal/create', [JournalController::class, 'create'])->name('journal.create');
     Route::post('/journal', [JournalController::class, 'store'])->name('journal.store');
     Route::get('/journal/calendar', [JournalController::class, 'calendar'])->name('journal.calendar');
@@ -380,7 +390,7 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
     Route::delete('/ai/conversations/{conversation}', [AiChatController::class, 'deleteConversation'])->name('ai.conversations.delete');
     Route::post('/ai/conversations/{conversation}/clear', [AiChatController::class, 'clearConversation'])->name('ai.conversations.clear');
     // Unified reports (tasks · routines · avoid habits · workouts · time)
-    Route::get('/reports', [\App\Http\Controllers\ReportsController::class, 'overview'])->name('reports.overview');
+    Route::get('/reports', [ReportsController::class, 'overview'])->name('reports.overview');
 
     // Dashboard routes
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');

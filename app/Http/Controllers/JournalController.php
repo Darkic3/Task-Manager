@@ -7,6 +7,10 @@ use App\Models\JournalEntry;
 use App\Models\JournalEntryLink;
 use App\Models\JournalMood;
 use App\Models\JournalTag;
+use App\Models\Law;
+use App\Models\Routine;
+use App\Models\Task;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -57,7 +61,7 @@ class JournalController extends Controller
 
         if ($request->filled('date')) {
             try {
-                $entry->entry_date = \Carbon\Carbon::parse($request->input('date'))->toDateString();
+                $entry->entry_date = Carbon::parse($request->input('date'))->toDateString();
             } catch (\Throwable $e) {
                 // ignore
             }
@@ -147,9 +151,9 @@ class JournalController extends Controller
         ]);
 
         $map = [
-            'task' => \App\Models\Task::class,
-            'routine' => \App\Models\Routine::class,
-            'law' => \App\Models\Law::class,
+            'task' => Task::class,
+            'routine' => Routine::class,
+            'law' => Law::class,
         ];
         $class = $map[$data['linkable_type']];
         $model = $class::where('user_id', Auth::id())->find($data['linkable_id']);
@@ -173,13 +177,167 @@ class JournalController extends Controller
         return redirect()->route('journal.show', $journalEntry)->with('status', __('Link removed.'));
     }
 
+    public function insights()
+    {
+        $user = Auth::user();
+
+        $entries = $user->journalEntries()->whereNull('deleted_at')->get(['entry_date', 'mood_score', 'word_count']);
+        $dates = $entries->pluck('entry_date')->map(fn ($d) => $d->toDateString())->unique()->sort()->values();
+
+        $longest = 0;
+        $run = 0;
+        $prev = null;
+        foreach ($dates as $d) {
+            if ($prev !== null && Carbon::parse($d)->diffInDays(Carbon::parse($prev)) === 1) {
+                $run++;
+            } else {
+                $run = 1;
+            }
+            $longest = max($longest, $run);
+            $prev = $d;
+        }
+
+        $today = today()->toDateString();
+        $current = 0;
+        $cursor = Carbon::parse($today);
+        while ($dates->contains($cursor->toDateString())) {
+            $current++;
+            $cursor->subDay();
+        }
+
+        $since = today()->subDays(29)->toDateString();
+        $recent = $entries->filter(fn ($e) => $e->entry_date->toDateString() >= $since);
+        $moodCounts = array_fill(1, 10, 0);
+        foreach ($recent as $e) {
+            if ($e->mood_score) {
+                $moodCounts[$e->mood_score]++;
+            }
+        }
+
+        $tagCounts = [];
+        $tagMood = [];
+        $allEntries = $user->journalEntries()->whereNull('deleted_at')->with('tags')->get();
+        foreach ($allEntries as $e) {
+            foreach ($e->tags as $tag) {
+                $tagCounts[$tag->name] = ($tagCounts[$tag->name] ?? 0) + 1;
+                if ($e->mood_score !== null) {
+                    $tagMood[$tag->name]['sum'] = ($tagMood[$tag->name]['sum'] ?? 0) + $e->mood_score;
+                    $tagMood[$tag->name]['count'] = ($tagMood[$tag->name]['count'] ?? 0) + 1;
+                }
+            }
+        }
+        arsort($tagCounts);
+        $topTags = array_slice($tagCounts, 0, 10, true);
+
+        $tagCorrelation = [];
+        foreach ($topTags as $name => $count) {
+            $avg = null;
+            if (isset($tagMood[$name]) && $tagMood[$name]['count'] > 0) {
+                $avg = round($tagMood[$name]['sum'] / $tagMood[$name]['count'], 1);
+            }
+            $tagCorrelation[$name] = ['count' => $count, 'avg_mood' => $avg];
+        }
+
+        $onThisDay = $user->journalEntries()
+            ->whereNull('deleted_at')
+            ->whereMonth('entry_date', now()->month)
+            ->whereDay('entry_date', now()->day)
+            ->whereYear('entry_date', '<', now()->year)
+            ->orderByDesc('entry_date')
+            ->get(['id', 'title', 'entry_date']);
+
+        $totalWords = (int) $entries->sum('word_count');
+
+        return view('journal.insights', [
+            'totalEntries' => $entries->count(),
+            'totalWords' => $totalWords,
+            'currentStreak' => $current,
+            'longestStreak' => $longest,
+            'moodCounts' => $moodCounts,
+            'tagCorrelation' => $tagCorrelation,
+            'onThisDay' => $onThisDay,
+        ]);
+    }
+
+    public function export(Request $request)
+    {
+        $user = Auth::user();
+        $format = $request->input('format', 'md');
+        $from = $request->input('from');
+        $to = $request->input('to');
+
+        $entries = $user->journalEntries()
+            ->whereNull('deleted_at')
+            ->when($from, fn ($q) => $q->whereDate('entry_date', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('entry_date', '<=', $to))
+            ->with(['tags', 'book', 'moods'])
+            ->chronological('asc')
+            ->get();
+
+        if ($format === 'json') {
+            $payload = $entries->map(fn ($e) => [
+                'id' => $e->id,
+                'title' => $e->title,
+                'content' => $e->content,
+                'entry_date' => $e->entry_date?->toDateString(),
+                'mood_score' => $e->mood_score,
+                'energy' => $e->energy,
+                'sleep_hours' => $e->sleep_hours,
+                'tags' => $e->tags->pluck('name')->all(),
+                'book' => $e->book?->name,
+                'location' => $e->location_name,
+                'weather' => $e->weather_condition,
+            ])->values();
+
+            return response()->streamDownload(function () use ($payload) {
+                echo $payload->toJson(JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }, 'journal-export.json', ['Content-Type' => 'application/json']);
+        }
+
+        if ($format === 'csv') {
+            return response()->streamDownload(function () use ($entries) {
+                $out = fopen('php://output', 'w');
+                fputcsv($out, ['date', 'title', 'content', 'mood', 'energy', 'sleep', 'tags', 'book', 'location', 'weather']);
+                foreach ($entries as $e) {
+                    fputcsv($out, [
+                        $e->entry_date?->toDateString(),
+                        $e->title,
+                        $e->content,
+                        $e->mood_score,
+                        $e->energy,
+                        $e->sleep_hours,
+                        $e->tags->pluck('name')->implode('; '),
+                        $e->book?->name,
+                        $e->location_name,
+                        $e->weather_condition,
+                    ]);
+                }
+                fclose($out);
+            }, 'journal-export.csv', ['Content-Type' => 'text/csv']);
+        }
+
+        return response()->streamDownload(function () use ($entries) {
+            foreach ($entries as $e) {
+                echo '# '.($e->title ?: 'Untitled entry')."\n\n";
+                echo '_Date: '.$e->entry_date?->toDateString()."_\n\n";
+                if ($e->mood_score) {
+                    echo '_Mood: '.$e->mood_score.'/10_'.($e->energy ? '  _Energy: '.$e->energy.'/5_' : '')."\n\n";
+                }
+                if ($e->tags->count()) {
+                    echo 'Tags: '.$e->tags->pluck('name')->implode(', ')."\n\n";
+                }
+                echo $e->content."\n\n---\n\n";
+            }
+        }, 'journal-export.md', ['Content-Type' => 'text/markdown']);
+    }
+
     public function calendar(Request $request)
     {
         $user = Auth::user();
         $month = (int) $request->input('month', now()->month);
         $year = (int) $request->input('year', now()->year);
 
-        $start = \Carbon\Carbon::create($year, $month, 1)->startOfMonth();
+        $start = Carbon::create($year, $month, 1)->startOfMonth();
         $end = $start->copy()->endOfMonth();
 
         $rows = $user->journalEntries()

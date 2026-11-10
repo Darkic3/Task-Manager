@@ -3,17 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Models\ChecklistItem;
+use App\Models\JournalEntry;
+use App\Models\Law;
+use App\Models\LawEvent;
 use App\Models\Project;
 use App\Models\Routine;
 use App\Models\RoutineCheckitemCompletion;
 use App\Models\RoutineChecklistItem;
 use App\Models\RoutineCompletion;
+use App\Models\RoutineLog;
+use App\Models\RoutineNote;
+use App\Models\RoutineViolation;
 use App\Models\Task;
 use App\Models\TimeEntry;
+use App\Models\WorkoutDay;
+use App\Models\WorkoutSession;
 use App\Services\LawEventService;
+use App\Services\Onboarding\OnboardingQuestService;
+use App\Support\FeatureAvailability;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 
 class PlannerController extends Controller
@@ -36,10 +48,11 @@ class PlannerController extends Controller
     }
 
     private function dayView($user, Carbon $date)
-    {        $selected = $date->copy()->startOfDay();
+    {
+        $selected = $date->copy()->startOfDay();
 
         // MVP quarantine: skip laws queries & picker data when unpublished.
-        $lawsEnabled = app(\App\Support\FeatureAvailability::class)->isEnabled('laws', $user);
+        $lawsEnabled = app(FeatureAvailability::class)->isEnabled('laws', $user);
 
         $tasks = Task::where('user_id', $user->id)
             ->whereDate('due_date', $selected->toDateString())
@@ -93,7 +106,7 @@ class PlannerController extends Controller
                 ->first();
 
             if ($todayWorkoutDay) {
-                $todayWorkoutSession = \App\Models\WorkoutSession::where('user_id', $user->id)
+                $todayWorkoutSession = WorkoutSession::where('user_id', $user->id)
                     ->where('workout_day_id', $todayWorkoutDay->id)
                     ->whereDate('workout_date', $selected->toDateString())
                     ->first();
@@ -149,10 +162,10 @@ class PlannerController extends Controller
                 ->get(['id', 'name']),
             'backlogProjects' => $this->backlogProjectOptions($user->id),
             'onboarding' => $this->onboardingSnapshot($user),
-            'journalTodayCount' => \App\Models\JournalEntry::where('user_id', $user->id)
+            'journalTodayCount' => JournalEntry::where('user_id', $user->id)
                 ->whereDate('entry_date', $selected->toDateString())
                 ->count(),
-            'journalTodayLatest' => \App\Models\JournalEntry::where('user_id', $user->id)
+            'journalTodayLatest' => JournalEntry::where('user_id', $user->id)
                 ->whereDate('entry_date', $selected->toDateString())
                 ->latest('id')
                 ->first(['id', 'title']),
@@ -166,12 +179,12 @@ class PlannerController extends Controller
     {
         $selected = $date->toDateString();
 
-        $events = \App\Models\LawEvent::where('user_id', $user->id)
+        $events = LawEvent::where('user_id', $user->id)
             ->where('occurred_on', $selected)
             ->get(['direction', 'xp_delta']);
 
         $active = $user->laws()
-            ->where('status', \App\Models\Law::STATUS_ACTIVE)
+            ->where('status', Law::STATUS_ACTIVE)
             ->get(['id', 'starts_on', 'ends_on'])
             ->filter(fn ($law) => ! $law->isExpired())
             ->count();
@@ -190,7 +203,7 @@ class PlannerController extends Controller
     private function dayLaws($user): array
     {
         return $user->laws()
-            ->where('status', \App\Models\Law::STATUS_ACTIVE)
+            ->where('status', Law::STATUS_ACTIVE)
             ->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', today()))
             ->orderBy('sort_order')
             ->orderByDesc('id')
@@ -209,7 +222,7 @@ class PlannerController extends Controller
     private function onboardingSnapshot($user): array
     {
         try {
-            return app(\App\Services\Onboarding\OnboardingQuestService::class)->progressForUser($user);
+            return app(OnboardingQuestService::class)->progressForUser($user);
         } catch (\Throwable $e) {
             return ['needs_priorities' => false, 'ordered' => [], 'active' => 'planner', 'total_done' => 0, 'total_steps' => 1, 'percent' => 0, 'modules' => []];
         }
@@ -225,7 +238,7 @@ class PlannerController extends Controller
             ->where('status', '!=', 'completed')
             ->where(function ($q) {
                 $q->whereDate('due_date', today())
-                  ->orWhereNull('due_date');
+                    ->orWhereNull('due_date');
             })
             ->get();
 
@@ -234,7 +247,7 @@ class PlannerController extends Controller
                 'ok' => true,
                 'message' => __('No open tasks found for today to optimize. Add some tasks first!'),
                 'count' => 0,
-                'tasks' => []
+                'tasks' => [],
             ]);
         }
 
@@ -254,7 +267,7 @@ class PlannerController extends Controller
                 'id' => $task->id,
                 'title' => $task->title,
                 'priority' => $task->priority,
-                'time_period' => $task->time_period
+                'time_period' => $task->time_period,
             ];
         }
 
@@ -263,7 +276,7 @@ class PlannerController extends Controller
             'message' => __('Lina successfully organized your tasks for peak focus!'),
             'briefing' => __('Prioritized :count tasks: High-impact deep work assigned to Morning, execution to Afternoon, and light admin tasks to Evening.', ['count' => count($updates)]),
             'count' => count($updates),
-            'tasks' => $updates
+            'tasks' => $updates,
         ]);
     }
 
@@ -458,7 +471,7 @@ class PlannerController extends Controller
     /**
      * Active plan's seven days keyed by date string for the week grid.
      *
-     * @return array<string, \App\Models\WorkoutDay|null>
+     * @return array<string, WorkoutDay|null>
      */
     private function workoutWeekFor($user, Carbon $start): array
     {
@@ -800,7 +813,7 @@ class PlannerController extends Controller
      * Flat project options for the backlog picker (id, name, parent_id so
      * the view can render the tree indented, sub-projects included).
      */
-    private function backlogProjectOptions(int $userId): \Illuminate\Support\Collection
+    private function backlogProjectOptions(int $userId): Collection
     {
         return Project::where('user_id', $userId)
             ->orderBy('name')
@@ -1044,7 +1057,7 @@ class PlannerController extends Controller
         $key = $date->toDateString();
 
         if ($routine->tracking_mode === Routine::TRACKING_VALUE) {
-            $hasValue = \App\Models\RoutineLog::where('user_id', $routine->user_id)
+            $hasValue = RoutineLog::where('user_id', $routine->user_id)
                 ->where('routine_id', $routine->id)
                 ->where('completed_date', $key)
                 ->whereNull('checklist_item_id')
@@ -1060,7 +1073,7 @@ class PlannerController extends Controller
             if ($items->isEmpty()) {
                 return;
             }
-            $loggedItemIds = \App\Models\RoutineLog::where('user_id', $routine->user_id)
+            $loggedItemIds = RoutineLog::where('user_id', $routine->user_id)
                 ->where('routine_id', $routine->id)
                 ->where('completed_date', $key)
                 ->whereNotNull('checklist_item_id')
@@ -1208,7 +1221,7 @@ class PlannerController extends Controller
         // Tracked sets-mode steps need a logged number: completing the tick
         // without one is reverted (the UI must ask for the number first).
         if ($itemCompleted && $routine->tracking_mode === Routine::TRACKING_SETS) {
-            $hasLog = \App\Models\RoutineLog::where('user_id', Auth::id())
+            $hasLog = RoutineLog::where('user_id', Auth::id())
                 ->where('routine_id', $routine->id)
                 ->where('checklist_item_id', $item->id)
                 ->where('completed_date', RoutineCheckitemCompletion::dateKey($date))
@@ -1238,7 +1251,7 @@ class PlannerController extends Controller
             // Value-mode routines complete through their logged value, never
             // through bare step ticks alone.
             if ($routine->tracking_mode === Routine::TRACKING_VALUE) {
-                $hasValue = \App\Models\RoutineLog::where('user_id', $routine->user_id)
+                $hasValue = RoutineLog::where('user_id', $routine->user_id)
                     ->where('routine_id', $routine->id)
                     ->where('completed_date', $key)
                     ->whereNull('checklist_item_id')
@@ -1382,7 +1395,7 @@ class PlannerController extends Controller
         $date = $this->parseDate($request->input('date'));
         $data = $request->validate([
             'quantity' => 'nullable|integer|min:1|max:100000',
-            'occurred_at' => 'nullable|date|before_or_equal:' . now()->addMinutes(5)->toDateTimeString(),
+            'occurred_at' => 'nullable|date|before_or_equal:'.now()->addMinutes(5)->toDateTimeString(),
             'trigger' => 'nullable|string|max:100',
             'note' => 'nullable|string|max:2000',
             'mood' => 'nullable|integer|min:1|max:10',
@@ -1451,7 +1464,7 @@ class PlannerController extends Controller
         $date = $this->parseDate($request->input('date'));
         $data = $request->validate([
             'quantity' => 'nullable|integer|min:1|max:100000',
-            'occurred_at' => 'nullable|date|before_or_equal:' . now()->addMinutes(5)->toDateTimeString(),
+            'occurred_at' => 'nullable|date|before_or_equal:'.now()->addMinutes(5)->toDateTimeString(),
             'trigger' => 'nullable|string|max:100',
             'note' => 'nullable|string|max:2000',
             'mood' => 'nullable|integer|min:1|max:10',
@@ -1523,7 +1536,7 @@ class PlannerController extends Controller
      * Undo a slip (violation) - only within 10 minutes of creation (mistaken entry).
      * No permanent delete: this is strictly a short undo window.
      */
-    public function destroyViolation(Request $request, \App\Models\RoutineViolation $violation)
+    public function destroyViolation(Request $request, RoutineViolation $violation)
     {
         abort_if($violation->user_id !== Auth::id(), 403);
         // Only today's violation can be undone
@@ -1563,7 +1576,7 @@ class PlannerController extends Controller
     /**
      * Undo a craving/note - only within 10 minutes of creation.
      */
-    public function destroyNote(Request $request, \App\Models\RoutineNote $note)
+    public function destroyNote(Request $request, RoutineNote $note)
     {
         abort_if($note->user_id !== Auth::id(), 403);
         $today = today()->toDateString();
@@ -1572,6 +1585,7 @@ class PlannerController extends Controller
         $createdAt = $note->created_at instanceof Carbon ? $note->created_at : Carbon::parse($note->created_at);
         abort_if($createdAt->diffInSeconds(now()) > 600, 410, __('Undo window expired.'));
         $note->delete();
+
         return response()->json(['ok' => true]);
     }
 
@@ -1587,11 +1601,11 @@ class PlannerController extends Controller
 
         $q = trim((string) $request->input('q', ''));
 
-        $cacheKey = 'avoid_suggest_' . Auth::id() . '_' . $routine->id . '_' . md5(mb_strtolower($q));
-        $result = \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function () use ($routine, $q) {
+        $cacheKey = 'avoid_suggest_'.Auth::id().'_'.$routine->id.'_'.md5(mb_strtolower($q));
+        $result = Cache::remember($cacheKey, 300, function () use ($routine, $q) {
             $userId = Auth::id();
 
-            $trigQuery = \App\Models\RoutineViolation::where('user_id', $userId)
+            $trigQuery = RoutineViolation::where('user_id', $userId)
                 ->where('routine_id', $routine->id)
                 ->whereNotNull('trigger')
                 ->selectRaw('`trigger`, COUNT(*) as c')
@@ -1602,7 +1616,7 @@ class PlannerController extends Controller
                 ->filter(fn ($t) => trim((string) $t) !== '')
                 ->values();
 
-            $noteTriggers = \App\Models\RoutineNote::where('user_id', $userId)
+            $noteTriggers = RoutineNote::where('user_id', $userId)
                 ->where('routine_id', $routine->id)
                 ->whereNotNull('trigger')
                 ->selectRaw('`trigger`, COUNT(*) as c')
@@ -1615,7 +1629,7 @@ class PlannerController extends Controller
 
             $triggers = $trigQuery->merge($noteTriggers)->unique()->take(10)->values();
 
-            $locQuery = \App\Models\RoutineViolation::where('user_id', $userId)
+            $locQuery = RoutineViolation::where('user_id', $userId)
                 ->where('routine_id', $routine->id)
                 ->whereNotNull('location')
                 ->selectRaw('`location`, COUNT(*) as c')
@@ -1626,7 +1640,7 @@ class PlannerController extends Controller
                 ->filter(fn ($t) => trim((string) $t) !== '')
                 ->values();
 
-            $noteLocs = \App\Models\RoutineNote::where('user_id', $userId)
+            $noteLocs = RoutineNote::where('user_id', $userId)
                 ->where('routine_id', $routine->id)
                 ->whereNotNull('location')
                 ->selectRaw('`location`, COUNT(*) as c')
@@ -1674,8 +1688,8 @@ class PlannerController extends Controller
 
         $type = $data['type'] ?? 'all';
         $perPage = (int) ($data['per_page'] ?? 20);
-        $to = !empty($data['to']) ? Carbon::parse($data['to'])->endOfDay() : now()->endOfDay();
-        $from = !empty($data['from']) ? Carbon::parse($data['from'])->startOfDay() : $to->copy()->subDays(29)->startOfDay();
+        $to = ! empty($data['to']) ? Carbon::parse($data['to'])->endOfDay() : now()->endOfDay();
+        $from = ! empty($data['from']) ? Carbon::parse($data['from'])->startOfDay() : $to->copy()->subDays(29)->startOfDay();
         if ($from->gt($to)) {
             [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
         }
@@ -1683,13 +1697,13 @@ class PlannerController extends Controller
         $items = collect();
 
         if (in_array($type, ['all', 'slip'])) {
-            $vq = \App\Models\RoutineViolation::where('user_id', Auth::id())
+            $vq = RoutineViolation::where('user_id', Auth::id())
                 ->where('routine_id', $routine->id)
                 ->whereBetween('occurred_at', [$from, $to])
                 ->with('item:id,name')
                 ->orderByDesc('occurred_at');
-            if (!empty($data['trigger'])) {
-                $vq->where('trigger', 'like', '%' . $data['trigger'] . '%');
+            if (! empty($data['trigger'])) {
+                $vq->where('trigger', 'like', '%'.$data['trigger'].'%');
             }
             $vq->chunk(500, function ($rows) use (&$items) {
                 foreach ($rows as $v) {
@@ -1711,7 +1725,7 @@ class PlannerController extends Controller
         }
 
         if (in_array($type, ['all', 'craving', 'note'])) {
-            $nq = \App\Models\RoutineNote::where('user_id', Auth::id())
+            $nq = RoutineNote::where('user_id', Auth::id())
                 ->where('routine_id', $routine->id)
                 ->whereBetween('occurred_at', [$from, $to])
                 ->with('item:id,name')
@@ -1719,8 +1733,8 @@ class PlannerController extends Controller
             if ($type === 'craving' || $type === 'note') {
                 $nq->where('kind', $type);
             }
-            if (!empty($data['trigger'])) {
-                $nq->where('trigger', 'like', '%' . $data['trigger'] . '%');
+            if (! empty($data['trigger'])) {
+                $nq->where('trigger', 'like', '%'.$data['trigger'].'%');
             }
             $nq->chunk(500, function ($rows) use (&$items) {
                 foreach ($rows as $n) {
@@ -1773,7 +1787,7 @@ class PlannerController extends Controller
         $data = $request->validate([
             'kind' => 'nullable|in:craving,note',
             'checklist_item_id' => 'nullable|integer|exists:routine_checklist_items,id',
-            'occurred_at' => 'nullable|date|before_or_equal:' . now()->addMinutes(5)->toDateTimeString(),
+            'occurred_at' => 'nullable|date|before_or_equal:'.now()->addMinutes(5)->toDateTimeString(),
             'note' => 'nullable|string|max:2000',
             'mood' => 'nullable|integer|min:1|max:10',
             'location' => 'nullable|string|max:100',
@@ -1796,7 +1810,7 @@ class PlannerController extends Controller
         $note = $routine->routineNotes()->create([
             'checklist_item_id' => $itemId,
             'user_id' => Auth::id(),
-            'kind' => $data['kind'] ?? \App\Models\RoutineNote::KIND_NOTE,
+            'kind' => $data['kind'] ?? RoutineNote::KIND_NOTE,
             'mood' => isset($data['mood']) ? max(1, min(10, (int) $data['mood'])) : null,
             'location' => isset($data['location']) ? trim((string) $data['location']) ?: null : null,
             'trigger' => isset($data['trigger']) ? trim((string) $data['trigger']) ?: null : null,
@@ -1945,34 +1959,34 @@ class PlannerController extends Controller
                 $violatedQty = $isAvoid ? (int) ($violationMap['step'][(int) $s->id][$dayKey] ?? 0) : 0;
 
                 return [
-                'id' => $s->id,
-                'name' => $s->name,
-                'completed' => $isAvoid ? false : isset($stepMap[(int) $s->id][$dayKey]),
-                'skipped' => ! $isAvoid && $s->relationLoaded('completions')
-                    && $s->completions->contains(fn ($c) => ($c->status ?? null) === RoutineCheckitemCompletion::STATUS_SKIPPED
-                        && ($c->completed_date instanceof Carbon
-                            ? $c->completed_date->toDateString()
-                            : Carbon::parse($c->completed_date)->toDateString()) === $dayKey),
-                'violated' => $violatedQty > 0,
-                'violation_qty' => $violatedQty,
-                'target_sets' => (int) ($s->target_sets ?? 1),
-                'unit' => $s->unit,
-                'time_period' => $s->time_period,
-                'scheduled_time' => $s->scheduled_time,
-                'period_label' => $s->periodLabel(),
-                'period_icon' => $s->periodIcon(),
-                'period_color' => $s->periodColor(),
-                'time_label' => $s->scheduledTimeLabel(),
-                'sort_key' => $s->sortKey(),
-                'sets' => $routine->relationLoaded('logs')
-                    ? $routine->logs
-                        ->filter(fn ($l) => (int) $l->checklist_item_id === (int) $s->id
-                            && (($l->completed_date instanceof Carbon)
-                                ? $l->completed_date->toDateString()
-                                : substr((string) $l->completed_date, 0, 10)) === $dayKey)
-                        ->mapWithKeys(fn ($l) => [(int) $l->set_no => (float) $l->value])
-                        ->all()
-                    : [],
+                    'id' => $s->id,
+                    'name' => $s->name,
+                    'completed' => $isAvoid ? false : isset($stepMap[(int) $s->id][$dayKey]),
+                    'skipped' => ! $isAvoid && $s->relationLoaded('completions')
+                        && $s->completions->contains(fn ($c) => ($c->status ?? null) === RoutineCheckitemCompletion::STATUS_SKIPPED
+                            && ($c->completed_date instanceof Carbon
+                                ? $c->completed_date->toDateString()
+                                : Carbon::parse($c->completed_date)->toDateString()) === $dayKey),
+                    'violated' => $violatedQty > 0,
+                    'violation_qty' => $violatedQty,
+                    'target_sets' => (int) ($s->target_sets ?? 1),
+                    'unit' => $s->unit,
+                    'time_period' => $s->time_period,
+                    'scheduled_time' => $s->scheduled_time,
+                    'period_label' => $s->periodLabel(),
+                    'period_icon' => $s->periodIcon(),
+                    'period_color' => $s->periodColor(),
+                    'time_label' => $s->scheduledTimeLabel(),
+                    'sort_key' => $s->sortKey(),
+                    'sets' => $routine->relationLoaded('logs')
+                        ? $routine->logs
+                            ->filter(fn ($l) => (int) $l->checklist_item_id === (int) $s->id
+                                && (($l->completed_date instanceof Carbon)
+                                    ? $l->completed_date->toDateString()
+                                    : substr((string) $l->completed_date, 0, 10)) === $dayKey)
+                            ->mapWithKeys(fn ($l) => [(int) $l->set_no => (float) $l->value])
+                            ->all()
+                        : [],
                 ];
             })->values();
 
@@ -2201,7 +2215,7 @@ class PlannerController extends Controller
             return $map;
         }
 
-        $rows = \App\Models\RoutineViolation::where('user_id', $userId)
+        $rows = RoutineViolation::where('user_id', $userId)
             ->whereIn('routine_id', $routines->pluck('id'))
             ->whereBetween('occurred_date', [$from->toDateString(), $to->toDateString()])
             ->get()
@@ -2232,7 +2246,7 @@ class PlannerController extends Controller
         if ($routines->isEmpty()) {
             return;
         }
-        $rows = \App\Models\RoutineNote::where('user_id', $userId)
+        $rows = RoutineNote::where('user_id', $userId)
             ->whereIn('routine_id', $routines->pluck('id'))
             ->whereBetween('occurred_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
             ->get()
@@ -2360,34 +2374,34 @@ class PlannerController extends Controller
                 $violatedQty = $isAvoid ? (int) ($violationMap['step'][(int) $s->id][$dayKey] ?? 0) : 0;
 
                 return [
-                'id' => $s->id,
-                'name' => $s->name,
-                'completed' => $isAvoid ? false : isset($stepMap[(int) $s->id][$dayKey]),
-                'skipped' => ! $isAvoid && $s->relationLoaded('completions')
-                    && $s->completions->contains(fn ($c) => ($c->status ?? null) === RoutineCheckitemCompletion::STATUS_SKIPPED
-                        && ($c->completed_date instanceof Carbon
-                            ? $c->completed_date->toDateString()
-                            : Carbon::parse($c->completed_date)->toDateString()) === $dayKey),
-                'violated' => $violatedQty > 0,
-                'violation_qty' => $violatedQty,
-                'target_sets' => (int) ($s->target_sets ?? 1),
-                'unit' => $s->unit,
-                'time_period' => $s->time_period,
-                'scheduled_time' => $s->scheduled_time,
-                'period_label' => $s->periodLabel(),
-                'period_icon' => $s->periodIcon(),
-                'period_color' => $s->periodColor(),
-                'time_label' => $s->scheduledTimeLabel(),
-                'sort_key' => $s->sortKey(),
-                'sets' => $routine->relationLoaded('logs')
-                    ? $routine->logs
-                        ->filter(fn ($l) => (int) $l->checklist_item_id === (int) $s->id
-                            && (($l->completed_date instanceof Carbon)
-                                ? $l->completed_date->toDateString()
-                                : substr((string) $l->completed_date, 0, 10)) === $dayKey)
-                        ->mapWithKeys(fn ($l) => [(int) $l->set_no => (float) $l->value])
-                        ->all()
-                    : [],
+                    'id' => $s->id,
+                    'name' => $s->name,
+                    'completed' => $isAvoid ? false : isset($stepMap[(int) $s->id][$dayKey]),
+                    'skipped' => ! $isAvoid && $s->relationLoaded('completions')
+                        && $s->completions->contains(fn ($c) => ($c->status ?? null) === RoutineCheckitemCompletion::STATUS_SKIPPED
+                            && ($c->completed_date instanceof Carbon
+                                ? $c->completed_date->toDateString()
+                                : Carbon::parse($c->completed_date)->toDateString()) === $dayKey),
+                    'violated' => $violatedQty > 0,
+                    'violation_qty' => $violatedQty,
+                    'target_sets' => (int) ($s->target_sets ?? 1),
+                    'unit' => $s->unit,
+                    'time_period' => $s->time_period,
+                    'scheduled_time' => $s->scheduled_time,
+                    'period_label' => $s->periodLabel(),
+                    'period_icon' => $s->periodIcon(),
+                    'period_color' => $s->periodColor(),
+                    'time_label' => $s->scheduledTimeLabel(),
+                    'sort_key' => $s->sortKey(),
+                    'sets' => $routine->relationLoaded('logs')
+                        ? $routine->logs
+                            ->filter(fn ($l) => (int) $l->checklist_item_id === (int) $s->id
+                                && (($l->completed_date instanceof Carbon)
+                                    ? $l->completed_date->toDateString()
+                                    : substr((string) $l->completed_date, 0, 10)) === $dayKey)
+                            ->mapWithKeys(fn ($l) => [(int) $l->set_no => (float) $l->value])
+                            ->all()
+                        : [],
                 ];
             })->values();
 
@@ -2439,7 +2453,7 @@ class PlannerController extends Controller
             return;
         }
 
-        $rows = \App\Models\RoutineLog::where('user_id', $userId)
+        $rows = RoutineLog::where('user_id', $userId)
             ->whereIn('routine_id', $routines->pluck('id'))
             ->whereBetween('completed_date', [$from->toDateString(), $to->toDateString()])
             ->orderBy('checklist_item_id')->orderBy('set_no')
@@ -2468,7 +2482,7 @@ class PlannerController extends Controller
             // Time-kind routines store minutes since midnight — clamp to a day.
             $max = $routine->isTimeValue() ? 1439 : 1000000;
             $data = $request->validate(['value' => "required|numeric|min:0|max:{$max}"]);
-            \App\Models\RoutineLog::logValue(Auth::id(), $routine->id, $date, $data['value']);
+            RoutineLog::logValue(Auth::id(), $routine->id, $date, $data['value']);
 
             // A value routine has exactly one input per day: logging it
             // completes the routine, same as filling every set in sets mode.
@@ -2500,7 +2514,7 @@ class PlannerController extends Controller
 
         foreach ($data['sets'] as $setNo => $value) {
             $setNo = max(1, min(20, (int) $setNo));
-            \App\Models\RoutineLog::logValue(Auth::id(), $routine->id, $date, $value, $item->id, $setNo);
+            RoutineLog::logValue(Auth::id(), $routine->id, $date, $value, $item->id, $setNo);
         }
 
         // A logged set auto-ticks its step (tick without a number is not allowed).
@@ -2556,7 +2570,7 @@ class PlannerController extends Controller
             return false;
         }
         $key = $date->toDateString();
-        $logs = \App\Models\RoutineLog::where('user_id', $routine->user_id)
+        $logs = RoutineLog::where('user_id', $routine->user_id)
             ->where('routine_id', $routine->id)
             ->where('completed_date', $key)
             ->whereNotNull('checklist_item_id')
@@ -2628,7 +2642,7 @@ class PlannerController extends Controller
         return ['rate' => $rate, 'streak' => $streak, 'last7' => $last7];
     }
 
-    private function sortByPriority($tasks, bool $byDate = false): \Illuminate\Support\Collection
+    private function sortByPriority($tasks, bool $byDate = false): Collection
     {
         // Overdue lists care about dates first; the day plan uses the
         // scheduled order: period → manual drag order → priority → exact time.

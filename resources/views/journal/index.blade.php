@@ -10,6 +10,7 @@
             <a href="{{ route('journal.books.index') }}" class="btn btn-outline-secondary btn-sm">{{ __('Books') }}</a>
             <a href="{{ route('journal.tags.index') }}" class="btn btn-outline-secondary btn-sm">{{ __('Tags') }}</a>
             <a href="{{ route('journal.moods.index') }}" class="btn btn-outline-secondary btn-sm">{{ __('Moods') }}</a>
+            <a href="{{ route('journal.insights') }}" class="btn btn-outline-secondary btn-sm">{{ __('Insights') }}</a>
             <a href="{{ route('journal.create') }}" class="btn btn-primary btn-sm">
                 <i class="bi bi-plus-lg"></i> {{ __('New entry') }}
             </a>
