@@ -56,6 +56,7 @@ class FeatureAvailability
             'tasks', 'checklist-items' => 'tasks',
             'planner', 'day-logs' => 'planner',
             'notes', 'notebooks', 'note-labels', 'note-subjects' => 'notes',
+            'journal', 'journal-books', 'journal-tags', 'journal-moods' => 'journal',
             'routines' => 'routines',
             'laws' => 'laws',
             'workouts' => 'workouts',

@@ -1185,6 +1185,7 @@
                 ['feature' => 'time_tracking', 'match' => 'time*', 'icon' => 'bi-stopwatch', 'label' => __('Time'), 'url' => route('time.reports')],
                 ['feature' => 'reports', 'match' => 'reports*', 'icon' => 'bi-bar-chart-fill', 'label' => __('Reports'), 'url' => route('reports.overview')],
                 ['feature' => 'notes', 'match' => 'notes*', 'icon' => 'bi-journal-text', 'label' => __('Notes'), 'url' => route('notes.index')],
+                ['feature' => 'journal', 'match' => 'journal*', 'icon' => 'bi-book', 'label' => __('Journal'), 'url' => route('journal.index')],
                 ['feature' => 'reminders', 'match' => 'reminders*', 'icon' => 'bi-bell-fill', 'label' => __('Reminders'), 'url' => route('reminders.index')],
                 ['feature' => 'vocabulary', 'match' => 'vocabulary*', 'icon' => 'bi-translate', 'label' => __('Vocabulary'), 'url' => route('vocabulary.index')],
                 ['feature' => 'files', 'match' => 'files*', 'icon' => 'bi-file-earmark-fill', 'label' => __('Files'), 'url' => route('files.index')],

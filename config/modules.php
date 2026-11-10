@@ -5,6 +5,7 @@ return [
     'tasks' => ['label' => 'Tasks', 'description' => 'Task lists, details, checklists, and status changes.', 'default' => true],
     'planner' => ['label' => 'Daily planner', 'description' => 'My Day planning and daily logs.', 'default' => true],
     'notes' => ['label' => 'Notes', 'description' => 'Notes, notebooks, labels, and exports.', 'default' => true],
+    'journal' => ['label' => 'Journal', 'description' => 'Daily journal and reflections.', 'default' => true],
     'routines' => ['label' => 'Routines', 'description' => 'Routines and habit tracking.', 'default' => true],
     'laws' => ['label' => 'Laws', 'description' => 'Personal laws with coefficients and linked activities.', 'default' => (bool) env('BETA_ENABLE_LAWS', false)],
     'workouts' => ['label' => 'Workouts', 'description' => 'Workout plans, sessions, and reports.', 'default' => true],
