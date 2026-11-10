@@ -3,6 +3,7 @@
 @section('title', __('Revisions'))
 
 @section('content')
+@include('journal._styles')
 <div class="container py-4">
     <div class="mb-3">
         <a href="{{ route('journal.show', $entry) }}" class="btn btn-link">&larr; {{ __('Back') }}</a>

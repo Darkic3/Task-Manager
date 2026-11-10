@@ -3,6 +3,7 @@
 @section('title', __('Edit book'))
 
 @section('content')
+@include('journal._styles')
 <div class="container py-4">
     <h1 class="h3 mb-3">{{ __('Edit book') }}</h1>
     <form method="POST" action="{{ route('journal.books.update', $journalBook) }}">
