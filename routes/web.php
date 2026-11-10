@@ -307,6 +307,8 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
     Route::delete('/journal/{journalEntry}', [JournalController::class, 'destroy'])->name('journal.destroy');
     Route::post('/journal/{journalEntry}/links', [JournalController::class, 'storeLink'])->name('journal.links.store');
     Route::delete('/journal/{journalEntry}/links/{link}', [JournalController::class, 'destroyLink'])->name('journal.links.destroy');
+    Route::get('/journal/{journalEntry}/revisions', [JournalController::class, 'revisions'])->name('journal.revisions');
+    Route::post('/journal/{journalEntry}/revisions/{revision}/restore', [JournalController::class, 'restoreRevision'])->name('journal.revisions.restore');
 
     Route::resource('journal-books', JournalBookController::class)->names('journal.books');
     Route::resource('journal-tags', JournalTagController::class)->names('journal.tags');

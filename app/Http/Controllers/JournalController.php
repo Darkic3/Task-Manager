@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\JournalBook;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLink;
+use App\Models\JournalEntryRevision;
 use App\Models\JournalMood;
 use App\Models\JournalTag;
 use App\Models\Law;
@@ -61,11 +62,20 @@ class JournalController extends Controller
 
         if ($request->filled('date')) {
             try {
-                $entry->entry_date = Carbon::parse($request->input('date'))->toDateString();
+                $entry->entry_date = \Carbon\Carbon::parse($request->input('date'))->toDateString();
             } catch (\Throwable $e) {
                 // ignore
             }
         }
+
+        $prompts = [
+            __('What made today different?'),
+            __('What are you grateful for today?'),
+            __('What challenged you today, and how did you respond?'),
+            __('Describe one moment you want to remember.'),
+            __('What did you learn today?'),
+        ];
+        $prompt = $prompts[now()->dayOfYear % count($prompts)];
 
         return view('journal.create', [
             'entry' => $entry,
@@ -74,6 +84,7 @@ class JournalController extends Controller
             'moods' => $user->journalMoods()->orderBy('sort_order')->orderBy('name')->get(),
             'selectedTags' => [],
             'selectedMoods' => [],
+            'prompt' => $prompt,
         ]);
     }
 
@@ -125,6 +136,16 @@ class JournalController extends Controller
         $user = Auth::user();
         $data = $this->validated($request, $user, updating: true);
 
+        // snapshot previous version
+        \App\Models\JournalEntryRevision::create([
+            'journal_entry_id' => $journalEntry->id,
+            'title' => $journalEntry->title,
+            'content' => $journalEntry->content,
+            'mood_score' => $journalEntry->mood_score,
+            'tags_snapshot' => $journalEntry->tags()->pluck('id')->all(),
+            'edited_at' => now(),
+        ]);
+
         $journalEntry->fill($data);
         $journalEntry->edited_at = now();
         $journalEntry->save();
@@ -175,6 +196,44 @@ class JournalController extends Controller
         $link->delete();
 
         return redirect()->route('journal.show', $journalEntry)->with('status', __('Link removed.'));
+    }
+
+    public function revisions(JournalEntry $journalEntry)
+    {
+        $this->authorizeEntry($journalEntry);
+
+        return view('journal.revisions', [
+            'entry' => $journalEntry,
+            'revisions' => $journalEntry->revisions()->orderByDesc('edited_at')->get(),
+        ]);
+    }
+
+    public function restoreRevision(JournalEntry $journalEntry, JournalEntryRevision $revision)
+    {
+        $this->authorizeEntry($journalEntry);
+        abort_if($revision->journal_entry_id !== $journalEntry->id, 403);
+
+        // snapshot current before restore
+        \App\Models\JournalEntryRevision::create([
+            'journal_entry_id' => $journalEntry->id,
+            'title' => $journalEntry->title,
+            'content' => $journalEntry->content,
+            'mood_score' => $journalEntry->mood_score,
+            'tags_snapshot' => $journalEntry->tags()->pluck('id')->all(),
+            'edited_at' => now(),
+        ]);
+
+        $journalEntry->title = $revision->title;
+        $journalEntry->content = $revision->content;
+        $journalEntry->mood_score = $revision->mood_score;
+        $journalEntry->edited_at = now();
+        $journalEntry->save();
+
+        if (is_array($revision->tags_snapshot)) {
+            $journalEntry->tags()->sync($revision->tags_snapshot);
+        }
+
+        return redirect()->route('journal.show', $journalEntry)->with('status', __('Revision restored.'));
     }
 
     public function insights()

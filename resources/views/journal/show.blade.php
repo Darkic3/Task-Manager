@@ -113,6 +113,7 @@
 
     <div class="mt-4 d-flex gap-2">
         <a href="{{ route('journal.edit', $entry) }}" class="btn btn-outline-primary">{{ __('Edit') }}</a>
+        <a href="{{ route('journal.revisions', $entry) }}" class="btn btn-outline-secondary">{{ __('History') }}</a>
         <form method="POST" action="{{ route('journal.destroy', $entry) }}" onsubmit="return confirm('{{ __('Delete this entry?') }}');">
             @csrf
             @method('DELETE')
