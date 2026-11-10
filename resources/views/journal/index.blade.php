@@ -68,6 +68,9 @@
                                 @if ($entry->mood_score) · {{ __('Mood') }} {{ $entry->mood_score }}/10 @endif
                                 · {{ $entry->word_count }} {{ __('words') }}
                             </div>
+                            <div class="text-muted small mt-1">
+                                {{ \Illuminate\Support\Str::limit(\App\Support\MarkdownRenderer::toPlainText((string) $entry->content), 140) }}
+                            </div>
                             @if ($entry->tags->count())
                                 <div class="mt-1">
                                     @foreach ($entry->tags as $tag)

@@ -38,7 +38,7 @@ class JournalController extends Controller
             ->when($from || $to, fn ($q2) => $q2->between($from, $to))
             ->when($q !== '', fn ($q2) => $q2->search($q))
             ->when($status, fn ($q2) => $q2->where('status', $status))
-            ->notArchived()
+            ->when($status !== 'archived', fn ($q2) => $q2->notArchived())
             ->chronological('desc')
             ->paginate(20)
             ->withQueryString();
@@ -62,7 +62,7 @@ class JournalController extends Controller
 
         if ($request->filled('date')) {
             try {
-                $entry->entry_date = \Carbon\Carbon::parse($request->input('date'))->toDateString();
+                $entry->entry_date = Carbon::parse($request->input('date'))->toDateString();
             } catch (\Throwable $e) {
                 // ignore
             }
@@ -137,7 +137,7 @@ class JournalController extends Controller
         $data = $this->validated($request, $user, updating: true);
 
         // snapshot previous version
-        \App\Models\JournalEntryRevision::create([
+        JournalEntryRevision::create([
             'journal_entry_id' => $journalEntry->id,
             'title' => $journalEntry->title,
             'content' => $journalEntry->content,
@@ -214,7 +214,7 @@ class JournalController extends Controller
         abort_if($revision->journal_entry_id !== $journalEntry->id, 403);
 
         // snapshot current before restore
-        \App\Models\JournalEntryRevision::create([
+        JournalEntryRevision::create([
             'journal_entry_id' => $journalEntry->id,
             'title' => $journalEntry->title,
             'content' => $journalEntry->content,
@@ -459,9 +459,23 @@ class JournalController extends Controller
 
         $data['user_id'] = $user->id;
         $data['word_count'] = $this->wordCount($data['content']);
-        $data['status'] = $data['status'] ?? JournalEntry::STATUS_ACTIVE;
-        $data['is_pinned'] = (bool) ($data['is_pinned'] ?? false);
-        $data['is_favorite'] = (bool) ($data['is_favorite'] ?? false);
+        if (! array_key_exists('status', $data) || $data['status'] === null || $data['status'] === '') {
+            if (! $updating) {
+                $data['status'] = JournalEntry::STATUS_ACTIVE;
+            } else {
+                unset($data['status']);
+            }
+        }
+        if ($request->has('is_pinned')) {
+            $data['is_pinned'] = $request->boolean('is_pinned');
+        } else {
+            unset($data['is_pinned']);
+        }
+        if ($request->has('is_favorite')) {
+            $data['is_favorite'] = $request->boolean('is_favorite');
+        } else {
+            unset($data['is_favorite']);
+        }
 
         // strip relation-only keys before fill
         unset($data['tag_ids'], $data['mood_ids']);

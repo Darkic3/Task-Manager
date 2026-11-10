@@ -29,7 +29,7 @@ class JournalEntryFactory extends Factory
             'location_name' => null,
             'location_lat' => null,
             'location_lng' => null,
-            'word_count' => str_word_count($content),
+            'word_count' => count(preg_split('/\s+/u', trim($content)) ?: []),
             'is_pinned' => false,
             'is_favorite' => false,
             'status' => JournalEntry::STATUS_ACTIVE,

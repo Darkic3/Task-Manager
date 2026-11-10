@@ -3,9 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Models\ChecklistItem;
+use App\Models\Exercise;
 use App\Models\JournalEntryLink;
 use App\Models\JournalEntryRevision;
-use App\Models\Exercise;
 use App\Models\LawLink;
 use App\Models\NoteAttachment;
 use App\Models\NoteLink;

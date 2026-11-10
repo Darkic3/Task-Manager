@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\JournalTag;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class JournalTagController extends Controller
 {
@@ -23,7 +24,7 @@ class JournalTagController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:80'],
+            'name' => ['required', 'string', 'max:80', Rule::unique('journal_tags', 'name')->where('user_id', Auth::id())],
             'color' => ['nullable', 'string', 'max:20'],
         ]);
         $data['user_id'] = Auth::id();
@@ -51,7 +52,7 @@ class JournalTagController extends Controller
     {
         $this->authorizeTag($journalTag);
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:80'],
+            'name' => ['required', 'string', 'max:80', Rule::unique('journal_tags', 'name')->where('user_id', Auth::id())->ignore($journalTag->id)],
             'color' => ['nullable', 'string', 'max:20'],
         ]);
 
