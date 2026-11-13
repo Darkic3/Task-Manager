@@ -6830,6 +6830,12 @@ body:has(.pl-task-menu.is-open)::before {
             const viaVuePost = !!(window.PlannerDay && window.PlannerDay.mounted);
             if (viaVuePost) {
                 window.PlannerDay.removeTask(id);
+                // Overdue rows live outside the Vue-owned #plPendingBody, so the
+                // island's removeTask() never touches them — prune them here so
+                // a pulled task doesn't linger greyed out in the overdue box.
+                rows.forEach(r => {
+                    if (r.closest('#plOverdueBody')) r.remove();
+                });
             } else {
                 rows.forEach(r => {
                     const parentGroupBody = r.closest('[data-period-body]');
