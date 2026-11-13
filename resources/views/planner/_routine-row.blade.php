@@ -10,6 +10,7 @@
     $freqIcons   = ['daily' => 'bi-sun', 'weekly' => 'bi-calendar-week', 'monthly' => 'bi-calendar-month', 'every_n_days' => 'bi-arrow-left-right'];
     $fi          = $freqIcons[$routine->frequency] ?? 'bi-arrow-repeat';
     $active      = $routine->activeStepSchedule ?? null;
+    $daySlips    = $routine->isAvoid() ? $routine->violations()->whereDate('occurred_date', $routineDate instanceof \Carbon\Carbon ? $routineDate : \Carbon\Carbon::parse($routineDate))->orderByDesc('occurred_at')->get() : collect();
     $accent      = ($active['period_color'] ?? null) ?: $routine->periodColor() ?: $fc;
     $isAvoid    = ($routine->behavior_type ?? 'build') === 'avoid';
     $avoidQty   = $toggleable ? (int) ($routine->avoidDayQty ?? 0) : 0;
@@ -457,6 +458,18 @@
                     <button type="submit" class="pl-avoid-submit">{{ __('Log') }}</button>
                 </form>
             </div>
+            @if($daySlips->isNotEmpty())
+            <div style="margin-top:6px;font-size:11px;" data-day-slips>
+                @foreach($daySlips as $vs)
+                    <div style="display:flex;gap:6px;align-items:center;padding:2px 0;" data-violation-id="{{ $vs->id }}">
+                        <span style="color:#b91c1c;font-weight:700;">{{ __('Slip') }} @if($routine->count_violations)×{{ $vs->quantity }}@endif</span>
+                        <span style="color:#8a8f98;">{{ $vs->occurred_at?->format('H:i') }}</span>
+                        @if($vs->trigger)<span>{{ $vs->trigger }}</span>@endif
+                        <button type="button" class="btn btn-sm btn-outline-danger" style="padding:0 6px;font-size:10px;" onclick="deleteSlip({{ $vs->id }})">{{ __('Delete') }}</button>
+                    </div>
+                @endforeach
+            </div>
+            @endif
         @endif
 
         @if($logUrl && $trackMode === 'value')

@@ -347,13 +347,15 @@
             </div>
             <div class="rs-card-body" style="padding-top:8px;padding-bottom:8px;" id="todayViolationsList">
                 @foreach($avoid['today_violations'] as $v)
-                    <div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #f0f1f3;font-size:12px;align-items:center;flex-wrap:wrap;">
+                    <div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #f0f1f3;font-size:12px;align-items:center;flex-wrap:wrap;" data-violation-id="{{ $v->id }}">
                         <span style="font-weight:700;color:#b91c1c;white-space:nowrap;">{{ __('Slip') }} @if($routine->count_violations)×{{ $v->quantity }}@endif</span>
                         <span style="color:#8a8f98;white-space:nowrap;">{{ $v->occurred_at ? $v->occurred_at->format('H:i') : '' }}</span>
                         @if($v->trigger)<span style="color:#b91c1c;font-weight:600;">{{ $v->trigger }}</span>@endif
                         @if($v->location)<span style="color:#0369a1;">📍 {{ $v->location }}</span>@endif
                         @if($v->mood)<span style="background:#f5f3ff;color:#7c3aed;padding:1px 8px;border-radius:12px;font-weight:700;">{{ $v->mood }}/10</span>@endif
                         <span style="color:#1a1d23;flex:1;min-width:120px;">{{ $v->note ?: '—' }}</span>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="editSlip({{ $v->id }}, @json($v->occurred_date?->toDateString() ?? $v->occurred_at?->toDateString()), @json($v->occurred_at?->format('Y-m-d H:i')), {{ (int) $v->quantity }}, @json($v->trigger), @json($v->location), {{ $v->mood ?? 'null' }}, @json($v->note))">{{ __('Edit') }}</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSlip({{ $v->id }})">{{ __('Delete') }}</button>
                     </div>
                 @endforeach
             </div>
@@ -456,4 +458,111 @@
     ])
 
 </div>
+
+{{-- Slip edit modal --}}
+<div id="slipEditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1050;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;padding:20px;max-width:520px;width:90%;max-height:90vh;overflow:auto;">
+        <h5 style="margin-bottom:12px;">{{ __('Edit slip') }}</h5>
+        <form id="slipEditForm">
+            <input type="hidden" id="slipEditId">
+            <div style="margin-bottom:8px;">
+                <label style="font-size:12px;">{{ __('Day') }}</label>
+                <x-jalali-date name="date" type="date" id="slipEditDate" />
+            </div>
+            <div style="margin-bottom:8px;">
+                <label style="font-size:12px;">{{ __('Exact time') }}</label>
+                <x-jalali-date name="occurred_at" type="datetime" id="slipEditOccurredAt" />
+            </div>
+            @if($routine->count_violations)
+            <div style="margin-bottom:8px;">
+                <label style="font-size:12px;">{{ __('Quantity') }}</label>
+                <input type="number" name="quantity" id="slipEditQty" min="1" class="form-control form-control-sm">
+            </div>
+            @endif
+            <div style="margin-bottom:8px;">
+                <label style="font-size:12px;">{{ __('Trigger') }}</label>
+                <input type="text" name="trigger" id="slipEditTrigger" class="form-control form-control-sm">
+            </div>
+            <div style="margin-bottom:8px;">
+                <label style="font-size:12px;">{{ __('Location') }}</label>
+                <input type="text" name="location" id="slipEditLocation" class="form-control form-control-sm">
+            </div>
+            <div style="margin-bottom:8px;">
+                <label style="font-size:12px;">{{ __('Mood') }}</label>
+                <input type="number" name="mood" id="slipEditMood" min="1" max="10" class="form-control form-control-sm">
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:12px;">{{ __('Note') }}</label>
+                <input type="text" name="note" id="slipEditNote" class="form-control form-control-sm">
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="closeSlipEdit()">{{ __('Cancel') }}</button>
+                <button type="submit" class="btn btn-sm btn-primary">{{ __('Save') }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function() {
+    const modal = document.getElementById('slipEditModal');
+    const form = document.getElementById('slipEditForm');
+    window.editSlip = function(id, date, occurredAt, qty, trigger, location, mood, note) {
+        document.getElementById('slipEditId').value = id;
+        // set hidden gregorian inputs
+        const dateInput = document.getElementById('slipEditDate');
+        if (dateInput) dateInput.value = date || '';
+        const occInput = document.getElementById('slipEditOccurredAt');
+        if (occInput) occInput.value = occurredAt ? occurredAt.replace(' ', 'T') : '';
+        const q = document.getElementById('slipEditQty');
+        if (q) q.value = qty || 1;
+        document.getElementById('slipEditTrigger').value = trigger || '';
+        document.getElementById('slipEditLocation').value = location || '';
+        const m = document.getElementById('slipEditMood');
+        if (m) m.value = mood || '';
+        document.getElementById('slipEditNote').value = note || '';
+        modal.style.display = 'flex';
+    };
+    window.closeSlipEdit = function() { modal.style.display = 'none'; };
+    modal.addEventListener('click', function(e) { if (e.target === modal) closeSlipEdit(); });
+
+    window.deleteSlip = async function(id) {
+        if (!confirm(@json(__('Delete this slip?')))) return;
+        const token = document.querySelector('meta[name="csrf-token"]')?.content;
+        const res = await fetch('/planner/violations/' + id, {
+            method: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json' },
+        });
+        if (res.ok) window.location.reload();
+        else alert(@json(__('Could not delete slip')));
+    };
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const id = document.getElementById('slipEditId').value;
+        const token = document.querySelector('meta[name="csrf-token"]')?.content;
+        const payload = {};
+        const dateVal = document.getElementById('slipEditDate')?.value;
+        const occVal = document.getElementById('slipEditOccurredAt')?.value;
+        if (dateVal) payload.date = dateVal;
+        if (occVal) payload.occurred_at = occVal.replace('T', ' ');
+        const q = document.getElementById('slipEditQty');
+        if (q) payload.quantity = Number(q.value || 1);
+        payload.trigger = document.getElementById('slipEditTrigger').value || null;
+        payload.location = document.getElementById('slipEditLocation').value || null;
+        const moodVal = document.getElementById('slipEditMood')?.value;
+        if (moodVal) payload.mood = Number(moodVal);
+        payload.note = document.getElementById('slipEditNote').value || null;
+
+        const res = await fetch('/planner/violations/' + id, {
+            method: 'PUT',
+            headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (res.ok) window.location.reload();
+        else alert(@json(__('Could not update slip')));
+    });
+})();
+</script>
+
 @endsection

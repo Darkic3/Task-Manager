@@ -1539,13 +1539,7 @@ class PlannerController extends Controller
     public function destroyViolation(Request $request, RoutineViolation $violation)
     {
         abort_if($violation->user_id !== Auth::id(), 403);
-        // Only today's violation can be undone
-        $today = today()->toDateString();
         $violDate = $violation->occurred_date instanceof Carbon ? $violation->occurred_date->toDateString() : substr((string) $violation->occurred_date, 0, 10);
-        abort_if($violDate !== $today, 410, __('Undo window expired.'));
-        // Strict 10-minute undo window based on creation time
-        $createdAt = $violation->created_at instanceof Carbon ? $violation->created_at : Carbon::parse($violation->created_at);
-        abort_if($createdAt->diffInSeconds(now()) > 600, 410, __('Undo window expired.'));
 
         $routineId = $violation->routine_id;
         $itemId = $violation->checklist_item_id;
@@ -1573,10 +1567,106 @@ class PlannerController extends Controller
         ]);
     }
 
-    /**
-     * Undo a craving/note - only within 10 minutes of creation.
-     */
-    public function destroyNote(Request $request, RoutineNote $note)
+     /**
+      * Update (edit/move) a slip (violation). Allows correcting the day/time
+      * and other details after the fact; Law events are re-scored on date change.
+      */
+     public function updateViolation(Request $request, RoutineViolation $violation)
+     {
+         abort_if($violation->user_id !== Auth::id(), 403);
+
+         $routine = $violation->routine;
+         abort_if(! $routine, 404);
+
+         $data = $request->validate([
+             'date' => 'nullable|date',
+             'occurred_at' => 'nullable|date',
+             'quantity' => 'nullable|integer|min:1|max:100000',
+             'trigger' => 'nullable|string|max:100',
+             'note' => 'nullable|string|max:2000',
+             'mood' => 'nullable|integer|min:1|max:10',
+             'location' => 'nullable|string|max:100',
+         ]);
+
+         $oldDate = $violation->occurred_date instanceof Carbon
+             ? $violation->occurred_date->toDateString()
+             : Carbon::parse($violation->occurred_date)->toDateString();
+
+         $newDate = $oldDate;
+         if (! empty($data['date'])) {
+             $newDate = Carbon::parse($data['date'])->toDateString();
+         } elseif (! empty($data['occurred_at'])) {
+             $newDate = Carbon::parse($data['occurred_at'])->toDateString();
+         }
+
+         $at = $violation->occurred_at instanceof Carbon
+             ? $violation->occurred_at->copy()
+             : ($violation->occurred_at ? Carbon::parse($violation->occurred_at) : now());
+
+         if (! empty($data['occurred_at'])) {
+             $at = Carbon::parse($data['occurred_at']);
+         }
+         if (! empty($data['date']) && $at) {
+             $d = Carbon::parse($data['date']);
+             $at = $at->setDate($d->year, $d->month, $d->day);
+         }
+         if ($at->gt(now()->addMinutes(5))) {
+             $at = now();
+         }
+
+         $violation->occurred_date = $newDate;
+         $violation->occurred_at = $at;
+
+         if (array_key_exists('quantity', $data) && $data['quantity'] !== null) {
+             $violation->quantity = $routine->count_violations
+                 ? max(1, (int) $data['quantity'])
+                 : 1;
+         }
+         if (array_key_exists('trigger', $data)) {
+             $violation->trigger = isset($data['trigger']) ? (trim((string) $data['trigger']) ?: null) : $violation->trigger;
+         }
+         if (array_key_exists('location', $data)) {
+             $violation->location = isset($data['location']) ? (trim((string) $data['location']) ?: null) : $violation->location;
+         }
+         if (array_key_exists('mood', $data)) {
+             $violation->mood = isset($data['mood']) && $data['mood'] !== '' ? max(1, min(10, (int) $data['mood'])) : null;
+         }
+         if (array_key_exists('note', $data)) {
+             $violation->note = $data['note'] ?? null;
+         }
+
+         $violation->save();
+
+         // Re-score Law events for the (possibly new) day.
+         app(\App\Services\LawEventService::class)->removeSlipEvents($violation);
+         app(\App\Services\LawEventService::class)->recordSlip($violation);
+
+         $routine->refresh();
+         $dayQty = (int) $routine->violationQtyOn(Carbon::parse($newDate));
+         $stepQty = null;
+         if ($violation->checklist_item_id) {
+             $stepQty = (int) $routine->violations()
+                 ->where('checklist_item_id', $violation->checklist_item_id)
+                 ->where('occurred_date', $newDate)
+                 ->sum('quantity');
+         }
+
+         return response()->json([
+             'ok' => true,
+             'violation_id' => $violation->id,
+             'routine_id' => $routine->id,
+             'item_id' => $violation->checklist_item_id,
+             'date' => $newDate,
+             'day_qty' => $dayQty,
+             'step_qty' => $stepQty,
+             'violated' => $dayQty > 0,
+         ]);
+     }
+
+     /**
+      * Undo a craving/note - only within 10 minutes of creation.
+      */
+     public function destroyNote(Request $request, RoutineNote $note)
     {
         abort_if($note->user_id !== Auth::id(), 403);
         $today = today()->toDateString();

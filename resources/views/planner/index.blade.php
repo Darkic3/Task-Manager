@@ -3490,7 +3490,7 @@ body:has(.pl-task-menu.is-open)::before {
                 <span class="pl-qa-title" id="plFailTitle">{{ __('Mark as failed') }}</span>
                 <button type="button" class="pl-qa-x" data-fail-close aria-label="{{ __('Close') }}">&times;</button>
             </div>
-            <form class="pl-qa-form" data-fail-form onsubmit="return submitFailModal(this)">
+            <form class="pl-qa-form" data-fail-form onsubmit="event.preventDefault(); submitFailModal(this); return false;">
                 <div class="pl-fail-taskname" data-fail-taskname></div>
                 <label class="pl-fail-label" for="plFailNote">{{ __('Fail note') }}</label>
                 <textarea name="note" id="plFailNote" class="pl-qa-input pl-fail-note-input"
@@ -3538,7 +3538,7 @@ body:has(.pl-task-menu.is-open)::before {
 
                 <form class="pl-qa-form" data-qa-panel="routine"
                       data-url="{{ route('planner.quick-add.routine') }}"
-                      onsubmit="return submitQuickRoutine(this)">
+                      onsubmit="event.preventDefault(); submitQuickRoutine(this); return false;">
                     <input type="hidden" name="date" value="{{ $date->toDateString() }}">
                     <input type="text" name="title" class="pl-qa-input pl-qa-title-input" placeholder="{{ __('Routine name') }}" autocomplete="off" maxlength="255">
                     <div class="pl-qa-error" data-qa-error hidden></div>
@@ -3596,7 +3596,7 @@ body:has(.pl-task-menu.is-open)::before {
                 <div data-ta-panel="new">
                     <form class="pl-qa-form" data-qa-panel="task"
                           data-url="{{ route('planner.quick-add.task') }}"
-                          onsubmit="return submitQuickTask(this)">
+                          onsubmit="event.preventDefault(); submitQuickTask(this); return false;">
                         <input type="hidden" name="date" value="{{ $date->toDateString() }}">
                         <input type="text" name="title" class="pl-qa-input pl-qa-title-input" placeholder="{{ __('What needs to be done?') }}" autocomplete="off" maxlength="255">
                         <div class="pl-qa-error" data-qa-error hidden></div>
@@ -5013,6 +5013,21 @@ body:has(.pl-task-menu.is-open)::before {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
     }
+
+    window.deleteSlip = async function(id) {
+        if (!confirm(@json(__('Delete this slip?')))) return;
+        try {
+            const res = await plFetch('/planner/violations/' + id, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': PL_CSRF, 'Accept': 'application/json' },
+            });
+            if (res.ok) window.location.reload();
+            else alert(@json(__('Could not delete slip')));
+        } catch (e) {
+            console.error(e);
+            alert(@json(__('Could not delete slip')));
+        }
+    };
 
     async function submitRoutineSlip(form, e) {
         if (e) e.preventDefault();
