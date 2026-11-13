@@ -42,6 +42,16 @@ class WorkoutPlanController extends Controller
         return redirect()->route('workouts.plans.edit', $plan)->with('success', __('Workout plan created.'));
     }
 
+    public function show(WorkoutPlan $workoutPlan)
+    {
+        $this->authorizePlan($workoutPlan);
+        $workoutPlan->load(['days.exercises.exercise', 'rules']);
+
+        return view('workouts.plans.show', [
+            'plan' => $workoutPlan,
+        ]);
+    }
+
     public function edit(WorkoutPlan $workoutPlan)
     {
         $this->authorizePlan($workoutPlan);

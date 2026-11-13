@@ -177,6 +177,7 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
         Route::resource('plans', WorkoutPlanController::class)->except(['show'])->parameters(['plans' => 'workoutPlan']);
         // Support GET /workouts/plans/{id} by redirecting to edit UI.
         // Without this, only update/delete verbs exist and GET throws MethodNotAllowed.
+        Route::get('plans/{workoutPlan}/overview', [WorkoutPlanController::class, 'show'])->name('plans.overview');
         Route::get('plans/{workoutPlan}', [WorkoutPlanController::class, 'edit'])->name('plans.show');
         // Some clients may accidentally submit POST to the update endpoint;
         // support it as an alias to PUT/PATCH to avoid MethodNotAllowed.

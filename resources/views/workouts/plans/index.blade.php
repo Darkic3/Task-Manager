@@ -606,6 +606,9 @@
                             </span>
 
                             <div class="wp-actions-group">
+                                <a class="wp-icon-btn" href="{{ route('workouts.plans.overview', $plan) }}" title="{{ __('View Plan Details') }}">
+                                    <i class="bi bi-eye"></i>
+                                </a>
                                 <a class="wp-icon-btn" href="{{ route('workouts.plans.edit', $plan) }}" title="Edit Plan">
                                     <i class="bi bi-pencil"></i>
                                 </a>
