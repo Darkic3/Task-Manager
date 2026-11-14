@@ -392,6 +392,13 @@
             <hr>
             <div class="lv-ans" data-f="answer">{{ $answer }}</div>
             <div class="lv-ex" data-example @if(!$showExample) hidden @endif><i class="bi bi-quote"></i> <span data-f="example">{{ $showExample ? $current->example : '' }}</span></div>
+            <div class="lv-extra" data-f="extra" style="margin-top:10px;font-size:.8rem;color:#4b5563;" @if(empty($current->extra)) hidden @endif>
+                @if(is_array($current->extra))
+                    @foreach($current->extra as $k => $v)
+                        <div><strong>{{ $k }}</strong>: {{ is_array($v) ? implode(', ', $v) : $v }}</div>
+                    @endforeach
+                @endif
+            </div>
         </div>
 
         <div class="lv-grade" id="vbGrade" hidden>
@@ -529,6 +536,25 @@
         if (ex) {
             ex.hidden = !card.example;
             if (card.example) fill(cardEl, 'example', card.example);
+        }
+
+        var extraEl = cardEl.querySelector('[data-f="extra"]');
+        if (extraEl) {
+            extraEl.innerHTML = '';
+            if (card.extra && typeof card.extra === 'object') {
+                var has = false;
+                Object.keys(card.extra).forEach(function (k) {
+                    var v = card.extra[k];
+                    var val = Array.isArray(v) ? v.join(', ') : v;
+                    var div = document.createElement('div');
+                    div.innerHTML = '<strong>' + k + '</strong>: ' + val;
+                    extraEl.appendChild(div);
+                    has = true;
+                });
+                extraEl.hidden = !has;
+            } else {
+                extraEl.hidden = true;
+            }
         }
 
         var dots = cardEl.querySelector('[data-f="dots"]');

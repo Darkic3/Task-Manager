@@ -343,6 +343,7 @@ class VocabReviewController extends Controller
             'priority' => (int) $card->priority,
             'tags' => is_array($card->tags) ? $card->tags : [],
             'source_section' => $card->source_section,
+            'extra' => is_array($card->extra) ? $card->extra : null,
         ];
     }
 

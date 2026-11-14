@@ -81,6 +81,7 @@ class VocabCardController extends Controller
     {
         $this->normalizeTagInput($request);
         $this->normalizeRelatedCardsInput($request);
+        $this->normalizeExtraInput($request);
 
         $data = $request->validate($this->rules());
 
@@ -110,6 +111,7 @@ class VocabCardController extends Controller
 
         $this->normalizeTagInput($request);
         $this->normalizeRelatedCardsInput($request);
+        $this->normalizeExtraInput($request);
 
         $data = $request->validate($this->rules());
 
@@ -247,6 +249,20 @@ class VocabCardController extends Controller
         }
     }
 
+    private function normalizeExtraInput(Request $request): void
+    {
+        if ($request->has('extra') && is_string($request->input('extra'))) {
+            $raw = trim((string) $request->input('extra'));
+            if ($raw === '') {
+                $request->merge(['extra' => null]);
+                return;
+            }
+            $decoded = json_decode($raw, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $request->merge(['extra' => $decoded]);
+            }
+        }
+    }
     private function normalizeTagInput(Request $request): void
     {
         if ($request->has('tags') && is_string($request->input('tags'))) {

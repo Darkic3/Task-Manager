@@ -309,6 +309,8 @@
                     <input name="tags" class="form-control" value="{{ is_array($card->tags) ? implode(',', $card->tags) : '' }}" placeholder="{{ __('Tags (comma)') }}">
                     <input name="source_section" class="form-control" value="{{ $card->source_section }}" placeholder="{{ __('Section') }}">
                     <input name="related_cards" class="form-control" value="{{ is_array($card->related_cards) ? implode(',', $card->related_cards) : '' }}" placeholder="{{ __('Related IDs') }}">
+                    <input name="difficulty" type="number" min="1" max="5" class="form-control" value="{{ $card->difficulty }}" placeholder="{{ __('Difficulty 1-5') }}">
+                    <textarea name="extra" class="form-control" rows="2" placeholder='{{ __('Extra (JSON)') }}'>{{ $card->extra ? json_encode($card->extra, JSON_UNESCAPED_UNICODE) : '' }}</textarea>
                     <button class="lv-btn lv-btn-primary" type="submit"><i class="bi bi-check-lg"></i>{{ __('Save') }}</button>
                 </form>
                 <p class="lv-edit-hint">{{ __('Changing the word restarts this card in Box 1. Editing only the meaning keeps its progress.') }}</p>
