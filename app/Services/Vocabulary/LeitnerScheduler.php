@@ -55,6 +55,27 @@ class LeitnerScheduler
         ];
     }
 
+    /**
+     * @return array{box: int, next_review_at: Carbon, is_mastered: bool}
+     */
+    public static function resolveGrade(string $grade, int $currentBox): array
+    {
+        $currentBox = max(self::BOX_MIN, min(self::BOX_MAX, $currentBox));
+
+        $newBox = match ($grade) {
+            'again' => self::BOX_MIN,
+            'hard' => $currentBox,
+            'good' => min(self::BOX_MAX, $currentBox + 1),
+            'easy' => min(self::BOX_MAX, $currentBox + 2),
+            default => min(self::BOX_MAX, $currentBox + 1),
+        };
+
+        return [
+            'box' => $newBox,
+            'next_review_at' => static::nextReviewDate($newBox),
+            'is_mastered' => $newBox === self::MASTERED_BOX,
+        ];
+    }
     public static function nextReviewDate(int $box): Carbon
     {
         return today()->addDays(static::intervalForBox($box));

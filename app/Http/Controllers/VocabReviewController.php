@@ -9,6 +9,7 @@ use App\Services\Vocabulary\LeitnerScheduler;
 use App\Services\Vocabulary\VocabReminderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class VocabReviewController extends Controller
 {
@@ -79,7 +80,8 @@ class VocabReviewController extends Controller
         abort_if($vocabCard->user_id !== Auth::id(), 403);
 
         $data = $request->validate([
-            'remembered' => 'required|boolean',
+            'remembered' => 'required_without:grade|boolean',
+            'grade' => ['required_without:remembered', 'string', Rule::in(\App\Enums\Grade::values())],
             'deck_id' => 'nullable|string',
             'dir' => 'nullable|string',
         ]);
@@ -87,7 +89,13 @@ class VocabReviewController extends Controller
         $user = Auth::user();
         $boxBefore = (int) $vocabCard->box;
 
-        $vocabCard->markResult((bool) $data['remembered']);
+        $grade = isset($data['grade'])
+            ? \App\Enums\Grade::from($data['grade'])
+            : \App\Enums\Grade::fromLegacy((bool) $data['remembered']);
+
+        $remembered = $grade->remembered();
+
+        $vocabCard->markResult($grade);
 
         $queue = session('vocab_review_queue', ['items' => []]);
         $queued = collect($queue['items'] ?? [])->firstWhere('id', $vocabCard->id);
@@ -98,7 +106,7 @@ class VocabReviewController extends Controller
         $review = $vocabCard->reviews()->create([
             'user_id' => Auth::id(),
             'deck_id' => $vocabCard->deck_id,
-            'remembered' => (bool) $data['remembered'],
+            'remembered' => $remembered,
             'box_before' => $boxBefore,
             'box_after' => (int) $vocabCard->box,
             'reversed' => $reversed,
@@ -106,8 +114,8 @@ class VocabReviewController extends Controller
         ]);
 
         // Session counters power the end-of-session summary.
-        $queue['remembered'] = (int) ($queue['remembered'] ?? 0) + ($data['remembered'] ? 1 : 0);
-        $queue['forgotten'] = (int) ($queue['forgotten'] ?? 0) + ($data['remembered'] ? 0 : 1);
+        $queue['remembered'] = (int) ($queue['remembered'] ?? 0) + ($remembered ? 1 : 0);
+        $queue['forgotten'] = (int) ($queue['forgotten'] ?? 0) + ($remembered ? 0 : 1);
 
         $queue['items'] = array_values(array_filter(
             $queue['items'] ?? [],
@@ -145,7 +153,7 @@ class VocabReviewController extends Controller
         }
 
         return redirect()->route('vocabulary.review.index', $this->filterParams($data))
-            ->with('success', $data['remembered'] ? __('Well done — moved forward.') : __('Back to Box 1 for tomorrow.'))
+            ->with('success', $remembered ? __('Well done — moved forward.') : __('Back to Box 1 for tomorrow.'))
             // Lets the next page offer a five-second undo for this grade.
             ->with('vocab_undo', $this->undoPayload($review, $vocabCard));
     }
@@ -187,6 +195,7 @@ class VocabReviewController extends Controller
             'review_count' => max(0, (int) $card->review_count - 1),
             'success_count' => max(0, (int) $card->success_count - ($review->remembered ? 1 : 0)),
             'is_mastered' => (int) $review->box_before === LeitnerScheduler::MASTERED_BOX,
+            'lapse_count' => max(0, (int) $card->lapse_count - ($review->remembered ? 0 : 1)),
         ]);
 
         // Put the card back at the front of the running queue, same direction.
@@ -238,9 +247,11 @@ class VocabReviewController extends Controller
     private function buildQueue(User $user, string $deckId, string $dir): array
     {
         $cards = $this->dueQuery($user, $deckId)
-            ->orderBy('box')->orderBy('id')
+            ->orderBy('priority')
+            ->orderBy('box')
+            ->orderBy('id')
             ->limit($user->vocabSessionLimit())
-            ->get(['id']);
+            ->get(['id', 'priority']);
 
         $items = $cards->map(fn (VocabCard $c) => [
             'id' => $c->id,

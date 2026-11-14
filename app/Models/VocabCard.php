@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-use App\Services\Vocabulary\LeitnerScheduler;
+    use App\Enums\Grade;
+    use App\Services\Vocabulary\LeitnerScheduler;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -187,18 +188,27 @@ class VocabCard extends Model
 
     /**
      * Apply a Leitner review result to this card.
+     *
+     * Accepts a Grade, its string value, or a legacy boolean (true=Good).
      */
-    public function markResult(bool $remembered): void
+    public function markResult(Grade|string|bool $grade): void
     {
-        $resolved = LeitnerScheduler::resolve($remembered, (int) $this->box);
+        if (is_bool($grade)) {
+            $grade = Grade::fromLegacy($grade);
+        } elseif (is_string($grade)) {
+            $grade = Grade::from($grade);
+        }
+
+        $resolved = LeitnerScheduler::resolveGrade($grade->value, (int) $this->box);
 
         $this->update([
             'box' => $resolved['box'],
             'next_review_at' => $resolved['next_review_at'],
             'last_reviewed_at' => now(),
             'review_count' => $this->review_count + 1,
-            'success_count' => $this->success_count + ($remembered ? 1 : 0),
+            'success_count' => $this->success_count + ($grade->remembered() ? 1 : 0),
             'is_mastered' => $resolved['is_mastered'],
+            'lapse_count' => $this->lapse_count + ($grade === Grade::Again ? 1 : 0),
         ]);
     }
 

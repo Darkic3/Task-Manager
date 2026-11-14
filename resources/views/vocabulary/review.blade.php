@@ -97,7 +97,7 @@
 .lv-ans { font-size:1.5rem; font-weight:800; color:#059669; overflow-wrap:anywhere; }
 .lv-ex { display:inline-block; font-size:.82rem; color:#6b7280; font-style:italic;
     background:#f8fafc; border-radius:10px; padding:7px 14px; margin-top:10px; max-width:100%; }
-.lv-grade { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:18px; padding:0 24px; }
+.lv-grade { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; margin-top:18px; padding:0 24px; }
 .lv-grade button {
     border:none; border-radius:13px; padding:14px 10px; font-weight:800; font-size:.95rem;
     cursor:pointer; transition:transform .15s, filter .15s;
@@ -107,8 +107,12 @@
 .lv-grade button:active { transform:scale(.98); }
 .lv-forgot { background:linear-gradient(135deg,#fee2e2,#fecaca); color:#b91c1c;
     box-shadow:0 10px 20px -10px rgba(185,28,28,.4); }
+.lv-hard { background:linear-gradient(135deg,#fef3c7,#fde68a); color:#92400e;
+    box-shadow:0 10px 20px -10px rgba(146,64,14,.4); }
 .lv-remembered { background:linear-gradient(135deg,#d1fae5,#a7f3d0); color:#047857;
     box-shadow:0 10px 20px -10px rgba(4,120,87,.4); }
+.lv-easy { background:linear-gradient(135deg,#dbeafe,#bfdbfe); color:#1d4ed8;
+    box-shadow:0 10px 20px -10px rgba(29,78,216,.4); }
 .lv-kbd { font-size:.62rem; font-weight:800; background:rgba(0,0,0,.12); border-radius:5px;
     padding:1px 6px; }
 .lv-show {
@@ -123,7 +127,9 @@
 .lv-tip { font-size:.74rem; color:#9ca3af; text-align:center; margin-top:12px; }
 .lv-tip kbd { font-family:inherit; font-size:.66rem; font-weight:800; background:#eef2ff;
     color:#4f46e5; border-radius:5px; padding:1px 7px; }
-/* ── Undo bar (five seconds) ── */
+@media (min-width:641px) {
+    .lv-grade { grid-template-columns: repeat(4, 1fr); }
+}
 /* Sticky grading bar on phones: the buttons stay under the thumb. */
 @media (max-width:640px) {
     .lv-page { padding-bottom:84px; }
@@ -392,16 +398,34 @@
             <form method="POST" action="{{ route('vocabulary.cards.grade', $current) }}" data-grade="0">
                 @csrf
                 <input type="hidden" name="remembered" value="0">
+                <input type="hidden" name="grade" value="again">
                 <input type="hidden" name="deck_id" value="{{ $deckId }}">
                 <input type="hidden" name="dir" value="{{ $dir }}">
-                <button class="lv-forgot" id="vbForgot" type="submit" style="width:100%;"><span>❌</span> {{ __('I forgot') }} <span class="lv-kbd">1</span></button>
+                <button class="lv-forgot" id="vbForgot" type="submit" style="width:100%;"><span>❌</span> {{ __('Again') }} <span class="lv-kbd">1</span></button>
+            </form>
+            <form method="POST" action="{{ route('vocabulary.cards.grade', $current) }}" data-grade="hard">
+                @csrf
+                <input type="hidden" name="remembered" value="1">
+                <input type="hidden" name="grade" value="hard">
+                <input type="hidden" name="deck_id" value="{{ $deckId }}">
+                <input type="hidden" name="dir" value="{{ $dir }}">
+                <button class="lv-hard" id="vbHard" type="submit" style="width:100%;"><span>😰</span> {{ __('Hard') }} <span class="lv-kbd">2</span></button>
             </form>
             <form method="POST" action="{{ route('vocabulary.cards.grade', $current) }}" data-grade="1">
                 @csrf
                 <input type="hidden" name="remembered" value="1">
+                <input type="hidden" name="grade" value="good">
                 <input type="hidden" name="deck_id" value="{{ $deckId }}">
                 <input type="hidden" name="dir" value="{{ $dir }}">
-                <button class="lv-remembered" id="vbRemembered" type="submit" style="width:100%;"><span>✅</span> {{ __('I remembered') }} <span class="lv-kbd">2</span></button>
+                <button class="lv-remembered" id="vbRemembered" type="submit" style="width:100%;"><span>✅</span> {{ __('Good') }} <span class="lv-kbd">3</span></button>
+            </form>
+            <form method="POST" action="{{ route('vocabulary.cards.grade', $current) }}" data-grade="easy">
+                @csrf
+                <input type="hidden" name="remembered" value="1">
+                <input type="hidden" name="grade" value="easy">
+                <input type="hidden" name="deck_id" value="{{ $deckId }}">
+                <input type="hidden" name="dir" value="{{ $dir }}">
+                <button class="lv-easy" id="vbEasy" type="submit" style="width:100%;"><span>🚀</span> {{ __('Easy') }} <span class="lv-kbd">4</span></button>
             </form>
         </div>
 
@@ -657,7 +681,9 @@
         // must never mark a card the user has not seen yet.
         if (!answersVisible()) return;
         if (e.key === '1') { document.getElementById('vbForgot')?.click(); }
-        else if (e.key === '2') { document.getElementById('vbRemembered')?.click(); }
+        else if (e.key === '2') { document.getElementById('vbHard')?.click(); }
+        else if (e.key === '3') { document.getElementById('vbRemembered')?.click(); }
+        else if (e.key === '4') { document.getElementById('vbEasy')?.click(); }
     });
 
     // Re-hide the server-rendered undo bar after its five seconds.
