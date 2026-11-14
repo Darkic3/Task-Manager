@@ -55,10 +55,11 @@
             title="{{ $isDone ? __('Mark as To Do') : __('Mark as Completed') }}">
         <i class="bi {{ $isDone ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
     </button>
-    <a href="{{ route('tasks.show', $task->id) }}" class="cu-task-title" title="{{ $task->title }}">
-        {{ $task->title }}
-    </a>
-    @if($rowScheduled)
+<a href="{{ route('tasks.show', $task->id) }}" class="cu-task-title" title="{{ $task->title }}">
+    {{ $task->title }}
+</a>
+<span class="cu-priority {{ $task->priority }}" title="{{ __(ucfirst($task->priority)) }} {{ __('Priority') }}">{{ __(ucfirst($task->priority)) }}</span>
+@if($rowScheduled)
         <span class="cu-today-chip" title="{{ __('Scheduled') }} · {{ $rowSchedLabel }}">
             <i class="bi {{ $rowPlannedIcon }}"></i>{{ $rowSchedLabel }}
         </span>
