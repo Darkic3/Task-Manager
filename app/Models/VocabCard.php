@@ -23,6 +23,14 @@ class VocabCard extends Model
         'review_count',
         'success_count',
         'is_mastered',
+        'card_type',
+        'priority',
+        'tags',
+        'related_cards',
+        'extra',
+        'source_section',
+        'difficulty',
+        'lapse_count',
     ];
 
     protected $casts = [
@@ -32,6 +40,12 @@ class VocabCard extends Model
         'review_count' => 'integer',
         'success_count' => 'integer',
         'is_mastered' => 'boolean',
+        'priority' => 'integer',
+        'tags' => 'array',
+        'related_cards' => 'array',
+        'extra' => 'array',
+        'difficulty' => 'integer',
+        'lapse_count' => 'integer',
     ];
 
     public function user()
@@ -136,6 +150,31 @@ class VocabCard extends Model
     public function scopeLearning($query)
     {
         return $query->where('is_mastered', false);
+    }
+
+    public function scopeByCardType($query, string $type)
+    {
+        return $query->where('card_type', $type);
+    }
+
+    public function scopeByPriority($query, int $priority)
+    {
+        return $query->where('priority', $priority);
+    }
+
+    public function scopeBySourceSection($query, string $section)
+    {
+        return $query->where('source_section', $section);
+    }
+
+    public function scopeByTag($query, string $tag)
+    {
+        return $query->whereJsonContains('tags', $tag);
+    }
+
+    public function scopeLapsed($query, int $threshold = 3)
+    {
+        return $query->where('lapse_count', '>=', $threshold);
     }
 
     public function scopeSearch($query, string $search)

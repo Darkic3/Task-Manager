@@ -203,6 +203,20 @@
             <option value="{{ $b }}" {{ ($filters['box'] ?? 'all') == (string) $b ? 'selected' : '' }}>{{ __('Box :n', ['n' => $b]) }}</option>
             @endfor
         </select>
+        <select name="card_type" class="form-control">
+            <option value="all">{{ __('All types') }}</option>
+            @foreach(\App\Enums\CardType::cases() as $ct)
+            <option value="{{ $ct->value }}" {{ ($filters['card_type'] ?? 'all') === $ct->value ? 'selected' : '' }}>{{ __($ct->label()) }}</option>
+            @endforeach
+        </select>
+        <select name="priority" class="form-control">
+            <option value="all">{{ __('All priorities') }}</option>
+            @for($p = 1; $p <= 3; $p++)
+            <option value="{{ $p }}" {{ ($filters['priority'] ?? 'all') == (string) $p ? 'selected' : '' }}>{{ __('Priority :n', ['n' => $p]) }}</option>
+            @endfor
+        </select>
+        <input name="source_section" class="form-control" value="{{ $filters['source_section'] ?? '' }}" placeholder="{{ __('Section') }}" style="min-width:120px;">
+        <input name="tag" class="form-control" value="{{ $filters['tag'] ?? '' }}" placeholder="{{ __('Tag') }}" style="min-width:120px;">
         <select name="filter" class="form-control">
             <option value="">{{ __('All') }}</option>
             <option value="due" {{ ($filters['filter'] ?? '') === 'due' ? 'selected' : '' }}>{{ __('Due') }}</option>
@@ -210,7 +224,7 @@
             <option value="mastered" {{ ($filters['filter'] ?? '') === 'mastered' ? 'selected' : '' }}>{{ __('Mastered') }}</option>
         </select>
         <button class="lv-btn lv-btn-primary" type="submit"><i class="bi bi-funnel"></i>{{ __('Filter') }}</button>
-        @if(!empty($filters['search']) || ($filters['deck_id'] ?? 'all') !== 'all' || ($filters['box'] ?? 'all') !== 'all' || !empty($filters['filter']))
+        @if(!empty($filters['search']) || ($filters['deck_id'] ?? 'all') !== 'all' || ($filters['box'] ?? 'all') !== 'all' || !empty($filters['filter']) || ($filters['card_type'] ?? 'all') !== 'all' || ($filters['priority'] ?? 'all') !== 'all' || !empty($filters['source_section']) || !empty($filters['tag']))
         <a href="{{ route('vocabulary.cards.index') }}" class="lv-clear">{{ __('Clear') }}</a>
         @endif
         <span class="lv-count">{{ app_num($cards->total()) }} {{ __('cards') }}</span>
@@ -231,6 +245,18 @@
             </select>
             <input name="front" class="form-control" required maxlength="255" placeholder="{{ __('Word') }}">
             <input name="back" class="form-control" required maxlength="2000" placeholder="{{ __('Meaning') }}">
+            <select name="card_type" class="form-control">
+                @foreach(\App\Enums\CardType::cases() as $ct)
+                <option value="{{ $ct->value }}">{{ __($ct->label()) }}</option>
+                @endforeach
+            </select>
+            <select name="priority" class="form-control">
+                @for($p = 1; $p <= 3; $p++)
+                <option value="{{ $p }}" {{ $p === 2 ? 'selected' : '' }}>{{ __('P:n', ['n' => $p]) }}</option>
+                @endfor
+            </select>
+            <input name="tags" class="form-control" placeholder="{{ __('Tags (comma)') }}">
+            <input name="source_section" class="form-control" placeholder="{{ __('Section') }}">
             <button class="lv-btn lv-btn-primary" type="submit"><i class="bi bi-plus-lg"></i>{{ __('Add') }}</button>
         </div>
     </form>
@@ -258,6 +284,10 @@
                 <span><i class="bi bi-collection"></i>{{ $card->deck->name ?? '' }}</span>
                 <span class="lv-next {{ $card->next_review_at && $card->next_review_at->isBefore(today()) ? 'is-overdue' : '' }}"><i class="bi bi-calendar-event"></i>{{ __('Next') }}: <span title="{{ app_date($card->next_review_at) }}">{{ app_relative_date($card->next_review_at) }}</span></span>
                 <span><i class="bi bi-arrow-repeat"></i>{{ app_num($card->review_count) }} {{ __('reviews') }}</span>
+                @if($card->card_type)<span class="lv-pill" style="background:#eef2ff;color:#4f46e5;">{{ __(\App\Enums\CardType::tryFrom($card->card_type)?->label() ?? $card->card_type) }}</span>@endif
+                @if($card->priority)<span class="lv-pill" style="background:#fef3c7;color:#b45309;">P{{ app_num($card->priority) }}</span>@endif
+                @if($card->source_section)<span><i class="bi bi-bookmark"></i>{{ $card->source_section }}</span>@endif
+                @if(is_array($card->tags) && $card->tags)<span><i class="bi bi-tags"></i>{{ implode(', ', $card->tags) }}</span>@endif
                 @if($card->example)<span class="ex"><i class="bi bi-quote"></i>{{ \Illuminate\Support\Str::limit($card->example, 80) }}</span>@endif
             </div>
             <div class="lv-edit" id="edit-{{ $card->id }}" hidden>
@@ -266,6 +296,18 @@
                     <input type="hidden" name="deck_id" value="{{ $card->deck_id }}">
                     <input name="front" class="form-control" value="{{ $card->front }}" required maxlength="255">
                     <input name="back" class="form-control" value="{{ $card->back }}" required maxlength="2000">
+                    <select name="card_type" class="form-control">
+                        @foreach(\App\Enums\CardType::cases() as $ct)
+                        <option value="{{ $ct->value }}" {{ $card->card_type === $ct->value ? 'selected' : '' }}>{{ __($ct->label()) }}</option>
+                        @endforeach
+                    </select>
+                    <select name="priority" class="form-control">
+                        @for($p = 1; $p <= 3; $p++)
+                        <option value="{{ $p }}" {{ (int)$card->priority === $p ? 'selected' : '' }}>{{ __('P:n', ['n' => $p]) }}</option>
+                        @endfor
+                    </select>
+                    <input name="tags" class="form-control" value="{{ is_array($card->tags) ? implode(',', $card->tags) : '' }}" placeholder="{{ __('Tags (comma)') }}">
+                    <input name="source_section" class="form-control" value="{{ $card->source_section }}" placeholder="{{ __('Section') }}">
                     <button class="lv-btn lv-btn-primary" type="submit"><i class="bi bi-check-lg"></i>{{ __('Save') }}</button>
                 </form>
                 <p class="lv-edit-hint">{{ __('Changing the word restarts this card in Box 1. Editing only the meaning keeps its progress.') }}</p>

@@ -327,6 +327,11 @@ class VocabReviewController extends Controller
             'direction' => $reverse ? __('What is the word for this meaning?') : __('What does this mean?'),
             'grade_url' => route('vocabulary.cards.grade', $card),
             'total_boxes' => LeitnerScheduler::BOX_MAX,
+            'card_type' => $card->card_type,
+            'card_type_label' => $card->card_type ? __(\App\Enums\CardType::tryFrom($card->card_type)?->label() ?? $card->card_type) : null,
+            'priority' => (int) $card->priority,
+            'tags' => is_array($card->tags) ? $card->tags : [],
+            'source_section' => $card->source_section,
         ];
     }
 

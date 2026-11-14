@@ -36,6 +36,22 @@ class VocabCardController extends Controller
             $query->byBox((int) $request->box);
         }
 
+        if ($request->filled('card_type') && $request->card_type !== 'all') {
+            $query->byCardType((string) $request->card_type);
+        }
+
+        if ($request->filled('priority') && $request->priority !== 'all') {
+            $query->byPriority((int) $request->priority);
+        }
+
+        if ($request->filled('source_section')) {
+            $query->bySourceSection((string) $request->source_section);
+        }
+
+        if ($request->filled('tag')) {
+            $query->byTag((string) $request->tag);
+        }
+
         if ($request->filled('filter')) {
             match ($request->filter) {
                 'due' => $query->due(),
@@ -54,7 +70,7 @@ class VocabCardController extends Controller
         return view('vocabulary.cards', [
             'cards' => $cards,
             'decks' => $decks,
-            'filters' => $request->only(['deck_id', 'box', 'filter', 'search']),
+            'filters' => $request->only(['deck_id', 'box', 'filter', 'search', 'card_type', 'priority', 'source_section', 'tag']),
             'newToday' => static::newTodayCount($user),
             'newLimit' => $user->vocabDailyLimit(),
         ]);
@@ -62,6 +78,8 @@ class VocabCardController extends Controller
 
     public function store(Request $request)
     {
+        $this->normalizeTagInput($request);
+
         $data = $request->validate($this->rules());
 
         $user = $request->user();
@@ -85,6 +103,8 @@ class VocabCardController extends Controller
     public function update(Request $request, VocabCard $vocabCard)
     {
         $this->owned($vocabCard);
+
+        $this->normalizeTagInput($request);
 
         $data = $request->validate($this->rules());
 
@@ -150,11 +170,31 @@ class VocabCardController extends Controller
             'back' => 'required|string|max:2000',
             'example' => 'nullable|string|max:2000',
             'note' => 'nullable|string|max:2000',
+            'card_type' => ['nullable', 'string', Rule::in(\App\Enums\CardType::values())],
+            'priority' => 'nullable|integer|min:1|max:3',
+            'tags' => 'nullable|array',
+            'tags.*' => 'string|max:64',
+            'related_cards' => 'nullable|array',
+            'related_cards.*' => 'integer',
+            'extra' => 'nullable|array',
+            'source_section' => 'nullable|string|max:64',
+            'difficulty' => 'nullable|integer|min:1|max:5',
         ];
     }
 
     private function owned(VocabCard $card): void
     {
         abort_if($card->user_id !== Auth::id(), 403);
+    }
+
+    private function normalizeTagInput(Request $request): void
+    {
+        if ($request->has('tags') && is_string($request->input('tags'))) {
+            $tags = array_values(array_filter(array_map(
+                static fn ($t) => trim($t),
+                explode(',', (string) $request->input('tags'))
+            )));
+            $request->merge(['tags' => $tags]);
+        }
     }
 }

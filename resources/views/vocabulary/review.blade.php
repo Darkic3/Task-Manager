@@ -367,6 +367,16 @@
         <div class="lv-flash-ribbon"></div>
         <div class="lv-flash-top">
             <span class="lv-deckname" data-f="deck">{{ $current->deck->name ?? '' }}</span>
+            <span class="lv-cardmeta" data-f="meta" style="font-size:.7rem;color:#6b7280;">
+                @php
+                    $metaParts = [];
+                    if ($current->card_type) { $ct = \App\Enums\CardType::tryFrom($current->card_type); $metaParts[] = __($ct?->label() ?? $current->card_type); }
+                    if ($current->priority) { $metaParts[] = 'P'.$current->priority; }
+                    if ($current->source_section) { $metaParts[] = $current->source_section; }
+                    if (is_array($current->tags) && $current->tags) { $metaParts[] = implode(', ', $current->tags); }
+                @endphp
+                {{ implode(' · ', $metaParts) }}
+            </span>
             <span class="lv-boxpill"><span data-f="boxlabel">{{ __('Box :n', ['n' => $current->box]) }}</span><span class="lv-dots" data-f="dots">@for($i = 1; $i <= 5; $i++)<i class="{{ $i <= $current->box ? 'on' : '' }}"></i>@endfor</span></span>
         </div>
         <div class="lv-prompt" data-f="prompt">{{ $prompt }}</div>
@@ -477,6 +487,15 @@
     function renderCard(card) {
         if (!cardEl || !card) return;
         fill(cardEl, 'deck', card.deck);
+        var metaEl = cardEl.querySelector('[data-f="meta"]');
+        if (metaEl) {
+            var parts = [];
+            if (card.card_type_label) parts.push(card.card_type_label);
+            if (card.priority) parts.push('P' + card.priority);
+            if (card.source_section) parts.push(card.source_section);
+            if (Array.isArray(card.tags) && card.tags.length) parts.push(card.tags.join(', '));
+            metaEl.textContent = parts.join(' · ');
+        }
         fill(cardEl, 'boxlabel', card.box_label);
         fill(cardEl, 'prompt', card.prompt);
         fill(cardEl, 'direction', card.direction);
