@@ -104,9 +104,22 @@ class VocabImportController extends Controller
 
             $seen->put($key, true);
 
-            $chunk[] = $row + [
+            $tags = $row['tags'] ?? [];
+            if (is_string($tags)) {
+                $tags = array_values(array_filter(array_map('trim', explode(',', $tags))));
+            }
+
+            $chunk[] = [
                 'user_id' => Auth::id(),
                 'deck_id' => $deck->id,
+                'front' => $row['front'],
+                'back' => $row['back'],
+                'example' => $row['example'] ?? null,
+                'note' => $row['note'] ?? null,
+                'card_type' => $row['card_type'] ?? 'definition',
+                'priority' => $row['priority'] ?? 2,
+                'tags' => empty($tags) ? null : json_encode(array_values($tags)),
+                'source_section' => $row['source_section'] ?? null,
                 'box' => $initial['box'],
                 'next_review_at' => $initial['next_review_at']->toDateString(),
                 'is_mastered' => false,
@@ -156,7 +169,7 @@ class VocabImportController extends Controller
 
     public function template()
     {
-        $csv = "front,back,example,note\napple,سیب,I eat an apple every day.,\nbook,کتاب,,\n";
+        $csv = "front,back,example,note,card_type,priority,tags,source_section\napple,سیب,I eat an apple every day.,,definition,1,\"windows,auth\",P05\nbook,کتاب,,comparison,2,network,P02\n";
 
         return response($csv, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',

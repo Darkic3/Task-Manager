@@ -59,6 +59,16 @@ class VocabCard extends Model
         return $this->belongsTo(VocabDeck::class, 'deck_id');
     }
 
+    public function outgoingRelations()
+    {
+        return $this->hasMany(VocabRelation::class, 'card_id');
+    }
+
+    public function incomingRelations()
+    {
+        return $this->hasMany(VocabRelation::class, 'related_card_id');
+    }
+
     public function reviews()
     {
         return $this->hasMany(VocabReview::class, 'vocab_card_id');

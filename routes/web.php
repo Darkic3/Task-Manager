@@ -163,7 +163,8 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
         Route::post('cards', [VocabCardController::class, 'store'])->name('cards.store');
         Route::put('cards/{vocabCard}', [VocabCardController::class, 'update'])->name('cards.update');
         Route::delete('cards/{vocabCard}', [VocabCardController::class, 'destroy'])->name('cards.destroy');
-        Route::post('cards/{vocabCard}/reset', [VocabCardController::class, 'reset'])->name('cards.reset');
+        Route::get('cards/{vocabCard}/concept-map', [VocabCardController::class, 'conceptMap'])->name('cards.concept-map');
+  Route::post('cards/{vocabCard}/reset', [VocabCardController::class, 'reset'])->name('cards.reset');
         Route::get('review', [VocabReviewController::class, 'index'])->name('review.index');
         Route::post('cards/{vocabCard}/grade', [VocabReviewController::class, 'grade'])->name('cards.grade');
         Route::post('reviews/undo', [VocabReviewController::class, 'undo'])->name('reviews.undo');

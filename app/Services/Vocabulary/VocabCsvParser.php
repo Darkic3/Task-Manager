@@ -61,6 +61,10 @@ class VocabCsvParser
             $back = $cells[1] ?? '';
             $example = $cells[2] ?? null;
             $note = $cells[3] ?? null;
+            $cardType = $cells[4] ?? null;
+            $priority = $cells[5] ?? null;
+            $tags = $cells[6] ?? null;
+            $sourceSection = $cells[7] ?? null;
 
             if ($front === '' || $back === '') {
                 $errors[] = ['line' => $lineNo, 'message' => 'Missing word or meaning.'];
@@ -74,8 +78,30 @@ class VocabCsvParser
 
             $example = $example === '' || $example === null ? null : mb_substr($example, 0, static::MAX_EXTRA);
             $note = $note === '' || $note === null ? null : mb_substr($note, 0, static::MAX_EXTRA);
+            $sourceSection = $sourceSection === '' || $sourceSection === null ? null : mb_substr(trim($sourceSection), 0, 64);
 
-            $rows[] = ['front' => $front, 'back' => $back, 'example' => $example, 'note' => $note];
+            $cardType = $cardType === '' || $cardType === null ? null : trim($cardType);
+            if ($cardType !== null && ! in_array($cardType, \App\Enums\CardType::values(), true)) {
+                $cardType = null;
+            }
+
+            $priority = $priority === '' || $priority === null ? null : (int) trim($priority);
+            if ($priority !== null && ($priority < 1 || $priority > 3)) {
+                $priority = 2;
+            }
+
+            $tags = $tags === '' || $tags === null ? [] : array_values(array_filter(array_map('trim', preg_split('/[,;]/', $tags))));
+
+            $rows[] = [
+                'front' => $front,
+                'back' => $back,
+                'example' => $example,
+                'note' => $note,
+                'card_type' => $cardType,
+                'priority' => $priority,
+                'tags' => $tags,
+                'source_section' => $sourceSection,
+            ];
         }
 
         return ['rows' => $rows, 'errors' => $errors, 'skipped_header' => $skippedHeader, 'truncated' => $truncated];

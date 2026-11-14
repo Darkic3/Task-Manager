@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\VocabCard;
+use App\Models\VocabRelation;
 use App\Services\Vocabulary\LeitnerScheduler;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -79,6 +80,7 @@ class VocabCardController extends Controller
     public function store(Request $request)
     {
         $this->normalizeTagInput($request);
+        $this->normalizeRelatedCardsInput($request);
 
         $data = $request->validate($this->rules());
 
@@ -95,7 +97,9 @@ class VocabCardController extends Controller
 
         $initial = LeitnerScheduler::initialState();
 
-        $user->vocabCards()->create($data + $initial);
+        $card = $user->vocabCards()->create($data + $initial);
+
+        $this->syncRelations($card, $data['related_cards'] ?? null);
 
         return back()->with('success', __('Card added.'));
     }
@@ -105,6 +109,7 @@ class VocabCardController extends Controller
         $this->owned($vocabCard);
 
         $this->normalizeTagInput($request);
+        $this->normalizeRelatedCardsInput($request);
 
         $data = $request->validate($this->rules());
 
@@ -130,6 +135,8 @@ class VocabCardController extends Controller
             $vocabCard->resetProgress();
         }
 
+        $this->syncRelations($vocabCard, $data['related_cards'] ?? $vocabCard->related_cards);
+
         return back()->with('success', $reset
             ? __('Card updated — progress restarted in Box 1.')
             : __('Card updated.'));
@@ -142,6 +149,32 @@ class VocabCardController extends Controller
         $vocabCard->delete();
 
         return back()->with('success', __('Card deleted.'));
+    }
+
+    public function conceptMap(VocabCard $vocabCard)
+    {
+        $this->owned($vocabCard);
+
+        $relatedIds = is_array($vocabCard->related_cards) ? $vocabCard->related_cards : [];
+        $tableIds = $vocabCard->outgoingRelations()->pluck('related_card_id')->all();
+        $relatedIds = array_values(array_unique(array_merge($relatedIds, $tableIds)));
+
+        $relatedCards = VocabCard::where('user_id', $vocabCard->user_id)
+            ->whereIn('id', $relatedIds)
+            ->with('deck')
+            ->get();
+
+        $incomingIds = $vocabCard->incomingRelations()->pluck('card_id')->all();
+        $incomingCards = VocabCard::where('user_id', $vocabCard->user_id)
+            ->whereIn('id', $incomingIds)
+            ->with('deck')
+            ->get();
+
+        return view('vocabulary.concept-map', [
+            'card' => $vocabCard,
+            'relatedCards' => $relatedCards,
+            'incomingCards' => $incomingCards,
+        ]);
     }
 
     public function reset(VocabCard $vocabCard)
@@ -187,6 +220,33 @@ class VocabCardController extends Controller
         abort_if($card->user_id !== Auth::id(), 403);
     }
 
+    private function syncRelations(VocabCard $card, mixed $relatedIds): void
+    {
+        VocabRelation::where('card_id', $card->id)->delete();
+
+        if (! is_array($relatedIds)) {
+            return;
+        }
+
+        foreach ($relatedIds as $relatedId) {
+            $relatedId = (int) $relatedId;
+            if ($relatedId <= 0 || $relatedId === (int) $card->id) {
+                continue;
+            }
+
+            $related = VocabCard::where('user_id', $card->user_id)->find($relatedId);
+            if (! $related) {
+                continue;
+            }
+
+            VocabRelation::firstOrCreate([
+                'card_id' => $card->id,
+                'related_card_id' => $relatedId,
+                'relation_type' => 'related',
+            ]);
+        }
+    }
+
     private function normalizeTagInput(Request $request): void
     {
         if ($request->has('tags') && is_string($request->input('tags'))) {
@@ -195,6 +255,17 @@ class VocabCardController extends Controller
                 explode(',', (string) $request->input('tags'))
             )));
             $request->merge(['tags' => $tags]);
+        }
+    }
+
+    private function normalizeRelatedCardsInput(Request $request): void
+    {
+        if ($request->has('related_cards') && is_string($request->input('related_cards'))) {
+            $ids = array_values(array_filter(array_map(
+                static fn ($t) => (int) trim($t),
+                explode(',', (string) $request->input('related_cards'))
+            )));
+            $request->merge(['related_cards' => $ids]);
         }
     }
 }
