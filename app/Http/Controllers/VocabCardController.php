@@ -99,6 +99,7 @@ class VocabCardController extends Controller
             'newLimit' => $user->vocabDailyLimit(),
             'existingTags' => $existingTags,
             'existingSources' => $existingSources,
+            'generatePreview' => session('vocab_generate_preview'),
         ]);
     }
 
@@ -266,53 +267,150 @@ class VocabCardController extends Controller
         return back()->with('success', __('Relation removed.'));
     }
 
-    public function generate(Request $request)
+    public function generatePreview(Request $request)
     {
         $data = $request->validate([
             'deck_id' => ['required', 'integer', Rule::exists('vocab_decks', 'id')->where(fn ($q) => $q->where('user_id', Auth::id()))],
             'source_section' => 'nullable|string|max:64',
             'card_type' => ['nullable', 'string', Rule::in(\App\Enums\CardType::values())],
             'priority' => 'nullable|integer|min:1|max:3',
+            'tags' => 'nullable|string',
             'lines' => 'required|string',
         ]);
 
         $user = $request->user();
         $deck = $user->vocabDecks()->findOrFail($data['deck_id']);
-        $initial = \App\Services\Vocabulary\LeitnerScheduler::initialState();
-        $count = 0;
 
-        foreach (preg_split('/\r\n|\r|\n/', $data['lines']) as $line) {
+        $defaultType = $data['card_type'] ?? 'definition';
+        $defaultPriority = (int) ($data['priority'] ?? 2);
+        $defaultTags = array_values(array_filter(array_map('trim', explode(',', (string) ($data['tags'] ?? '')))));
+        $defaultSection = $data['source_section'] ?? null;
+
+        $rows = [];
+        $duplicates = 0;
+        $errors = [];
+
+        foreach (preg_split('/\r\n|\r|\n/', (string) $data['lines']) as $i => $line) {
             $line = trim($line);
             if ($line === '') {
                 continue;
             }
 
-            $parts = array_map('trim', explode('::', $line, 2));
+            if (str_contains($line, '::')) {
+                $parts = array_map('trim', explode('::', $line, 3));
+            } elseif (str_contains($line, '|')) {
+                $parts = array_map('trim', explode('|', $line, 3));
+            } else {
+                $errors[] = ['line' => $i + 1, 'message' => 'Missing separator (:: or |).'];
+                continue;
+            }
+
             if (count($parts) < 2 || $parts[0] === '' || $parts[1] === '') {
+                $errors[] = ['line' => $i + 1, 'message' => 'Missing word or meaning.'];
                 continue;
             }
 
             $front = mb_substr($parts[0], 0, 255);
             $back = mb_substr($parts[1], 0, 2000);
+            $type = isset($parts[2]) && $parts[2] !== '' ? $parts[2] : $defaultType;
+            if (! in_array($type, \App\Enums\CardType::values(), true)) {
+                $type = $defaultType;
+            }
 
             if (\App\Models\VocabCard::findDuplicateInDeck((int) $user->id, (int) $deck->id, $front)) {
+                $duplicates++;
                 continue;
             }
 
-            $user->vocabCards()->create([
-                'deck_id' => $deck->id,
+            $rows[] = [
                 'front' => $front,
                 'back' => $back,
-                'card_type' => $data['card_type'] ?? 'definition',
-                'priority' => $data['priority'] ?? 2,
-                'source_section' => $data['source_section'] ?? null,
-            ] + $initial);
-
-            $count++;
+                'card_type' => $type,
+                'priority' => $defaultPriority,
+                'tags' => $defaultTags,
+                'source_section' => $defaultSection,
+            ];
         }
 
-        return back()->with('success', __(':count cards generated.', ['count' => $count]));
+        if ($rows === [] && $errors === []) {
+            return back()->withInput()->with('error', __('No valid rows found.'));
+        }
+
+        session(['vocab_generate_preview' => [
+            'deck_id' => (int) $deck->id,
+            'rows' => $rows,
+            'duplicates' => $duplicates,
+            'errors' => $errors,
+            'defaults' => [
+                'card_type' => $defaultType,
+                'priority' => $defaultPriority,
+                'tags' => $defaultTags,
+                'source_section' => $defaultSection,
+            ],
+        ]]);
+
+        return redirect()->route('vocabulary.cards.index');
     }
+
+    public function generateConfirm(Request $request)
+    {
+        $preview = session('vocab_generate_preview');
+        if (! $preview || empty($preview['rows'])) {
+            return redirect()->route('vocabulary.cards.index')
+                ->with('error', __('Nothing to generate.'));
+        }
+
+        $user = $request->user();
+        $deck = $user->vocabDecks()->findOrFail($preview['deck_id']);
+        $initial = \App\Services\Vocabulary\LeitnerScheduler::initialState();
+        $now = now();
+        $chunk = [];
+        $skipped = 0;
+
+        foreach ($preview['rows'] as $row) {
+            if (\App\Models\VocabCard::findDuplicateInDeck((int) $user->id, (int) $deck->id, (string) $row['front'])) {
+                $skipped++;
+                continue;
+            }
+
+            $chunk[] = [
+                'user_id' => $user->id,
+                'deck_id' => $deck->id,
+                'front' => $row['front'],
+                'back' => $row['back'],
+                'card_type' => $row['card_type'] ?? 'definition',
+                'priority' => $row['priority'] ?? 2,
+                'tags' => empty($row['tags']) ? null : json_encode(array_values($row['tags'])),
+                'source_section' => $row['source_section'] ?? null,
+                'box' => $initial['box'],
+                'next_review_at' => $initial['next_review_at']->toDateString(),
+                'is_mastered' => false,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        if ($chunk === []) {
+            session()->forget('vocab_generate_preview');
+            return redirect()->route('vocabulary.cards.index')
+                ->with('error', __('Nothing new to generate.'));
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($chunk): void {
+            foreach (array_chunk($chunk, 200) as $piece) {
+                \App\Models\VocabCard::insert($piece);
+            }
+        });
+
+        $count = count($chunk);
+        session()->forget('vocab_generate_preview');
+        $message = $skipped > 0
+            ? __(':count cards generated · :skipped duplicates skipped.', ['count' => $count, 'skipped' => $skipped])
+            : __(':count cards generated.', ['count' => $count]);
+
+        return redirect()->route('vocabulary.cards.index')->with('success', $message);
+    }
+
     public function reset(VocabCard $vocabCard)
     {
 

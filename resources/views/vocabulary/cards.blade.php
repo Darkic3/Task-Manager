@@ -321,7 +321,12 @@
 
     <details style="margin-top:1rem;background:#fff;border:1px solid #e9ebf1;border-radius:14px;padding:12px;">
         <summary style="cursor:pointer;font-weight:700;">{{ __('Generate from section') }}</summary>
-        <form method="POST" action="{{ route('vocabulary.cards.generate') }}" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;">
+            <button type="button" class="lv-mini" onclick="loadTemplate('event')">{{ __('Event ID Batch') }}</button>
+            <button type="button" class="lv-mini" onclick="loadTemplate('port')">{{ __('Port Batch') }}</button>
+            <button type="button" class="lv-mini" onclick="loadTemplate('attack')">{{ __('Attack Batch') }}</button>
+        </div>
+        <form method="POST" action="{{ route('vocabulary.cards.generate.preview') }}" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
             @csrf
             <select name="deck_id" class="form-control" required>
                 @foreach($decks as $d)
@@ -339,10 +344,49 @@
                 <option value="{{ $p }}" {{ $p === 1 ? 'selected' : '' }}>{{ __('P:n', ['n' => $p]) }}</option>
                 @endfor
             </select>
-            <textarea name="lines" class="form-control" rows="6" placeholder="{{ __('One card per line: front :: back') }}" required></textarea>
-            <button class="lv-btn lv-btn-primary" type="submit">{{ __('Generate') }}</button>
+            <input name="tags" class="form-control" placeholder="{{ __('Default tags (comma)') }}">
+            <textarea name="lines" id="generateLines" class="form-control" rows="6" placeholder="{{ __('One card per line: front :: back  (optional :: card_type)') }}" required></textarea>
+            <button class="lv-btn lv-btn-primary" type="submit">{{ __('Preview') }}</button>
         </form>
     </details>
+
+    @if(!empty($generatePreview))
+    <section class="lv-sec" style="margin-top:1rem;">
+        <div class="lv-sec-hd">
+            <div class="lv-sec-ico"><i class="bi bi-eye"></i></div>
+            <h2>{{ __('Generate preview') }}</h2>
+            <span class="lv-ok-count"><i class="bi bi-check-circle-fill"></i>{{ __(':valid valid rows', ['valid' => app_num(count($generatePreview['rows']))]) }}</span>
+            @if(!empty($generatePreview['duplicates']))<span class="lv-bad-count"><i class="bi bi-files"></i>{{ __(':count duplicates skipped', ['count' => app_num($generatePreview['duplicates'])]) }}</span>@endif
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="lv-table">
+                <thead><tr><th>#</th><th>{{ __('Word') }}</th><th>{{ __('Meaning') }}</th><th>{{ __('Type') }}</th><th>{{ __('Priority') }}</th></tr></thead>
+                <tbody>
+                    @foreach(array_slice($generatePreview['rows'], 0, 50) as $i => $row)
+                    <tr>
+                        <td style="color:#9ca3af;">{{ app_num($i + 1) }}</td>
+                        <td style="font-weight:700;color:#111827;">{{ $row['front'] }}</td>
+                        <td>{{ $row['back'] }}</td>
+                        <td><span style="background:#eef2ff;color:#4f46e5;font-size:.68rem;font-weight:800;padding:2px 6px;border-radius:999px;">{{ $row['card_type'] }}</span></td>
+                        <td>{{ $row['priority'] }}</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @if(!empty($generatePreview['errors']))
+        <div style="margin-top:.6rem;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;">
+            @foreach(array_slice($generatePreview['errors'], 0, 10) as $e)
+            <div class="lv-err"><i class="bi bi-x-circle"></i>{{ __('Line :line', ['line' => app_num($e['line'])]) }}: {{ __($e['message']) }}</div>
+            @endforeach
+        </div>
+        @endif
+        <form method="POST" action="{{ route('vocabulary.cards.generate.confirm') }}" style="margin-top:1rem;">
+            @csrf
+            <button class="lv-btn lv-btn-primary" type="submit" style="padding:11px 22px;"><i class="bi bi-check-lg"></i>{{ __('Confirm generate') }}</button>
+        </form>
+    </section>
+    @endif
 </div>
 @endsection
 
@@ -354,5 +398,17 @@ document.addEventListener('click', function (e) {
     var panel = document.getElementById(btn.getAttribute('data-edit-toggle'));
     if (panel) { panel.hidden = !panel.hidden; if (!panel.hidden) panel.querySelector('input[name="front"]')?.focus(); }
 });
+
+function loadTemplate(kind) {
+    const ta = document.getElementById('generateLines');
+    if (!ta) return;
+    if (kind === 'event') {
+        ta.value = "4624 :: Successful Logon :: event_id\n4625 :: Failed Logon :: event_id\n4688 :: Process Creation :: event_id";
+    } else if (kind === 'port') {
+        ta.value = "445 :: SMB :: port\n389 :: LDAP :: port\n3389 :: RDP :: port";
+    } else if (kind === 'attack') {
+        ta.value = "Password Spraying :: Many failed logons from one source to many users :: attack\nKerberoasting :: Request TGS for SPN accounts :: attack";
+    }
+}
 </script>
 @endpush

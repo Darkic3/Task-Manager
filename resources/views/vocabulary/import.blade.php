@@ -135,7 +135,7 @@
                 <button class="lv-btn lv-btn-primary" type="submit" style="padding:11px 18px;"><i class="bi bi-eye"></i>{{ __('Preview') }}</button>
             </div>
         </form>
-        <p class="lv-hint">{{ __('Columns: word, meaning, example (optional), note (optional). Header row, commas or semicolons — all auto-detected. Max 1000 rows per file.') }}</p>
+        <p class="lv-hint">{{ __('Columns: front, back, example (optional), note (optional), card_type (optional), priority (optional), tags (optional), source_section (optional). Header row, commas or semicolons — all auto-detected. Max 1000 rows per file.') }}</p>
         <p class="lv-hint">{{ __('Bulk import skips the daily new-card limit — every imported card starts in Box 1, due today.') }} {{ __('Duplicate words already in the deck are skipped automatically.') }}</p>
     </section>
 
@@ -151,10 +151,17 @@
         </div>
         <div style="overflow-x:auto;">
             <table class="lv-table">
-                <thead><tr><th>#</th><th>{{ __('Word') }}</th><th>{{ __('Meaning') }}</th><th>{{ __('Ex') }}</th></tr></thead>
+                <thead><tr><th>#</th><th>{{ __('Word') }}</th><th>{{ __('Meaning') }}</th><th>{{ __('Type') }}</th><th>{{ __('Priority') }}</th><th>{{ __('Ex') }}</th></tr></thead>
                 <tbody>
                     @foreach(array_slice($preview['rows'], 0, 50) as $i => $row)
-                    <tr><td style="color:#9ca3af;">{{ app_num($i + 1) }}</td><td style="font-weight:700;color:#111827;">{{ $row['front'] }}</td><td>{{ $row['back'] }}</td><td style="color:#6b7280;">{{ \Illuminate\Support\Str::limit($row['example'] ?? '', 60) }}</td></tr>
+                    <tr>
+                        <td style="color:#9ca3af;">{{ app_num($i + 1) }}</td>
+                        <td style="font-weight:700;color:#111827;">{{ $row['front'] }}</td>
+                        <td>{{ $row['back'] }}</td>
+                        <td><span style="background:#eef2ff;color:#4f46e5;font-size:.68rem;font-weight:800;padding:2px 6px;border-radius:999px;">{{ $row['card_type'] ?? 'definition' }}</span></td>
+                        <td>{{ $row['priority'] ?? 2 }}</td>
+                        <td style="color:#6b7280;">{{ \Illuminate\Support\Str::limit($row['example'] ?? '', 60) }}</td>
+                    </tr>
                     @endforeach
                 </tbody>
             </table>
