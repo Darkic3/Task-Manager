@@ -373,30 +373,93 @@
         <div class="lv-flash-ribbon"></div>
         <div class="lv-flash-top">
             <span class="lv-deckname" data-f="deck">{{ $current->deck->name ?? '' }}</span>
-            <span class="lv-cardmeta" data-f="meta" style="font-size:.7rem;color:#6b7280;">
-                @php
-                    $metaParts = [];
-                    if ($current->card_type) { $ct = \App\Enums\CardType::tryFrom($current->card_type); $metaParts[] = __($ct?->label() ?? $current->card_type); }
-                    if ($current->priority) { $metaParts[] = 'P'.$current->priority; }
-                    if ($current->source_section) { $metaParts[] = $current->source_section; }
-                    if (is_array($current->tags) && $current->tags) { $metaParts[] = implode(', ', $current->tags); }
-                @endphp
-                {{ implode(' · ', $metaParts) }}
+            <span class="lv-cardmeta" data-f="meta" style="display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                @if($current->card_type)
+                    @php $ct = \App\Enums\CardType::tryFrom($current->card_type); @endphp
+                    <span style="background:#4f46e5;color:#fff;font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:999px;">{{ __($ct?->label() ?? $current->card_type) }}</span>
+                @endif
+                @if($current->priority)
+                    <span style="background:#fef3c7;color:#b45309;font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:999px;">P{{ $current->priority }}</span>
+                @endif
+                @if($current->source_section)
+                    <span style="font-size:.7rem;color:#6b7280;">{{ $current->source_section }}</span>
+                @endif
+                @if(is_array($current->tags) && $current->tags)
+                    <span style="font-size:.7rem;color:#6b7280;">{{ implode(', ', $current->tags) }}</span>
+                @endif
             </span>
             <span class="lv-boxpill"><span data-f="boxlabel">{{ __('Box :n', ['n' => $current->box]) }}</span><span class="lv-dots" data-f="dots">@for($i = 1; $i <= 5; $i++)<i class="{{ $i <= $current->box ? 'on' : '' }}"></i>@endfor</span></span>
         </div>
         <div class="lv-prompt" data-f="prompt">{{ $prompt }}</div>
         <div class="lv-dir-hint" data-f="direction">{{ $reverse ? __('What is the word for this meaning?') : __('What does this mean?') }}</div>
 
-        <div class="lv-answer" id="vbAnswer">
+         <div class="lv-answer" id="vbAnswer">
             <hr>
             <div class="lv-ans" data-f="answer">{{ $answer }}</div>
-            <div class="lv-ex" data-example @if(!$showExample) hidden @endif><i class="bi bi-quote"></i> <span data-f="example">{{ $showExample ? $current->example : '' }}</span></div>
-            <div class="lv-extra" data-f="extra" style="margin-top:10px;font-size:.8rem;color:#4b5563;" @if(empty($current->extra)) hidden @endif>
-                @if(is_array($current->extra))
-                    @foreach($current->extra as $k => $v)
-                        <div><strong>{{ $k }}</strong>: {{ is_array($v) ? implode(', ', $v) : $v }}</div>
-                    @endforeach
+            @if($current->example)
+                <div class="lv-ex" data-example><i class="bi bi-quote"></i> <span data-f="example">{{ $current->example }}</span></div>
+            @endif
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;" data-f="badges">
+                @if($current->difficulty)
+                    <span style="background:#eef2ff;color:#4f46e5;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:999px;">D{{ $current->difficulty }}</span>
+                @endif
+                @if($current->lapse_count)
+                    <span style="background:#fee2e2;color:#b91c1c;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:999px;">Lapses {{ $current->lapse_count }}</span>
+                @endif
+                @if($current->source_section)
+                    <span style="background:#f3f4f6;color:#4b5563;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:999px;">{{ $current->source_section }}</span>
+                @endif
+                @if(is_array($current->tags) && $current->tags)
+                    <span style="background:#f3f4f6;color:#4b5563;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:999px;">{{ implode(', ', $current->tags) }}</span>
+                @endif
+            </div>
+
+            <button type="button" id="vbToggleDetails" class="lv-tbtn" style="margin-top:8px;">{{ __('Details') }}</button>
+            <div id="vbDetails" hidden style="margin-top:8px;font-size:.82rem;color:#4b5563;">
+                @if($current->note)
+                    <div data-f="note" style="margin-bottom:8px;"><strong>{{ __('Note') }}:</strong> {{ $current->note }}</div>
+                @endif
+                <div data-f="extra" style="margin-bottom:8px;">
+                    @if(is_array($current->extra) && $current->extra)
+                        @if($current->card_type === 'process')
+                            <strong>{{ __('Steps') }}:</strong>
+                            <ol style="margin:4px 0 0 18px;">
+                                @foreach($current->extra['steps'] ?? [] as $step)
+                                    <li>{{ $step }}</li>
+                                @endforeach
+                            </ol>
+                            @if(!empty($current->extra['notes']))<div style="margin-top:4px;">{{ $current->extra['notes'] }}</div>@endif
+                        @elseif($current->card_type === 'comparison')
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                <div><strong>{{ __('Side A') }}:</strong> {{ $current->extra['side_a'] ?? '' }}</div>
+                                <div><strong>{{ __('Side B') }}:</strong> {{ $current->extra['side_b'] ?? '' }}</div>
+                            </div>
+                            @if(!empty($current->extra['differences']))<div style="margin-top:4px;"><strong>{{ __('Differences') }}:</strong> {{ $current->extra['differences'] }}</div>@endif
+                        @elseif(in_array($current->card_type, ['event_id','port','attack']))
+                            <div style="display:grid;gap:4px;">
+                                @foreach($current->extra as $k => $v)
+                                    <div><strong>{{ $k }}:</strong> {{ is_array($v) ? implode(', ', $v) : $v }}</div>
+                                @endforeach
+                            </div>
+                        @else
+                            @foreach($current->extra as $k => $v)
+                                <div><strong>{{ $k }}:</strong> {{ is_array($v) ? implode(', ', $v) : $v }}</div>
+                            @endforeach
+                        @endif
+                    @endif
+                </div>
+                @if(!empty($relatedCards))
+                    <div data-f="related">
+                        <strong>{{ __('Related concepts') }}</strong>
+                        <ul style="margin:4px 0 0 18px;">
+                            @foreach($relatedCards as $rc)
+                                <li><a href="{{ $rc['url'] }}">{{ $rc['front'] }}</a></li>
+                            @endforeach
+                        </ul>
+                        @if($relatedTotal > count($relatedCards))
+                            <a href="{{ route('vocabulary.cards.concept-map', $current) }}" style="font-size:.75rem;">{{ __('View all') }}</a>
+                        @endif
+                    </div>
                 @endif
             </div>
         </div>
@@ -520,12 +583,31 @@
         fill(cardEl, 'deck', card.deck);
         var metaEl = cardEl.querySelector('[data-f="meta"]');
         if (metaEl) {
-            var parts = [];
-            if (card.card_type_label) parts.push(card.card_type_label);
-            if (card.priority) parts.push('P' + card.priority);
-            if (card.source_section) parts.push(card.source_section);
-            if (Array.isArray(card.tags) && card.tags.length) parts.push(card.tags.join(', '));
-            metaEl.textContent = parts.join(' · ');
+            metaEl.innerHTML = '';
+            if (card.card_type_label) {
+                var b = document.createElement('span');
+                b.style.cssText = 'background:#4f46e5;color:#fff;font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:999px;';
+                b.textContent = card.card_type_label;
+                metaEl.appendChild(b);
+            }
+            if (card.priority) {
+                var p = document.createElement('span');
+                p.style.cssText = 'background:#fef3c7;color:#b45309;font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:999px;';
+                p.textContent = 'P' + card.priority;
+                metaEl.appendChild(p);
+            }
+            if (card.source_section) {
+                var s = document.createElement('span');
+                s.style.cssText = 'font-size:.7rem;color:#6b7280;';
+                s.textContent = card.source_section;
+                metaEl.appendChild(s);
+            }
+            if (Array.isArray(card.tags) && card.tags.length) {
+                var t = document.createElement('span');
+                t.style.cssText = 'font-size:.7rem;color:#6b7280;';
+                t.textContent = card.tags.join(', ');
+                metaEl.appendChild(t);
+            }
         }
         fill(cardEl, 'boxlabel', card.box_label);
         fill(cardEl, 'prompt', card.prompt);
@@ -538,22 +620,102 @@
             if (card.example) fill(cardEl, 'example', card.example);
         }
 
-        var extraEl = cardEl.querySelector('[data-f="extra"]');
-        if (extraEl) {
-            extraEl.innerHTML = '';
-            if (card.extra && typeof card.extra === 'object') {
-                var has = false;
+        var noteEl = cardEl.querySelector('[data-f="note"]');
+        if (noteEl) {
+            noteEl.hidden = !card.note;
+            if (card.note) noteEl.innerHTML = '<strong>{{ __('Note') }}:</strong> ' + card.note;
+        }
+
+        var badgesEl = cardEl.querySelector('[data-f="badges"]');
+        if (badgesEl) {
+            badgesEl.innerHTML = '';
+            if (card.difficulty) {
+                var d = document.createElement('span');
+                d.style.cssText = 'background:#eef2ff;color:#4f46e5;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:999px;';
+                d.textContent = 'D' + card.difficulty;
+                badgesEl.appendChild(d);
+            }
+            if (card.lapse_count) {
+                var l = document.createElement('span');
+                l.style.cssText = 'background:#fee2e2;color:#b91c1c;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:999px;';
+                l.textContent = 'Lapses ' + card.lapse_count;
+                badgesEl.appendChild(l);
+            }
+            if (card.source_section) {
+                var s = document.createElement('span');
+                s.style.cssText = 'background:#f3f4f6;color:#4b5563;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:999px;';
+                s.textContent = card.source_section;
+                badgesEl.appendChild(s);
+            }
+            if (Array.isArray(card.tags) && card.tags.length) {
+                var t = document.createElement('span');
+                t.style.cssText = 'background:#f3f4f6;color:#4b5563;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:999px;';
+                t.textContent = card.tags.join(', ');
+                badgesEl.appendChild(t);
+            }
+        }
+
+        function renderExtraHtml(card) {
+            if (!card.extra || typeof card.extra !== 'object') return '';
+            var type = card.card_type;
+            if (type === 'process') {
+                var steps = Array.isArray(card.extra.steps) ? card.extra.steps : [];
+                var html = '<strong>{{ __('Steps') }}:</strong><ol style="margin:4px 0 0 18px;">';
+                steps.forEach(function (st) { html += '<li>' + st + '</li>'; });
+                html += '</ol>';
+                if (card.extra.notes) html += '<div style="margin-top:4px;">' + card.extra.notes + '</div>';
+                return html;
+            }
+            if (type === 'comparison') {
+                var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+                html += '<div><strong>{{ __('Side A') }}:</strong> ' + (card.extra.side_a || '') + '</div>';
+                html += '<div><strong>{{ __('Side B') }}:</strong> ' + (card.extra.side_b || '') + '</div>';
+                html += '</div>';
+                if (card.extra.differences) html += '<div style="margin-top:4px;"><strong>{{ __('Differences') }}:</strong> ' + card.extra.differences + '</div>';
+                return html;
+            }
+            if (type === 'event_id' || type === 'port' || type === 'attack') {
+                var html = '<div style="display:grid;gap:4px;">';
                 Object.keys(card.extra).forEach(function (k) {
                     var v = card.extra[k];
                     var val = Array.isArray(v) ? v.join(', ') : v;
-                    var div = document.createElement('div');
-                    div.innerHTML = '<strong>' + k + '</strong>: ' + val;
-                    extraEl.appendChild(div);
-                    has = true;
+                    html += '<div><strong>' + k + ':</strong> ' + val + '</div>';
                 });
-                extraEl.hidden = !has;
+                html += '</div>';
+                return html;
+            }
+            var html = '';
+            Object.keys(card.extra).forEach(function (k) {
+                var v = card.extra[k];
+                var val = Array.isArray(v) ? v.join(', ') : v;
+                html += '<div><strong>' + k + ':</strong> ' + val + '</div>';
+            });
+            return html;
+        }
+
+        var extraEl = cardEl.querySelector('[data-f="extra"]');
+        if (extraEl) {
+            var eh = renderExtraHtml(card);
+            extraEl.innerHTML = eh;
+            extraEl.hidden = !eh;
+        }
+
+        var relatedEl = cardEl.querySelector('[data-f="related"]');
+        if (relatedEl) {
+            relatedEl.innerHTML = '';
+            if (Array.isArray(card.related) && card.related.length) {
+                var html = '<strong>{{ __('Related concepts') }}</strong><ul style="margin:4px 0 0 18px;">';
+                card.related.forEach(function (r) {
+                    html += '<li><a href="' + r.url + '">' + r.front + '</a></li>';
+                });
+                html += '</ul>';
+                if (card.related_total > card.related.length) {
+                    html += '<a href="' + card.concept_map_url + '" style="font-size:.75rem;">{{ __('View all') }}</a>';
+                }
+                relatedEl.innerHTML = html;
+                relatedEl.hidden = false;
             } else {
-                extraEl.hidden = true;
+                relatedEl.hidden = true;
             }
         }
 
@@ -569,6 +731,10 @@
         });
 
         resetReveal();
+        var det = document.getElementById('vbDetails');
+        if (det) det.hidden = true;
+        var tbtn = document.getElementById('vbToggleDetails');
+        if (tbtn) tbtn.textContent = '{{ __('Details') }}';
     }
 
     function updateProgress(p) {
@@ -698,6 +864,13 @@
     });
 
     document.getElementById('vbShow')?.addEventListener('click', reveal);
+
+    document.getElementById('vbToggleDetails')?.addEventListener('click', function () {
+        var d = document.getElementById('vbDetails');
+        if (!d) return;
+        d.hidden = !d.hidden;
+        this.textContent = d.hidden ? '{{ __('Details') }}' : '{{ __('Hide details') }}';
+    });
 
     document.addEventListener('keydown', function (e) {
         if (e.target.matches('input, select, textarea')) return;

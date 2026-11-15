@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\VocabCard;
+use App\Models\VocabRelation;
 use App\Models\VocabReview;
 use App\Services\Vocabulary\LeitnerScheduler;
 use App\Services\Vocabulary\VocabReminderService;
@@ -49,6 +50,12 @@ class VocabReviewController extends Controller
         $current = $head['card'] ?? null;
         $reverse = (bool) ($head['reverse'] ?? false);
 
+        $relatedCards = [];
+        $relatedTotal = 0;
+        if ($current) {
+            [$relatedCards, $relatedTotal] = $this->relatedCardsFor($current);
+        }
+
         $summary = null;
         if ($current === null && ($queue['finished_at'] ?? null) === today()->toDateString()) {
             $summary = $this->summaryPayload($queue, $totalDue);
@@ -72,6 +79,8 @@ class VocabReviewController extends Controller
             'answer' => $current ? ($reverse ? $current->front : $current->back) : null,
             'showExample' => (bool) ($current && ! $reverse && $current->example),
             'summary' => $summary,
+            'relatedCards' => $relatedCards,
+            'relatedTotal' => $relatedTotal,
         ]);
     }
 
@@ -326,16 +335,20 @@ class VocabReviewController extends Controller
      */
     private function cardPayload(VocabCard $card, bool $reverse): array
     {
+        [$relatedCards, $relatedTotal] = $this->relatedCardsFor($card);
+
         return [
             'id' => $card->id,
             'prompt' => $reverse ? $card->back : ($card->card_type === 'cloze' ? preg_replace('/\{\{c\d+::(.*?)\}\}/', '[...]', (string) $card->front) : $card->front),
             'answer' => $reverse ? $card->front : $card->back,
-            'example' => (! $reverse && $card->example) ? $card->example : null,
+            'example' => $card->example ?: null,
+            'note' => $card->note ?: null,
             'deck' => $card->deck->name ?? '',
             'box' => (int) $card->box,
             'box_label' => __('Box :n', ['n' => $card->box]),
             'reverse' => $reverse,
             'direction' => $reverse ? __('What is the word for this meaning?') : __('What does this mean?'),
+            'concept_map_url' => route('vocabulary.cards.concept-map', $card),
             'grade_url' => route('vocabulary.cards.grade', $card),
             'total_boxes' => LeitnerScheduler::BOX_MAX,
             'card_type' => $card->card_type,
@@ -344,6 +357,10 @@ class VocabReviewController extends Controller
             'tags' => is_array($card->tags) ? $card->tags : [],
             'source_section' => $card->source_section,
             'extra' => is_array($card->extra) ? $card->extra : null,
+            'difficulty' => $card->difficulty,
+            'lapse_count' => (int) $card->lapse_count,
+            'related' => $relatedCards,
+            'related_total' => $relatedTotal,
         ];
     }
 
@@ -406,6 +423,30 @@ class VocabReviewController extends Controller
             'review_id' => $review->id,
             'front' => $card->front,
         ];
+    }
+
+    /**
+     * @return array{0: list<array{id:int,front:string,url:string}>, 1: int}
+     */
+    private function relatedCardsFor(VocabCard $card, int $limit = 5): array
+    {
+        $ids = is_array($card->related_cards) ? $card->related_cards : [];
+        $tableIds = VocabRelation::where('card_id', $card->id)->pluck('related_card_id')->all();
+        $ids = array_values(array_unique(array_merge($ids, $tableIds)));
+
+        $cards = VocabCard::where('user_id', $card->user_id)
+            ->whereIn('id', $ids)
+            ->orderBy('id')
+            ->get(['id', 'front']);
+
+        $total = $cards->count();
+        $items = $cards->take($limit)->map(fn (VocabCard $c) => [
+            'id' => $c->id,
+            'front' => $c->front,
+            'url' => route('vocabulary.cards.concept-map', $c),
+        ])->values()->all();
+
+        return [$items, $total];
     }
 
     /**

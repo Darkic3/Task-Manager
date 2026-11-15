@@ -161,8 +161,8 @@ class VocabularyLeitnerTest extends TestCase
         // Word is the prompt: example shown.
         $this->get(route('vocabulary.review.index'))->assertOk()->assertSee('an apple a day');
 
-        // Meaning is the prompt: example hidden (it would leak the answer).
-        $this->get(route('vocabulary.review.index', ['dir' => 'back']))->assertOk()->assertDontSee('an apple a day');
+        // Meaning is the prompt: example now shown in both directions.
+        $this->get(route('vocabulary.review.index', ['dir' => 'back']))->assertOk()->assertSee('an apple a day');
 
         $this->get(route('vocabulary.review.index', ['dir' => 'mixed']))->assertOk();
 
