@@ -273,8 +273,8 @@ a.ts-sub-title:hover { color:#7c3aed; }
     <h2 class="ts-h">{{ __('Subtasks') }} ({{ $task->children->where('status', 'completed')->count() }}/{{ $task->children->count() }})</h2>
     <div id="ts-sub-list" data-parent-id="{{ $task->id }}">
         @forelse($task->children as $child)
-            <div class="ts-sub-row {{ $child->status === 'completed' ? 'is-done' : '' }}" data-id="{{ $child->id }}" draggable="true">
-                <span class="ts-sub-drag" title="{{ __('Drag to reorder') }}"><i class="bi bi-grip-vertical"></i></span>
+            <div class="ts-sub-row {{ $child->status === 'completed' ? 'is-done' : '' }}" data-id="{{ $child->id }}">
+                <span class="ts-sub-drag" title="{{ __('Drag to reorder') }}" draggable="true"><i class="bi bi-grip-vertical"></i></span>
                 <span class="ts-sub-check {{ $child->status === 'completed' ? 'done' : '' }}">
                     <i class="bi {{ $child->status === 'completed' ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
                 </span>
