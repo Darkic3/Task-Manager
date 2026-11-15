@@ -238,26 +238,8 @@
             <h6><i class="bi bi-plus-circle" style="color:#6366f1;"></i> {{ __('Quick add card') }}</h6>
             <span class="lv-budget {{ ($newToday ?? 0) >= ($newLimit ?? 20) ? 'full' : '' }}">{{ app_num($newToday ?? 0) }}/{{ app_num($newLimit ?? 20) }} {{ __('New today') }}</span>
         </div>
-        <div class="lv-add-grid">
-            <select name="deck_id" class="form-control" required>
-                @foreach($decks as $d)
-                <option value="{{ $d->id }}" {{ ($filters['deck_id'] ?? '') == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
-                @endforeach
-            </select>
-            <input name="front" class="form-control" required maxlength="255" placeholder="{{ __('Word') }}">
-            <input name="back" class="form-control" required maxlength="2000" placeholder="{{ __('Meaning') }}">
-            <select name="card_type" class="form-control">
-                @foreach(\App\Enums\CardType::cases() as $ct)
-                <option value="{{ $ct->value }}">{{ __($ct->label()) }}</option>
-                @endforeach
-            </select>
-            <select name="priority" class="form-control">
-                @for($p = 1; $p <= 3; $p++)
-                <option value="{{ $p }}" {{ $p === 2 ? 'selected' : '' }}>{{ __('P:n', ['n' => $p]) }}</option>
-                @endfor
-            </select>
-            <input name="tags" class="form-control" placeholder="{{ __('Tags (comma)') }}">
-            <input name="source_section" class="form-control" placeholder="{{ __('Section') }}">
+        @include('vocabulary.partials.card-form-fields', ['mode' => 'create', 'card' => null])
+        <div style="margin-top:10px;">
             <button class="lv-btn lv-btn-primary" type="submit"><i class="bi bi-plus-lg"></i>{{ __('Add') }}</button>
         </div>
     </form>
@@ -289,30 +271,16 @@
                 @if($card->priority)<span class="lv-pill" style="background:#fef3c7;color:#b45309;">P{{ app_num($card->priority) }}</span>@endif
                 @if($card->source_section)<span><i class="bi bi-bookmark"></i>{{ $card->source_section }}</span>@endif
                 @if(is_array($card->tags) && $card->tags)<span><i class="bi bi-tags"></i>{{ implode(', ', $card->tags) }}</span>@endif
+                @if(is_array($card->extra) && $card->extra)<span><i class="bi bi-braces"></i>{{ implode(', ', array_slice(array_keys($card->extra), 0, 2)) }}</span>@endif
                 @if($card->example)<span class="ex"><i class="bi bi-quote"></i>{{ \Illuminate\Support\Str::limit($card->example, 80) }}</span>@endif
             </div>
             <div class="lv-edit" id="edit-{{ $card->id }}" hidden>
-                <form method="POST" action="{{ route('vocabulary.cards.update', $card) }}" style="display:flex;gap:8px;flex:1;flex-wrap:wrap;">
+                <form method="POST" action="{{ route('vocabulary.cards.update', $card) }}" style="display:flex;flex-direction:column;gap:10px;">
                     @csrf @method('PUT')
-                    <input type="hidden" name="deck_id" value="{{ $card->deck_id }}">
-                    <input name="front" class="form-control" value="{{ $card->front }}" required maxlength="255">
-                    <input name="back" class="form-control" value="{{ $card->back }}" required maxlength="2000">
-                    <select name="card_type" class="form-control">
-                        @foreach(\App\Enums\CardType::cases() as $ct)
-                        <option value="{{ $ct->value }}" {{ $card->card_type === $ct->value ? 'selected' : '' }}>{{ __($ct->label()) }}</option>
-                        @endforeach
-                    </select>
-                    <select name="priority" class="form-control">
-                        @for($p = 1; $p <= 3; $p++)
-                        <option value="{{ $p }}" {{ (int)$card->priority === $p ? 'selected' : '' }}>{{ __('P:n', ['n' => $p]) }}</option>
-                        @endfor
-                    </select>
-                    <input name="tags" class="form-control" value="{{ is_array($card->tags) ? implode(',', $card->tags) : '' }}" placeholder="{{ __('Tags (comma)') }}">
-                    <input name="source_section" class="form-control" value="{{ $card->source_section }}" placeholder="{{ __('Section') }}">
-                    <input name="related_cards" class="form-control" value="{{ is_array($card->related_cards) ? implode(',', $card->related_cards) : '' }}" placeholder="{{ __('Related IDs') }}">
-                    <input name="difficulty" type="number" min="1" max="5" class="form-control" value="{{ $card->difficulty }}" placeholder="{{ __('Difficulty 1-5') }}">
-                    <textarea name="extra" class="form-control" rows="2" placeholder='{{ __('Extra (JSON)') }}'>{{ $card->extra ? json_encode($card->extra, JSON_UNESCAPED_UNICODE) : '' }}</textarea>
-                    <button class="lv-btn lv-btn-primary" type="submit"><i class="bi bi-check-lg"></i>{{ __('Save') }}</button>
+                    @include('vocabulary.partials.card-form-fields', ['mode' => 'edit', 'card' => $card])
+                    <div>
+                        <button class="lv-btn lv-btn-primary" type="submit"><i class="bi bi-check-lg"></i>{{ __('Save') }}</button>
+                    </div>
                 </form>
                 <p class="lv-edit-hint">{{ __('Changing the word restarts this card in Box 1. Editing only the meaning keeps its progress.') }}</p>
             </div>

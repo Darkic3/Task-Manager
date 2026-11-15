@@ -68,12 +68,19 @@ class VocabCardController extends Controller
 
         $cards = $query->paginate(30)->withQueryString();
 
+        $existingTags = $user->vocabCards()->pluck('tags')
+            ->flatten()->filter()->unique()->values()->all();
+        $existingSources = $user->vocabCards()->whereNotNull('source_section')
+            ->distinct()->pluck('source_section')->values()->all();
+
         return view('vocabulary.cards', [
             'cards' => $cards,
             'decks' => $decks,
             'filters' => $request->only(['deck_id', 'box', 'filter', 'search', 'card_type', 'priority', 'source_section', 'tag']),
             'newToday' => static::newTodayCount($user),
             'newLimit' => $user->vocabDailyLimit(),
+            'existingTags' => $existingTags,
+            'existingSources' => $existingSources,
         ]);
     }
 
@@ -256,6 +263,7 @@ class VocabCardController extends Controller
             'related_cards' => 'nullable|array',
             'related_cards.*' => 'integer',
             'extra' => 'nullable|array',
+            'extra.*' => 'nullable',
             'source_section' => 'nullable|string|max:64',
             'difficulty' => 'nullable|integer|min:1|max:5',
         ];
@@ -305,6 +313,17 @@ class VocabCardController extends Controller
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                 $request->merge(['extra' => $decoded]);
             }
+        }
+
+        if ($request->has('extra') && is_array($request->input('extra'))) {
+            $extra = $request->input('extra');
+            foreach (['steps', 'detection_methods', 'triage_steps'] as $key) {
+                if (isset($extra[$key]) && is_string($extra[$key])) {
+                    $lines = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', $extra[$key]))));
+                    $extra[$key] = $lines;
+                }
+            }
+            $request->merge(['extra' => $extra]);
         }
     }
     private function normalizeTagInput(Request $request): void
