@@ -210,6 +210,27 @@
                     <option value="{{ $value }}" {{ $dir === $value ? 'selected' : '' }}>{{ $label }}</option>
                     @endforeach
                 </select>
+                <select name="mode" onchange="this.form.submit()" title="{{ __('Study mode') }}">
+                    @foreach(($modes ?? []) as $value => $label)
+                    <option value="{{ $value }}" {{ ($mode ?? 'standard') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                </select>
+                @if(($mode ?? '') === 'section')
+                    <select name="section" onchange="this.form.submit()" title="{{ __('Section') }}">
+                        <option value="">{{ __('All sections') }}</option>
+                        @foreach(($sections ?? []) as $s)
+                            <option value="{{ $s }}" {{ ($section ?? '') === $s ? 'selected' : '' }}>{{ $s }}</option>
+                        @endforeach
+                    </select>
+                @endif
+                @if(($mode ?? '') === 'type')
+                    <select name="type" onchange="this.form.submit()" title="{{ __('Type') }}">
+                        <option value="">{{ __('All types') }}</option>
+                        @foreach(($types ?? []) as $t)
+                            <option value="{{ $t->value }}" {{ ($type ?? '') === $t->value ? 'selected' : '' }}>{{ __($t->label()) }}</option>
+                        @endforeach
+                    </select>
+                @endif
             </form>
             <a href="{{ route('vocabulary.index') }}" class="lv-btn lv-btn-glass"><i class="bi bi-grid"></i>{{ __('Decks') }}</a>
         </div>
@@ -470,6 +491,9 @@
                 <input type="hidden" name="remembered" value="0">
                 <input type="hidden" name="grade" value="again">
                 <input type="hidden" name="deck_id" value="{{ $deckId }}">
+                <input type="hidden" name="mode" value="{{ $mode ?? 'standard' }}">
+                <input type="hidden" name="section" value="{{ $section ?? '' }}">
+                <input type="hidden" name="type" value="{{ $type ?? '' }}">
                 <input type="hidden" name="dir" value="{{ $dir }}">
                 <button class="lv-forgot" id="vbForgot" type="submit" style="width:100%;"><span>❌</span> {{ __('Again') }} <span class="lv-kbd">1</span></button>
             </form>
@@ -478,6 +502,9 @@
                 <input type="hidden" name="remembered" value="1">
                 <input type="hidden" name="grade" value="hard">
                 <input type="hidden" name="deck_id" value="{{ $deckId }}">
+                <input type="hidden" name="mode" value="{{ $mode ?? 'standard' }}">
+                <input type="hidden" name="section" value="{{ $section ?? '' }}">
+                <input type="hidden" name="type" value="{{ $type ?? '' }}">
                 <input type="hidden" name="dir" value="{{ $dir }}">
                 <button class="lv-hard" id="vbHard" type="submit" style="width:100%;"><span>😰</span> {{ __('Hard') }} <span class="lv-kbd">2</span></button>
             </form>
@@ -486,6 +513,9 @@
                 <input type="hidden" name="remembered" value="1">
                 <input type="hidden" name="grade" value="good">
                 <input type="hidden" name="deck_id" value="{{ $deckId }}">
+                <input type="hidden" name="mode" value="{{ $mode ?? 'standard' }}">
+                <input type="hidden" name="section" value="{{ $section ?? '' }}">
+                <input type="hidden" name="type" value="{{ $type ?? '' }}">
                 <input type="hidden" name="dir" value="{{ $dir }}">
                 <button class="lv-remembered" id="vbRemembered" type="submit" style="width:100%;"><span>✅</span> {{ __('Good') }} <span class="lv-kbd">3</span></button>
             </form>
@@ -494,6 +524,9 @@
                 <input type="hidden" name="remembered" value="1">
                 <input type="hidden" name="grade" value="easy">
                 <input type="hidden" name="deck_id" value="{{ $deckId }}">
+                <input type="hidden" name="mode" value="{{ $mode ?? 'standard' }}">
+                <input type="hidden" name="section" value="{{ $section ?? '' }}">
+                <input type="hidden" name="type" value="{{ $type ?? '' }}">
                 <input type="hidden" name="dir" value="{{ $dir }}">
                 <button class="lv-easy" id="vbEasy" type="submit" style="width:100%;"><span>🚀</span> {{ __('Easy') }} <span class="lv-kbd">4</span></button>
             </form>

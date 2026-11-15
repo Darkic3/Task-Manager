@@ -53,6 +53,24 @@ class VocabCardController extends Controller
             $query->byTag((string) $request->tag);
         }
 
+        if ($request->filled('tags')) {
+            $tags = is_array($request->tags) ? $request->tags : explode(',', (string) $request->tags);
+            foreach ($tags as $tag) {
+                $tag = trim((string) $tag);
+                if ($tag !== '') {
+                    $query->byTag($tag);
+                }
+            }
+        }
+
+        if ($request->filled('difficulty') && $request->difficulty !== 'all') {
+            $query->where('difficulty', (int) $request->difficulty);
+        }
+
+        if ($request->filled('lapse_min')) {
+            $query->where('lapse_count', '>=', (int) $request->lapse_min);
+        }
+
         if ($request->filled('filter')) {
             match ($request->filter) {
                 'due' => $query->due(),
@@ -76,7 +94,7 @@ class VocabCardController extends Controller
         return view('vocabulary.cards', [
             'cards' => $cards,
             'decks' => $decks,
-            'filters' => $request->only(['deck_id', 'box', 'filter', 'search', 'card_type', 'priority', 'source_section', 'tag']),
+            'filters' => $request->only(['deck_id', 'box', 'filter', 'search', 'card_type', 'priority', 'source_section', 'tag', 'tags', 'difficulty', 'lapse_min']),
             'newToday' => static::newTodayCount($user),
             'newLimit' => $user->vocabDailyLimit(),
             'existingTags' => $existingTags,

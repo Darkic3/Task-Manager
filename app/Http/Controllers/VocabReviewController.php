@@ -22,6 +22,12 @@ class VocabReviewController extends Controller
 
     public const DIR_MIXED = 'mixed';
 
+    public const MODE_STANDARD = 'standard';
+    public const MODE_PRIORITY = 'priority';
+    public const MODE_SECTION = 'section';
+    public const MODE_WEAK = 'weak';
+    public const MODE_TYPE = 'type';
+
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -34,14 +40,21 @@ class VocabReviewController extends Controller
             $dir = self::DIR_FRONT;
         }
 
-        $totalDue = $this->dueQuery($user, $deckId)->count();
+        $mode = (string) $request->get('mode', self::MODE_STANDARD);
+        if (! in_array($mode, [self::MODE_STANDARD, self::MODE_PRIORITY, self::MODE_SECTION, self::MODE_WEAK, self::MODE_TYPE], true)) {
+            $mode = self::MODE_STANDARD;
+        }
+        $section = $request->get('section');
+        $type = $request->get('type');
+
+        $totalDue = $this->dueQuery($user, $deckId, $mode, $section, $type)->count();
 
         // A fresh session is built when the filter changes, when yesterday's
         // session is stale, or when the last session hit the session limit and
         // cards are still due today.
         $queue = session('vocab_review_queue');
-        if (! $this->isFreshQueue($queue, $deckId, $dir, $totalDue)) {
-            $queue = $this->buildQueue($user, $deckId, $dir);
+        if (! $this->isFreshQueue($queue, $deckId, $dir, $totalDue, $mode, $section, $type)) {
+            $queue = $this->buildQueue($user, $deckId, $dir, $mode, $section, $type);
         }
 
         $head = $this->pullNext($user, $queue);
@@ -65,6 +78,16 @@ class VocabReviewController extends Controller
             'decks' => $decks,
             'deckId' => $deckId,
             'dir' => $dir,
+            'mode' => $mode,
+            'section' => $section,
+            'type' => $type,
+            'modes' => [
+                self::MODE_STANDARD => __('Standard'),
+                self::MODE_PRIORITY => __('Priority focus'),
+                self::MODE_SECTION => __('Section focus'),
+                self::MODE_WEAK => __('Weak cards'),
+                self::MODE_TYPE => __('Type focus'),
+            ],
             'dirs' => [
                 self::DIR_FRONT => __('Front → Back'),
                 self::DIR_BACK => __('Back → Front'),
@@ -81,6 +104,8 @@ class VocabReviewController extends Controller
             'summary' => $summary,
             'relatedCards' => $relatedCards,
             'relatedTotal' => $relatedTotal,
+            'sections' => $user->vocabCards()->whereNotNull('source_section')->distinct()->pluck('source_section')->values()->all(),
+            'types' => \App\Enums\CardType::cases(),
         ]);
     }
 
@@ -93,6 +118,9 @@ class VocabReviewController extends Controller
             'grade' => ['required_without:remembered', 'string', Rule::in(\App\Enums\Grade::values())],
             'deck_id' => 'nullable|string',
             'dir' => 'nullable|string',
+            'mode' => 'nullable|string',
+            'section' => 'nullable|string',
+            'type' => 'nullable|string',
         ]);
 
         $user = Auth::user();
@@ -149,7 +177,7 @@ class VocabReviewController extends Controller
             $head = $this->pullNext($user, $queue);
             session(['vocab_review_queue' => $queue]);
 
-            $dueLeft = $this->dueQuery($user, $deckId)->count();
+            $dueLeft = $this->dueQuery($user, $deckId, (string) ($data['mode'] ?? self::MODE_STANDARD), $data['section'] ?? null, $data['type'] ?? null)->count();
             $finished = $head === null;
 
             return response()->json([
@@ -177,6 +205,9 @@ class VocabReviewController extends Controller
             'review_id' => 'required|integer',
             'deck_id' => 'nullable|string',
             'dir' => 'nullable|string',
+            'mode' => 'nullable|string',
+            'section' => 'nullable|string',
+            'type' => 'nullable|string',
         ]);
 
         $params = $this->filterParams($data);
@@ -231,7 +262,7 @@ class VocabReviewController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'restored' => $this->cardPayload($card, (bool) $review->reversed),
-                'progress' => $this->progressPayload($queue, $this->dueQuery(Auth::user(), (string) ($data['deck_id'] ?? 'all'))->count()),
+                 'progress' => $this->progressPayload($queue, $this->dueQuery(Auth::user(), (string) ($data['deck_id'] ?? 'all'), (string) ($data['mode'] ?? self::MODE_STANDARD), $data['section'] ?? null, $data['type'] ?? null)->count()),
             ]);
         }
 
@@ -239,12 +270,20 @@ class VocabReviewController extends Controller
             ->with('success', __('Review undone — the card is back in the queue.'));
     }
 
-    private function dueQuery(User $user, string $deckId)
+    private function dueQuery(User $user, string $deckId, string $mode = self::MODE_STANDARD, mixed $section = null, mixed $type = null)
     {
         $query = $user->vocabCards()->due();
 
         if ($deckId !== 'all' && is_numeric($deckId)) {
             $query->byDeck((int) $deckId);
+        }
+
+        if ($mode === self::MODE_PRIORITY) {
+            $query->byPriority(1);
+        } elseif ($mode === self::MODE_SECTION && $section) {
+            $query->bySourceSection((string) $section);
+        } elseif ($mode === self::MODE_TYPE && $type) {
+            $query->byCardType((string) $type);
         }
 
         return $query;
@@ -253,14 +292,16 @@ class VocabReviewController extends Controller
     /**
      * @return array{deck: string, dir: string, total: int, remembered: int, forgotten: int, items: list<array{id: int, reverse: bool}>}
      */
-    private function buildQueue(User $user, string $deckId, string $dir): array
+    private function buildQueue(User $user, string $deckId, string $dir, string $mode = self::MODE_STANDARD, mixed $section = null, mixed $type = null): array
     {
-        $cards = $this->dueQuery($user, $deckId)
-            ->orderBy('priority')
-            ->orderBy('box')
-            ->orderBy('id')
-            ->limit($user->vocabSessionLimit())
-            ->get(['id', 'priority']);
+        $q = $this->dueQuery($user, $deckId, $mode, $section, $type);
+
+        if ($mode === self::MODE_WEAK) {
+            $q->orderByDesc('lapse_count');
+        }
+        $q->orderBy('priority')->orderBy('box')->orderBy('id');
+
+        $cards = $q->limit($user->vocabSessionLimit())->get(['id', 'priority']);
 
         $items = $cards->map(fn (VocabCard $c) => [
             'id' => $c->id,
@@ -270,6 +311,9 @@ class VocabReviewController extends Controller
         return [
             'deck' => $deckId,
             'dir' => $dir,
+            'mode' => $mode,
+            'section' => $section,
+            'type' => $type,
             'total' => count($items),
             'remembered' => 0,
             'forgotten' => 0,
@@ -300,11 +344,14 @@ class VocabReviewController extends Controller
         return null;
     }
 
-    private function isFreshQueue(mixed $queue, string $deckId, string $dir, int $totalDue): bool
+    private function isFreshQueue(mixed $queue, string $deckId, string $dir, int $totalDue, string $mode = self::MODE_STANDARD, mixed $section = null, mixed $type = null): bool
     {
         if (! is_array($queue)
             || ($queue['deck'] ?? null) !== $deckId
             || ($queue['dir'] ?? null) !== $dir
+            || ($queue['mode'] ?? self::MODE_STANDARD) !== $mode
+            || ($queue['section'] ?? null) !== $section
+            || ($queue['type'] ?? null) !== $type
             || ! isset($queue['items']) || ! is_array($queue['items'])) {
             return false;
         }

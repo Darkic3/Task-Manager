@@ -218,6 +218,14 @@
         </select>
         <input name="source_section" class="form-control" value="{{ $filters['source_section'] ?? '' }}" placeholder="{{ __('Section') }}" style="min-width:120px;">
         <input name="tag" class="form-control" value="{{ $filters['tag'] ?? '' }}" placeholder="{{ __('Tag') }}" style="min-width:120px;">
+        <input name="tags" class="form-control" value="{{ is_array($filters['tags'] ?? null) ? implode(',', $filters['tags']) : ($filters['tags'] ?? '') }}" placeholder="{{ __('Tags (comma)') }}" style="min-width:120px;">
+        <select name="difficulty" class="form-control">
+            <option value="all">{{ __('All difficulties') }}</option>
+            @for($d = 1; $d <= 5; $d++)
+            <option value="{{ $d }}" {{ ($filters['difficulty'] ?? 'all') == (string)$d ? 'selected' : '' }}>{{ __('D:n', ['n' => $d]) }}</option>
+            @endfor
+        </select>
+        <input name="lapse_min" type="number" min="0" class="form-control" value="{{ $filters['lapse_min'] ?? '' }}" placeholder="{{ __('Min lapses') }}" style="min-width:110px;">
         <select name="filter" class="form-control">
             <option value="">{{ __('All') }}</option>
             <option value="due" {{ ($filters['filter'] ?? '') === 'due' ? 'selected' : '' }}>{{ __('Due') }}</option>
@@ -225,7 +233,7 @@
             <option value="mastered" {{ ($filters['filter'] ?? '') === 'mastered' ? 'selected' : '' }}>{{ __('Mastered') }}</option>
         </select>
         <button class="lv-btn lv-btn-primary" type="submit"><i class="bi bi-funnel"></i>{{ __('Filter') }}</button>
-        @if(!empty($filters['search']) || ($filters['deck_id'] ?? 'all') !== 'all' || ($filters['box'] ?? 'all') !== 'all' || !empty($filters['filter']) || ($filters['card_type'] ?? 'all') !== 'all' || ($filters['priority'] ?? 'all') !== 'all' || !empty($filters['source_section']) || !empty($filters['tag']))
+        @if(!empty($filters['search']) || ($filters['deck_id'] ?? 'all') !== 'all' || ($filters['box'] ?? 'all') !== 'all' || !empty($filters['filter']) || ($filters['card_type'] ?? 'all') !== 'all' || ($filters['priority'] ?? 'all') !== 'all' || !empty($filters['source_section']) || !empty($filters['tag']) || !empty($filters['tags']) || ($filters['difficulty'] ?? 'all') !== 'all' || !empty($filters['lapse_min']))
         <a href="{{ route('vocabulary.cards.index') }}" class="lv-clear">{{ __('Clear') }}</a>
         @endif
         <span class="lv-count">{{ app_num($cards->total()) }} {{ __('cards') }}</span>
