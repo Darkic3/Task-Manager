@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', __('Vocabulary cards'))
+@section('title', __('Concept cards'))
 
 @push('styles')
 <style>
@@ -237,6 +237,9 @@
         <a href="{{ route('vocabulary.cards.index') }}" class="lv-clear">{{ __('Clear') }}</a>
         @endif
         <span class="lv-count">{{ app_num($cards->total()) }} {{ __('cards') }}</span>
+        @if(!empty($filters['source_section']))
+            <a href="{{ route('vocabulary.review.index', ['deck_id' => $filters['deck_id'] ?? 'all', 'mode' => 'section', 'section' => $filters['source_section']]) }}" class="lv-btn lv-btn-primary" style="font-size:.75rem;padding:6px 12px;">{{ __('Review this section') }}</a>
+        @endif
     </form>
 
     @if($decks->isNotEmpty())
@@ -277,13 +280,16 @@
                 <span><i class="bi bi-arrow-repeat"></i>{{ app_num($card->review_count) }} {{ __('reviews') }}</span>
                 @if($card->card_type)<span class="lv-pill" style="background:#eef2ff;color:#4f46e5;">{{ __(\App\Enums\CardType::tryFrom($card->card_type)?->label() ?? $card->card_type) }}</span>@endif
                 @if($card->priority)<span class="lv-pill" style="background:#fef3c7;color:#b45309;">P{{ app_num($card->priority) }}</span>@endif
+                <span class="lv-pill" style="background:#f3f4f6;color:#4b5563;">B{{ app_num($card->box) }}</span>
+                @if($card->lapse_count)<span class="lv-pill" style="background:#fee2e2;color:#b91c1c;">L{{ app_num($card->lapse_count) }}</span>@endif
                 @if($card->source_section)<span><i class="bi bi-bookmark"></i>{{ $card->source_section }}</span>@endif
                 @if(is_array($card->tags) && $card->tags)<span><i class="bi bi-tags"></i>{{ implode(', ', $card->tags) }}</span>@endif
-                @if(is_array($card->extra) && $card->extra)<span><i class="bi bi-braces"></i>{{ implode(', ', array_slice(array_keys($card->extra), 0, 2)) }}</span>@endif
                 @if(($card->outgoing_relations_count ?? 0) + ($card->incoming_relations_count ?? 0) > 0)
                     <span><i class="bi bi-diagram-3"></i>{{ ($card->outgoing_relations_count ?? 0) + ($card->incoming_relations_count ?? 0) }}</span>
                 @endif
                 @if($card->example)<span class="ex"><i class="bi bi-quote"></i>{{ \Illuminate\Support\Str::limit($card->example, 80) }}</span>@endif
+                @if($card->note)<span class="ex"><i class="bi bi-sticky"></i>{{ \Illuminate\Support\Str::limit($card->note, 80) }}</span>@endif
+                @if(is_array($card->extra) && $card->extra)<span class="ex"><i class="bi bi-braces"></i>{{ implode(', ', array_slice(array_keys($card->extra), 0, 3)) }}</span>@endif
             </div>
             <div class="lv-edit" id="edit-{{ $card->id }}" hidden>
                 <form method="POST" action="{{ route('vocabulary.cards.update', $card) }}" style="display:flex;flex-direction:column;gap:10px;">
@@ -313,7 +319,7 @@
     <div class="lv-empty">
         <div class="lv-empty-ico"><i class="bi bi-search"></i></div>
         <h5>{{ __('No cards found.') }}</h5>
-        <p>{{ __('Try different filters or add a new word above.') }}</p>
+        <p>{{ __('Try different filters, or create your first concept card (e.g. an event_id or process card).') }}</p>
     </div>
     @endforelse
 
