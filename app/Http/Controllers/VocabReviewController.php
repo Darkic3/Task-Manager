@@ -68,7 +68,7 @@ class VocabReviewController extends Controller
             'reviewedCount' => $this->reviewedCount($queue),
             'current' => $current,
             'reverse' => $reverse,
-            'prompt' => $current ? ($reverse ? $current->back : $current->front) : null,
+            'prompt' => $current ? ($reverse ? $current->back : ($current->card_type === 'cloze' ? preg_replace('/\{\{c\d+::(.*?)\}\}/', '[...]', (string) $current->front) : $current->front)) : null,
             'answer' => $current ? ($reverse ? $current->front : $current->back) : null,
             'showExample' => (bool) ($current && ! $reverse && $current->example),
             'summary' => $summary,
@@ -328,7 +328,7 @@ class VocabReviewController extends Controller
     {
         return [
             'id' => $card->id,
-            'prompt' => $reverse ? $card->back : $card->front,
+            'prompt' => $reverse ? $card->back : ($card->card_type === 'cloze' ? preg_replace('/\{\{c\d+::(.*?)\}\}/', '[...]', (string) $card->front) : $card->front),
             'answer' => $reverse ? $card->front : $card->back,
             'example' => (! $reverse && $card->example) ? $card->example : null,
             'deck' => $card->deck->name ?? '',

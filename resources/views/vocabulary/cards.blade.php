@@ -181,6 +181,7 @@
             <div class="lv-hero-actions">
                 <a href="{{ route('vocabulary.index') }}" class="lv-btn lv-btn-glass"><i class="bi bi-grid"></i>{{ __('Decks') }}</a>
                 <a href="{{ route('vocabulary.imports.create') }}" class="lv-btn lv-btn-glass"><i class="bi bi-upload"></i>{{ __('Import CSV') }}</a>
+                <button type="button" class="lv-btn lv-btn-glass" data-bs-toggle="modal" data-bs-target="#generateModal"><i class="bi bi-magic"></i>{{ __('Generate from section') }}</button>
                 <a href="{{ route('vocabulary.review.index') }}" class="lv-btn lv-btn-solid"><i class="bi bi-play-fill"></i>{{ __('Start review') }}</a>
             </div>
         </div>
@@ -338,6 +339,31 @@
     @endforelse
 
     <div class="lv-pages">{{ $cards->links() }}</div>
+
+    <details style="margin-top:1rem;background:#fff;border:1px solid #e9ebf1;border-radius:14px;padding:12px;">
+        <summary style="cursor:pointer;font-weight:700;">{{ __('Generate from section') }}</summary>
+        <form method="POST" action="{{ route('vocabulary.cards.generate') }}" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+            @csrf
+            <select name="deck_id" class="form-control" required>
+                @foreach($decks as $d)
+                <option value="{{ $d->id }}">{{ $d->name }}</option>
+                @endforeach
+            </select>
+            <input name="source_section" class="form-control" placeholder="{{ __('Section (e.g. P05-Task03)') }}">
+            <select name="card_type" class="form-control">
+                @foreach(\App\Enums\CardType::cases() as $ct)
+                <option value="{{ $ct->value }}">{{ __($ct->label()) }}</option>
+                @endforeach
+            </select>
+            <select name="priority" class="form-control">
+                @for($p = 1; $p <= 3; $p++)
+                <option value="{{ $p }}" {{ $p === 1 ? 'selected' : '' }}>{{ __('P:n', ['n' => $p]) }}</option>
+                @endfor
+            </select>
+            <textarea name="lines" class="form-control" rows="6" placeholder="{{ __('One card per line: front :: back') }}" required></textarea>
+            <button class="lv-btn lv-btn-primary" type="submit">{{ __('Generate') }}</button>
+        </form>
+    </details>
 </div>
 @endsection
 

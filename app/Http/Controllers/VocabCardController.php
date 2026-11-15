@@ -179,11 +179,55 @@ class VocabCardController extends Controller
         ]);
     }
 
+    public function generate(Request $request)
+    {
+        $data = $request->validate([
+            'deck_id' => ['required', 'integer', Rule::exists('vocab_decks', 'id')->where(fn ($q) => $q->where('user_id', Auth::id()))],
+            'source_section' => 'nullable|string|max:64',
+            'card_type' => ['nullable', 'string', Rule::in(\App\Enums\CardType::values())],
+            'priority' => 'nullable|integer|min:1|max:3',
+            'lines' => 'required|string',
+        ]);
+
+        $user = $request->user();
+        $deck = $user->vocabDecks()->findOrFail($data['deck_id']);
+        $initial = \App\Services\Vocabulary\LeitnerScheduler::initialState();
+        $count = 0;
+
+        foreach (preg_split('/\r\n|\r|\n/', $data['lines']) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $parts = array_map('trim', explode('::', $line, 2));
+            if (count($parts) < 2 || $parts[0] === '' || $parts[1] === '') {
+                continue;
+            }
+
+            $front = mb_substr($parts[0], 0, 255);
+            $back = mb_substr($parts[1], 0, 2000);
+
+            if (\App\Models\VocabCard::findDuplicateInDeck((int) $user->id, (int) $deck->id, $front)) {
+                continue;
+            }
+
+            $user->vocabCards()->create([
+                'deck_id' => $deck->id,
+                'front' => $front,
+                'back' => $back,
+                'card_type' => $data['card_type'] ?? 'definition',
+                'priority' => $data['priority'] ?? 2,
+                'source_section' => $data['source_section'] ?? null,
+            ] + $initial);
+
+            $count++;
+        }
+
+        return back()->with('success', __(':count cards generated.', ['count' => $count]));
+    }
     public function reset(VocabCard $vocabCard)
     {
-        $this->owned($vocabCard);
-
-        $vocabCard->resetProgress();
 
         return back()->with('success', __('Card reset to Box 1.'));
     }
