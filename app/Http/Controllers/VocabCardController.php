@@ -27,7 +27,7 @@ class VocabCardController extends Controller
 
         $decks = $user->vocabDecks()->orderBy('sort_order')->orderByDesc('id')->get();
 
-        $query = $user->vocabCards()->with('deck')->orderByDesc('id');
+        $query = $user->vocabCards()->with('deck')->withCount(['outgoingRelations', 'incomingRelations'])->orderByDesc('id');
 
         if ($request->filled('deck_id') && $request->deck_id !== 'all') {
             $query->byDeck((int) $request->deck_id);
@@ -160,30 +160,92 @@ class VocabCardController extends Controller
         return back()->with('success', __('Card deleted.'));
     }
 
-    public function conceptMap(VocabCard $vocabCard)
+    public function conceptMap(Request $request, VocabCard $vocabCard)
     {
         $this->owned($vocabCard);
+        $user = Auth::user();
+        $typeFilter = (string) $request->get('type', 'all');
 
-        $relatedIds = is_array($vocabCard->related_cards) ? $vocabCard->related_cards : [];
-        $tableIds = $vocabCard->outgoingRelations()->pluck('related_card_id')->all();
-        $relatedIds = array_values(array_unique(array_merge($relatedIds, $tableIds)));
+        $outgoing = $vocabCard->outgoingRelations()->with('relatedCard.deck')->get();
+        if ($typeFilter !== 'all') {
+            $outgoing = $outgoing->where('relation_type', $typeFilter)->values();
+        }
 
-        $relatedCards = VocabCard::where('user_id', $vocabCard->user_id)
-            ->whereIn('id', $relatedIds)
-            ->with('deck')
-            ->get();
+        // JSON related_cards as pseudo "related" relations.
+        $pseudo = collect();
+        if (($typeFilter === 'all' || $typeFilter === 'related') && is_array($vocabCard->related_cards)) {
+            $existingIds = $outgoing->pluck('related_card_id')->all();
+            $cards = VocabCard::where('user_id', $vocabCard->user_id)
+                ->whereIn('id', $vocabCard->related_cards)
+                ->whereNotIn('id', $existingIds)
+                ->with('deck')
+                ->get();
+            foreach ($cards as $rc) {
+                $pseudo->push((object) [
+                    'id' => null,
+                    'related_card_id' => $rc->id,
+                    'relation_type' => 'related',
+                    'relatedCard' => $rc,
+                ]);
+            }
+        }
+        $outgoing = $outgoing->concat($pseudo);
 
-        $incomingIds = $vocabCard->incomingRelations()->pluck('card_id')->all();
-        $incomingCards = VocabCard::where('user_id', $vocabCard->user_id)
-            ->whereIn('id', $incomingIds)
-            ->with('deck')
-            ->get();
+        $incoming = $vocabCard->incomingRelations()->with('card.deck')->get();
+        if ($typeFilter !== 'all') {
+            $incoming = $incoming->where('relation_type', $typeFilter)->values();
+        }
+
+        $types = $vocabCard->outgoingRelations()->pluck('relation_type')
+            ->merge($vocabCard->incomingRelations()->pluck('relation_type'))
+            ->push('related')
+            ->unique()->values()->all();
+
+        $allCards = $user->vocabCards()
+            ->where('id', '!=', $vocabCard->id)
+            ->orderBy('front')
+            ->get(['id', 'front']);
 
         return view('vocabulary.concept-map', [
             'card' => $vocabCard,
-            'relatedCards' => $relatedCards,
-            'incomingCards' => $incomingCards,
+            'outgoing' => $outgoing,
+            'incoming' => $incoming,
+            'types' => $types,
+            'typeFilter' => $typeFilter,
+            'allCards' => $allCards,
         ]);
+    }
+
+    public function storeRelation(Request $request, VocabCard $vocabCard)
+    {
+        $this->owned($vocabCard);
+
+        $data = $request->validate([
+            'related_card_id' => ['required', 'integer', Rule::exists('vocab_cards', 'id')->where(fn ($q) => $q->where('user_id', Auth::id()))],
+            'relation_type' => 'nullable|string|max:32',
+        ]);
+
+        if ((int) $data['related_card_id'] === (int) $vocabCard->id) {
+            return back()->with('error', __('Cannot relate a card to itself.'));
+        }
+
+        VocabRelation::firstOrCreate([
+            'card_id' => $vocabCard->id,
+            'related_card_id' => (int) $data['related_card_id'],
+            'relation_type' => $data['relation_type'] ?: 'related',
+        ]);
+
+        return back()->with('success', __('Relation added.'));
+    }
+
+    public function destroyRelation(VocabCard $vocabCard, VocabRelation $vocabRelation)
+    {
+        $this->owned($vocabCard);
+        abort_if($vocabRelation->card_id !== $vocabCard->id, 403);
+
+        $vocabRelation->delete();
+
+        return back()->with('success', __('Relation removed.'));
     }
 
     public function generate(Request $request)

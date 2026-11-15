@@ -272,6 +272,9 @@
                 @if($card->source_section)<span><i class="bi bi-bookmark"></i>{{ $card->source_section }}</span>@endif
                 @if(is_array($card->tags) && $card->tags)<span><i class="bi bi-tags"></i>{{ implode(', ', $card->tags) }}</span>@endif
                 @if(is_array($card->extra) && $card->extra)<span><i class="bi bi-braces"></i>{{ implode(', ', array_slice(array_keys($card->extra), 0, 2)) }}</span>@endif
+                @if(($card->outgoing_relations_count ?? 0) + ($card->incoming_relations_count ?? 0) > 0)
+                    <span><i class="bi bi-diagram-3"></i>{{ ($card->outgoing_relations_count ?? 0) + ($card->incoming_relations_count ?? 0) }}</span>
+                @endif
                 @if($card->example)<span class="ex"><i class="bi bi-quote"></i>{{ \Illuminate\Support\Str::limit($card->example, 80) }}</span>@endif
             </div>
             <div class="lv-edit" id="edit-{{ $card->id }}" hidden>
