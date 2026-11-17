@@ -522,7 +522,7 @@
     // MVP quarantine: hide vocab/laws mentions from the hero subtitle.
     $rpFeature = app(\App\Support\FeatureAvailability::class);
     $rpParts = [__('Tasks'), __('Study')];
-    if ($rpFeature->isEnabled('vocabulary', auth()->user())) { $rpParts[] = __('Vocabulary'); }
+    if ($rpFeature->isEnabled('vocabulary', auth()->user())) { $rpParts[] = __('Concepts'); }
     array_push($rpParts, __('Routines'), __('Avoid habits'), __('Workouts'), __('Time'));
     if ($rpFeature->isEnabled('laws', auth()->user())) { $rpParts[] = __('Laws'); }
     $rpHeroSubjects = implode(' · ', $rpParts);
@@ -967,8 +967,8 @@
         $rpVocabLocked = ! app(\App\Support\FeatureAvailability::class)->published('vocabulary');
     @endphp
     <div class="rp-section-title {{ $rpVocabLocked ? 'locked-module' : '' }}" id="vocabulary">
-        <i class="bi bi-translate" style="color:#6366f1;"></i>
-        <span>{{ __('Vocabulary') }}</span>
+        <i class="bi bi-lightbulb" style="color:#6366f1;"></i>
+        <span>{{ __('Concepts') }}</span>
         <span class="rp-badge-count">{{ $vocab['reviewed'] }} {{ __('reviews') }} · {{ $vocab['retention'] }}%</span>
     </div>
     <div class="rp-grid2 {{ $rpVocabLocked ? 'locked-module' : '' }}">
@@ -1029,7 +1029,7 @@
     <div class="rp-card {{ $rpVocabLocked ? 'locked-module' : '' }}">
         <div class="rp-card-header">
             <span class="rp-card-title"><i class="bi bi-list-task"></i> {{ __('Per deck') }}</span>
-            <a href="{{ route('vocabulary.index') }}" style="font-size:12px;font-weight:700;color:#4f46e5;text-decoration:none;">{{ __('Open Leitner box') }}</a>
+            <a href="{{ route('vocabulary.index') }}" style="font-size:12px;font-weight:700;color:#4f46e5;text-decoration:none;">{{ __('Open concepts') }}</a>
         </div>
         <div class="rp-card-body" style="padding:4px 8px;">
             @if(count($vocab['rows']))

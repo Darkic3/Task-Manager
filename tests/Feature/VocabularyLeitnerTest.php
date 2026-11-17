@@ -248,7 +248,7 @@ class VocabularyLeitnerTest extends TestCase
         $html = $this->get(route('reports.overview', ['range' => 'week']))->assertOk()->getContent();
 
         $this->assertStringContainsString('id="vocabulary"', $html);
-        $this->assertStringContainsString('vocab reviews due', $html);
+        $this->assertStringContainsString('concept reviews due', $html);
     }
 
     public function test_daily_reminder_command_creates_and_updates_one_reminder(): void

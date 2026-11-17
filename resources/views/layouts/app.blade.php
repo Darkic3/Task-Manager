@@ -1187,7 +1187,7 @@
                 ['feature' => 'notes', 'match' => 'notes*', 'icon' => 'bi-journal-text', 'label' => __('Notes'), 'url' => route('notes.index')],
                 ['feature' => 'journal', 'match' => 'journal*', 'icon' => 'bi-book', 'label' => __('Journal'), 'url' => route('journal.index')],
                 ['feature' => 'reminders', 'match' => 'reminders*', 'icon' => 'bi-bell-fill', 'label' => __('Reminders'), 'url' => route('reminders.index')],
-                ['feature' => 'vocabulary', 'match' => 'vocabulary*', 'icon' => 'bi-translate', 'label' => __('Vocabulary'), 'url' => route('vocabulary.index')],
+                ['feature' => 'vocabulary', 'match' => 'vocabulary*', 'icon' => 'bi-lightbulb', 'label' => __('Concepts'), 'url' => route('vocabulary.index')],
                 ['feature' => 'files', 'match' => 'files*', 'icon' => 'bi-file-earmark-fill', 'label' => __('Files'), 'url' => route('files.index')],
             ],
         ],

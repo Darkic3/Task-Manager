@@ -175,7 +175,7 @@
         <div class="lv-hero-in">
             <div class="lv-hero-ico"><i class="bi bi-collection"></i></div>
             <div class="lv-hero-txt">
-                <h1>{{ __('Vocabulary cards') }}</h1>
+                <h1>{{ __('Concept cards') }}</h1>
                 <p>{{ app_num($cards->total()) }} {{ __('cards') }} · {{ __('Box 1 · daily') }} → {{ __('Box 5 · monthly') }}</p>
             </div>
             <div class="lv-hero-actions">
@@ -187,52 +187,8 @@
         </div>
     </header>
 
-    <form method="GET" action="{{ route('vocabulary.cards.index') }}" class="lv-filters">
-        <div class="lv-search">
-            <i class="bi bi-search"></i>
-            <input name="search" class="form-control" value="{{ $filters['search'] ?? '' }}" placeholder="{{ __('Search word or meaning') }}">
-        </div>
-        <select name="deck_id" class="form-control">
-            <option value="all">{{ __('All decks') }}</option>
-            @foreach($decks as $d)
-            <option value="{{ $d->id }}" {{ ($filters['deck_id'] ?? 'all') == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
-            @endforeach
-        </select>
-        <select name="box" class="form-control">
-            <option value="all">{{ __('All boxes') }}</option>
-            @for($b = 1; $b <= 5; $b++)
-            <option value="{{ $b }}" {{ ($filters['box'] ?? 'all') == (string) $b ? 'selected' : '' }}>{{ __('Box :n', ['n' => $b]) }}</option>
-            @endfor
-        </select>
-        <select name="card_type" class="form-control">
-            <option value="all">{{ __('All types') }}</option>
-            @foreach(\App\Enums\CardType::cases() as $ct)
-            <option value="{{ $ct->value }}" {{ ($filters['card_type'] ?? 'all') === $ct->value ? 'selected' : '' }}>{{ __($ct->label()) }}</option>
-            @endforeach
-        </select>
-        <select name="priority" class="form-control">
-            <option value="all">{{ __('All priorities') }}</option>
-            @for($p = 1; $p <= 3; $p++)
-            <option value="{{ $p }}" {{ ($filters['priority'] ?? 'all') == (string) $p ? 'selected' : '' }}>{{ __('Priority :n', ['n' => $p]) }}</option>
-            @endfor
-        </select>
-        <input name="source_section" class="form-control" value="{{ $filters['source_section'] ?? '' }}" placeholder="{{ __('Section') }}" style="min-width:120px;">
-        <input name="tag" class="form-control" value="{{ $filters['tag'] ?? '' }}" placeholder="{{ __('Tag') }}" style="min-width:120px;">
-        <input name="tags" class="form-control" value="{{ is_array($filters['tags'] ?? null) ? implode(',', $filters['tags']) : ($filters['tags'] ?? '') }}" placeholder="{{ __('Tags (comma)') }}" style="min-width:120px;">
-        <select name="difficulty" class="form-control">
-            <option value="all">{{ __('All difficulties') }}</option>
-            @for($d = 1; $d <= 5; $d++)
-            <option value="{{ $d }}" {{ ($filters['difficulty'] ?? 'all') == (string)$d ? 'selected' : '' }}>{{ __('D:n', ['n' => $d]) }}</option>
-            @endfor
-        </select>
-        <input name="lapse_min" type="number" min="0" class="form-control" value="{{ $filters['lapse_min'] ?? '' }}" placeholder="{{ __('Min lapses') }}" style="min-width:110px;">
-        <select name="filter" class="form-control">
-            <option value="">{{ __('All') }}</option>
-            <option value="due" {{ ($filters['filter'] ?? '') === 'due' ? 'selected' : '' }}>{{ __('Due') }}</option>
-            <option value="learning" {{ ($filters['filter'] ?? '') === 'learning' ? 'selected' : '' }}>{{ __('Learning') }}</option>
-            <option value="mastered" {{ ($filters['filter'] ?? '') === 'mastered' ? 'selected' : '' }}>{{ __('Mastered') }}</option>
-        </select>
-        <button class="lv-btn lv-btn-primary" type="submit"><i class="bi bi-funnel"></i>{{ __('Filter') }}</button>
+    <div class="lv-filters" style="align-items:center;">
+        <button type="button" class="lv-btn lv-btn-primary" data-bs-toggle="modal" data-bs-target="#cardFiltersModal"><i class="bi bi-funnel"></i>{{ __('Filters') }}</button>
         @if(!empty($filters['search']) || ($filters['deck_id'] ?? 'all') !== 'all' || ($filters['box'] ?? 'all') !== 'all' || !empty($filters['filter']) || ($filters['card_type'] ?? 'all') !== 'all' || ($filters['priority'] ?? 'all') !== 'all' || !empty($filters['source_section']) || !empty($filters['tag']) || !empty($filters['tags']) || ($filters['difficulty'] ?? 'all') !== 'all' || !empty($filters['lapse_min']))
         <a href="{{ route('vocabulary.cards.index') }}" class="lv-clear">{{ __('Clear') }}</a>
         @endif
@@ -240,7 +196,73 @@
         @if(!empty($filters['source_section']))
             <a href="{{ route('vocabulary.review.index', ['deck_id' => $filters['deck_id'] ?? 'all', 'mode' => 'section', 'section' => $filters['source_section']]) }}" class="lv-btn lv-btn-primary" style="font-size:.75rem;padding:6px 12px;">{{ __('Review this section') }}</a>
         @endif
-    </form>
+    </div>
+
+    <div class="modal fade" id="cardFiltersModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{{ __('Filters') }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ __('Close') }}"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="GET" action="{{ route('vocabulary.cards.index') }}" id="cardFiltersForm" class="d-flex flex-column gap-2">
+                        <div class="lv-search">
+                            <i class="bi bi-search"></i>
+                            <input name="search" class="form-control" value="{{ $filters['search'] ?? '' }}" placeholder="{{ __('Search word or meaning') }}">
+                        </div>
+                        <select name="deck_id" class="form-control">
+                            <option value="all">{{ __('All decks') }}</option>
+                            @foreach($decks as $d)
+                            <option value="{{ $d->id }}" {{ ($filters['deck_id'] ?? 'all') == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
+                            @endforeach
+                        </select>
+                        <select name="box" class="form-control">
+                            <option value="all">{{ __('All boxes') }}</option>
+                            @for($b = 1; $b <= 5; $b++)
+                            <option value="{{ $b }}" {{ ($filters['box'] ?? 'all') == (string) $b ? 'selected' : '' }}>{{ __('Box :n', ['n' => $b]) }}</option>
+                            @endfor
+                        </select>
+                        <select name="card_type" class="form-control">
+                            <option value="all">{{ __('All types') }}</option>
+                            @foreach(\App\Enums\CardType::cases() as $ct)
+                            <option value="{{ $ct->value }}" {{ ($filters['card_type'] ?? 'all') === $ct->value ? 'selected' : '' }}>{{ __($ct->label()) }}</option>
+                            @endforeach
+                        </select>
+                        <select name="priority" class="form-control">
+                            <option value="all">{{ __('All priorities') }}</option>
+                            @for($p = 1; $p <= 3; $p++)
+                            <option value="{{ $p }}" {{ ($filters['priority'] ?? 'all') == (string) $p ? 'selected' : '' }}>{{ __('Priority :n', ['n' => $p]) }}</option>
+                            @endfor
+                        </select>
+                        <input name="source_section" class="form-control" value="{{ $filters['source_section'] ?? '' }}" placeholder="{{ __('Section') }}">
+                        <input name="tag" class="form-control" value="{{ $filters['tag'] ?? '' }}" placeholder="{{ __('Tag') }}">
+                        <input name="tags" class="form-control" value="{{ is_array($filters['tags'] ?? null) ? implode(',', $filters['tags']) : ($filters['tags'] ?? '') }}" placeholder="{{ __('Tags (comma)') }}">
+                        <select name="difficulty" class="form-control">
+                            <option value="all">{{ __('All difficulties') }}</option>
+                            @for($d = 1; $d <= 5; $d++)
+                            <option value="{{ $d }}" {{ ($filters['difficulty'] ?? 'all') == (string)$d ? 'selected' : '' }}>{{ __('D:n', ['n' => $d]) }}</option>
+                            @endfor
+                        </select>
+                        <input name="lapse_min" type="number" min="0" class="form-control" value="{{ $filters['lapse_min'] ?? '' }}" placeholder="{{ __('Min lapses') }}">
+                        <select name="filter" class="form-control">
+                            <option value="">{{ __('All') }}</option>
+                            <option value="due" {{ ($filters['filter'] ?? '') === 'due' ? 'selected' : '' }}>{{ __('Due') }}</option>
+                            <option value="learning" {{ ($filters['filter'] ?? '') === 'learning' ? 'selected' : '' }}>{{ __('Learning') }}</option>
+                            <option value="mastered" {{ ($filters['filter'] ?? '') === 'mastered' ? 'selected' : '' }}>{{ __('Mastered') }}</option>
+                        </select>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" form="cardFiltersForm" class="lv-btn lv-btn-primary"><i class="bi bi-funnel"></i>{{ __('Filter') }}</button>
+                    @if(!empty($filters['search']) || ($filters['deck_id'] ?? 'all') !== 'all' || ($filters['box'] ?? 'all') !== 'all' || !empty($filters['filter']) || ($filters['card_type'] ?? 'all') !== 'all' || ($filters['priority'] ?? 'all') !== 'all' || !empty($filters['source_section']) || !empty($filters['tag']) || !empty($filters['tags']) || ($filters['difficulty'] ?? 'all') !== 'all' || !empty($filters['lapse_min']))
+                    <a href="{{ route('vocabulary.cards.index') }}" class="lv-btn lv-btn-ghost">{{ __('Clear') }}</a>
+                    @endif
+                    <button type="button" class="lv-btn lv-btn-ghost" data-bs-dismiss="modal">{{ __('Close') }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     @if($decks->isNotEmpty())
     <form method="POST" action="{{ route('vocabulary.cards.store') }}" class="lv-add">
@@ -249,7 +271,7 @@
             <h6><i class="bi bi-plus-circle" style="color:#6366f1;"></i> {{ __('Quick add card') }}</h6>
             <span class="lv-budget {{ ($newToday ?? 0) >= ($newLimit ?? 20) ? 'full' : '' }}">{{ app_num($newToday ?? 0) }}/{{ app_num($newLimit ?? 20) }} {{ __('New today') }}</span>
         </div>
-        @include('vocabulary.partials.card-form-fields', ['mode' => 'create', 'card' => null])
+        @include('vocabulary.partials.card-form-fields', ['mode' => 'create', 'card' => null, 'defaultDeckId' => is_numeric($filters['deck_id'] ?? null) ? (int) $filters['deck_id'] : null])
         <div style="margin-top:10px;">
             <button class="lv-btn lv-btn-primary" type="submit"><i class="bi bi-plus-lg"></i>{{ __('Add') }}</button>
         </div>
@@ -325,36 +347,49 @@
 
     <div class="lv-pages">{{ $cards->links() }}</div>
 
-    <details style="margin-top:1rem;background:#fff;border:1px solid #e9ebf1;border-radius:14px;padding:12px;">
-        <summary style="cursor:pointer;font-weight:700;">{{ __('Generate from section') }}</summary>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;">
-            <button type="button" class="lv-mini" onclick="loadTemplate('event')">{{ __('Event ID Batch') }}</button>
-            <button type="button" class="lv-mini" onclick="loadTemplate('port')">{{ __('Port Batch') }}</button>
-            <button type="button" class="lv-mini" onclick="loadTemplate('attack')">{{ __('Attack Batch') }}</button>
+    <div class="modal fade" id="generateModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-magic me-2"></i>{{ __('Generate from section') }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ __('Close') }}"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <button type="button" class="lv-mini" onclick="loadTemplate('event')">{{ __('Event ID Batch') }}</button>
+                        <button type="button" class="lv-mini" onclick="loadTemplate('port')">{{ __('Port Batch') }}</button>
+                        <button type="button" class="lv-mini" onclick="loadTemplate('attack')">{{ __('Attack Batch') }}</button>
+                    </div>
+                    <form method="POST" action="{{ route('vocabulary.cards.generate.preview') }}" id="generateForm" class="d-flex flex-column gap-2">
+                        @csrf
+                        <select name="deck_id" class="form-control" required>
+                            <option value="" disabled selected>{{ __('Select deck') }}</option>
+                            @foreach($decks as $d)
+                            <option value="{{ $d->id }}">{{ $d->name }}</option>
+                            @endforeach
+                        </select>
+                        <input name="source_section" class="form-control" placeholder="{{ __('Section (e.g. P05-Task03)') }}">
+                        <select name="card_type" class="form-control">
+                            @foreach(\App\Enums\CardType::cases() as $ct)
+                            <option value="{{ $ct->value }}">{{ __($ct->label()) }}</option>
+                            @endforeach
+                        </select>
+                        <select name="priority" class="form-control">
+                            @for($p = 1; $p <= 3; $p++)
+                            <option value="{{ $p }}" {{ $p === 1 ? 'selected' : '' }}>{{ __('Priority :n', ['n' => $p]) }}</option>
+                            @endfor
+                        </select>
+                        <input name="tags" class="form-control" placeholder="{{ __('Default tags (comma)') }}">
+                        <textarea name="lines" id="generateLines" class="form-control" rows="8" placeholder="{{ __('One card per line: front :: back  (optional :: card_type)') }}" required></textarea>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" form="generateForm" class="lv-btn lv-btn-primary"><i class="bi bi-eye"></i>{{ __('Preview') }}</button>
+                    <button type="button" class="lv-btn lv-btn-ghost" data-bs-dismiss="modal">{{ __('Close') }}</button>
+                </div>
+            </div>
         </div>
-        <form method="POST" action="{{ route('vocabulary.cards.generate.preview') }}" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
-            @csrf
-            <select name="deck_id" class="form-control" required>
-                @foreach($decks as $d)
-                <option value="{{ $d->id }}">{{ $d->name }}</option>
-                @endforeach
-            </select>
-            <input name="source_section" class="form-control" placeholder="{{ __('Section (e.g. P05-Task03)') }}">
-            <select name="card_type" class="form-control">
-                @foreach(\App\Enums\CardType::cases() as $ct)
-                <option value="{{ $ct->value }}">{{ __($ct->label()) }}</option>
-                @endforeach
-            </select>
-            <select name="priority" class="form-control">
-                @for($p = 1; $p <= 3; $p++)
-                <option value="{{ $p }}" {{ $p === 1 ? 'selected' : '' }}>{{ __('P:n', ['n' => $p]) }}</option>
-                @endfor
-            </select>
-            <input name="tags" class="form-control" placeholder="{{ __('Default tags (comma)') }}">
-            <textarea name="lines" id="generateLines" class="form-control" rows="6" placeholder="{{ __('One card per line: front :: back  (optional :: card_type)') }}" required></textarea>
-            <button class="lv-btn lv-btn-primary" type="submit">{{ __('Preview') }}</button>
-        </form>
-    </details>
+    </div>
 
     @if(!empty($generatePreview))
     <section class="lv-sec" style="margin-top:1rem;">

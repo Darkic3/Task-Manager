@@ -1,6 +1,7 @@
 @php
 $card = $card ?? null;
 $mode = $mode ?? 'create';
+$defaultDeckId = $defaultDeckId ?? null;
 $ct = $card?->card_type ?? 'definition';
 $extra = is_array($card?->extra) ? $card->extra : [];
 $tagsValue = is_array($card?->tags) ? implode(',', $card->tags) : '';
@@ -11,7 +12,7 @@ $relatedValue = is_array($card?->related_cards) ? implode(',', $card->related_ca
     <div class="lv-row" style="margin-bottom:10px;">
         <select name="deck_id" class="form-control" required>
             @foreach($decks as $d)
-                <option value="{{ $d->id }}" {{ (int)old('deck_id', $card?->deck_id) === (int)$d->id ? 'selected' : '' }}>{{ $d->name }}</option>
+                <option value="{{ $d->id }}" {{ (int)old('deck_id', $card?->deck_id ?? $defaultDeckId) === (int)$d->id ? 'selected' : '' }}>{{ $d->name }}</option>
             @endforeach
         </select>
         <input name="front" class="form-control" required maxlength="255" placeholder="{{ __('Word / Front') }}" value="{{ old('front', $card?->front) }}" style="font-weight:600;">

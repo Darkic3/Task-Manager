@@ -145,14 +145,14 @@
     @if(app(\App\Support\FeatureAvailability::class)->isEnabled('vocabulary', auth()->user()))
     <div class="hq-card mb-4 {{ app(\App\Support\FeatureAvailability::class)->published('vocabulary') ? '' : 'locked-module' }}">
         <div class="hq-card-header d-flex justify-content-between align-items-center">
-            <span class="fw-bold"><i class="bi bi-translate me-1" style="color:#6366f1;"></i> {{ __('Vocabulary') }}</span>
+            <span class="fw-bold"><i class="bi bi-lightbulb me-1" style="color:#6366f1;"></i> {{ __('Concepts') }}</span>
             <a href="{{ route('vocabulary.review.index') }}" class="btn btn-sm btn-outline-primary">{{ __('Start review') }}</a>
         </div>
         <div class="hq-card-body p-3">
             <div class="d-flex align-items-center gap-3 flex-wrap">
                 <span class="text-muted small">{{ __('Due today') }}: <strong class="{{ ($vocabDue ?? 0) > 0 ? 'text-warning' : 'text-success' }}">{{ app_num($vocabDue ?? 0) }}</strong></span>
                 <span class="text-muted small">{{ __('New today') }}: <strong class="text-dark">{{ app_num($vocabNewToday ?? 0) }}/{{ app_num($vocabNewLimit ?? 20) }}</strong></span>
-                <a href="{{ route('vocabulary.index') }}" class="ms-auto small fw-semibold text-decoration-none">{{ __('Open Leitner box') }} <i class="bi bi-arrow-right"></i></a>
+                <a href="{{ route('vocabulary.index') }}" class="ms-auto small fw-semibold text-decoration-none">{{ __('Open concepts') }} <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
     </div>

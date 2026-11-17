@@ -171,9 +171,9 @@
                 @if(app(\App\Support\FeatureAvailability::class)->isEnabled('vocabulary', auth()->user()))
                 <section class="pf-card {{ app(\App\Support\FeatureAvailability::class)->published('vocabulary') ? '' : 'locked-module' }}" style="animation-delay:.24s;">
                     <header class="pf-card-hd">
-                        <span class="pf-card-ico blue"><i class="bi bi-translate"></i></span>
+                        <span class="pf-card-ico blue"><i class="bi bi-lightbulb"></i></span>
                         <div>
-                            <h2 class="pf-card-title">{{ __('Leitner Box') }}</h2>
+                            <h2 class="pf-card-title">{{ __('Concepts') }}</h2>
                             <p class="pf-card-sub">{{ __('Tune your vocabulary routine') }}</p>
                         </div>
                     </header>

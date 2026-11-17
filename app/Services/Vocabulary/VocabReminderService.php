@@ -93,8 +93,8 @@ class VocabReminderService
     private static function payload(int $due): array
     {
         return [
-            'title' => __('Review Leitner box'),
-            'description' => __(':count cards due today — open the Leitner box.', ['count' => $due]),
+            'title' => __('Review concepts'),
+            'description' => __(':count cards due today — open your concepts.', ['count' => $due]),
             'priority' => $due >= 10 ? Reminder::PRIORITY_HIGH : Reminder::PRIORITY_MEDIUM,
             'category' => self::CATEGORY,
             'recurrence_type' => Reminder::RECURRENCE_NONE,

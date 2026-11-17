@@ -167,10 +167,10 @@
 <div class="lv-page">
     <header class="lv-hero">
         <div class="lv-hero-in">
-            <div class="lv-hero-ico"><i class="bi bi-translate"></i></div>
+            <div class="lv-hero-ico"><i class="bi bi-lightbulb"></i></div>
             <div class="lv-hero-txt">
-                <h1>{{ __('Vocabulary') }}</h1>
-                <p>{{ __('Your Leitner box — a little every day beats cramming.') }}</p>
+                <h1>{{ __('Concepts') }}</h1>
+                <p>{{ __('Your concepts — a little every day beats cramming.') }}</p>
             </div>
             <div class="lv-hero-actions">
                 <a href="{{ route('vocabulary.cards.index') }}" class="lv-btn lv-btn-glass"><i class="bi bi-list-ul"></i>{{ __('All cards') }}</a>

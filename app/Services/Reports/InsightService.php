@@ -43,9 +43,9 @@ final class InsightService
         $vocab = $data['vocab'] ?? null;
         if ($vocab && ($vocab['due_now'] ?? 0) > 0) {
             $out[] = [
-                'icon' => 'bi-translate', 'tone' => 'info',
-                'title' => __(':count vocab reviews due', ['count' => $vocab['due_now']]),
-                'body' => __('Open the Leitner box — a short session keeps every box on schedule.'),
+                'icon' => 'bi-lightbulb', 'tone' => 'info',
+                'title' => __(':count concept reviews due', ['count' => $vocab['due_now']]),
+                'body' => __('Open your concepts — a short session keeps every box on schedule.'),
             ];
         } elseif ($vocab && ($vocab['reviewed'] ?? 0) >= 10 && ($vocab['retention'] ?? 100) < 60) {
             $out[] = [
