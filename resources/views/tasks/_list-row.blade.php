@@ -1,5 +1,5 @@
 {{-- Single row of the List view. Vars: $task --}}
-<div class="cu-list-row" data-id="{{ $task->id }}" data-title="{{ strtolower($task->title) }}" data-priority="{{ $task->priority }}" data-project="{{ $task->project_id }}" data-status="{{ $task->status }}" data-due="{{ $task->due_date ?? '' }}">
+<div class="cu-list-row" data-id="{{ $task->id }}" data-parent="{{ $task->parent_id ?? '' }}" data-title="{{ strtolower($task->title) }}" data-priority="{{ $task->priority }}" data-project="{{ $task->project_id }}" data-status="{{ $task->status }}" data-due="{{ $task->due_date ?? '' }}">
     <div style="display:flex;align-items:center;gap:8px;">
         <input type="checkbox" class="cu-select-box" data-id="{{ $task->id }}" title="{{ __('Select task') }}">
         <div>

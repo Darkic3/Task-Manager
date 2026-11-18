@@ -1707,7 +1707,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /* Quick check toggle — delegation (works for board / chapter / list / tree) */
-    document.addEventListener('click', e => {
+    document.addEventListener('click', async e => {
         const check = e.target.closest('.cu-check');
         if (check) {
             e.preventDefault();
@@ -1716,15 +1716,70 @@ document.addEventListener('DOMContentLoaded', function () {
             const id = holder.dataset.id;
             const isDone = holder.classList.contains('is-done');
             const newStatus = isDone ? 'to_do' : 'completed';
-            const scrollY = window.scrollY;
+
+            const scrollTargets = [];
+            scrollTargets.push({ el: window, top: window.scrollY });
+            document.querySelectorAll('.cu-col-body').forEach(col => scrollTargets.push({ el: col, top: col.scrollTop }));
+
+            const restoreScroll = () => {
+                requestAnimationFrame(() => {
+                    scrollTargets.forEach(t => {
+                        if (t.el === window) window.scrollTo(0, t.top);
+                        else t.el.scrollTop = t.top;
+                    });
+                    setTimeout(() => {
+                        scrollTargets.forEach(t => {
+                            if (t.el === window) window.scrollTo(0, t.top);
+                            else t.el.scrollTop = t.top;
+                        });
+                    }, 0);
+                });
+            };
+
             check.blur();
-            updateStatus(id, newStatus, () => {
-                syncTaskDoneUI(id, newStatus);
-                updateCounts();
-                applyFilters();
-                window.scrollTo(0, scrollY);
-                toast(newStatus === 'completed' ? TASK_STATUS_TOAST.completed : TASK_STATUS_TOAST.reopened);
-            });
+
+            const hasIncompleteDescendantsDom = (taskId) => {
+                const kids = document.querySelectorAll(`[data-parent="${taskId}"]`);
+                for (const k of kids) {
+                    if (k.dataset.status !== 'completed') return true;
+                    if (hasIncompleteDescendantsDom(k.dataset.id)) return true;
+                }
+                return false;
+            };
+
+            const runToggle = (completeDescendants = false) => {
+                updateStatus(id, newStatus, () => {
+                    syncTaskDoneUI(id, newStatus);
+                    updateCounts();
+                    applyFilters();
+                    restoreScroll();
+                    toast(newStatus === 'completed' ? TASK_STATUS_TOAST.completed : TASK_STATUS_TOAST.reopened);
+                }, completeDescendants);
+            };
+
+            if (newStatus === 'completed' && !isDone && hasIncompleteDescendantsDom(id)) {
+                const msg = @json(__('Complete all subtasks before completing this task.'));
+                const savedScrollY = window.scrollY;
+                const savedColScrolls = [...document.querySelectorAll('.cu-col-body')].map(c => c.scrollTop);
+                const ok = typeof confirmSwal === 'function'
+                    ? await (async () => confirmSwal(msg + '\n\n' + @json('آیا می‌خواهید این تسک و تمام زیرتسک‌هایش تکمیل شوند؟'), {
+                        isDelete: false,
+                        icon: 'warning',
+                        heightAuto: false,
+                        scrollbarPadding: false,
+                        confirmButtonText: @json('تکمیل همه'),
+                        cancelButtonText: @json('انصراف')
+                    }))()
+                    : confirm(msg);
+                window.scrollTo(0, savedScrollY);
+                document.querySelectorAll('.cu-col-body').forEach((c, i) => { c.scrollTop = savedColScrolls[i] ?? c.scrollTop; });
+                restoreScroll();
+                if (ok) runToggle(true);
+                else restoreScroll();
+                return;
+            }
+
+            runToggle(false);
             return;
         }
 
@@ -1960,37 +2015,48 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /* Projects view: completed rows sink below the open ones while subtasks
-       stay attached to their parent. */
+       stay attached to their parent. Subtasks are wrapped in .cu-ch-children,
+       so reorder them as a unit with their parent row. */
     function reorderChapterRows(ch) {
         const body = ch.querySelector('.cu-chapter-body');
         if (!body) return;
-        const rows = [...body.querySelectorAll(':scope > .cu-ch-row')];
-        if (!rows.length) return;
 
-        const root = { children: [] };
-        const stack = [root];
-        rows.forEach((row, idx) => {
-            const depth = parseInt(row.dataset.depth || '0', 10);
-            while (stack.length - 1 > depth) stack.pop();
-            const node = { row, idx, children: [] };
-            stack[stack.length - 1].children.push(node);
-            stack.push(node);
-        });
-
-        const sortNodes = nodes => {
-            nodes.sort((a, b) => {
+        const reorderContainer = (container, baseDepth) => {
+            const els = [...container.children];
+            const groups = [];
+            let i = 0;
+            while (i < els.length) {
+                const el = els[i];
+                if (el.classList && el.classList.contains('cu-ch-row')) {
+                    const depth = parseInt(el.dataset.depth || '0', 10);
+                    if (depth === baseDepth) {
+                        const next = els[i + 1];
+                        const wrapper = (next && next.classList && next.classList.contains('cu-ch-children')) ? next : null;
+                        groups.push({ row: el, wrapper: wrapper });
+                        i += wrapper ? 2 : 1;
+                        continue;
+                    }
+                }
+                i++;
+            }
+            if (!groups.length) return;
+            groups.sort((a, b) => {
                 const ad = a.row.dataset.status === 'completed' ? 1 : 0;
                 const bd = b.row.dataset.status === 'completed' ? 1 : 0;
-                return ad - bd || a.idx - b.idx;
+                return ad - bd;
             });
-            nodes.forEach(n => sortNodes(n.children));
+            const frag = document.createDocumentFragment();
+            groups.forEach(g => {
+                frag.appendChild(g.row);
+                if (g.wrapper) {
+                    reorderContainer(g.wrapper, baseDepth + 1);
+                    frag.appendChild(g.wrapper);
+                }
+            });
+            container.appendChild(frag);
         };
-        sortNodes(root.children);
 
-        const frag = document.createDocumentFragment();
-        const append = nodes => nodes.forEach(n => { frag.appendChild(n.row); append(n.children); });
-        append(root.children);
-        body.appendChild(frag);
+        reorderContainer(body, 0);
     }
 
     /* A task can appear in several views at once (board + chapters + projects + list + tree):
@@ -2087,15 +2153,47 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function updateStatus(taskId, status, onDone) {
-        fetch(`/tasks/${taskId}/update-status`, {
-            method: 'POST',
-            headers: {'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
-            body: JSON.stringify({ status })
-        }).then(r => {
-            if (r.ok) { onDone && onDone(); }
-            else location.reload();
-        }).catch(() => location.reload());
+    async function updateStatus(taskId, status, onDone, completeDescendants = false) {
+        let res;
+        try {
+            res = await fetch(`/tasks/${taskId}/update-status`, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
+                body: JSON.stringify({ status, complete_descendants: completeDescendants })
+            });
+        } catch (e) {
+            toast(@json(__('Network error. Please try again.')), false);
+            return;
+        }
+        if (res.ok) {
+            let okData = {};
+            try { okData = await res.json(); } catch (_) { /* keep empty */ }
+            if (Array.isArray(okData.completed_descendants)) {
+                okData.completed_descendants.forEach(did => {
+                    if (typeof syncTaskDoneUI === 'function') syncTaskDoneUI(did, 'completed');
+                });
+            }
+            onDone && onDone();
+            return;
+        }
+        let data = {};
+        try { data = await res.json(); } catch (_) { /* keep empty */ }
+        if (res.status === 422 && data.code === 'incomplete_descendants' && status === 'completed' && !completeDescendants) {
+            const msg = data.message || @json(__('Complete all subtasks before completing this task.'));
+            const ok = typeof confirmSwal === 'function'
+                ? await confirmSwal(msg + '\n\n' + @json(__('Complete this task and all of its subtasks?')), {
+                    isDelete: false,
+                    icon: 'warning',
+                    confirmButtonText: @json(__('Complete all')),
+                    cancelButtonText: @json(__('Cancel'))
+                })
+                : confirm(msg);
+            if (ok) {
+                await updateStatus(taskId, status, onDone, true);
+            }
+            return;
+        }
+        toast((data && data.message) ? data.message : @json(__('Failed to update task status.')), false);
     }
 
     /* ─── Quick add ─── */

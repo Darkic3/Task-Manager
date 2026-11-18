@@ -559,11 +559,22 @@ class TaskController extends Controller
         abort_if($task->user_id !== Auth::id(), 403);
         $data = $request->validate(['status' => 'required|in:to_do,in_progress,on_hold,in_review,completed']);
         $status = $data['status'];
+        $descendantIds = [];
         if ($status === 'completed' && $task->hasIncompleteDescendants()) {
-            return response()->json([
-                'ok' => false,
-                'message' => __('Complete all subtasks before completing this task.'),
-            ], 422);
+            if ($request->boolean('complete_descendants')) {
+                $descendantIds = $task->descendantTaskIds();
+                if (! empty($descendantIds)) {
+                    Task::where('user_id', $task->user_id)
+                        ->whereIn('id', $descendantIds)
+                        ->update(['status' => 'completed', 'completed_at' => now()]);
+                }
+            } else {
+                return response()->json([
+                    'ok' => false,
+                    'code' => 'incomplete_descendants',
+                    'message' => __('Complete all subtasks before completing this task.'),
+                ], 422);
+            }
         }
         $task->status = $status;
         $task->completed_at = $status === 'completed' ? ($task->completed_at ?? now()) : null;
@@ -574,7 +585,7 @@ class TaskController extends Controller
 
         app(LawEventService::class)->syncTaskTree($task);
 
-        return response()->json(['ok' => true, 'message' => __('Task status updated successfully.')]);
+        return response()->json(['ok' => true, 'message' => __('Task status updated successfully.'), 'completed_descendants' => $descendantIds]);
     }
 
     /**

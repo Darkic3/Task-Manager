@@ -267,7 +267,7 @@ class Task extends Model
         return $done + $active;
     }
 
-    private function descendantTaskIds(): array
+    public function descendantTaskIds(): array
     {
         // Prefer already-loaded recursive relations (no queries).
         if ($this->relationLoaded('childrenRecursive')) {
