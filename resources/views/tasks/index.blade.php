@@ -241,6 +241,16 @@
     .cu-ttree-pb-fill{height:100%;background:#7c3aed;border-radius:4px;}
     .cu-ttree-actions{display:flex;gap:4px;}
     .cu-ttree-children{background:#fcfcfd;}
+    .cu-ch-task-toggle{
+        width:20px;height:20px;border:1px solid #e5e7eb;background:white;border-radius:5px;
+        color:#8b8d98;font-size:10px;cursor:pointer;display:flex;align-items:center;
+        justify-content:center;flex-shrink:0;padding:0;
+    }
+    .cu-ch-task-toggle i{transition:transform .15s;}
+    .cu-ch-task-toggle.collapsed i{transform:rotate(-90deg);}
+    .cu-ch-task-spacer{width:20px;flex-shrink:0;}
+    .cu-ch-children{display:block;}
+    .cu-ch-children.is-collapsed{display:none;}
 
     /* ─── Bulk select — modern, professional ─── */
     .cu-select-box{
@@ -1238,6 +1248,25 @@ document.addEventListener('DOMContentLoaded', function () {
             target.style.display = hidden ? '' : 'none';
             btn.classList.toggle('collapsed', !hidden);
         });
+    });
+
+    /* Chapter task (parent with subtasks) toggles */
+    document.addEventListener('click', e => {
+        const btn = e.target.closest('.cu-ch-task-toggle');
+        if (!btn) return;
+        e.preventDefault();
+        const target = document.getElementById(btn.dataset.target);
+        if (!target) return;
+        const hidden = target.style.display === 'none' || target.classList.contains('is-collapsed');
+        if (hidden) {
+            target.style.display = '';
+            target.classList.remove('is-collapsed');
+        } else {
+            target.style.display = 'none';
+            target.classList.add('is-collapsed');
+        }
+        btn.classList.toggle('collapsed', !hidden);
+        btn.setAttribute('aria-expanded', hidden ? 'true' : 'false');
     });
 
     /* Chapter collapse / expand */

@@ -55,6 +55,14 @@
             title="{{ $isDone ? __('Mark as To Do') : __('Mark as Completed') }}">
         <i class="bi {{ $isDone ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
     </button>
+    @if($kids->count() > 0)
+        <button type="button" class="cu-ch-task-toggle" data-target="ch-children-{{ $task->id }}"
+                title="{{ __('Expand / Collapse') }}" aria-expanded="true">
+            <i class="bi bi-chevron-down"></i>
+        </button>
+    @else
+        <span class="cu-ch-task-spacer"></span>
+    @endif
 <a href="{{ route('tasks.show', $task->id) }}" class="cu-task-title" title="{{ $task->title }}">
     {{ $task->title }}
 </a>
@@ -104,6 +112,10 @@
         </ul>
     </div>
 </div>
-@foreach($kids as $kid)
-    @include('tasks._chapter-row', ['task' => $kid, 'grouped' => $grouped, 'depth' => $depth + 1, 'rootId' => $rootId])
-@endforeach
+@if($kids->count() > 0)
+    <div class="cu-ch-children" id="ch-children-{{ $task->id }}">
+        @foreach($kids as $kid)
+            @include('tasks._chapter-row', ['task' => $kid, 'grouped' => $grouped, 'depth' => $depth + 1, 'rootId' => $rootId])
+        @endforeach
+    </div>
+@endif
