@@ -1250,25 +1250,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    /* Chapter task (parent with subtasks) toggles */
-    document.addEventListener('click', e => {
-        const btn = e.target.closest('.cu-ch-task-toggle');
-        if (!btn) return;
-        e.preventDefault();
-        const target = document.getElementById(btn.dataset.target);
-        if (!target) return;
-        const hidden = target.style.display === 'none' || target.classList.contains('is-collapsed');
-        if (hidden) {
-            target.style.display = '';
-            target.classList.remove('is-collapsed');
-        } else {
-            target.style.display = 'none';
-            target.classList.add('is-collapsed');
-        }
-        btn.classList.toggle('collapsed', !hidden);
-        btn.setAttribute('aria-expanded', hidden ? 'true' : 'false');
-    });
-
     /* Chapter collapse / expand */
     function setChapter(ch, collapsed) {
         ch.classList.toggle('collapsed', collapsed);

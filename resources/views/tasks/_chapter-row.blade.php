@@ -56,8 +56,9 @@
         <i class="bi {{ $isDone ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
     </button>
     @if($kids->count() > 0)
-        <button type="button" class="cu-ch-task-toggle" data-target="ch-children-{{ $task->id }}"
-                title="{{ __('Expand / Collapse') }}" aria-expanded="true">
+        <button type="button" class="cu-ch-task-toggle collapsed" data-target="ch-children-{{ $task->id }}"
+                title="{{ __('Expand / Collapse') }}" aria-expanded="false"
+                onclick="var row=this.closest('.cu-ch-row'); var t=row?row.nextElementSibling:null; if(t&&t.classList.contains('cu-ch-children')){var h=t.style.display==='none'||t.classList.contains('is-collapsed'); if(h){t.style.display='';t.classList.remove('is-collapsed');}else{t.style.display='none';t.classList.add('is-collapsed');} this.classList.toggle('collapsed',!h); this.setAttribute('aria-expanded', h?'true':'false');}">
             <i class="bi bi-chevron-down"></i>
         </button>
     @else
@@ -113,7 +114,7 @@
     </div>
 </div>
 @if($kids->count() > 0)
-    <div class="cu-ch-children" id="ch-children-{{ $task->id }}">
+    <div class="cu-ch-children is-collapsed" id="ch-children-{{ $task->id }}" style="display:none;">
         @foreach($kids as $kid)
             @include('tasks._chapter-row', ['task' => $kid, 'grouped' => $grouped, 'depth' => $depth + 1, 'rootId' => $rootId])
         @endforeach
