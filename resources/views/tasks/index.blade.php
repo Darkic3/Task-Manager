@@ -1687,10 +1687,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const id = holder.dataset.id;
             const isDone = holder.classList.contains('is-done');
             const newStatus = isDone ? 'to_do' : 'completed';
+            const scrollY = window.scrollY;
+            check.blur();
             updateStatus(id, newStatus, () => {
                 syncTaskDoneUI(id, newStatus);
                 updateCounts();
                 applyFilters();
+                window.scrollTo(0, scrollY);
                 toast(newStatus === 'completed' ? TASK_STATUS_TOAST.completed : TASK_STATUS_TOAST.reopened);
             });
             return;
