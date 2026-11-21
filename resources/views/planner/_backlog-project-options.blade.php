@@ -1,33 +1,29 @@
 {{-- Project <option> list for the backlog ("add existing task") picker.
-     All + No project + the full tree (sub-projects indented, full path as tooltip).
-     Expects: $backlogProjects (Collection of id, name, parent_id). --}}
+     Hierarchical: grouped by root project (optgroup), DFS order, with
+     indentation and a count of eligible open tasks per subtree.
+     Expects: $backlogProjects (Collection of objects: id, name, parent_id,
+     depth, path, root_id, subtree_task_count). --}}
 <option value="">{{ __('All projects') }}</option>
 <option value="none">{{ __('No project') }}</option>
 @php
-    $blById = ($backlogProjects ?? collect())->keyBy('id');
-    $blDepthOf = function ($p) use ($blById) {
-        $d = 0;
-        $cur = $p;
-        $g = 0;
-        while ($cur->parent_id && isset($blById[$cur->parent_id]) && $g++ < 20) {
-            $d++;
-            $cur = $blById[$cur->parent_id];
-        }
-
-        return $d;
-    };
-    $blPathOf = function ($p) use ($blById) {
-        $parts = [$p->name];
-        $cur = $p;
-        $g = 0;
-        while ($cur->parent_id && isset($blById[$cur->parent_id]) && $g++ < 20) {
-            $cur = $blById[$cur->parent_id];
-            array_unshift($parts, $cur->name);
-        }
-
-        return implode(' / ', $parts);
-    };
+    $blProjects = ($backlogProjects ?? collect());
+    $currentRoot = null;
 @endphp
-@foreach(($backlogProjects ?? collect()) as $bp)
-    <option value="{{ $bp->id }}" title="{{ $blPathOf($bp) }}">{{ str_repeat('— ', $blDepthOf($bp)) }}{{ $bp->name }}</option>
+@foreach($blProjects as $bp)
+    @if($currentRoot !== ($bp->root_id ?? $bp->id))
+        @if($currentRoot !== null)
+            </optgroup>
+        @endif
+        @php
+            $currentRoot = $bp->root_id ?? $bp->id;
+            $rootNode = $blProjects->firstWhere('id', $currentRoot);
+        @endphp
+        <optgroup label="{{ ($rootNode->name ?? $bp->name) }} ({{ $rootNode->subtree_task_count ?? 0 }})">
+    @endif
+    <option value="{{ $bp->id }}" title="{{ $bp->path ?? $bp->name }}">
+        {{ str_repeat('— ', (int) ($bp->depth ?? 0)) }}{{ $bp->name }} ({{ $bp->subtree_task_count ?? 0 }})
+    </option>
 @endforeach
+@if($currentRoot !== null)
+    </optgroup>
+@endif

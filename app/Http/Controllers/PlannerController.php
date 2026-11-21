@@ -820,36 +820,91 @@ class PlannerController extends Controller
      */
     private function backlogProjectOptions(int $userId): Collection
     {
-        // Only active projects (not completed/closed) that actually contain at
-        // least one open task. A parent that has no direct task but owns a
-        // sub-project with tasks is kept too, so its subtree stays filterable.
+        $today = today()->toDateString();
+
+        // Active projects only (completed/closed are not offered).
         $projects = Project::where('user_id', $userId)
             ->whereNotIn('status', ['completed', 'closed'])
-            ->orderBy('name')
-            ->get(['id', 'name', 'parent_id']);
+            ->get(['id', 'name', 'parent_id', 'sort_order']);
 
-        $byId = $projects->keyBy('id');
+        $activeIds = $projects->pluck('id')->map(fn ($id) => (int) $id)->flip();
 
-        $taskProjectIds = Task::where('user_id', $userId)
+        // Count backlog-eligible open tasks per project (direct count).
+        $directCounts = Task::where('user_id', $userId)
             ->where('status', '!=', 'completed')
-            ->pluck('project_id')
-            ->filter()
-            ->unique()
-            ->all();
+            ->where(function ($w) use ($today) {
+                $w->whereNull('due_date')
+                  ->orWhereDate('due_date', '<', $today)
+                  ->orWhere(function ($w) {
+                      $w->whereNull('time_period')->whereNull('due_time');
+                  });
+            })
+            ->whereNotNull('project_id')
+            ->selectRaw('project_id, COUNT(*) as c')
+            ->groupBy('project_id')
+            ->pluck('c', 'project_id');
 
-        $allowed = [];
-        foreach ($taskProjectIds as $pid) {
-            $cur = (int) $pid;
-            $guard = 0;
-            while ($cur && isset($byId[$cur]) && $guard++ < 50) {
-                $allowed[$cur] = true;
-                $cur = (int) ($byId[$cur]->parent_id ?? 0);
-            }
+        // Children map among *active* projects only (inactive parents are roots).
+        $children = [];
+        foreach ($projects as $p) {
+            $pid = (int) $p->id;
+            $parent = (int) ($p->parent_id ?? 0);
+            $effectiveParent = ($parent && isset($activeIds[$parent])) ? $parent : 0;
+            $children[$effectiveParent][] = $p;
         }
 
-        return $projects
-            ->filter(fn ($p) => isset($allowed[$p->id]))
-            ->values();
+        // Subtree eligible-task count (memoized).
+        $subtreeCount = null;
+        $subtreeCount = function (int $id) use (&$subtreeCount, $children, $directCounts): int {
+            static $memo = [];
+            if (isset($memo[$id])) {
+                return $memo[$id];
+            }
+            $total = (int) ($directCounts[$id] ?? 0);
+            foreach ($children[$id] ?? [] as $child) {
+                $total += $subtreeCount((int) $child->id);
+            }
+            return $memo[$id] = $total;
+        };
+
+        // Only projects whose subtree has at least one eligible open task.
+        $eligibleProjects = $projects->filter(fn ($p) => $subtreeCount((int) $p->id) > 0);
+
+        // Rebuild children map after filtering? Keep original tree but skip ineligible leaves.
+        // Flatten in DFS order, sorted by sort_order then name.
+        $sortNodes = function (array $nodes): array {
+            usort($nodes, fn ($a, $b) => [$a->sort_order ?? 0, $a->name] <=> [$b->sort_order ?? 0, $b->name]);
+            return $nodes;
+        };
+
+        $options = [];
+        $flatten = null;
+        $flatten = function (array $nodes, int $depth, array $path, ?int $rootId) use (&$flatten, $sortNodes, $subtreeCount, &$options): void {
+            foreach ($sortNodes($nodes) as $node) {
+                $id = (int) $node->id;
+                $crumbs = array_merge($path, [$node->name]);
+                $rid = $rootId ?? $id;
+                $options[] = (object) [
+                    'id' => $id,
+                    'name' => $node->name,
+                    'parent_id' => $node->parent_id,
+                    'depth' => $depth,
+                    'path' => implode(' / ', $crumbs),
+                    'root_id' => $rid,
+                    'subtree_task_count' => $subtreeCount($id),
+                ];
+                $flatten($children[$id] ?? [], $depth + 1, $crumbs, $rid);
+            }
+        };
+
+        $rootNodes = $sortNodes($children[0] ?? []);
+        // Orphaned cycles / nodes whose parent is inactive are already in children[0].
+        $flatten($rootNodes, 0, [], null);
+
+        // Drop ineligible projects from the flattened list (post-filter by count).
+        $filtered = array_values(array_filter($options, fn ($o) => $o->subtree_task_count > 0));
+
+        return collect($filtered);
     }
 
     /**
