@@ -4,6 +4,9 @@
      $collapsed (bool), $quickProjectId (int|null — shows inline quick-add for that project) --}}
 @php
     $quickProjectId = $quickProjectId ?? null;
+    $completedCount = $completedCount ?? 0;
+    $completedUrl = $completedUrl ?? null;
+    $completedProjectId = $completedProjectId ?? 0;
     $secTotal = 0;
     $secDone = 0;
     $stack = $tasks->all();
@@ -69,5 +72,19 @@
         @foreach($tasks as $t)
             @include('tasks._chapter-row', ['task' => $t, 'grouped' => $grouped, 'depth' => 0, 'rootId' => $sectionId])
         @endforeach
+        @if($completedCount > 0 && $completedUrl)
+            <div class="cu-completed-acc" data-project="{{ $completedProjectId }}"
+                 data-completed-url="{{ $completedUrl }}"
+                 data-total="{{ $completedCount }}" data-loaded="0" data-page="0">
+                <button type="button" class="cu-completed-toggle" aria-expanded="false">
+                    <i class="bi bi-chevron-right cu-completed-chevron"></i>
+                    {{ __('Completed') }} ({{ $completedCount }})
+                </button>
+                <div class="cu-completed-body" style="display:none;">
+                    <div class="cu-completed-list"></div>
+                    <button type="button" class="cu-completed-more btn btn-sm btn-link" style="display:none;">{{ __('Load more') }}</button>
+                </div>
+            </div>
+        @endif
     </div>
 </div>

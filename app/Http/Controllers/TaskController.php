@@ -33,6 +33,78 @@ class TaskController extends Controller
         ));
     }
 
+    /**
+     * Lazy-load completed tasks for a given project (or "no project" when
+     * project_id is missing/0). Returns rendered chapter rows (first page)
+     * plus pagination metadata, so the Projects view can keep completed tasks
+     * out of the initial page payload.
+     */
+    public function completedTasks(Request $request)
+    {
+        $user = Auth::user();
+
+        $rawProjectId = $request->input('project_id');
+        if ($rawProjectId === null || $rawProjectId === '' || $rawProjectId === 0 || $rawProjectId === '0') {
+            $projectId = null;
+        } else {
+            $projectId = (int) $rawProjectId;
+            abort_unless(
+                Project::where('id', $projectId)->where('user_id', $user->id)->exists(),
+                404
+            );
+        }
+
+        $page = max(1, (int) $request->input('page', 1));
+        $perPage = 5;
+
+        $tasks = Task::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->when($projectId === null, fn ($q) => $q->whereNull('project_id'), fn ($q) => $q->where('project_id', $projectId))
+            ->with(['project:id,name,slug', 'childrenRecursive'])
+            ->get();
+
+        $flat = $tasks;
+        $taskIds = $flat->pluck('id')->map(fn ($v) => (string) $v)->all();
+        $idSet = array_flip($taskIds);
+
+        // Roots = completed tasks whose parent is not in the completed set.
+        $roots = $flat->filter(function ($t) use ($idSet) {
+            if ($t->parent_id === null) {
+                return true;
+            }
+            return ! isset($idSet[(string) $t->parent_id]);
+        })->values();
+
+        $roots = $roots->sort(function ($a, $b) {
+            $av = $a->completed_at ?? $a->updated_at;
+            $bv = $b->completed_at ?? $b->updated_at;
+            if ($av == $bv) {
+                return (int) $b->id <=> (int) $a->id;
+            }
+            return $bv <=> $av;
+        })->values();
+
+        $total = $roots->count();
+        $pageRoots = $roots->forPage($page, $perPage)->values();
+
+        $grouped = $flat->groupBy('parent_id');
+
+        $html = view('tasks._completed-list', [
+            'roots'   => $pageRoots,
+            'grouped' => $grouped,
+            'projectId' => $projectId,
+        ])->render();
+
+        return response()->json([
+            'ok'        => true,
+            'html'      => $html,
+            'page'      => $page,
+            'per_page'  => $perPage,
+            'total'     => $total,
+            'has_more'  => ($page * $perPage) < $total,
+        ]);
+    }
+
     private function buildIndexData(?Project $project = null): array
     {
         $user = Auth::user();

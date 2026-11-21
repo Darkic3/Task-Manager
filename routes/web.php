@@ -128,6 +128,7 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
     Route::delete('tasks/bulk-destroy', [TaskController::class, 'bulkDestroy'])->name('tasks.bulk-destroy');
     Route::get('tasks', [TaskController::class, 'index'])->name('tasks.index');
     Route::get('tasks/views/{view}', [TaskController::class, 'viewFragment'])->name('tasks.views');
+Route::get('tasks/completed-tasks', [TaskController::class, 'completedTasks'])->name('tasks.completed');
     Route::get('tasks/create', [TaskController::class, 'create'])->name('tasks.create');
     Route::post('tasks', [TaskController::class, 'store'])->name('tasks.store');
     Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');

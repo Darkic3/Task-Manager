@@ -15,6 +15,8 @@
     $pGrouped = $directAll->groupBy('parent_id');
     $pRoots = $directAll->filter(fn ($t) => $t->parent_id === null)->values()
         ->sortBy(fn ($t) => $t->status === 'completed' ? 1 : 0)->values();
+    $openRoots = $pRoots->filter(fn ($t) => $t->status !== 'completed')->values();
+    $completedCount = $directAll->where('status', 'completed')->count();
     $agg = $projectAggregates[$pid] ?? ['total' => $directAll->count(), 'done' => $directAll->where('status', 'completed')->count(), 'open' => $directAll->where('status', '!=', 'completed')->count()];
     $aggTotal = $agg['total'] ?? 0;
     $aggDone = $agg['done'] ?? 0;
@@ -69,9 +71,23 @@
                    placeholder="{{ __('Task title… Enter to add') }}" aria-label="{{ __('New task title') }}">
             <span class="cu-ch-quickhint"><kbd>&#8629;</kbd> {{ __('add') }} · <kbd>esc</kbd></span>
         </div>
-        @foreach($pRoots as $t)
+        @foreach($openRoots as $t)
             @include('tasks._chapter-row', ['task' => $t, 'grouped' => $pGrouped, 'depth' => 0, 'rootId' => 'p-' . $pid])
         @endforeach
+        @if($completedCount > 0)
+            <div class="cu-completed-acc" data-project="{{ $pid }}"
+                 data-completed-url="{{ route('tasks.completed', ['project_id' => $pid]) }}"
+                 data-total="{{ $completedCount }}" data-loaded="0" data-page="0">
+                <button type="button" class="cu-completed-toggle" aria-expanded="false">
+                    <i class="bi bi-chevron-right cu-completed-chevron"></i>
+                    {{ __('Completed') }} ({{ $completedCount }})
+                </button>
+                <div class="cu-completed-body" style="display:none;">
+                    <div class="cu-completed-list"></div>
+                    <button type="button" class="cu-completed-more btn btn-sm btn-link" style="display:none;">{{ __('Load more') }}</button>
+                </div>
+            </div>
+        @endif
         @foreach($kids as $child)
             @include('tasks._project-group', [
                 'proj' => $child,

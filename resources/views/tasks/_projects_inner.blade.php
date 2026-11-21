@@ -2,6 +2,8 @@
     $flatAll = collect($tasks)->flatten();
     $orphanTasks = $flatAll->filter(fn ($t) => $t->project_id === null)->values()
         ->sortBy(fn ($t) => $t->status === 'completed' ? 1 : 0)->values();
+    $orphanOpen = $orphanTasks->filter(fn ($t) => $t->status !== 'completed' && $t->parent_id === null)->values();
+    $orphanCompletedCount = $orphanTasks->where('status', 'completed')->count();
     $tasksByProject = $flatAll->filter(fn ($t) => $t->project_id !== null)->groupBy(fn ($t) => (int) $t->project_id);
     $rootProjects = collect($projectRoots ?? [])->filter(
         fn ($p) => (($projectAggregates[(int) $p->id]['total'] ?? 0) > 0)
@@ -12,10 +14,13 @@
         'sectionId'    => 'p-none',
         'sectionTitle' => __('No project'),
         'sectionUrl'   => route('tasks.index'),
-        'tasks'        => $orphanTasks->filter(fn ($t) => $t->parent_id === null)->values(),
+        'tasks'        => $orphanOpen,
         'grouped'      => $orphanTasks->groupBy('parent_id'),
         'collapsed'    => true,
         'quickProjectId' => 0,
+        'completedCount' => $orphanCompletedCount,
+        'completedUrl' => route('tasks.completed'),
+        'completedProjectId' => 0,
     ])
 @endif
 @foreach($rootProjects as $proj)

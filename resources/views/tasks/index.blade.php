@@ -435,6 +435,15 @@
     }
     #cuToast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
+    /* ─── Completed tasks lazy accordion (Projects view) ─── */
+    .cu-completed-acc{margin:6px 4px 8px;border:1px dashed #e2e5ec;border-radius:10px;background:#fafbfc;overflow:hidden;}
+    .cu-completed-toggle{width:100%;display:flex;align-items:center;gap:6px;padding:7px 10px;border:none;background:transparent;font-size:12px;font-weight:600;color:#6b7385;cursor:pointer;text-align:start;}
+    .cu-completed-toggle:hover{color:#7c3aed;background:#f7f5ff;}
+    .cu-completed-chevron{transition:transform .15s;font-size:11px;}
+    .cu-completed-acc.open .cu-completed-chevron{transform:rotate(90deg);}
+    .cu-completed-body{padding:4px 6px 8px;}
+    .cu-completed-list{display:flex;flex-direction:column;gap:4px;}
+    .cu-completed-more{margin-top:6px;font-size:11px;font-weight:600;}
     /* ─── Responsive ─── */
     @media (max-width: 768px) {
         .cu-header-title { font-size: 17px; }
@@ -1233,6 +1242,89 @@ document.addEventListener('DOMContentLoaded', function () {
         col.dataset.collapsed = col.classList.contains('collapsed') ? '1' : '0';
     });
 
+    /* ─── Lazy-loaded completed tasks accordion (Projects view) ─── */
+    document.addEventListener('click', async (e) => {
+        const toggle = e.target.closest('.cu-completed-toggle');
+        if (toggle) {
+            e.preventDefault();
+            const acc = toggle.closest('.cu-completed-acc');
+            if (!acc) return;
+            const body = acc.querySelector('.cu-completed-body');
+            const list = acc.querySelector('.cu-completed-list');
+            const moreBtn = acc.querySelector('.cu-completed-more');
+            const isOpen = acc.classList.contains('open');
+            if (isOpen) {
+                acc.classList.remove('open');
+                if (body) body.style.display = 'none';
+                toggle.setAttribute('aria-expanded', 'false');
+                return;
+            }
+            acc.classList.add('open');
+            if (body) body.style.display = '';
+            toggle.setAttribute('aria-expanded', 'true');
+            if (acc.dataset.loaded === '1') return;
+            if (acc.dataset.loaded === 'pending') return;
+            acc.dataset.loaded = 'pending';
+            const url = acc.dataset.completedUrl;
+            const spinner = document.createElement('div');
+            spinner.className = 'cu-completed-loading text-muted small py-2';
+            spinner.textContent = @json(__('Loading…'));
+            if (list) list.appendChild(spinner);
+            try {
+                const res = await fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'page=1', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (spinner.parentNode) spinner.remove();
+                if (data && data.ok) {
+                    if (list) list.insertAdjacentHTML('beforeend', data.html || '');
+                    acc.dataset.page = '1';
+                    acc.dataset.loaded = '1';
+                    if (moreBtn) {
+                        if (data.has_more) {
+                            moreBtn.style.display = '';
+                            moreBtn.dataset.nextPage = '2';
+                            moreBtn.textContent = @json(__('Load more'));
+                        } else {
+                            moreBtn.style.display = 'none';
+                        }
+                    }
+                    try { applyFilters(); } catch (err) {}
+                } else {
+                    acc.dataset.loaded = '0';
+                }
+            } catch (err) {
+                if (spinner.parentNode) spinner.remove();
+                acc.dataset.loaded = '0';
+            }
+            return;
+        }
+        const more = e.target.closest('.cu-completed-more');
+        if (more) {
+            e.preventDefault();
+            const acc = more.closest('.cu-completed-acc');
+            if (!acc) return;
+            const list = acc.querySelector('.cu-completed-list');
+            const url = acc.dataset.completedUrl;
+            const page = parseInt(more.dataset.nextPage || '2', 10);
+            more.disabled = true;
+            try {
+                const res = await fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'page=' + page, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data && data.ok) {
+                    if (list) list.insertAdjacentHTML('beforeend', data.html || '');
+                    more.dataset.nextPage = String(page + 1);
+                    if (!data.has_more && more) more.style.display = 'none';
+                    try { applyFilters(); } catch (err) {}
+                }
+            } catch (err) { /* ignore */ }
+            more.disabled = false;
+            return;
+        }
+    });
+
     /* Filters */
     const searchInput    = document.getElementById('cuSearch');
     const prioritySelect = document.getElementById('cuPriority');
@@ -1278,6 +1370,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 && (!onlyOpen || row.dataset.status !== 'completed');
             row.style.display = show ? '' : 'none';
         });
+        /* Completed-task accordions: hide entirely when "unfinished only". */
+        document.querySelectorAll('.cu-completed-acc').forEach(acc => {
+            acc.style.display = onlyOpen ? 'none' : '';
+        });
         /* Nested project groups: evaluate innermost chapters first so a parent
            stays visible when any descendant row matches, and hides otherwise. */
         [...document.querySelectorAll('.cu-chapter')].reverse().forEach(ch => {
@@ -1285,7 +1381,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 .some(r => r.style.display !== 'none');
             const childChapterVisible = [...ch.querySelectorAll(':scope > .cu-chapter-body > .cu-chapter')]
                 .some(c => c.style.display !== 'none');
-            ch.style.display = (ownVisible || childChapterVisible) ? '' : 'none';
+            // A project that only has completed tasks (lazy accordion) should still
+            // show unless the active filters exclude completed tasks.
+            let completedKeeps = false;
+            const acc = ch.querySelector('.cu-completed-acc');
+            if (acc && !onlyOpen && (status === '' || status === 'completed')) {
+                const accProject = acc.dataset.project;
+                const projectOk = !project || projectMatches(accProject, project);
+                const accTotal = parseInt(acc.dataset.total || '0', 10) || 0;
+                if (projectOk && accTotal > 0) completedKeeps = true;
+            }
+            ch.style.display = (ownVisible || childChapterVisible || completedKeeps) ? '' : 'none';
         });
         /* Tree rows */
         document.querySelectorAll('.cu-ttree-row').forEach(row => {
@@ -1921,9 +2027,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function refreshChapter(ch) {
-        const rows = [...ch.querySelectorAll('.cu-ch-row')];
-        const total = rows.length;
-        const done = rows.filter(r => r.dataset.status === 'completed').length;
+        const acc = ch.querySelector('.cu-completed-acc');
+        const completedTotal = acc ? (parseInt(acc.dataset.total || '0', 10) || 0) : 0;
+        const openRows = [...ch.querySelectorAll('.cu-ch-row')].filter(r => !r.closest('.cu-completed-acc'));
+        const total = openRows.length + completedTotal;
+        const doneOpen = openRows.filter(r => r.dataset.status === 'completed').length;
+        const done = doneOpen + completedTotal;
         const pct = total > 0 ? Math.round(done / total * 100) : 0;
         const fill = ch.querySelector('.cu-chapter-pb-fill');
         const count = ch.querySelector('.cu-chapter-count');
@@ -1997,9 +2106,73 @@ document.addEventListener('DOMContentLoaded', function () {
             applyDoneState(card, status);
         });
         document.querySelectorAll(`.cu-ch-row[data-id="${id}"]`).forEach(row => {
-            applyDoneState(row, status);
+            const inProjects = !!row.closest('#cuProjects');
+            const projChapter = row.closest('.cu-chapter');
+            if (inProjects && projChapter) {
+                const acc = projChapter.querySelector('.cu-completed-acc');
+                const inAccordion = !!row.closest('.cu-completed-acc');
+                if (status === 'completed' && !inAccordion) {
+                    // Move out of the open list into the (lazy) completed accordion.
+                    if (acc) {
+                        const cur = parseInt(acc.dataset.total || '0', 10) || 0;
+                        acc.dataset.total = String(cur + 1);
+                        const tb = acc.querySelector('.cu-completed-toggle');
+                        if (tb) tb.innerHTML = tb.innerHTML.replace(/\(\d+\)/, '(' + acc.dataset.total + ')');
+                    }
+                    if (acc && acc.classList.contains('open')) {
+                        const list = acc.querySelector('.cu-completed-list');
+                        const wrapper = (row.nextElementSibling && row.nextElementSibling.classList && row.nextElementSibling.classList.contains('cu-ch-children')) ? row.nextElementSibling : null;
+                        applyDoneState(row, status);
+                        row.dataset.status = status;
+                        if (list) {
+                            list.appendChild(row);
+                            if (wrapper) list.appendChild(wrapper);
+                        }
+                    } else {
+                        // Keep DOM light: drop the row; it will load lazily when opened.
+                        const wrapper = (row.nextElementSibling && row.nextElementSibling.classList && row.nextElementSibling.classList.contains('cu-ch-children')) ? row.nextElementSibling : null;
+                        let ch = row.closest('.cu-chapter');
+                        while (ch) {
+                            touched.add(ch);
+                            const parentBody = ch.parentElement?.closest?.('.cu-chapter-body');
+                            ch = parentBody ? parentBody.closest('.cu-chapter') : null;
+                        }
+                        if (wrapper) wrapper.remove();
+                        row.remove();
+                        touched.forEach(c => { refreshChapter(c); if (c.closest('#cuProjects')) try { reorderChapterRows(c); } catch(e){} });
+                        return;
+                    }
+                } else if (status !== 'completed' && inAccordion) {
+                    // Move back from completed accordion to the open list.
+                    if (acc) {
+                        const cur = parseInt(acc.dataset.total || '0', 10) || 0;
+                        acc.dataset.total = String(Math.max(0, cur - 1));
+                        const tb = acc.querySelector('.cu-completed-toggle');
+                        if (tb) tb.innerHTML = tb.innerHTML.replace(/\(\d+\)/, '(' + acc.dataset.total + ')');
+                    }
+                    const wrapper = (row.nextElementSibling && row.nextElementSibling.classList && row.nextElementSibling.classList.contains('cu-ch-children')) ? row.nextElementSibling : null;
+                    applyDoneState(row, status);
+                    row.dataset.status = status;
+                    const body = projChapter.querySelector('.cu-chapter-body');
+                    // Insert before the completed accordion (or append to body).
+                    if (acc && body) {
+                        body.insertBefore(row, acc);
+                        if (wrapper) body.insertBefore(wrapper, acc);
+                    } else if (body) {
+                        body.appendChild(row);
+                        if (wrapper) body.appendChild(wrapper);
+                    }
+                } else {
+                    applyDoneState(row, status);
+                }
+            } else {
+                applyDoneState(row, status);
+            }
+            if (row.isConnected) {
+                row.dataset.status = status;
+            }
             /* Refresh the whole ancestor chain so aggregate parent counts stay correct. */
-            let ch = row.closest('.cu-chapter');
+            let ch = (row.isConnected ? row.closest('.cu-chapter') : projChapter);
             while (ch) {
                 touched.add(ch);
                 const parentBody = ch.parentElement?.closest?.('.cu-chapter-body');

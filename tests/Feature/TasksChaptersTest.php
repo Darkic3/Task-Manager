@@ -252,8 +252,15 @@ class TasksChaptersTest extends TestCase
         $donePos = strpos($html, 'data-title="done task"', $section);
 
         $this->assertNotFalse($openPos, 'open task row is missing');
-        $this->assertNotFalse($donePos, 'completed task row is missing');
-        $this->assertLessThan($donePos, $openPos, 'completed tasks must render below open ones');
+        // Completed tasks are lazy-loaded: not present in the initial payload.
+        $this->assertFalse($donePos, 'completed task row must NOT render in initial payload');
+
+        $this->assertStringContainsString('cu-completed-acc', $html);
+        $this->assertStringContainsString('data-total="1"', $html);
+
+        $resp = $this->actingAs($user)->get(route('tasks.completed', ['project_id' => $project->id]));
+        $resp->assertOk()->assertJson(['ok' => true, 'total' => 1, 'has_more' => false]);
+        $this->assertStringContainsString('data-title="done task"', $resp->json('html'));
     }
 
     public function test_bulk_update_changes_status_of_owned_tasks(): void
