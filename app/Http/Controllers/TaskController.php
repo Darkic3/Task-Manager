@@ -21,8 +21,7 @@ class TaskController extends Controller
             // Show tasks for a specific project (closed projects still accessible directly)
             $tasks = Task::where('user_id', $user->id)
                 ->where('project_id', $project->id)
-                ->with(['project:id,name,slug', 'childrenRecursive', 'checklistItems', 'timeEntries'])
-                ->withCount('children')
+                ->with(['project:id,name,slug', 'childrenRecursive'])
                 ->get()
                 ->groupBy('status');
         } else {
@@ -34,8 +33,7 @@ class TaskController extends Controller
                         $q->whereNotIn('status', ['completed', 'closed']);
                     })->orWhereNull('project_id');
                 })
-                ->with(['project:id,name,slug', 'childrenRecursive', 'checklistItems', 'timeEntries'])
-                ->withCount('children')
+                ->with(['project:id,name,slug', 'childrenRecursive'])
                 ->get()
                 ->groupBy('status');
         }
