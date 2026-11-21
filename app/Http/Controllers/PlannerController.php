@@ -749,7 +749,12 @@ class PlannerController extends Controller
                         $w->whereNull('time_period')->whereNull('due_time');
                     });
             })
-            ->with('project:id,name');
+            ->with('project:id,name')
+            ->where(function ($w) {
+                // Never offer tasks that belong to inactive (completed/closed) projects.
+                $w->whereNull('project_id')
+                  ->orWhereHas('project', fn ($p) => $p->whereNotIn('status', ['completed', 'closed']));
+            });
         if ($q !== '') {
             $query->where('title', 'like', "%{$q}%");
         }
@@ -815,9 +820,36 @@ class PlannerController extends Controller
      */
     private function backlogProjectOptions(int $userId): Collection
     {
-        return Project::where('user_id', $userId)
+        // Only active projects (not completed/closed) that actually contain at
+        // least one open task. A parent that has no direct task but owns a
+        // sub-project with tasks is kept too, so its subtree stays filterable.
+        $projects = Project::where('user_id', $userId)
+            ->whereNotIn('status', ['completed', 'closed'])
             ->orderBy('name')
             ->get(['id', 'name', 'parent_id']);
+
+        $byId = $projects->keyBy('id');
+
+        $taskProjectIds = Task::where('user_id', $userId)
+            ->where('status', '!=', 'completed')
+            ->pluck('project_id')
+            ->filter()
+            ->unique()
+            ->all();
+
+        $allowed = [];
+        foreach ($taskProjectIds as $pid) {
+            $cur = (int) $pid;
+            $guard = 0;
+            while ($cur && isset($byId[$cur]) && $guard++ < 50) {
+                $allowed[$cur] = true;
+                $cur = (int) ($byId[$cur]->parent_id ?? 0);
+            }
+        }
+
+        return $projects
+            ->filter(fn ($p) => isset($allowed[$p->id]))
+            ->values();
     }
 
     /**
