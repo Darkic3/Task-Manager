@@ -1158,11 +1158,14 @@
 @php
     $navUser = auth()->user();
     $featureAvailability = app(\App\Support\FeatureAvailability::class);
+    $activeProjectIds = \App\Models\Project::activeIdsForUser($navUser->id);
     $navUser->loadCount([
         'projects',
         'tasks as open_tasks_count' => fn ($query) => $query
             ->where('status', '!=', 'completed')
-            ->where(fn ($q) => $q->whereHas('project', fn ($p) => $p->where('status', '!=', 'completed'))->orWhereNull('project_id')),
+            ->where(function ($q) use ($activeProjectIds) {
+                $q->whereIn('project_id', $activeProjectIds)->orWhereNull('project_id');
+            }),
     ]);
 
     $navSections = [

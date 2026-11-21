@@ -109,6 +109,14 @@ class TaskController extends Controller
     {
         $user = Auth::user();
 
+        // Load every project up front so we can resolve *ancestor* status:
+        // a sub-project / chapter / lesson inherits closed (or completed)
+        // from any ancestor, even when its own status is still open/active.
+        $allProjects = Project::where('user_id', $user->id)
+            ->get(['id', 'name', 'slug', 'status', 'parent_id', 'type', 'sort_order']);
+
+        $activeProjectIds = Project::activeIdsForUser($user->id);
+
         if ($project) {
             // Show tasks for a specific project (closed projects still accessible directly)
             $tasks = Task::where('user_id', $user->id)
@@ -117,13 +125,12 @@ class TaskController extends Controller
                 ->get()
                 ->groupBy('status');
         } else {
-            // Show all tasks — include tasks without a project; exclude tasks
-            // from completed or closed projects
+            // Show all tasks — exclude tasks from completed/closed projects AND
+            // from any project whose ancestor is completed/closed.
             $tasks = Task::where('user_id', $user->id)
-                ->where(function ($query) {
-                    $query->whereHas('project', function ($q) {
-                        $q->whereNotIn('status', ['completed', 'closed']);
-                    })->orWhereNull('project_id');
+                ->where(function ($query) use ($activeProjectIds) {
+                    $query->whereIn('project_id', $activeProjectIds)
+                        ->orWhereNull('project_id');
                 })
                 ->with(['project:id,name,slug', 'childrenRecursive'])
                 ->get()
@@ -133,10 +140,14 @@ class TaskController extends Controller
         $allTasks = collect($tasks)->flatten();
         $taskRoots = $allTasks->filter(fn ($t) => $t->parent_id === null)->values();
 
-        // Only show projects whose tasks are actually loaded (exclude completed & closed).
+        // Only show projects whose tasks are actually loaded (exclude completed & closed
+        // projects and any descendant of a completed/closed project).
         // parent_id/type/sort_order are needed to render the Projects view as a
         // nested tree (parent project -> chapters -> lessons) instead of a flat list.
-        $projects = Project::where('user_id', $user->id)->whereNotIn('status', ['completed', 'closed'])->orderBy('sort_order')->orderBy('id')->get(['id', 'name', 'slug', 'status', 'parent_id', 'type']);
+        $projects = $allProjects
+            ->whereIn('id', $activeProjectIds)
+            ->sortBy([['sort_order', 'asc'], ['id', 'asc']])
+            ->values();
 
         // ── Project tree helpers for the nested Projects view ──
         $projectById = $projects->keyBy('id');

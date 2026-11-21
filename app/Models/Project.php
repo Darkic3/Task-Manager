@@ -532,6 +532,54 @@ class Project extends Model
     }
 
     /**
+     * Project ids that are NOT completed/closed and have no completed/closed
+     * ancestor. A sub-project / chapter / lesson inherits its parent's
+     * closed (or completed) state, even when its own status is still open.
+     *
+     * @return array<int>
+     */
+    public static function activeIdsForUser(int $userId): array
+    {
+        $all = static::where('user_id', $userId)->get(['id', 'status', 'parent_id']);
+
+        $inactive = [];
+        $isInactive = function (int $id) use (&$isInactive, $all, &$inactive): bool {
+            if (array_key_exists($id, $inactive)) {
+                return $inactive[$id];
+            }
+            $project = $all->firstWhere('id', $id);
+            if (! $project) {
+                $inactive[$id] = false;
+
+                return false;
+            }
+            if (in_array($project->status, ['completed', 'closed'], true)) {
+                $inactive[$id] = true;
+
+                return true;
+            }
+            if ($project->parent_id !== null) {
+                $result = $isInactive((int) $project->parent_id);
+                $inactive[$id] = $result;
+
+                return $result;
+            }
+            $inactive[$id] = false;
+
+            return false;
+        };
+        foreach ($all as $p) {
+            $isInactive((int) $p->id);
+        }
+
+        return $all
+            ->filter(fn ($p) => ! ($inactive[(int) $p->id] ?? false))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
      * Hierarchy-aware labels for reports: [project_id => "Root / … / Name"].
      * Single query + in-memory walk (no N+1); cycle safe. Two chapters with
      * the same name in different books get different labels, so they never

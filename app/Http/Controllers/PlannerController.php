@@ -157,7 +157,7 @@ class PlannerController extends Controller
             'lawsEnabled' => $lawsEnabled,
             'nextUp' => $this->buildNextUp($pending, $routinesData['today'], $selected),
             'quickProjects' => Project::where('user_id', $user->id)
-                ->whereNotIn('status', ['completed', 'closed'])
+                ->whereIn('id', Project::activeIdsForUser($user->id))
                 ->orderBy('name')
                 ->get(['id', 'name']),
             'backlogProjects' => $this->backlogProjectOptions($user->id),
@@ -753,7 +753,7 @@ class PlannerController extends Controller
             ->where(function ($w) {
                 // Never offer tasks that belong to inactive (completed/closed) projects.
                 $w->whereNull('project_id')
-                  ->orWhereHas('project', fn ($p) => $p->whereNotIn('status', ['completed', 'closed']));
+                  ->orWhereHas('project', fn ($p) => $p->whereIn('id', Project::activeIdsForUser($user->id)));
             });
         if ($q !== '') {
             $query->where('title', 'like', "%{$q}%");
@@ -824,7 +824,7 @@ class PlannerController extends Controller
 
         // Active projects only (completed/closed are not offered).
         $projects = Project::where('user_id', $userId)
-            ->whereNotIn('status', ['completed', 'closed'])
+            ->whereIn('id', Project::activeIdsForUser($userId))
             ->get(['id', 'name', 'parent_id', 'sort_order']);
 
         $activeIds = $projects->pluck('id')->map(fn ($id) => (int) $id)->flip();
