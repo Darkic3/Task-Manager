@@ -3964,7 +3964,7 @@ body:has(.pl-task-menu.is-open)::before {
         row.removeAttribute('draggable');
         row.classList.remove('dragging');
         const box = row.querySelector('.pl-check input');
-        if (box) box.checked = true;
+        if (box) { box.checked = true; box.disabled = false; }
         const acts = row.querySelector('.pl-task-actions');
         if (acts) {
             const open = acts.querySelector('.pl-task-open');
@@ -4002,7 +4002,8 @@ body:has(.pl-task-menu.is-open)::before {
                 window.__PL_DONE_HTML__[key] = openRow.outerHTML
                     .replace('is-done', '')
                     .replace('data-completed="1"', 'data-completed="0"')
-                    .replace(/ checked(="")?/, '');
+                    .replace(/ checked(="")?/, '')
+                    .replace(/ disabled(="")?/, '');
             }
             if (window.PlannerDay && window.PlannerDay.mounted) window.PlannerDay.removeTask(id);
             document.querySelectorAll(
@@ -4043,7 +4044,8 @@ body:has(.pl-task-menu.is-open)::before {
                 html = back[0].outerHTML
                     .replace('is-done', '')
                     .replace('data-completed="1"', 'data-completed="0"')
-                    .replace(/ checked(="")?/, '');
+                    .replace(/ checked(="")?/, '')
+                    .replace(/ disabled(="")?/, '');
             }
             back.forEach(row => row.remove());
             if (window.PlannerDay && window.PlannerDay.mounted) {
