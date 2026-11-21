@@ -140,7 +140,7 @@
 <div class="te-wrap">
 
     <div class="te-topbar">
-        <a href="{{ route('tasks.show', $task->id) }}" class="te-back">
+        <a href="{{ $backUrl ?? route('tasks.show', $task->id) }}" class="te-back">
             <i class="bi bi-arrow-left"></i> Back to <span>{{ $task->title }}</span>
         </a>
         <div class="te-actions">
@@ -169,6 +169,7 @@
 
         @csrf
         @method('PUT')
+        <input type="hidden" name="return_to" value="{{ $backUrl ?? route('tasks.show', $task->id) }}">
 
         {{-- Title --}}
         <label for="title" class="te-inline-lbl">{{ __('Task title') }}</label>
@@ -296,7 +297,7 @@
 
         {{-- Action bar --}}
         <div class="te-actions-bar">
-            <a href="{{ route('tasks.show', $task->id) }}" class="te-cancel">{{ __('Cancel') }}</a>
+            <a href="{{ $backUrl ?? route('tasks.show', $task->id) }}" class="te-cancel">{{ __('Cancel') }}</a>
             <button type="submit" class="te-save">
                 <i class="bi bi-check-lg"></i>{{ __('Save Changes') }}
             </button>

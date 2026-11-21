@@ -39,7 +39,7 @@
         <div class="jn-grid">
             <div class="jn-field">
                 <label>{{ __('Date') }}</label>
-                <input type="date" name="entry_date" class="jn-input" required value="{{ old('entry_date', $entry->entry_date?->toDateString() ?? today()->toDateString()) }}">
+                <x-jalali-date name="entry_date" id="entry_date" :value="old('entry_date', $entry->entry_date?->toDateString() ?? today()->toDateString())" class="jn-input" required />
             </div>
             <div class="jn-field">
                 <label>{{ __('Book') }}</label>

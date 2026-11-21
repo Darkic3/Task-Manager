@@ -107,7 +107,7 @@
                 <li><hr class="dropdown-divider"></li>
             @endif
             <li><a class="dropdown-item" href="{{ route('tasks.show', $task->id) }}"><i class="bi bi-eye me-2"></i>{{ __('View') }}</a></li>
-            <li><a class="dropdown-item" href="{{ route('tasks.edit', $task->id) }}"><i class="bi bi-pencil me-2"></i>{{ __('Edit') }}</a></li>
+            <li><a class="dropdown-item" href="{{ route('tasks.edit', $task->id) }}?return_to={{ urlencode(request()->fullUrl()) }}"><i class="bi bi-pencil me-2"></i>{{ __('Edit') }}</a></li>
             <li><hr class="dropdown-divider"></li>
             <li><button class="dropdown-item text-danger cu-del-task" data-id="{{ $task->id }}"><i class="bi bi-trash me-2"></i>{{ __('Delete') }}</button></li>
         </ul>

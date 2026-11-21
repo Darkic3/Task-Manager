@@ -35,7 +35,7 @@
                         title="{{ __('Schedule task') }} (T)"><i class="bi bi-calendar-plus"></i></button>
             @endif
             <a href="{{ route('tasks.show', $task->id) }}" class="cu-task-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
-            <a href="{{ route('tasks.edit', $task->id) }}" class="cu-task-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
+            <a href="{{ route('tasks.edit', $task->id) }}?return_to={{ urlencode(request()->fullUrl()) }}" class="cu-task-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
         </div>
     </div>
     @if($childCount > 0)

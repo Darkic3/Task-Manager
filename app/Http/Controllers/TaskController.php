@@ -286,7 +286,7 @@ class TaskController extends Controller
         return view('tasks.show', compact('task', 'linkedNotes', 'recentNotes', 'noteLinks'));
     }
 
-    public function edit(Task $task)
+    public function edit(Request $request, Task $task)
     {
         $projects = Auth::user()->projects()->get();
         $exclude = array_merge([$task->id], $this->descendantIds($task));
@@ -298,7 +298,18 @@ class TaskController extends Controller
             ->orderBy('sort_order')->orderBy('id')
             ->get(['id', 'title', 'parent_id']);
 
-        return view('tasks.edit', compact('task', 'projects', 'parentOptions'));
+        // Back target: explicit ?return_to= wins; otherwise the page we came
+        // from (tasks index / project tasks / task show); never the edit page.
+        $editUrl = route('tasks.edit', $task);
+        $requested = $request->query('return_to', $request->query('back'));
+        $previous = url()->previous();
+        $candidate = $requested ?: ($previous !== $editUrl ? $previous : null);
+        $backUrl = $this->safeBackUrl($candidate, route('tasks.show', $task), $request);
+        if ($this->samePath($backUrl, $editUrl)) {
+            $backUrl = route('tasks.show', $task);
+        }
+
+        return view('tasks.edit', compact('task', 'projects', 'parentOptions', 'backUrl'));
     }
 
     public function update(Request $request, Task $task)
@@ -350,7 +361,13 @@ class TaskController extends Controller
             ]);
         }
 
-        return redirect()->route('tasks.show', $task->id)->with('success', __('Task updated successfully.'));
+        // Return to where the edit was opened from when a safe target was given.
+        $backUrl = $this->safeBackUrl($request->input('return_to'), route('tasks.show', $task), $request);
+        if ($this->samePath($backUrl, route('tasks.edit', $task))) {
+            $backUrl = route('tasks.show', $task);
+        }
+
+        return redirect()->to($backUrl)->with('success', __('Task updated successfully.'));
     }
 
     public function destroy(Request $request, Task $task)
@@ -486,6 +503,56 @@ class TaskController extends Controller
         }
 
         return $ids;
+    }
+
+    /**
+     * Hosts a return URL may point to: the current request host (covers
+     * custom local domains like task-manager.test when APP_URL is localhost)
+     * plus the configured app host. Anything else is rejected.
+     */
+    private function trustedReturnHosts(Request $request): array
+    {
+        $hosts = [strtolower($request->getHost())];
+        $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+        if (is_string($appHost) && $appHost !== '') {
+            $hosts[] = strtolower($appHost);
+        }
+
+        return array_values(array_unique(array_filter($hosts)));
+    }
+
+    /**
+     * Allow only same-origin return URLs (absolute with a trusted host, or
+     * root-relative paths) — never open redirects.
+     */
+    private function safeBackUrl(?string $url, string $fallback, ?Request $request = null): string
+    {
+        if (is_string($url) && $url !== '') {
+            $hosts = $request
+                ? $this->trustedReturnHosts($request)
+                : array_filter([strtolower((string) parse_url((string) config('app.url'), PHP_URL_HOST))]);
+            $parts = parse_url($url);
+            if (isset($parts['host'])) {
+                if (in_array(strtolower($parts['host']), $hosts, true)) {
+                    return $url;
+                }
+            } elseif (isset($parts['path']) && str_starts_with($parts['path'], '/') && ! str_starts_with($parts['path'], '//')) {
+                return $url;
+            }
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * Compare two URLs by path only (ignores query string / host).
+     */
+    private function samePath(string $a, string $b): bool
+    {
+        $pa = parse_url($a, PHP_URL_PATH);
+        $pb = parse_url($b, PHP_URL_PATH);
+
+        return is_string($pa) && is_string($pb) && rtrim($pa, '/') === rtrim($pb, '/');
     }
 
     /**

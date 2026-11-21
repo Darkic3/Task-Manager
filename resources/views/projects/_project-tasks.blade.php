@@ -168,7 +168,7 @@
                         <button type="button" data-ptrename="{{ $t->id }}" title="{{ __('Rename') }}"><i class="bi bi-input-cursor-text"></i></button>
                         <button type="button" class="pt-del" data-ptdel="{{ $t->id }}" title="{{ __('Delete') }}"><i class="bi bi-trash"></i></button>
                         <a href="{{ route('tasks.show', $t) }}" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
-                        <a href="{{ route('tasks.edit', $t) }}" title="{{ __('Full edit') }}"><i class="bi bi-pencil"></i></a>
+                        <a href="{{ route('tasks.edit', $t) }}?return_to={{ urlencode(request()->fullUrl()) }}" title="{{ __('Full edit') }}"><i class="bi bi-pencil"></i></a>
                     </span>
                 </div>
                 @if($kidTotal > 0)

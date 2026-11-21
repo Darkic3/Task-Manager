@@ -223,7 +223,7 @@ a.ts-sub-title:hover { color:#7c3aed; }
         @endif
         <span class="ts-id">TASK-{{ str_pad($task->id, 4, '0', STR_PAD_LEFT) }}</span>
         <div class="ts-top-actions">
-            <a href="{{ route('tasks.edit', $task->id) }}" class="ts-icon-btn">
+            <a href="{{ route('tasks.edit', $task->id) }}?return_to={{ urlencode(request()->fullUrl()) }}" class="ts-icon-btn">
                 <i class="bi bi-pencil"></i> Edit
             </a>
             <button class="ts-icon-btn danger" onclick="confirmDelete()">
