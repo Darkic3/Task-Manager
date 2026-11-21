@@ -879,7 +879,7 @@ class PlannerController extends Controller
 
         $options = [];
         $flatten = null;
-        $flatten = function (array $nodes, int $depth, array $path, ?int $rootId) use (&$flatten, $sortNodes, $subtreeCount, &$options): void {
+        $flatten = function (array $nodes, int $depth, array $path, ?int $rootId) use (&$flatten, $sortNodes, $subtreeCount, &$options, $children): void {
             foreach ($sortNodes($nodes) as $node) {
                 $id = (int) $node->id;
                 $crumbs = array_merge($path, [$node->name]);

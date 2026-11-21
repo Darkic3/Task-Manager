@@ -1875,8 +1875,10 @@
     .pw-pop-div::before,.pw-pop-div::after{content:'';flex:1;height:1px;background:#eef0f3;}
     .pw-pop-sec input[data-week-search]{width:100%;border:1px solid #e3e4e8;border-radius:9px;padding:7px 10px;font-size:12.5px;outline:none;font-family:inherit;color:#1f2328;box-sizing:border-box;}
     .pw-pop-sec input[data-week-search]:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
-    .pw-pop-sec select[data-week-project]{width:100%;border:1px solid #e3e4e8;border-radius:9px;padding:7px 10px;font-size:12.5px;outline:none;font-family:inherit;color:#1f2328;box-sizing:border-box;margin-top:6px;background:#fff;}
-    .pw-pop-sec select[data-week-project]:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+    .pw-pop-sec select[data-week-project-root],
+    .pw-pop-sec select[data-week-project-child]{width:100%;border:1px solid #e3e4e8;border-radius:9px;padding:7px 10px;font-size:12.5px;outline:none;font-family:inherit;color:#1f2328;box-sizing:border-box;margin-top:6px;background:#fff;}
+    .pw-pop-sec select[data-week-project-root]:focus,
+    .pw-pop-sec select[data-week-project-child]:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
     .pw-pop-list{display:flex;flex-direction:column;gap:4px;margin-top:6px;max-height:180px;overflow-y:auto;}
     .pw-backlog{display:flex;align-items:center;gap:7px;width:100%;text-align:start;border:1px solid #eef0f3;background:#fff;border-radius:9px;padding:7px 9px;cursor:pointer;font-family:inherit;transition:all .12s;box-sizing:border-box;}
     .pw-backlog:hover{border-color:#c4b5fd;background:#faf5ff;}
@@ -3380,7 +3382,7 @@ body:has(.pl-task-menu.is-open)::before {
                 'key' => $k, 'label' => __($p['label']), 'icon' => $p['icon'], 'color' => $p['color'],
             ])->values();
         @endphp
-        <div class="pw-grid" id="plWeek" data-week-days='@json($weekDaysMeta)' data-periods='@json($weekPeriodsMeta)'>
+        <div class="pw-grid" id="plWeek" data-week-days='@json($weekDaysMeta)' data-periods='@json($weekPeriodsMeta)' data-projects='@json($backlogProjects ?? [])'>
             @if(isset($activeWorkoutPlan) && isset($workoutWeek))
                 <div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#f5f3ff;border:1px solid #ede9fe;border-radius:12px;padding:10px 14px;margin-bottom:4px;">
                     <span style="font-size:12px;font-weight:800;color:#5b21b6;display:inline-flex;align-items:center;gap:6px;">
@@ -3643,11 +3645,47 @@ body:has(.pl-task-menu.is-open)::before {
                         <button type="button" class="pl-qadd-clear" id="plBacklogClear" hidden
                                 aria-label="{{ __('Close') }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
                     </div>
-                    <div class="pl-backlog-project-wrap">
-                        <select id="plBacklogProject" class="form-select form-select-sm" aria-label="{{ __('Filter by project') }}">
-                            @include('planner._backlog-project-options')
-                        </select>
+                    <div class="pl-backlog-project-wrap pl-backlog-project-tree">
+                        <input type="hidden" id="plBacklogProject" value="">
+                        <button type="button" id="plBacklogProjectBtn" class="form-select form-select-sm text-start" aria-haspopup="listbox" aria-expanded="false">
+                            {{ __('All projects') }}
+                        </button>
+                        <div id="plBacklogProjectMenu" class="pl-backlog-project-menu" hidden>
+                            <input type="search" id="plBacklogProjectSearch" class="form-control form-control-sm" placeholder="{{ __('Search projects…') }}" aria-label="{{ __('Search projects') }}">
+                            <div class="pl-backlog-project-quick">
+                                <button type="button" data-proj-pick="" class="pl-backlog-project-chip">{{ __('All projects') }}</button>
+                                <button type="button" data-proj-pick="none" class="pl-backlog-project-chip">{{ __('No project') }}</button>
+                            </div>
+                            <div id="plBacklogProjectList" class="pl-backlog-project-list" role="listbox" aria-label="{{ __('Projects') }}"></div>
+                        </div>
                     </div>
+                    <script type="application/json" id="plBacklogProjectData">@json($backlogProjects ?? [])</script>
+                    <style>
+                        .pl-backlog-project-tree { position: relative; }
+                        .pl-backlog-project-btn { width: 100%; text-align: start; }
+                        .pl-backlog-project-menu { position: absolute; z-index: 1050; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 16px 40px -16px rgba(15,23,42,.35); padding: 10px; }
+                        .pl-backlog-project-menu input[type="search"] { width: 100%; margin-bottom: 8px; }
+                        .pl-backlog-project-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+                        .pl-backlog-project-chip { border: 1px solid #c7d2fe; background: #eef2ff; color: #4338ca; border-radius: 999px; padding: 3px 10px; font-size: 11.5px; cursor: pointer; }
+                        .pl-backlog-project-chip:hover { background: #e0e7ff; }
+                        #plTaskAddModal .pl-qa-dialog,
+                        #plTaskAddModal .pl-qa-dialog-pro { width: min(760px, 96vw); max-height: min(92vh, 900px); }
+                        #plTaskAddModal .pl-qa-form,
+                        #plTaskAddModal [data-ta-panel] { max-height: 78vh; overflow: auto; }
+                        #plTaskAddModal #plBacklogList { max-height: 46vh; overflow: auto; }
+                        .pl-backlog-project-list { max-height: 280px; overflow: auto; border-top: 1px solid #f1f5f9; padding-top: 6px; }
+                        .pl-backlog-tree-node { display: flex; align-items: center; gap: 6px; padding: 4px 2px; border-radius: 6px; }
+                        .pl-backlog-tree-node:hover { background: #f8fafc; }
+                        .pl-backlog-tree-root { background: #f1f5f9; border-radius: 8px; margin-top: 4px; }
+                        .pl-backlog-tree-root .pl-backlog-tree-btn { font-weight: 700; color: #1e293b; }
+                        .pl-backlog-tree-child .pl-backlog-tree-btn { color: #475569; }
+                        .pl-backlog-tree-child { border-left: 2px solid #e2e8f0; margin-left: 4px; }
+                        .pl-backlog-tree-toggle { border: none; background: transparent; cursor: pointer; font-size: 13px; color: #64748b; width: 18px; padding: 0; line-height: 1; }
+                        .pl-backlog-tree-toggle i { font-size: 12px; }
+                        .pl-backlog-tree-spacer { display: inline-block; width: 16px; }
+                        .pl-backlog-tree-btn { border: none; background: transparent; text-align: start; cursor: pointer; font-size: 12.5px; color: #1f2328; padding: 2px 6px; border-radius: 6px; flex: 1; }
+                        .pl-backlog-tree-btn:hover { background: #eef2ff; color: #4338ca; }
+                    </style>
                     <div class="pl-qadd-filters" data-bl-filters role="group" aria-label="{{ __('Priority') }}">
                         <button type="button" data-prio="" class="active">{{ __('All') }}</button>
                         <button type="button" data-prio="high"><span class="pl-qa-dot" style="background:#dc2626;"></span>{{ __('High') }}</button>
@@ -5852,6 +5890,15 @@ body:has(.pl-task-menu.is-open)::before {
         document.body.classList.add('pl-modal-open');
         switchTaskAddTab(tab);
         if (tab === 'existing') {
+            const hidden = document.getElementById('plBacklogProject');
+            const btn = document.getElementById('plBacklogProjectBtn');
+            let stored = '';
+            try { stored = localStorage.getItem('planner.backlog.project') || ''; } catch (e) {}
+            const nodes = blProjectData();
+            const found = nodes.find(n => String(n.id) === String(stored));
+            if (hidden) hidden.value = found ? String(found.id) : (stored === 'none' ? 'none' : '');
+            if (btn) btn.textContent = found ? (found.path || found.name) : (stored === 'none' ? @json(__('No project')) : @json(__('All projects')));
+            plRenderProjectTree('');
             blLoad('');
             setTimeout(() => { const s = document.getElementById('plBacklogSearch'); if (s) s.focus(); }, 40);
         } else {
@@ -5994,11 +6041,108 @@ body:has(.pl-task-menu.is-open)::before {
             b.classList.toggle('active', (b.dataset.prio || '') === (prio || '')));
     }
 
+    function blProjectData() {
+        try { return JSON.parse(document.getElementById('plBacklogProjectData')?.textContent || '[]'); }
+        catch (e) { return []; }
+    }
+    const plProjectExpanded = new Set();
+    let plProjectTreeInitialized = false;
+    function plProjectChildrenMap() {
+        const nodes = blProjectData();
+        const ids = new Set(nodes.map(n => String(n.id)));
+        const map = {};
+        nodes.forEach(n => {
+            const parent = (n.parent_id && ids.has(String(n.parent_id))) ? String(n.parent_id) : '0';
+            (map[parent] = map[parent] || []).push(n);
+        });
+        return { nodes, map };
+    }
+    function plProjectHasMatch(node, map, q) {
+        if (!q) return true;
+        const hay = ((node.name || '') + ' ' + (node.path || '')).toLowerCase();
+        if (hay.includes(q)) return true;
+        return (map[String(node.id)] || []).some(c => plProjectHasMatch(c, map, q));
+    }
+    function plRenderProjectTree(q) {
+        const list = document.getElementById('plBacklogProjectList');
+        if (!list) return;
+        const { map } = plProjectChildrenMap();
+        const query = (q || '').trim().toLowerCase();
+        list.innerHTML = '';
+        const roots = map['0'] || [];
+        if (!query && !plProjectTreeInitialized) {
+            // Default: all collapses closed.
+            plProjectTreeInitialized = true;
+        }
+        function nodeRow(node, depth) {
+            if (query && !plProjectHasMatch(node, map, query)) return;
+            const kids = map[String(node.id)] || [];
+            const row = document.createElement('div');
+            row.className = 'pl-backlog-tree-node' + (depth === 0 ? ' pl-backlog-tree-root' : ' pl-backlog-tree-child');
+            row.style.paddingLeft = (depth * 14 + 4) + 'px';
+            if (kids.length) {
+                const tog = document.createElement('button');
+                tog.type = 'button';
+                tog.className = 'pl-backlog-tree-toggle';
+                const expanded = query || plProjectExpanded.has(String(node.id));
+                tog.innerHTML = expanded ? '<i class="bi bi-chevron-down"></i>' : '<i class="bi bi-chevron-right"></i>';
+                tog.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (plProjectExpanded.has(String(node.id))) plProjectExpanded.delete(String(node.id));
+                    else plProjectExpanded.add(String(node.id));
+                    plRenderProjectTree(document.getElementById('plBacklogProjectSearch')?.value || '');
+                });
+                row.appendChild(tog);
+            } else {
+                const spacer = document.createElement('span');
+                spacer.className = 'pl-backlog-tree-spacer';
+                row.appendChild(spacer);
+            }
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'pl-backlog-tree-btn';
+            btn.textContent = node.name + ' (' + (node.subtree_task_count || 0) + ')';
+            btn.title = node.path || node.name;
+            btn.addEventListener('click', () => plSelectProject(node.id, node.path || node.name));
+            row.appendChild(btn);
+            list.appendChild(row);
+            const expanded = query || plProjectExpanded.has(String(node.id));
+            if (kids.length && expanded) {
+                kids.forEach(c => nodeRow(c, depth + 1));
+            }
+        }
+        roots.forEach(r => nodeRow(r, 0));
+    }
+    function plSelectProject(id, label) {
+        const hidden = document.getElementById('plBacklogProject');
+        const btn = document.getElementById('plBacklogProjectBtn');
+        if (hidden) hidden.value = (id === null || id === undefined) ? '' : String(id);
+        try { localStorage.setItem('planner.backlog.project', hidden ? (hidden.value || '') : ''); } catch (e) {}
+        if (btn) btn.textContent = (id === '' || id === null) ? @json(__('All projects')) : (id === 'none' ? @json(__('No project')) : label);
+        const menu = document.getElementById('plBacklogProjectMenu');
+        if (menu) menu.hidden = true;
+        const btnToggle = document.getElementById('plBacklogProjectBtn');
+        if (btnToggle) btnToggle.setAttribute('aria-expanded', 'false');
+        blLoad((document.getElementById('plBacklogSearch')?.value || '').trim());
+    }
+    function plToggleProjectMenu() {
+        const menu = document.getElementById('plBacklogProjectMenu');
+        const btn = document.getElementById('plBacklogProjectBtn');
+        if (!menu || !btn) return;
+        const willOpen = menu.hidden;
+        menu.hidden = !willOpen;
+        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        if (willOpen) {
+            const search = document.getElementById('plBacklogProjectSearch');
+            if (search) { search.value = ''; search.focus(); }
+            plRenderProjectTree('');
+        }
+    }
     function blParams(q) {
         const p = new URLSearchParams();
         if (q) p.set('q', q);
-        const proj = document.getElementById('plBacklogProject');
-        if (proj && proj.value) p.set('project_id', proj.value);
+        const proj = document.getElementById('plBacklogProject')?.value || '';
+        if (proj) p.set('project_id', proj);
         if (blDay()) p.set('date', blDay());
         const s = p.toString();
 
@@ -6097,10 +6241,21 @@ body:has(.pl-task-menu.is-open)::before {
             const q = search.value.trim();
             searchT = setTimeout(() => blLoad(q), 250);
         });
-        const projSel = document.getElementById('plBacklogProject');
-        if (projSel) projSel.addEventListener('change', () => {
-            blLoad(search ? search.value.trim() : '');
-            if (search) search.focus();
+        const projBtn = document.getElementById('plBacklogProjectBtn');
+        const projSearch = document.getElementById('plBacklogProjectSearch');
+        if (projBtn) projBtn.addEventListener('click', plToggleProjectMenu);
+        if (projSearch) projSearch.addEventListener('input', () => plRenderProjectTree(projSearch.value));
+        document.querySelectorAll('[data-proj-pick]').forEach(b => {
+            b.addEventListener('click', () => plSelectProject(b.dataset.projPick, b.textContent.trim()));
+        });
+        document.addEventListener('click', (e) => {
+            const wrap = document.querySelector('.pl-backlog-project-tree');
+            const menu = document.getElementById('plBacklogProjectMenu');
+            if (wrap && menu && !wrap.contains(e.target)) {
+                menu.hidden = true;
+                const btn = document.getElementById('plBacklogProjectBtn');
+                if (btn) btn.setAttribute('aria-expanded', 'false');
+            }
         });
         document.querySelectorAll('[data-bl-filters] button').forEach(b =>
             b.addEventListener('click', () => { blSetPrio(b.dataset.prio || ''); blRender(); if (search) search.focus(); }));
@@ -7191,6 +7346,7 @@ body:has(.pl-task-menu.is-open)::before {
 
         const QUICK_ADD_URL = @json(route('planner.quick-add.task'));
         const BACKLOG_URL = @json(route('planner.backlog'));
+        const PW_PROJECTS = (function () { try { return JSON.parse(grid.dataset.projects || '[]'); } catch (e) { return []; } })();
         const SCHEDULE_URL = id => `{{ route('planner.tasks.schedule', ['task' => '__ID__']) }}`.replace('__ID__', id);
         let PW_PERIODS = [];
         try { PW_PERIODS = JSON.parse(grid.dataset.periods || '[]'); } catch (e) { PW_PERIODS = []; }
@@ -7301,6 +7457,26 @@ body:has(.pl-task-menu.is-open)::before {
             setTimeout(() => pop.querySelector('[data-week-title]')?.focus(), 30);
         }
 
+        function pwPopulateProjectChild(pop) {
+            const rootSel = pop.querySelector('[data-week-project-root]');
+            const childSel = pop.querySelector('[data-week-project-child]');
+            if (!childSel) return;
+            childSel.innerHTML = '';
+            const allOpt = document.createElement('option');
+            allOpt.value = '';
+            allOpt.textContent = @json(__('All in project'));
+            childSel.appendChild(allOpt);
+            const rv = rootSel ? rootSel.value : '';
+            if (!rv || rv === 'none') { childSel.disabled = true; return; }
+            const descs = PW_PROJECTS.filter(p => String(p.root_id) === String(rv) && String(p.id) !== String(rv));
+            descs.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = (String('— ').repeat(Math.max(0, (p.depth || 1) - 1))) + p.name + ' (' + (p.subtree_task_count || 0) + ')';
+                childSel.appendChild(opt);
+            });
+            childSel.disabled = descs.length === 0;
+        }
         async function loadBacklog(pop, q) {
             const list = pop.querySelector('[data-week-backlog]');
             if (!list) return;
