@@ -750,7 +750,7 @@ class PlannerController extends Controller
                     });
             })
             ->with('project:id,name')
-            ->where(function ($w) {
+            ->where(function ($w) use ($user) {
                 // Never offer tasks that belong to inactive (completed/closed) projects.
                 $w->whereNull('project_id')
                   ->orWhereHas('project', fn ($p) => $p->whereIn('id', Project::activeIdsForUser($user->id)));
