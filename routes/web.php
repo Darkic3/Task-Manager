@@ -118,6 +118,7 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
     Route::patch('projects/{node}/rename', [ProjectController::class, 'renameNode'])->name('projects.nodes.rename');
     Route::resource('projects', ProjectController::class);
     Route::get('projects/{project}/tasks', [TaskController::class, 'index'])->name('projects.tasks.index');
+    Route::get('projects/{project}/tasks/views/{view}', [TaskController::class, 'viewFragment'])->name('projects.tasks.views');
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('projects.tasks.store');
 
     Route::post('tasks/reorder', [TaskController::class, 'reorder'])->name('tasks.reorder');
@@ -126,6 +127,7 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
     Route::post('tasks/bulk-update', [TaskController::class, 'bulkUpdate'])->name('tasks.bulk-update');
     Route::delete('tasks/bulk-destroy', [TaskController::class, 'bulkDestroy'])->name('tasks.bulk-destroy');
     Route::get('tasks', [TaskController::class, 'index'])->name('tasks.index');
+    Route::get('tasks/views/{view}', [TaskController::class, 'viewFragment'])->name('tasks.views');
     Route::get('tasks/create', [TaskController::class, 'create'])->name('tasks.create');
     Route::post('tasks', [TaskController::class, 'store'])->name('tasks.store');
     Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');

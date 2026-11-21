@@ -15,6 +15,26 @@ class TaskController extends Controller
 {
     public function index(?Project $project = null)
     {
+        return view('tasks.index', $this->buildIndexData($project));
+    }
+
+    /**
+     * Render a single view fragment (kanban/list/tree/chapters/projects)
+     * for lazy-loading on the tasks page, avoiding a full 5-view render.
+     */
+    public function viewFragment(Request $request, ?Project $project = null, string $view = 'projects')
+    {
+        $allowed = ['kanban', 'list', 'tree', 'chapters', 'projects'];
+        abort_unless(in_array($view, $allowed, true), 404);
+
+        return view('tasks._view-fragment', array_merge(
+            $this->buildIndexData($project),
+            ['view' => $view]
+        ));
+    }
+
+    private function buildIndexData(?Project $project = null): array
+    {
         $user = Auth::user();
 
         if ($project) {
@@ -117,7 +137,7 @@ class TaskController extends Controller
         };
         $flatten($projectRoots);
 
-        return view('tasks.index', compact('tasks', 'taskRoots', 'projects', 'project', 'projectRoots', 'projectChildren', 'projectAggregates', 'projectDescendants', 'projectOptions'));
+        return compact('tasks', 'taskRoots', 'projects', 'project', 'projectRoots', 'projectChildren', 'projectAggregates', 'projectDescendants', 'projectOptions');
     }
 
     public function create()

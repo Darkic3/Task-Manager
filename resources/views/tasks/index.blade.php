@@ -867,142 +867,58 @@
         </div>
     @else
 
-    {{-- KANBAN --}}
-    <div class="cu-kanban" id="cuKanban" @if(!isset($project)) style="display:none;" @endif>
-        @php
-            $columns = [
-                'to_do'      => ['label' => __('To Do'),        'dot' => '#94a3b8',            'empty' => __('No tasks here'),     'icon' => 'bi-circle',           'collapsed' => false],
-                'in_progress'=> ['label' => __('In Progress'),   'dot' => '#7c3aed',            'empty' => __('Nothing active'),    'icon' => 'bi-arrow-clockwise',  'collapsed' => false],
-                'on_hold'    => ['label' => __('On Hold'),       'dot' => '#ad6800',            'empty' => __('None on hold'),      'icon' => 'bi-pause-circle',     'collapsed' => true],
-                'in_review'  => ['label' => __('In Review'),     'dot' => '#0b6bcb',            'empty' => __('Nothing to review'), 'icon' => 'bi-eye',              'collapsed' => true],
-                'completed'  => ['label' => __('Completed'),     'dot' => '#29774b',            'empty' => __('Nothing done yet'),  'icon' => 'bi-check-circle',     'collapsed' => true],
-            ];
-            $colCounts = [
-                'to_do' => $todoCnt, 'in_progress' => $progressCnt, 'on_hold' => $onHoldCnt,
-                'in_review' => $inReviewCnt, 'completed' => $completedCnt,
-            ];
-        @endphp
-        @foreach($columns as $statusKey => $col)
-            <div class="cu-col {{ $col['collapsed'] ? 'collapsed' : '' }}" data-collapsed="{{ $col['collapsed'] ? '1' : '0' }}">
-                <div class="cu-col-head" data-col-toggle="{{ $statusKey }}">
-                    <span class="cu-col-dot" style="background:{{ $col['dot'] }};"></span>
-                    <span class="cu-col-head-left">
-                        <span>{{ $col['label'] }}</span>
-                        <span class="cu-col-count" id="cnt-{{ $statusKey }}">{{ $colCounts[$statusKey] }}</span>
-                    </span>
-                    <div class="cu-col-actions">
-                        <button class="cu-col-add" data-bs-toggle="modal" data-bs-target="#createTaskModal" data-status="{{ $statusKey }}" title="{{ __('New task in this column') }}">
-                            <i class="bi bi-plus-lg"></i>
-                        </button>
-                        <button type="button" class="cu-col-chevron-btn" data-chevron="{{ $statusKey }}" title="{{ __('Collapse / expand') }}">
-                            <i class="bi bi-chevron-down"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="cu-col-body" id="col-{{ $statusKey }}" data-status="{{ $statusKey }}">
-                    @foreach($tasks[$statusKey] ?? [] as $task)
-                        @include('tasks._card', ['task' => $task])
-                    @endforeach
-                    <div class="cu-col-empty" @if(!empty($tasks[$statusKey])) style="display:none;" @endif>
-                        <i class="bi {{ $col['icon'] }}" style="font-size:20px;display:block;margin-bottom:6px;"></i>{{ $col['empty'] }}
-                    </div>
-                    <form class="cu-quickadd" data-quickadd="{{ $statusKey }}">
-                        <i class="bi bi-plus-lg"></i>
-                        <input type="text" placeholder="{{ __('Add task…') }}" data-status="{{ $statusKey }}">
-                    </form>
-                </div>
-            </div>
-        @endforeach
-    </div>
-
-    {{-- LIST VIEW --}}
-    <div class="cu-list-view" id="cuList">
-        <div class="cu-list-head">
-            <div>{{ __('Task') }}</div><div>{{ __('Project') }}</div><div>{{ __('Priority') }}</div>
-            <div>{{ __('Assignee') }}</div><div>{{ __('Due Date') }}</div><div></div>
-        </div>
-        @foreach(collect($tasks)->flatten() as $task)
-            @include('tasks._list-row', ['task' => $task])
-        @endforeach
-    </div>
-
-    {{-- TREE VIEW --}}
-    <div class="cu-tree-view" id="cuTree">
-        @forelse($taskRoots as $task)
-            @include('tasks._tree-node', ['task' => $task, 'depth' => 0])
-        @empty
-            <div class="cu-empty">
-                <div class="cu-empty-icon"><i class="bi bi-diagram-3"></i></div>
-                <h5>{{ __('No tasks yet') }}</h5>
-                <p>{{ __('Create your first task to get started.') }}</p>
-            </div>
-        @endforelse
-    </div>
-
-    {{-- CHAPTERS VIEW — collapsible parent-task sections with progress --}}
     @php
-        $flatAll   = collect($tasks)->flatten();
-        $groupedBy = $flatAll->groupBy('parent_id');
-        $chapterRoots = $taskRoots->filter(fn ($t) => $groupedBy->has($t->id))->values();
-        $singleRoots  = $taskRoots->reject(fn ($t) => $groupedBy->has($t->id))->values();
+        $defaultView = isset($project) ? 'kanban' : 'projects';
+        $viewUrl = function ($name) use ($project) {
+            return isset($project)
+                ? route('projects.tasks.views', ['project' => $project, 'view' => $name])
+                : route('tasks.views', ['view' => $name]);
+        };
     @endphp
-    <div class="cu-chapters-view" id="cuChapters" style="display:none;">
-        @foreach($chapterRoots as $root)
-            @include('tasks._chapter-section', [
-                'sectionId'    => 'ch-' . $root->id,
-                'sectionTitle' => $root->title,
-                'sectionUrl'   => route('tasks.show', $root->id),
-                'tasks'        => collect([$root]),
-                'grouped'      => $groupedBy,
-                'collapsed'    => $root->status === 'completed',
-            ])
-        @endforeach
-        @if($singleRoots->count() > 0)
-            @include('tasks._chapter-section', [
-                'sectionId'    => 'ch-other',
-                'sectionTitle' => __('Other tasks'),
-                'sectionUrl'   => null,
-                'tasks'        => $singleRoots,
-                'grouped'      => $groupedBy,
-                'collapsed'    => false,
-            ])
+
+    {{-- KANBAN --}}
+    <div class="cu-kanban" id="cuKanban"
+         @if(!isset($project)) style="display:none;" @endif
+         data-view="kanban" data-src="{{ $viewUrl('kanban') }}"
+         data-loaded="{{ $defaultView === 'kanban' ? '1' : '0' }}">
+        @if($defaultView === 'kanban')
+            @include('tasks._kanban_inner')
         @endif
     </div>
 
-    {{-- PROJECTS VIEW (global page only) — nested: one section per ROOT project,
-         child projects (chapters/lessons) collapse inside their parent.
-         First glance shows only parents; click to drill into chapters. --}}
+    {{-- LIST VIEW --}}
+    <div class="cu-list-view" id="cuList"
+         data-view="list" data-src="{{ $viewUrl('list') }}"
+         data-loaded="{{ $defaultView === 'list' ? '1' : '0' }}">
+        @if($defaultView === 'list')
+            @include('tasks._list_inner')
+        @endif
+    </div>
+
+    {{-- TREE VIEW --}}
+    <div class="cu-tree-view" id="cuTree"
+         data-view="tree" data-src="{{ $viewUrl('tree') }}"
+         data-loaded="{{ $defaultView === 'tree' ? '1' : '0' }}">
+        @if($defaultView === 'tree')
+            @include('tasks._tree_inner')
+        @endif
+    </div>
+
+    {{-- CHAPTERS VIEW – collapsible parent-task sections with progress --}}
+    <div class="cu-chapters-view" id="cuChapters" style="display:none;"
+         data-view="chapters" data-src="{{ $viewUrl('chapters') }}"
+         data-loaded="1">
+        @include('tasks._chapters_inner')
+    </div>
+
+    {{-- PROJECTS VIEW (global page only) --}}
     @if(!isset($project))
-        @php
-            $orphanTasks = $flatAll->filter(fn ($t) => $t->project_id === null)->values()
-                ->sortBy(fn ($t) => $t->status === 'completed' ? 1 : 0)->values();
-            $tasksByProject = $flatAll->filter(fn ($t) => $t->project_id !== null)->groupBy(fn ($t) => (int) $t->project_id);
-            $rootProjects = collect($projectRoots ?? [])->filter(
-                fn ($p) => (($projectAggregates[(int) $p->id]['total'] ?? 0) > 0)
-            )->values();
-        @endphp
-        <div class="cu-chapters-view" id="cuProjects" style="display:flex;">
-            @if($orphanTasks->count())
-                @include('tasks._chapter-section', [
-                    'sectionId'    => 'p-none',
-                    'sectionTitle' => __('No project'),
-                    'sectionUrl'   => route('tasks.index'),
-                    'tasks'        => $orphanTasks->filter(fn ($t) => $t->parent_id === null)->values(),
-                    'grouped'      => $orphanTasks->groupBy('parent_id'),
-                    'collapsed'    => true,
-                    'quickProjectId' => 0,
-                ])
+        <div class="cu-chapters-view" id="cuProjects" style="display:{{ $defaultView === 'projects' ? 'flex' : 'none' }};"
+             data-view="projects" data-src="{{ $viewUrl('projects') }}"
+             data-loaded="{{ $defaultView === 'projects' ? '1' : '0' }}">
+            @if($defaultView === 'projects')
+                @include('tasks._projects_inner')
             @endif
-            @foreach($rootProjects as $proj)
-                @include('tasks._project-group', [
-                    'proj' => $proj,
-                    'tasksByProject' => $tasksByProject,
-                    'projectChildren' => $projectChildren ?? [],
-                    'projectAggregates' => $projectAggregates ?? [],
-                    'depth' => 0,
-                    'collapsed' => true,
-                ])
-            @endforeach
         </div>
     @endif
 
@@ -1220,6 +1136,27 @@ document.addEventListener('DOMContentLoaded', function () {
     const chapterExpandWrap = document.getElementById('cuChapterExpandWrap');
     const unfinishedBox = document.getElementById('cuUnfinished');
 
+    const viewContainers = {
+        kanban: kanban, list: list, tree: tree, chapters: chapters, projects: projectsView,
+    };
+
+    function loadViewIfNeeded(v) {
+        const container = viewContainers[v];
+        if (!container || container.dataset.loaded === '1') return Promise.resolve();
+        const url = container.dataset.src;
+        if (!url) { container.dataset.loaded = '1'; return Promise.resolve(); }
+        container.dataset.loaded = 'pending';
+        return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.text())
+            .then(html => {
+                container.innerHTML = html;
+                container.dataset.loaded = '1';
+                try { applyFilters(); } catch (e) {}
+                try { applySort(); } catch (e) {}
+            })
+            .catch(() => { container.dataset.loaded = '0'; });
+    }
+
     function showView(v) {
         if (kanban)   kanban.style.display   = v === 'kanban'   ? 'grid'  : 'none';
         if (list)     list.style.display     = v === 'list'     ? 'block' : 'none';
@@ -1229,6 +1166,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const isGrouped = v === 'chapters' || v === 'projects';
         if (unfinishedWrap)    unfinishedWrap.style.display    = isGrouped ? '' : 'none';
         if (chapterExpandWrap) chapterExpandWrap.style.display = isGrouped ? 'inline-flex' : 'none';
+        loadViewIfNeeded(v);
     }
     document.querySelectorAll('.cu-view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1239,15 +1177,15 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    /* Tree toggles */
-    document.querySelectorAll('.cu-tree-toggle').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const target = document.getElementById(btn.dataset.target);
-            if (!target) return;
-            const hidden = target.style.display === 'none';
-            target.style.display = hidden ? '' : 'none';
-            btn.classList.toggle('collapsed', !hidden);
-        });
+    /* Tree toggles (delegated so lazy-loaded views work) */
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.cu-tree-toggle');
+        if (!btn) return;
+        const target = document.getElementById(btn.dataset.target);
+        if (!target) return;
+        const hidden = target.style.display === 'none';
+        target.style.display = hidden ? '' : 'none';
+        btn.classList.toggle('collapsed', !hidden);
     });
 
     /* Chapter collapse / expand */
@@ -1256,26 +1194,27 @@ document.addEventListener('DOMContentLoaded', function () {
         ch.querySelector('.cu-ch-chevron')?.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
         savePrefs();
     }
-    document.querySelectorAll('[data-chapter-toggle]').forEach(head => {
-        head.addEventListener('click', e => {
+    document.addEventListener('click', (e) => {
+        const head = e.target.closest('[data-chapter-toggle]');
+        if (head) {
             if (e.target.closest('a,button.dropdown-toggle,.dropdown-menu,[data-ch-quickadd],.cu-ch-quickform')) return;
             const ch = head.closest('.cu-chapter');
-            setChapter(ch, !ch.classList.contains('collapsed'));
-        });
-    });
-    /* Title click = collapse/expand (no accidental navigation).
-       Ctrl/Cmd/Shift/Alt-click, middle-click, keyboard Enter, or a double-click still open the target. */
-    document.querySelectorAll('a.cu-ch-nav').forEach(a => {
-        a.addEventListener('click', e => {
+            if (ch) setChapter(ch, !ch.classList.contains('collapsed'));
+            return;
+        }
+        const nav = e.target.closest('a.cu-ch-nav');
+        if (nav) {
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0 || e.detail === 0) return;
             e.preventDefault();
-            const ch = a.closest('.cu-chapter');
-            setChapter(ch, !ch.classList.contains('collapsed'));
-        });
-        a.addEventListener('dblclick', e => {
-            e.preventDefault();
-            window.location.href = a.href;
-        });
+            const ch = nav.closest('.cu-chapter');
+            if (ch) setChapter(ch, !ch.classList.contains('collapsed'));
+        }
+    });
+    document.addEventListener('dblclick', (e) => {
+        const nav = e.target.closest('a.cu-ch-nav');
+        if (!nav) return;
+        e.preventDefault();
+        window.location.href = nav.href;
     });
     document.getElementById('cuExpandAll')?.addEventListener('click', () => {
         document.querySelectorAll('.cu-chapter').forEach(ch => setChapter(ch, false));
@@ -1283,14 +1222,15 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('cuCollapseAll')?.addEventListener('click', () => {
         document.querySelectorAll('.cu-chapter').forEach(ch => setChapter(ch, true));
     });
-    /* Column collapse / expand (the "+" modal button is excluded; chevron toggles) */
-    document.querySelectorAll('[data-col-toggle]').forEach(head => {
-        head.addEventListener('click', e => {
-            if (e.target.closest('[data-bs-toggle="modal"]')) return;
-            const col = head.closest('.cu-col');
-            col.classList.toggle('collapsed');
-            col.dataset.collapsed = col.classList.contains('collapsed') ? '1' : '0';
-        });
+    /* Column collapse / expand (delegated) */
+    document.addEventListener('click', (e) => {
+        const head = e.target.closest('[data-col-toggle]');
+        if (!head) return;
+        if (e.target.closest('[data-bs-toggle="modal"]')) return;
+        const col = head.closest('.cu-col');
+        if (!col) return;
+        col.classList.toggle('collapsed');
+        col.dataset.collapsed = col.classList.contains('collapsed') ? '1' : '0';
     });
 
     /* Filters */
