@@ -722,6 +722,34 @@ class TaskController extends Controller
         return response()->json(['ok' => true, 'deleted' => $count]);
     }
 
+    /**
+     * Bulk set the TO_DO (due) date for the current user's own tasks.
+     */
+    public function bulkSetDueDate(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => 'required|array|min:1|max:200',
+            'ids.*' => 'integer',
+            'due_date' => 'nullable|date',
+        ]);
+
+        $tasks = Task::where('user_id', Auth::id())
+            ->whereIn('id', $data['ids'])
+            ->get();
+
+        $date = ! empty($data['due_date'])
+            ? \Carbon\Carbon::parse($data['due_date'])->toDateString()
+            : null;
+
+        foreach ($tasks as $task) {
+            $task->due_date = $date;
+            $task->save();
+            app(\App\Services\LawEventService::class)->syncTaskTree($task);
+        }
+
+        return response()->json(['ok' => true, 'updated' => $tasks->count()]);
+    }
+
     public function updateStatus(Request $request, Task $task)
     {
         abort_if($task->user_id !== Auth::id(), 403);

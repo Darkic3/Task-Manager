@@ -126,6 +126,7 @@ Route::middleware(['auth', EnsureAccountIsActive::class, EnsureOwnedRouteModels:
     Route::post('tasks/quick-store', [TaskController::class, 'quickStore'])->name('tasks.quick-store');
     Route::post('tasks/bulk-update', [TaskController::class, 'bulkUpdate'])->name('tasks.bulk-update');
     Route::delete('tasks/bulk-destroy', [TaskController::class, 'bulkDestroy'])->name('tasks.bulk-destroy');
+Route::post('tasks/bulk-set-due-date', [TaskController::class, 'bulkSetDueDate'])->name('tasks.bulk-set-due-date');
     Route::get('tasks', [TaskController::class, 'index'])->name('tasks.index');
     Route::get('tasks/views/{view}', [TaskController::class, 'viewFragment'])->name('tasks.views');
 Route::get('tasks/completed-tasks', [TaskController::class, 'completedTasks'])->name('tasks.completed');

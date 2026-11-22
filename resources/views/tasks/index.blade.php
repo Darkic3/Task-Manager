@@ -319,6 +319,11 @@
         font-size:12px;font-weight:600;padding:7px 10px;outline:none;cursor:pointer;min-width:110px;
     }
     #cuBulkBar select:focus{border-color:#7c3aed;}
+    #cuBulkBar .cu-bulk-date{
+        background:#2e333b; color:#fff; border:1px solid #3f444e; border-radius:999px;
+        font-size:12px; font-weight:600; padding:6px 10px; outline:none; cursor:pointer; min-width:130px;
+    }
+    #cuBulkBar .cu-bulk-date:focus{border-color:#7c3aed;}
     .cu-bulk-btn{
         border:none;border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:700;
         cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap;
@@ -1100,6 +1105,8 @@
             <option value="completed">{{ __('Completed') }}</option>
         </select>
         <button id="cuBulkApply" type="button" class="cu-bulk-btn ghost"><i class="bi bi-arrow-right-circle"></i> {{ __('Move') }}</button>
+        <input type="date" id="cuBulkDate" class="cu-bulk-date" title="{{ __('Set TO_DO date for selected tasks') }}" aria-label="{{ __('TO_DO date') }}">
+        <button id="cuBulkSetDate" type="button" class="cu-bulk-btn ghost" title="{{ __('Set TO_DO date for selected tasks') }}"><i class="bi bi-calendar-event"></i> {{ __('Set date') }}</button>
         <button id="cuBulkDelete" type="button" class="cu-bulk-btn danger"><i class="bi bi-trash3"></i> {{ __('Delete') }}</button>
     </span>
     <button id="cuBulkCancel" type="button" title="{{ __('Cancel selection') }}"><i class="bi bi-x-lg"></i></button>
@@ -2018,6 +2025,22 @@ document.addEventListener('DOMContentLoaded', function () {
             exitSelectMode();
             toast(TASK_BULK_TOAST.deleted.replace(':count', j.deleted));
         }).catch(() => toast(@json(__('Bulk delete failed'))));
+    });
+
+    document.getElementById('cuBulkSetDate')?.addEventListener('click', async () => {
+        const ids = selectedIds();
+        if (!ids.length) return;
+        const dueDate = document.getElementById('cuBulkDate')?.value || null;
+        fetch(`{{ route('tasks.bulk-set-due-date') }}`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
+            body: JSON.stringify({ ids, due_date: dueDate })
+        }).then(r => r.json()).then(j => {
+            if (!j.ok) throw new Error();
+            exitSelectMode();
+            toast((@json(__('TO_DO date updated for :count task(s)'))).replace(':count', j.updated));
+            setTimeout(() => window.location.reload(), 700);
+        }).catch(() => toast(@json(__('Bulk update failed'))));
     });
 
     /* Unified done-state sync across board card, chapter row and section progress */
