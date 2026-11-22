@@ -56,6 +56,10 @@ class PlannerController extends Controller
 
         $tasks = Task::where('user_id', $user->id)
             ->whereDate('due_date', $selected->toDateString())
+            ->where(function ($w) {
+                $w->whereNull('project_id')
+                  ->orWhereNotIn('project_id', Project::inactiveIds());
+            })
             ->with('project:id,name')
             ->get();
 
@@ -66,6 +70,10 @@ class PlannerController extends Controller
             Task::where('user_id', $user->id)
                 ->where('status', '!=', 'completed')
                 ->whereDate('due_date', '<', $selected->toDateString())
+                ->where(function ($w) use ($user) {
+                    $w->whereNull('project_id')
+                      ->orWhereHas('project', fn ($p) => $p->whereIn('id', Project::activeIdsForUser($user->id)));
+                })
                 ->with('project:id,name')
                 ->get(),
             byDate: true
@@ -240,6 +248,10 @@ class PlannerController extends Controller
                 $q->whereDate('due_date', today())
                     ->orWhereNull('due_date');
             })
+            ->where(function ($w) {
+                $w->whereNull('project_id')
+                  ->orWhereNotIn('project_id', Project::inactiveIds());
+            })
             ->get();
 
         if ($tasks->isEmpty()) {
@@ -287,6 +299,10 @@ class PlannerController extends Controller
 
         $tasks = Task::where('user_id', $user->id)
             ->whereBetween('due_date', [$start->toDateString(), $end->toDateString()])
+            ->where(function ($w) {
+                $w->whereNull('project_id')
+                  ->orWhereNotIn('project_id', Project::inactiveIds());
+            })
             ->with('project:id,name')
             ->get();
 
@@ -387,6 +403,10 @@ class PlannerController extends Controller
         // One task query for the whole grid.
         $tasksByDate = Task::where('user_id', $user->id)
             ->whereBetween('due_date', [$gridStart->toDateString(), $gridEnd->toDateString()])
+            ->where(function ($w) {
+                $w->whereNull('project_id')
+                  ->orWhereNotIn('project_id', Project::inactiveIds());
+            })
             ->orderBy('due_date')
             ->get(['id', 'title', 'status', 'priority', 'due_date'])
             ->groupBy(fn ($t) => Carbon::parse($t->due_date)->toDateString());
@@ -753,7 +773,7 @@ class PlannerController extends Controller
             ->where(function ($w) use ($user) {
                 // Never offer tasks that belong to inactive (completed/closed) projects.
                 $w->whereNull('project_id')
-                  ->orWhereHas('project', fn ($p) => $p->whereIn('id', Project::activeIdsForUser($user->id)));
+                  ->orWhereNotIn('project_id', Project::inactiveIds());
             });
         if ($q !== '') {
             $query->where('title', 'like', "%{$q}%");
@@ -974,6 +994,10 @@ class PlannerController extends Controller
         $moved = Task::where('user_id', Auth::id())
             ->where('status', '!=', 'completed')
             ->whereDate('due_date', '<', today())
+            ->where(function ($w) {
+                $w->whereNull('project_id')
+                  ->orWhereNotIn('project_id', Project::inactiveIds());
+            })
             ->update(['due_date' => today()->addDay()->toDateString()]);
 
         return response()->json(['ok' => true, 'moved' => $moved]);
@@ -996,6 +1020,10 @@ class PlannerController extends Controller
 
         $tasks = Task::where('user_id', Auth::id())
             ->whereIn('id', collect($data['items'])->pluck('id'))
+            ->where(function ($w) {
+                $w->whereNull('project_id')
+                  ->orWhereNotIn('project_id', Project::inactiveIds());
+            })
             ->get()->keyBy('id');
 
         $updated = 0;
@@ -2089,6 +2117,10 @@ class PlannerController extends Controller
                 ->whereDate('due_date', $date->toDateString())
                 ->where('status', '!=', 'completed')
                 ->whereNull('failed_at')
+                ->where(function ($w) use ($user) {
+                    $w->whereNull('project_id')
+                      ->orWhereHas('project', fn ($p) => $p->whereIn('id', Project::activeIdsForUser($user->id)));
+                })
                 ->with('project:id,name')
                 ->get()
         );
