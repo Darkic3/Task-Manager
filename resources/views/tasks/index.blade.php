@@ -1106,7 +1106,7 @@
             <option value="completed">{{ __('Completed') }}</option>
         </select>
         <button id="cuBulkApply" type="button" class="cu-bulk-btn ghost"><i class="bi bi-arrow-right-circle"></i> {{ __('Move') }}</button>
-        <input type="date" id="cuBulkDate" class="cu-bulk-date" title="{{ __('Set TO_DO date for selected tasks') }}" aria-label="{{ __('TO_DO date') }}">
+        <x-jalali-date name="cu_bulk_date" id="cuBulkDate" type="date" class="cu-bulk-date" />
         <button id="cuBulkSetDate" type="button" class="cu-bulk-btn ghost" title="{{ __('Set TO_DO date for selected tasks') }}"><i class="bi bi-calendar-event"></i> {{ __('Set date') }}</button>
         <button id="cuBulkDelete" type="button" class="cu-bulk-btn danger"><i class="bi bi-trash3"></i> {{ __('Delete') }}</button>
     </span>
@@ -1920,32 +1920,54 @@ document.addEventListener('DOMContentLoaded', function () {
         syncIsSelected(); refreshBulkBar();
     });
     bulkSelectAllBtn?.addEventListener('click', () => {
-        const visible = [...document.querySelectorAll('.cu-select-box')].filter(b=>{
+        const selected = [...document.querySelectorAll('.cu-select-box:checked')];
+        const anchor = (lastChecked && lastChecked.isConnected) ? lastChecked
+            : (selected.length ? selected[0] : null);
+        const anchorRow = anchor ? anchor.closest('.cu-task-card, .cu-ch-row, .cu-list-row, .cu-ttree-row') : null;
+        const anchorAcc = anchorRow ? anchorRow.closest('.cu-completed-acc') : null;
+        const inCompletedBox = !!anchorAcc;
+        const scoped = !!anchor; // no prior selection => keep legacy "select everything visible"
+
+        const visible = [...document.querySelectorAll('.cu-select-box')].filter(b => {
             const row = b.closest('.cu-task-card, .cu-ch-row, .cu-list-row, .cu-ttree-row');
-            if(!row) return false;
-            if(row.style.display==='none') return false;
-            // check if its view container is hidden
+            if (!row) return false;
+            if (row.style.display === 'none') return false;
             const view = row.closest('#cuKanban, #cuList, #cuTree, #cuChapters, #cuProjects');
-            if(view && view.style.display==='none') return false;
-            // also filter parent chapter collapsed (body hidden)
+            if (view && view.style.display === 'none') return false;
             const chBody = row.closest('.cu-chapter-body');
-            if(chBody && chBody.offsetParent===null) return false;
+            if (chBody && chBody.offsetParent === null) return false;
             const treeParent = row.closest('.cu-ttree-children');
-            if(treeParent && treeParent.style.display==='none') return false;
+            if (treeParent && treeParent.style.display === 'none') return false;
+
+            if (!scoped) return true; // legacy behaviour when nothing is selected yet
+
+            const rowAcc = row.closest('.cu-completed-acc');
+
+            if (inCompletedBox) {
+                // only the same completed box
+                if (rowAcc !== anchorAcc) return false;
+            } else {
+                // never include completed-box tasks
+                if (rowAcc) return false;
+                // status boundary: match the anchor's completion state
+                const anchorCompleted = !!(anchorRow && anchorRow.dataset && anchorRow.dataset.status === 'completed');
+                const rowCompleted = !!(row.dataset && row.dataset.status === 'completed');
+                if (anchorCompleted !== rowCompleted) return false;
+            }
             return true;
         });
-        const allChecked = visible.length>0 && visible.every(b=>b.checked);
-        visible.forEach(b=> b.checked = !allChecked);
-        // sync duplicates for each id
-        const ids = [...new Set(visible.map(b=>b.dataset.id))];
-        ids.forEach(id=>{
-            const any = document.querySelector(`.cu-select-box[data-id="${id}"]`);
-            const checked = document.querySelector(`.cu-select-box[data-id="${id}"]:checked`) ? true : false;
-            // ensure all duplicates match majority state
-            const state = visible.find(b=>b.dataset.id===id)?.checked ?? checked;
-            document.querySelectorAll(`.cu-select-box[data-id="${id}"]`).forEach(b=> b.checked = state);
+
+        const allChecked = visible.length > 0 && visible.every(b => b.checked);
+        visible.forEach(b => { b.checked = !allChecked; });
+
+        const ids = [...new Set(visible.map(b => b.dataset.id))];
+        ids.forEach(id => {
+            const state = visible.find(b => b.dataset.id === id)?.checked ?? false;
+            document.querySelectorAll(`.cu-select-box[data-id="${id}"]`).forEach(b => { b.checked = state; });
         });
-        syncIsSelected(); refreshBulkBar();
+
+        syncIsSelected();
+        refreshBulkBar();
     });
     document.addEventListener('change', e => {
         const box = e.target.closest?.('.cu-select-box');
