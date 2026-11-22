@@ -449,6 +449,7 @@
     .cu-completed-body{padding:4px 6px 8px;}
     .cu-completed-list{display:flex;flex-direction:column;gap:4px;}
     .cu-completed-more{margin-top:6px;font-size:11px;font-weight:600;}
+    .cu-completed-acc .cu-day-shortcut{display:none !important;}
     /* ─── Responsive ─── */
     @media (max-width: 768px) {
         .cu-header-title { font-size: 17px; }
@@ -1122,6 +1123,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const tree   = document.getElementById('cuTree');
     const csrf0 = '{{ csrf_token() }}';
     let csrf = csrf0;
+    const COMPLETED_URL_BASE = @json(route('tasks.completed'));
 
     /* Toast */
     let toastTimer;
@@ -2144,6 +2146,40 @@ document.addEventListener('DOMContentLoaded', function () {
         reorderContainer(body, 0);
     }
 
+    /* Create a completed-tasks accordion on demand for a project section that
+       had none yet (all tasks were open). Mirrors the server-rendered markup. */
+    function createCompletedAcc(ch, projectId) {
+        const body = ch ? ch.querySelector('.cu-chapter-body') : null;
+        if (!body) return null;
+        const pid = (projectId === null || projectId === undefined) ? 0 : projectId;
+        const acc = document.createElement('div');
+        acc.className = 'cu-completed-acc';
+        acc.dataset.project = String(pid);
+        const url = (String(pid) === '0')
+            ? COMPLETED_URL_BASE
+            : (COMPLETED_URL_BASE + (COMPLETED_URL_BASE.indexOf('?') >= 0 ? '&' : '?') + 'project_id=' + encodeURIComponent(pid));
+        acc.dataset.completedUrl = url;
+        acc.dataset.total = '0';
+        acc.dataset.loaded = '0';
+        acc.dataset.page = '0';
+        acc.innerHTML =
+            '<button type="button" class="cu-completed-toggle" aria-expanded="false">' +
+            '<i class="bi bi-chevron-right cu-completed-chevron"></i> ' +
+            @json(__('Completed')) + ' (0)</button>' +
+            '<div class="cu-completed-body" style="display:none;">' +
+            '<div class="cu-completed-list"></div>' +
+            '<button type="button" class="cu-completed-more btn btn-sm btn-link" style="display:none;">' + @json(__('Load more')) + '</button>' +
+            '</div>';
+        body.appendChild(acc);
+        return acc;
+    }
+
+    function removeCompletedAccIfEmpty(acc) {
+        if (!acc) return;
+        const total = parseInt(acc.dataset.total || '0', 10) || 0;
+        if (total <= 0) acc.remove();
+    }
+
     /* A task can appear in several views at once (board + chapters + projects + list + tree):
        always sync/remove EVERY copy. */
     function syncTaskDoneUI(id, status, moveCard = true) {
@@ -2164,9 +2200,12 @@ document.addEventListener('DOMContentLoaded', function () {
             const inProjects = !!row.closest('#cuProjects');
             const projChapter = row.closest('.cu-chapter');
             if (inProjects && projChapter) {
-                const acc = projChapter.querySelector('.cu-completed-acc');
+                let acc = projChapter.querySelector('.cu-completed-acc');
                 const inAccordion = !!row.closest('.cu-completed-acc');
                 if (status === 'completed' && !inAccordion) {
+                    // Make sure an accordion exists for this section (even when
+                    // it had zero completed tasks before this toggle).
+                    if (!acc) acc = createCompletedAcc(projChapter, projChapter.dataset.project);
                     // Move out of the open list into the (lazy) completed accordion.
                     if (acc) {
                         const cur = parseInt(acc.dataset.total || '0', 10) || 0;
@@ -2204,6 +2243,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         acc.dataset.total = String(Math.max(0, cur - 1));
                         const tb = acc.querySelector('.cu-completed-toggle');
                         if (tb) tb.innerHTML = tb.innerHTML.replace(/\(\d+\)/, '(' + acc.dataset.total + ')');
+                        // Drop the accordion entirely when no completed tasks remain.
+                        if (parseInt(acc.dataset.total || '0', 10) <= 0) {
+                            acc.remove();
+                            acc = null;
+                        }
                     }
                     const wrapper = (row.nextElementSibling && row.nextElementSibling.classList && row.nextElementSibling.classList.contains('cu-ch-children')) ? row.nextElementSibling : null;
                     applyDoneState(row, status);
