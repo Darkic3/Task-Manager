@@ -1370,9 +1370,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 && (!onlyOpen || row.dataset.status !== 'completed');
             row.style.display = show ? '' : 'none';
         });
-        /* Completed-task accordions: hide entirely when "unfinished only". */
+        /* Completed-task accordions: hide entirely when "unfinished only", when the
+           active status filter is not "completed"/"all", or when the project
+           filter does not cover the accordion's project. */
         document.querySelectorAll('.cu-completed-acc').forEach(acc => {
-            acc.style.display = onlyOpen ? 'none' : '';
+            let show = !onlyOpen;
+            if (show && status && status !== 'completed') show = false;
+            if (show && project) {
+                const accProject = acc.dataset.project;
+                show = projectMatches(accProject, project);
+            }
+            acc.style.display = show ? '' : 'none';
         });
         /* Nested project groups: evaluate innermost chapters first so a parent
            stays visible when any descendant row matches, and hides otherwise. */
@@ -2044,23 +2052,24 @@ document.addEventListener('DOMContentLoaded', function () {
         ch.dataset.done = done;
     }
 
-    /* Projects view: completed rows sink below the open ones while subtasks
-       stay attached to their parent. Subtasks are wrapped in .cu-ch-children,
-       so reorder them as a unit with their parent row. */
+    /* Projects view: keep open task rows above sub-projects / the completed
+       accordion. Completed root tasks are moved into the lazy accordion, so the
+       remaining rows are open tasks; reorder only those rows as a group and
+       never push them below sub-projects or the completed accordion. */
     function reorderChapterRows(ch) {
         const body = ch.querySelector('.cu-chapter-body');
         if (!body) return;
 
         const reorderContainer = (container, baseDepth) => {
-            const els = [...container.children];
+            const children = [...container.children];
             const groups = [];
             let i = 0;
-            while (i < els.length) {
-                const el = els[i];
+            while (i < children.length) {
+                const el = children[i];
                 if (el.classList && el.classList.contains('cu-ch-row')) {
                     const depth = parseInt(el.dataset.depth || '0', 10);
                     if (depth === baseDepth) {
-                        const next = els[i + 1];
+                        const next = children[i + 1];
                         const wrapper = (next && next.classList && next.classList.contains('cu-ch-children')) ? next : null;
                         groups.push({ row: el, wrapper: wrapper });
                         i += wrapper ? 2 : 1;
@@ -2069,21 +2078,44 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 i++;
             }
-            if (!groups.length) return;
+            if (groups.length <= 1) {
+                // Still recurse into wrappers.
+                groups.forEach(g => { if (g.wrapper) reorderContainer(g.wrapper, baseDepth + 1); });
+                return;
+            }
             groups.sort((a, b) => {
                 const ad = a.row.dataset.status === 'completed' ? 1 : 0;
                 const bd = b.row.dataset.status === 'completed' ? 1 : 0;
                 return ad - bd;
             });
-            const frag = document.createDocumentFragment();
+            // Remove the collected groups from their current positions.
             groups.forEach(g => {
-                frag.appendChild(g.row);
-                if (g.wrapper) {
-                    reorderContainer(g.wrapper, baseDepth + 1);
-                    frag.appendChild(g.wrapper);
+                if (g.row.parentNode === container) container.removeChild(g.row);
+                if (g.wrapper && g.wrapper.parentNode === container) container.removeChild(g.wrapper);
+            });
+            // Find the first non-group element to use as insertion anchor, so
+            // groups stay above sub-projects / completed accordion.
+            const quick = container.querySelector('.cu-ch-quickform');
+            let anchor = null;
+            for (const c of [...container.children]) {
+                if (quick && c === quick) continue;
+                if (c.classList && (c.classList.contains('cu-ch-row') || c.classList.contains('cu-ch-children'))) {
+                    const d = c.classList.contains('cu-ch-row') ? parseInt(c.dataset.depth || '0', 10) : null;
+                    if (c.classList.contains('cu-ch-children') || d === baseDepth) continue;
+                }
+                anchor = c;
+                break;
+            }
+            groups.forEach(g => {
+                if (g.wrapper) reorderContainer(g.wrapper, baseDepth + 1);
+                if (anchor) {
+                    container.insertBefore(g.row, anchor);
+                    if (g.wrapper) container.insertBefore(g.wrapper, anchor);
+                } else {
+                    container.appendChild(g.row);
+                    if (g.wrapper) container.appendChild(g.wrapper);
                 }
             });
-            container.appendChild(frag);
         };
 
         reorderContainer(body, 0);

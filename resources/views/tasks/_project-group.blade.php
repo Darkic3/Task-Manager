@@ -74,6 +74,16 @@
         @foreach($openRoots as $t)
             @include('tasks._chapter-row', ['task' => $t, 'grouped' => $pGrouped, 'depth' => 0, 'rootId' => 'p-' . $pid])
         @endforeach
+        @foreach($kids as $child)
+            @include('tasks._project-group', [
+                'proj' => $child,
+                'tasksByProject' => $tasksByProject,
+                'projectChildren' => $projectChildren,
+                'projectAggregates' => $projectAggregates,
+                'depth' => $depth + 1,
+                'collapsed' => true,
+            ])
+        @endforeach
         @if($completedCount > 0)
             <div class="cu-completed-acc" data-project="{{ $pid }}"
                  data-completed-url="{{ route('tasks.completed', ['project_id' => $pid]) }}"
@@ -88,15 +98,5 @@
                 </div>
             </div>
         @endif
-        @foreach($kids as $child)
-            @include('tasks._project-group', [
-                'proj' => $child,
-                'tasksByProject' => $tasksByProject,
-                'projectChildren' => $projectChildren,
-                'projectAggregates' => $projectAggregates,
-                'depth' => $depth + 1,
-                'collapsed' => true,
-            ])
-        @endforeach
     </div>
 </div>
