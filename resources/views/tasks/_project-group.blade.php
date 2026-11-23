@@ -95,6 +95,7 @@
                 <div class="cu-completed-body" style="display:none;">
                     <div class="cu-completed-list"></div>
                     <button type="button" class="cu-completed-more btn btn-sm btn-link" style="display:none;">{{ __('Load more') }}</button>
+                <button type="button" class="cu-completed-less btn btn-sm btn-link" style="display:none;">{{ __('Show less') }}</button>
                 </div>
             </div>
         @endif

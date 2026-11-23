@@ -1289,6 +1289,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (list) list.insertAdjacentHTML('beforeend', data.html || '');
                     acc.dataset.page = '1';
                     acc.dataset.loaded = '1';
+                    if (list) acc.dataset.baseNodes = String(list.childNodes.length);
                     if (moreBtn) {
                         if (data.has_more) {
                             moreBtn.style.display = '';
@@ -1315,21 +1316,52 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!acc) return;
             const list = acc.querySelector('.cu-completed-list');
             const url = acc.dataset.completedUrl;
-            const page = parseInt(more.dataset.nextPage || '2', 10);
+            if (list && !acc.dataset.baseNodes) acc.dataset.baseNodes = String(list.childNodes.length);
             more.disabled = true;
             try {
-                const res = await fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'page=' + page, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-                });
-                const data = await res.json();
-                if (data && data.ok) {
-                    if (list) list.insertAdjacentHTML('beforeend', data.html || '');
-                    more.dataset.nextPage = String(page + 1);
-                    if (!data.has_more && more) more.style.display = 'none';
-                    try { applyFilters(); } catch (err) {}
+                let page = parseInt(more.dataset.nextPage || '2', 10);
+                let hasMore = true;
+                while (hasMore) {
+                    const res = await fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'page=' + page, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                    });
+                    const data = await res.json();
+                    if (data && data.ok) {
+                        if (list) list.insertAdjacentHTML('beforeend', data.html || '');
+                        page++;
+                        hasMore = !!data.has_more;
+                        try { applyFilters(); } catch (err) {}
+                    } else {
+                        hasMore = false;
+                    }
                 }
+                more.dataset.nextPage = String(page);
+                more.style.display = 'none';
+                const lessBtn = acc.querySelector('.cu-completed-less');
+                if (lessBtn) lessBtn.style.display = '';
             } catch (err) { /* ignore */ }
             more.disabled = false;
+            return;
+        }
+        const less = e.target.closest('.cu-completed-less');
+        if (less) {
+            e.preventDefault();
+            const acc = less.closest('.cu-completed-acc');
+            if (!acc) return;
+            const list = acc.querySelector('.cu-completed-list');
+            const moreBtn = acc.querySelector('.cu-completed-more');
+            const base = parseInt(acc.dataset.baseNodes || '0', 10);
+            if (list) {
+                while (list.childNodes.length > base) {
+                    list.removeChild(list.lastChild);
+                }
+            }
+            less.style.display = 'none';
+            if (moreBtn) {
+                moreBtn.style.display = '';
+                moreBtn.dataset.nextPage = '2';
+            }
+            try { applyFilters(); } catch (err) {}
             return;
         }
     });
@@ -2067,6 +2099,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }).catch(() => toast(@json(__('Bulk update failed'))));
     });
 
+    // Auto-open completed boxes and load the first 5 (most recent) by default.
+    document.querySelectorAll('.cu-completed-acc').forEach(acc => {
+        const toggle = acc.querySelector('.cu-completed-toggle');
+        if (toggle) toggle.click();
+    });
+
     /* Unified done-state sync across board card, chapter row and section progress */
     function applyDoneState(el, status) {
         const done = status === 'completed';
@@ -2191,6 +2229,7 @@ document.addEventListener('DOMContentLoaded', function () {
             '<div class="cu-completed-body" style="display:none;">' +
             '<div class="cu-completed-list"></div>' +
             '<button type="button" class="cu-completed-more btn btn-sm btn-link" style="display:none;">' + @json(__('Load more')) + '</button>' +
+            '<button type="button" class="cu-completed-less btn btn-sm btn-link" style="display:none;">' + @json(__('Show less')) + '</button>' +
             '</div>';
         body.appendChild(acc);
         return acc;
