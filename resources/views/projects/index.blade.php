@@ -207,6 +207,7 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 10px;
+        align-items: start;
     }
 
     .cu-card {
@@ -590,18 +591,14 @@
         padding: 2px 8px; border-radius: 6px;
     }
     .cu-sub-add:hover { background: #ede9fe; color: #5b21b6; }
-    .cu-sub-list { display: flex; flex-direction: column; }
-    .cu-sub-list.capped { max-height: 196px; overflow: hidden; position: relative; }
-    .cu-sub-list.capped::after {
+    .cu-sub-list {
+        display: flex; flex-direction: column;
+        max-height: 160px; overflow: hidden; position: relative;
+    }
+    .cu-sub-list::after {
         content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 34px;
         background: linear-gradient(transparent, #fafbfc); pointer-events: none;
     }
-    .cu-sub-toggle {
-        width: 100%; border: none; background: white;
-        border-top: 1px solid #f0f1f3; color: #7c3aed;
-        font-size: 11px; font-weight: 700; padding: 6px; cursor: pointer;
-    }
-    .cu-sub-toggle:hover { background: #f5f3ff; }
     .cu-sub-row {
         display: flex; align-items: center; gap: 8px;
         padding: 7px 12px;
@@ -628,6 +625,35 @@
     .cu-sub-dot.in-progress { background: #2563eb; }
     .cu-sub-dot.completed   { background: #16a34a; }
     .cu-sub-dot.closed      { background: #9ca3af; }
+
+    /* ─── Card Expand Modal ──────────────────────────────────── */
+    .cu-modal-backdrop {
+        position: fixed; inset: 0; z-index: 1050;
+        background: rgba(15,18,30,.55);
+        display: flex; align-items: center; justify-content: center;
+        padding: 20px;
+    }
+    .cu-modal-backdrop[hidden] { display: none; }
+    .cu-modal {
+        background: white; border-radius: 12px;
+        width: min(640px, 100%); max-height: 85vh;
+        display: flex; flex-direction: column; overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    }
+    .cu-modal-head {
+        display: flex; align-items: center; gap: 10px;
+        padding: 12px 16px; border-bottom: 1px solid #f0f1f3;
+        flex-shrink: 0;
+    }
+    .cu-modal-title {
+        flex: 1 1 auto; min-width: 0;
+        font-size: 14px; font-weight: 700; color: #1a1d23;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cu-modal-sub { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .cu-modal-body { overflow-y: auto; padding: 4px 0 10px; }
+    .cu-modal-body .cu-sub-row { border-top: 1px solid #f0f1f3; }
+    .cu-modal-body .cu-sub-row:first-child { border-top: none; }
 
     /* ─── Grouped List: child rows ─────────────────────────────── */
     .cu-list-row.is-child { background: #fcfcfd; }
@@ -822,18 +848,16 @@
                                         <i class="bi bi-plus-lg"></i>{{ __('Add') }}
                                     </a>
                                 </div>
-                                <div class="cu-sub-list {{ $childCount > 5 ? 'capped' : '' }}">
+                                <div class="cu-sub-list">
                                     @include('projects._group-children', ['nodes' => $project->childrenRecursive, 'depth' => 0])
                                 </div>
-                                @if($childCount > 5)
-                                    <button type="button" class="cu-sub-toggle" data-count="{{ $childCount }}" data-more="{{ __('Show all') }}" data-less="{{ __('Show less') }}">
-                                        {{ __('Show all') }} ({{ $childCount }})
-                                    </button>
-                                @endif
                             </div>
                         @endif
 
                         <div class="cu-card-actions">
+                            @if($childCount > 0)
+                                <button type="button" class="cu-action-btn cu-expand-btn" title="{{ __('Expand') }}"><i class="bi bi-arrows-fullscreen"></i></button>
+                            @endif
                             <a href="{{ route('projects.tasks.index', $project) }}" class="cu-action-btn" title="{{ __('Tasks') }}"><i class="bi bi-list-task"></i></a>
                             <a href="{{ route('projects.show', $project) }}" class="cu-action-btn" title="{{ __('View') }}"><i class="bi bi-eye"></i></a>
                             <a href="{{ route('projects.edit', $project) }}?return_to={{ urlencode(request()->fullUrl()) }}" class="cu-action-btn" title="{{ __('Edit') }}"><i class="bi bi-pencil"></i></a>
@@ -940,6 +964,18 @@
     @endif
 
 </div>
+
+{{-- Card expand modal: full sub-project tree of one card --}}
+<div class="cu-modal-backdrop" id="cuCardModal" hidden>
+    <div class="cu-modal" role="dialog" aria-modal="true" aria-labelledby="cuModalTitle">
+        <div class="cu-modal-head">
+            <div class="cu-modal-title" id="cuModalTitle"></div>
+            <div class="cu-modal-sub" id="cuModalSub"></div>
+            <button type="button" class="cu-action-btn" id="cuModalClose" title="{{ __('Close') }}"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="cu-modal-body" id="cuModalBody"></div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -1029,17 +1065,53 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Expand/collapse long sub-project lists inside grouped cards.
-    document.querySelectorAll('.cu-sub-toggle').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const list = btn.closest('.cu-sub').querySelector('.cu-sub-list');
-            if (!list) return;
-            const capped = list.classList.toggle('capped');
-            btn.textContent = capped
-                ? btn.dataset.more + ' (' + btn.dataset.count + ')'
-                : btn.dataset.less;
+    // Card expand modal: show the full sub-project tree of one card.
+    const cuModal      = document.getElementById('cuCardModal');
+    const cuModalTitle = document.getElementById('cuModalTitle');
+    const cuModalSub   = document.getElementById('cuModalSub');
+    const cuModalBody  = document.getElementById('cuModalBody');
+
+    function closeCardModal() {
+        if (!cuModal) return;
+        cuModal.hidden = true;
+        document.body.style.overflow = '';
+    }
+
+    if (cuGrid && cuModal) {
+        cuGrid.addEventListener('click', (e) => {
+            const btn = e.target.closest('.cu-expand-btn');
+            if (!btn) return;
+            const card = btn.closest('.cu-card');
+            if (!card) return;
+
+            const nameEl = card.querySelector('.cu-card-name');
+            cuModalTitle.textContent = nameEl
+                ? (nameEl.getAttribute('title') || nameEl.textContent)
+                : '';
+
+            cuModalSub.innerHTML = '';
+            const chip = card.querySelector('.cu-chip');
+            if (chip) cuModalSub.appendChild(chip.cloneNode(true));
+
+            cuModalBody.innerHTML = '';
+            card.querySelectorAll('.cu-sub-list .cu-sub-row').forEach(row => {
+                const clone = row.cloneNode(true);
+                clone.style.display = '';
+                cuModalBody.appendChild(clone);
+            });
+
+            cuModal.hidden = false;
+            document.body.style.overflow = 'hidden';
         });
-    });
+
+        document.getElementById('cuModalClose').addEventListener('click', closeCardModal);
+        cuModal.addEventListener('click', (e) => {
+            if (e.target === cuModal) closeCardModal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !cuModal.hidden) closeCardModal();
+        });
+    }
 });
 </script>
 @endpush
