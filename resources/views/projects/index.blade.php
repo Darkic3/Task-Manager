@@ -21,7 +21,7 @@
         position: relative;
         overflow: hidden;
         border: 1px solid var(--primary-500);
-        box-shadow: 0 2px 8px rgba(99,102,241,.3);
+        box-shadow: 0 4px 20px rgba(99,102,241,.35);
     }
 
     .content-header::before {
@@ -82,12 +82,15 @@
     .cu-stat {
         background: white;
         border: 1px solid #e3e4e8;
-        border-radius: 8px;
+        border-radius: 10px;
         padding: 12px 14px;
         display: flex;
         align-items: center;
         gap: 10px;
+        transition: border-color .15s ease, box-shadow .15s ease;
     }
+
+    .cu-stat:hover { border-color: #ddd6fe; box-shadow: 0 4px 12px rgba(76,29,149,.07); }
 
     .cu-stat-icon {
         width: 32px;
@@ -124,13 +127,20 @@
     .cu-toolbar {
         background: white;
         border: 1px solid #e3e4e8;
-        border-radius: 8px;
+        border-radius: 10px;
         padding: 8px 12px;
         margin-bottom: 10px;
         display: flex;
         align-items: center;
         gap: 8px;
         flex-wrap: wrap;
+        box-shadow: 0 1px 2px rgba(16,24,40,.04);
+        transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .cu-toolbar:focus-within {
+        border-color: #c4b5fd;
+        box-shadow: 0 0 0 3px rgba(124,58,237,.08);
     }
 
     .cu-search-wrap {
@@ -153,11 +163,12 @@
         height: 30px;
         padding: 0 10px 0 30px;
         border: 1px solid #d3d5db;
-        border-radius: 6px;
+        border-radius: 8px;
         background: #fafbfc;
         font-size: 13px;
         color: #1a1d23;
         outline: none;
+        transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
     }
 
     .cu-search:focus { border-color: #7c3aed; background: white; box-shadow: 0 0 0 2px rgba(124,58,237,.12); }
@@ -167,21 +178,25 @@
         height: 30px;
         padding: 0 10px;
         border: 1px solid #d3d5db;
-        border-radius: 6px;
+        border-radius: 8px;
         background: white;
         font-size: 12px;
         color: #374151;
         outline: none;
         cursor: pointer;
+        transition: border-color .15s ease, box-shadow .15s ease;
     }
+
+    .cu-filter:hover { border-color: #adb0b8; }
 
     .cu-filter:focus { border-color: #7c3aed; }
 
     .cu-view-toggle {
         display: flex;
         border: 1px solid #d3d5db;
-        border-radius: 6px;
+        border-radius: 8px;
         overflow: hidden;
+        background: white;
     }
 
     .cu-view-btn {
@@ -199,7 +214,7 @@
     }
 
     .cu-view-btn:first-child { border-right: 1px solid #d3d5db; }
-    .cu-view-btn.active { background: #7c3aed; color: white; }
+    .cu-view-btn.active { background: #7c3aed; color: white; box-shadow: inset 0 0 0 1px #7c3aed, 0 2px 6px rgba(124,58,237,.35); }
     .cu-view-btn:not(.active):hover { background: #f3f4f6; color: #374151; }
 
     /* ─── Grid View ────────────────────────────────────────────── */
@@ -212,22 +227,26 @@
 
     .cu-card {
         background: white;
-        border: 1px solid #e3e4e8;
-        border-radius: 8px;
+        border: 1px solid #e7e8ec;
+        border-radius: 14px;
         overflow: hidden;
-        transition: box-shadow .15s, border-color .15s;
+        transition: box-shadow .2s ease, border-color .2s ease, transform .2s ease;
         position: relative;
     }
 
-    .cu-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); border-color: #c4b5fd; }
+    .cu-card:hover {
+        box-shadow: 0 12px 32px rgba(76,29,149,.12);
+        border-color: #c4b5fd;
+        transform: translateY(-2px);
+    }
 
     .cu-color-bar {
-        height: 3px;
+        height: 4px;
         width: 100%;
     }
 
     .cu-card-body {
-        padding: 12px 14px;
+        padding: 14px 16px;
     }
 
     .cu-card-top {
@@ -296,9 +315,9 @@
     }
 
     .cu-progress-bar-bg {
-        height: 4px;
-        background: #f0f1f3;
-        border-radius: 4px;
+        height: 6px;
+        background: #eef0f3;
+        border-radius: 6px;
         overflow: hidden;
     }
 
@@ -352,7 +371,7 @@
     .cu-action-btn {
         width: 28px;
         height: 28px;
-        border-radius: 6px;
+        border-radius: 8px;
         border: 1px solid #e3e4e8;
         background: white;
         color: #8a8f98;
@@ -361,12 +380,17 @@
         justify-content: center;
         font-size: 12px;
         text-decoration: none;
-        transition: all .15s;
+        transition: all .15s ease;
         cursor: pointer;
     }
 
-    .cu-action-btn:hover { background: #f3f4f6; color: #374151; border-color: #adb0b8; }
+    .cu-action-btn:hover { background: #f3f4f6; color: #374151; border-color: #adb0b8; transform: translateY(-1px); }
+    .cu-action-btn:active { transform: translateY(0); }
     .cu-action-btn.danger:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .cu-action-btn:focus-visible,
+    .cu-view-btn:focus-visible,
+    .cu-filter:focus-visible,
+    .cu-search:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }
 
     /* ─── List View ────────────────────────────────────────────── */
     .cu-list { display: none; flex-direction: column; gap: 0; }
@@ -465,10 +489,10 @@
     /* ─── Empty State ──────────────────────────────────────────── */
     .cu-empty {
         text-align: center;
-        padding: 40px 20px;
+        padding: 48px 20px;
         background: white;
-        border: 1px dashed #d3d5db;
-        border-radius: 8px;
+        border: 1px dashed #c4b5fd;
+        border-radius: 14px;
     }
 
     .cu-empty-icon {
@@ -539,6 +563,8 @@
     .cu-tree-row {
         display: flex; align-items: center; gap: 8px;
         padding: 9px 12px 9px calc(12px + var(--depth, 0) * 22px);
+        transition: background .15s ease;
+        border-radius: 6px;
     }
     .cu-tree-row:hover { background: #fafbfc; }
     .cu-tree-toggle {
@@ -655,6 +681,85 @@
     .cu-modal-body .cu-sub-row { border-top: 1px solid #f0f1f3; }
     .cu-modal-body .cu-sub-row:first-child { border-top: none; }
 
+    /* ─── Search palette ─────────────────────────────────────── */
+    .cu-search-trigger {
+        width: 100%; height: 30px;
+        display: flex; align-items: center; gap: 8px;
+        padding: 0 10px;
+        border: 1px solid #d3d5db; border-radius: 8px;
+        background: #fafbfc; color: #8a8f98;
+        font-size: 13px; cursor: pointer; text-align: start;
+        transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .cu-search-trigger:hover { border-color: #adb0b8; background: white; }
+    .cu-search-trigger > i { font-size: 13px; }
+    .cu-search-trigger span {
+        flex: 1 1 auto; min-width: 0;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        text-align: start;
+    }
+    .cu-search-trigger kbd, .cu-search-box kbd, .cu-search-foot kbd {
+        font-family: inherit; font-size: 10px; font-weight: 700;
+        background: #f1f2f4; color: #6b7380;
+        border: 1px solid #e3e4e8; border-bottom-width: 2px;
+        border-radius: 5px; padding: 1px 6px; white-space: nowrap;
+    }
+    .cu-search-backdrop { align-items: flex-start; padding: 12vh 20px 20px; }
+    .cu-search-modal {
+        background: white; border-radius: 14px;
+        width: min(560px, 100%);
+        max-height: 70vh; max-height: 70dvh;
+        display: flex; flex-direction: column; overflow: hidden;
+        box-shadow: 0 24px 70px rgba(0,0,0,.35);
+    }
+    .cu-search-box {
+        display: flex; align-items: center; gap: 10px;
+        padding: 14px 14px 14px 16px; border-bottom: 1px solid #f0f1f3;
+        flex-shrink: 0;
+    }
+    .cu-search-box > i { color: #7c3aed; font-size: 16px; flex-shrink: 0; }
+    .cu-search-box input {
+        flex: 1 1 auto; min-width: 0;
+        border: none; outline: none; background: transparent;
+        font-size: 15px; color: #1a1d23;
+    }
+    .cu-search-box input::placeholder { color: #b0b4be; }
+    .cu-search-results { overflow-y: auto; padding: 8px; }
+    .cu-sr-group {
+        font-size: 10px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .6px; color: #8a8f98;
+        padding: 8px 10px 4px;
+    }
+    .cu-sr-row {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 10px; border-radius: 8px;
+        text-decoration: none; color: #1a1d23;
+    }
+    .cu-sr-row:hover, .cu-sr-row.is-active { background: #f5f3ff; }
+    .cu-sr-icon {
+        width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+        background: #ede9fe; color: #6d28d9;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 13px;
+    }
+    .cu-sr-icon.sub { background: #f1f2f4; color: #6b7385; }
+    .cu-sr-name {
+        flex: 1 1 auto; min-width: 0;
+        font-size: 13px; font-weight: 600;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cu-sr-name mark {
+        background: #fde68c; color: inherit;
+        border-radius: 3px; padding: 0 1px;
+    }
+    .cu-sr-empty { text-align: center; padding: 28px 16px; color: #8a8f98; font-size: 13px; }
+    .cu-sr-more { text-align: center; padding: 8px; color: #8a8f98; font-size: 11px; }
+    .cu-search-foot {
+        display: flex; align-items: center; gap: 14px;
+        padding: 8px 16px; border-top: 1px solid #f0f1f3;
+        font-size: 11px; color: #8a8f98; flex-shrink: 0;
+    }
+
     /* ─── Grouped List: child rows ─────────────────────────────── */
     .cu-list-row.is-child { background: #fcfcfd; }
     .cu-list-row.is-child:hover { background: #f5f3ff; }
@@ -665,22 +770,88 @@
         border-end-start-radius: 6px; margin-inline-end: 2px; margin-bottom: 6px;
     }
 
-    /* ─── Responsive ───────────────────────────────────────────── */
-    @media (max-width: 768px) {
-        /* Content header */
-        .content-header { padding: 12px 14px; }
-        .content-header .d-flex { flex-direction: column; align-items: flex-start !important; gap: 10px; }
-        .content-title  { font-size: 15px; }
-        .content-subtitle { font-size: 11px; }
-        .cu-new-btn { width: 100%; justify-content: center; padding: 8px 14px; font-size: 13px; }
+    .cu-toolbar-row { display: contents; }
 
-        .cu-stats { grid-template-columns: repeat(2, 1fr); }
+    /* ─── Responsive ───────────────────────────────────────────── */
+    @media (max-width: 1024px) {
+        .cu-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+        .cu-stat { padding: 10px 12px; }
+    }
+
+    @media (max-width: 768px) {
+        .main-content { padding: 10px 10px 28px; }
+
+        /* Header stacks, full-width CTA */
+        .content-header { padding: 12px 14px; }
+        .content-header .d-flex { flex-direction: column; align-items: stretch !important; gap: 10px; }
+        .content-title  { font-size: 16px; }
+        .content-subtitle { font-size: 11px; }
+        .cu-new-btn { width: 100%; justify-content: center; padding: 10px 14px; font-size: 13px; min-height: 42px; }
+
+        /* Stats: compact 2x2 */
+        .cu-stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .cu-stat { padding: 10px 12px; gap: 8px; }
+        .cu-stat-icon { width: 28px; height: 28px; font-size: 13px; border-radius: 7px; }
+        .cu-stat-num { font-size: 17px; }
+
+        /* Toolbar: search on its own row, controls in a scrollable row */
+        .cu-search-wrap { flex: 1 1 100%; min-width: 0; }
+        .cu-search { height: 40px; font-size: 14px; }
+        .cu-search-trigger { height: 40px; font-size: 14px; }
+        .cu-search-backdrop { padding: 6vh 12px 12px; }
+        .cu-search-modal { max-height: 82vh; max-height: 82dvh; }
+        .cu-toolbar-row { display: flex; gap: 8px; width: 100%; overflow-x: auto; padding-bottom: 2px; }
+        .cu-filter { height: 40px; font-size: 13px; flex: 0 0 auto; }
+        .cu-view-toggle { flex-shrink: 0; margin-inline-start: auto; }
+        .cu-view-btn { width: 40px; height: 40px; }
+
+        /* Grid: single column */
         .cu-grid  { grid-template-columns: 1fr; }
-        .cu-list-header, .cu-list-row { grid-template-columns: 1fr auto auto; }
-        .cu-list-header .col-meta,
-        .cu-list-header .col-prog,
+
+        /* Cards: comfortable touch targets */
+        .cu-action-btn { width: 40px; height: 40px; font-size: 14px; }
+        .cu-card-actions { gap: 8px; }
+
+        /* List: headerless two-column rows (name / status / actions) */
+        .cu-list-header { display: none; }
+        .cu-list-row { grid-template-columns: 1fr auto auto; padding: 10px 12px; gap: 8px; }
+        .cu-list-header + .cu-list-row { border-radius: 8px 8px 0 0; border-top: 1px solid #e3e4e8; }
         .cu-list-row .col-meta,
         .cu-list-row .col-prog { display: none; }
+        .cu-list-row.is-child .cu-list-name { padding-inline-start: calc(min(var(--sub-depth, 0), 3) * 12px); }
+
+        /* Tree: essentials only */
+        .cu-tree-row { padding: 10px 12px 10px calc(12px + var(--depth, 0) * 12px); }
+        .cu-tree-toggle { width: 32px; height: 32px; font-size: 12px; }
+        .cu-tree-meta, .cu-tree-progress { display: none; }
+
+        /* Sub-rows: tighter indent on small screens */
+        .cu-sub-row { padding-inline-start: calc(12px + min(var(--sub-depth, 0), 3) * 12px); }
+
+        /* Expand modal becomes a bottom sheet */
+        .cu-modal-backdrop { padding: 0; align-items: flex-end; }
+        .cu-modal { width: 100%; max-height: 92vh; max-height: 92dvh; border-radius: 16px 16px 0 0; }
+    }
+
+    @media (max-width: 480px) {
+        .cu-stats { gap: 6px; }
+        .cu-stat { padding: 8px 10px; }
+        .cu-stat-num { font-size: 15px; }
+        .cu-stat-label { font-size: 10px; }
+        .cu-card-body { padding: 10px 12px; }
+        .cu-sub-pb, .cu-sub-pct { display: none; }
+        .cu-tree-type { display: none; }
+        .cu-team-avatars { display: none; }
+    }
+
+    /* ─── Reduced motion ───────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+        .cu-card, .cu-card:hover,
+        .cu-action-btn, .cu-action-btn:hover,
+        .cu-view-btn, .cu-stat, .cu-tree-row, .cu-sub-row {
+            transition: none;
+            transform: none;
+        }
     }
 </style>
 @endpush
@@ -730,9 +901,14 @@
     {{-- ── Toolbar ─────────────────────────────────────────────── --}}
     <div class="cu-toolbar">
         <div class="cu-search-wrap">
-            <i class="bi bi-search"></i>
-            <input type="text" class="cu-search" id="projectSearch" placeholder="{{ __('Search') }}" autocomplete="off">
+            <button type="button" class="cu-search-trigger" id="projectSearchBtn">
+                <i class="bi bi-search"></i>
+                <span>{{ __('Search projects...') }}</span>
+                <kbd>Ctrl K</kbd>
+            </button>
+            <input type="hidden" id="projectSearch" value="">
         </div>
+        <div class="cu-toolbar-row">
         <select class="cu-filter" id="statusFilter">
             <option value="">{{ __('All') }} {{ __('Status') }}</option>
             <option value="not_started">{{ __('Pending') }}</option>
@@ -749,6 +925,7 @@
             <button class="cu-view-btn active" data-view="grid" title="{{ __('Grid') }}"><i class="bi bi-grid-3x3-gap"></i></button>
             <button class="cu-view-btn" data-view="list" title="{{ __('List') }}"><i class="bi bi-list-ul"></i></button>
             <button class="cu-view-btn" data-view="tree" title="{{ __('Tree') }}"><i class="bi bi-diagram-3"></i></button>
+        </div>
         </div>
     </div>
 
@@ -976,6 +1153,28 @@
         <div class="cu-modal-body" id="cuModalBody"></div>
     </div>
 </div>
+
+{{-- Search palette: fast project navigation (Ctrl+K) --}}
+<div class="cu-modal-backdrop cu-search-backdrop" id="cuSearchModal" hidden
+     data-grp-projects="{{ __('Projects') }}"
+     data-grp-subs="{{ __('Sub-projects') }}"
+     data-suggest="{{ __('Suggestions') }}"
+     data-empty="{{ __('No matching projects.') }}"
+     data-more="{{ __('more — refine your search') }}">
+    <div class="cu-search-modal" role="dialog" aria-modal="true" aria-label="{{ __('Search projects') }}">
+        <div class="cu-search-box">
+            <i class="bi bi-search"></i>
+            <input type="text" id="cuSearchInput" placeholder="{{ __('Search projects...') }}" autocomplete="off">
+            <button type="button" class="cu-action-btn" id="cuSearchClose" title="{{ __('Close') }}"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="cu-search-results" id="cuSearchResults"></div>
+        <div class="cu-search-foot">
+            <span><kbd>↑↓</kbd> {{ __('navigate') }}</span>
+            <span><kbd>↵</kbd> {{ __('open') }}</span>
+            <span><kbd>esc</kbd> {{ __('close') }}</span>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -1109,7 +1308,232 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target === cuModal) closeCardModal();
         });
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !cuModal.hidden) closeCardModal();
+            if (e.key === 'Escape' && !cuModal.hidden && cuSearchModal.hidden) closeCardModal();
+        });
+    }
+
+    // ── Search palette (Ctrl+K): fast navigation + live grid filter ──
+    const searchBtn      = document.getElementById('projectSearchBtn');
+    const cuSearchModal  = document.getElementById('cuSearchModal');
+    const paletteInput   = document.getElementById('cuSearchInput');
+    const paletteResults = document.getElementById('cuSearchResults');
+    let paletteItems = [];
+    let paletteActive = -1;
+
+    const dotFor = (s) => s === 'in_progress' ? 'in-progress'
+        : (s === 'completed' ? 'completed' : (s === 'closed' ? 'closed' : 'not-started'));
+
+    const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+
+    // One index across all three views; same project linked twice is stored once.
+    function buildPaletteIndex() {
+        const seen = new Set();
+        const items = [];
+        const push = (name, url, kind, type, status) => {
+            name = (name || '').trim();
+            if (!name || !url || seen.has(url)) return;
+            seen.add(url);
+            items.push({
+                name, url, kind, type: (type || '').trim(), status: status || '',
+                hay: (name + ' ' + (type || '')).toLocaleLowerCase(),
+            });
+        };
+
+        document.querySelectorAll('#cuGrid .cu-card.project-item').forEach((card) => {
+            const nameEl = card.querySelector('.cu-card-name');
+            let url = '';
+            card.querySelectorAll('.cu-card-actions a').forEach((a) => {
+                if (a.innerHTML.indexOf('bi-eye') !== -1) url = a.getAttribute('href');
+            });
+            push(nameEl ? (nameEl.getAttribute('title') || nameEl.textContent) : '', url, 'project', 'Project', card.dataset.status);
+        });
+
+        document.querySelectorAll('#cuTree .cu-tree-node').forEach((node) => {
+            const a = node.querySelector(':scope > .cu-tree-row > .cu-tree-name');
+            if (!a) return;
+            const typeEl = node.querySelector(':scope > .cu-tree-row > .cu-tree-type');
+            const isRoot = String(node.style.getPropertyValue('--depth')).trim() === '0';
+            push(a.textContent, a.getAttribute('href'), isRoot ? 'project' : 'sub', typeEl ? typeEl.textContent : 'Project', node.dataset.status);
+        });
+
+        document.querySelectorAll('#cuGrid .cu-sub-row').forEach((a) => {
+            const nameEl = a.querySelector('.cu-sub-name');
+            const typeEl = a.querySelector('.cu-sub-type');
+            push(nameEl ? nameEl.textContent : '', a.getAttribute('href'), 'sub', typeEl ? typeEl.textContent : '', a.dataset.status);
+        });
+
+        return items;
+    }
+
+    // Every token must match; prefix / word-boundary hits rank higher.
+    function paletteScore(item, tokens) {
+        let score = 0;
+        for (const t of tokens) {
+            const i = item.hay.indexOf(t);
+            if (i === -1) return -1;
+            score += (i === 0 || /[\s\-_./]/.test(item.hay[i - 1])) ? 2 : 1;
+        }
+        if (item.name.toLocaleLowerCase().indexOf(tokens.join(' ')) === 0) score += 3;
+
+        return score;
+    }
+
+    function highlightName(name, tokens) {
+        let out = escHtml(name);
+        tokens.forEach((t) => {
+            if (!t) return;
+            out = out.replace(
+                new RegExp('(' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig'),
+                '<mark>$1</mark>'
+            );
+        });
+
+        return out;
+    }
+
+    function paletteRow(item, tokens) {
+        const a = document.createElement('a');
+        a.className = 'cu-sr-row';
+        a.setAttribute('href', item.url);
+        a.innerHTML = '<span class="cu-sr-icon' + (item.kind === 'sub' ? ' sub' : '') + '">'
+            + '<i class="bi ' + (item.kind === 'sub' ? 'bi-diagram-3' : 'bi-folder2') + '"></i></span>'
+            + '<span class="cu-sr-name">' + highlightName(item.name, tokens) + '</span>'
+            + (item.type ? '<span class="cu-tree-type">' + escHtml(item.type) + '</span>' : '')
+            + '<span class="cu-sub-dot ' + dotFor(item.status) + '"></span>';
+
+        return a;
+    }
+
+    function paletteRows() { return Array.from(paletteResults.querySelectorAll('.cu-sr-row')); }
+
+    function setPaletteActive(i) {
+        const rows = paletteRows();
+        paletteActive = rows.length ? (((i % rows.length) + rows.length) % rows.length) : -1;
+        rows.forEach((r, k) => r.classList.toggle('is-active', k === paletteActive));
+        if (rows[paletteActive]) rows[paletteActive].scrollIntoView({ block: 'nearest' });
+    }
+
+    function renderPalette(q) {
+        paletteResults.innerHTML = '';
+        paletteActive = -1;
+        const tokens = q.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+        const dict = cuSearchModal.dataset;
+
+        const addGroup = (label) => {
+            const g = document.createElement('div');
+            g.className = 'cu-sr-group';
+            g.textContent = label;
+            paletteResults.appendChild(g);
+        };
+
+        // Empty query: quick suggestions (root projects).
+        if (!tokens.length) {
+            const roots = paletteItems.filter((it) => it.kind === 'project').slice(0, 8);
+            if (!roots.length) return;
+            addGroup(dict.suggest || 'Suggestions');
+            roots.forEach((it) => paletteResults.appendChild(paletteRow(it, [])));
+
+            return;
+        }
+
+        const matched = [];
+        paletteItems.forEach((it) => {
+            const s = paletteScore(it, tokens);
+            if (s >= 0) matched.push({ item: it, score: s });
+        });
+        matched.sort((a, b) => b.score - a.score || a.item.name.localeCompare(b.item.name));
+
+        const pros = matched.filter((m) => m.item.kind === 'project').slice(0, 8);
+        const subs = matched.filter((m) => m.item.kind === 'sub').slice(0, 24);
+
+        if (!pros.length && !subs.length) {
+            const d = document.createElement('div');
+            d.className = 'cu-sr-empty';
+            d.textContent = dict.empty || 'No matching projects.';
+            paletteResults.appendChild(d);
+
+            return;
+        }
+        if (pros.length) {
+            addGroup(dict.grpProjects || 'Projects');
+            pros.forEach((m) => paletteResults.appendChild(paletteRow(m.item, tokens)));
+        }
+        if (subs.length) {
+            addGroup(dict.grpSubs || 'Sub-projects');
+            subs.forEach((m) => paletteResults.appendChild(paletteRow(m.item, tokens)));
+        }
+        const hidden = matched.length - pros.length - subs.length;
+        if (hidden > 0) {
+            const d = document.createElement('div');
+            d.className = 'cu-sr-more';
+            d.textContent = '+' + hidden + ' ' + (dict.more || 'more — refine your search');
+            paletteResults.appendChild(d);
+        }
+        setPaletteActive(0);
+    }
+
+    function openPalette() {
+        paletteItems = buildPaletteIndex();
+        paletteInput.value = searchInput.value || '';
+        cuSearchModal.hidden = false;
+        document.body.style.overflow = 'hidden';
+        renderPalette(paletteInput.value);
+        paletteInput.focus();
+        paletteInput.select();
+    }
+
+    function closePalette() {
+        if (cuSearchModal.hidden) return;
+        cuSearchModal.hidden = true;
+        if (!cuModal || cuModal.hidden) document.body.style.overflow = '';
+    }
+
+    if (searchBtn && cuSearchModal) {
+        searchBtn.addEventListener('click', openPalette);
+
+        // Typing also live-filters the grid behind the palette.
+        paletteInput.addEventListener('input', () => {
+            searchInput.value = paletteInput.value;
+            searchInput.dispatchEvent(new Event('input'));
+            renderPalette(paletteInput.value);
+        });
+
+        paletteResults.addEventListener('mousemove', (e) => {
+            const row = e.target.closest('.cu-sr-row');
+            if (!row) return;
+            setPaletteActive(paletteRows().indexOf(row));
+        });
+        paletteResults.addEventListener('click', () => closePalette());
+
+        paletteInput.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); setPaletteActive(paletteActive + 1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); setPaletteActive(paletteActive - 1); }
+            else if (e.key === 'Enter') {
+                const rows = paletteRows();
+                if (paletteActive >= 0 && rows[paletteActive]) {
+                    e.preventDefault();
+                    window.location.href = rows[paletteActive].getAttribute('href');
+                }
+            }
+            else if (e.key === 'Escape') { e.preventDefault(); closePalette(); searchBtn.focus(); }
+        });
+
+        document.getElementById('cuSearchClose').addEventListener('click', closePalette);
+        cuSearchModal.addEventListener('click', (e) => {
+            if (e.target === cuSearchModal) closePalette();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLocaleLowerCase() === 'k') {
+                e.preventDefault();
+                if (cuSearchModal.hidden) openPalette();
+                else closePalette();
+            }
+            else if (e.key === 'Escape' && !cuSearchModal.hidden && document.activeElement !== paletteInput) {
+                closePalette();
+            }
         });
     }
 });
